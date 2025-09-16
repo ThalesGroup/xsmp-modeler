@@ -473,7 +473,7 @@ export abstract class CppGenerator implements XsmpGenerator {
     // list of types with uuids defined in namespace ::Smp::Uuids
     static readonly smpUuidsTypes = new Set<string>(['Smp.Uuid', 'Smp.Char8', 'Smp.Bool', 'Smp.Int8', 'Smp.UInt8', 'Smp.Int16', 'Smp.UInt16', 'Smp.Int32',
         'Smp.UInt32', 'Smp.Int64', 'Smp.UInt64', 'Smp.Float32', 'Smp.Float64', 'Smp.Duration', 'Smp.DateTime', 'Smp.String8', 'Smp.PrimitiveTypeKind',
-        'Smp.EventId', 'Smp.LogMessageKind', 'Smp.TimeKind', 'Smp.ViewKind', 'Smp.ParameterDirectionKind', 'Smp.ComponentStateKind', 'Smp.AccessKind',
+        'Smp.Services.EventId', 'Smp.Services.LogMessageKind', 'Smp.Services.TimeKind', 'Smp.ViewKind', 'Smp.Publication.ParameterDirectionKind', 'Smp.ComponentStateKind', 'Smp.AccessKind',
         'Smp.SimulatorStateKind'
     ]);
     protected uuid(type: ast.Type | undefined): string {
