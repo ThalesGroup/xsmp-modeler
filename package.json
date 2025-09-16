@@ -5,12 +5,12 @@
     "version": "2.0.0",
     "publisher": "ydaveluy",
     "author": "ydaveluy",
-    "homepage": "https://github.com/ydaveluy/xsmp-modeler",
-    "repository": "https://github.com/ydaveluy/xsmp-modeler.git",
+    "homepage": "https://github.com/thalesgroup/xsmp-modeler",
+    "repository": "https://github.com/thalesgroup/xsmp-modeler.git",
     "type": "module",
     "license": "MIT",
     "icon": "icons/logo.png",
-    "bugs": "https://github.com/ydaveluy/xsmp-modeler/issues",
+    "bugs": "https://github.com/thalesgroup/xsmp-modeler/issues",
     "categories": [
         "Programming Languages"
     ],

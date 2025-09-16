@@ -1,6 +1,6 @@
 # XSMP Modeler
 
-[![CI](https://github.com/ydaveluy/xsmp-modeler/actions/workflows/action.yml/badge.svg)](https://github.com/ydaveluy/xsmp-modeler/actions/workflows/action.yml)
+[![CI](https://github.com/ThalesGroup/xsmp-modeler/actions/workflows/action.yml/badge.svg)](https://github.com/ThalesGroup/xsmp-modeler/actions/workflows/action.yml)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=ydaveluy_xsmp-modeler&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=ydaveluy_xsmp-modeler)
 
 > ⚠️ **Warning:** This project is a work in progress conversion of [XSMP-Modeler-Core](https://github.com/ThalesGroup/xsmp-modeler-core) from [Xtext](https://eclipse.dev/Xtext/documentation/index.html) to [Langium](https://langium.org/docs/introduction/).
@@ -47,7 +47,7 @@ From [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?item
 
 ### Eclipse
 
-See [xsmp-modeler-eclipse](https://github.com/ydaveluy/xsmp-modeler-eclipse/tree/gh-pages)
+See [xsmp-modeler-eclipse](https://github.com/ThalesGroup/xsmp-modeler-eclipse/tree/gh-pages)
 
 ## Profiles
 
