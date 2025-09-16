@@ -401,8 +401,8 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
             };
 			template <typename _Type>
 			void ${name}::PopulateRequestHandlers(
-			    _Type* bluePrint,
-			    typename ::TasMdk::Request::Handler<_Type>::CollectionType& handlers)
+			    [[maybe_unused]] _Type* bluePrint,
+			    [[maybe_unused]] typename ::TasMdk::Request::Handler<_Type>::CollectionType& handlers)
 			{
                 ${type.elements.filter(ast.isOperation).map(e => this.generateRqHandlerOperation(e, gen), this).join('\n')}
                 ${type.elements.filter(ast.isProperty).map(e => this.generateRqHandlerProperty(e, gen), this).join('\n')}
@@ -503,7 +503,7 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
         const invokation = `component.${this.operationName(op)}(${op.parameter.map(param => `${this.attrHelper.isByPointer(param) ? '&' : ''}p_${param.name}`, this).join(', ')})`;
         return s`
             if (handlers.find("${op.name}") == handlers.end()) {
-                handlers["${op.name}"] = [](_Type & component, ::Smp::IRequest* request) {
+                handlers["${op.name}"] = [](_Type & component, [[maybe_unused]] ::Smp::IRequest* request) {
                 ${op.parameter.map(this.initParameter, this).join('\n')}
                 /// Invoke ${op.name}
                 ${r ? `request->SetReturnValue({${this.primitiveTypeKind(r.type.ref)}, ${invokation}})` : `${invokation}`};
