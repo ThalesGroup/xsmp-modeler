@@ -787,7 +787,7 @@ export class XsmpcatValidator {
             });
         }
         if (catalogue.$document && !isBuiltinLibrary(catalogue.$document.uri) && !this.projectManager.getProject(catalogue.$document)) {
-            accept('warning', 'This Catalogue in not contained in a project.', { node: catalogue, keyword: 'catalogue' });
+            accept('warning', 'This Catalogue is not contained in a project.', { node: catalogue, keyword: 'catalogue' });
         }
     }
 

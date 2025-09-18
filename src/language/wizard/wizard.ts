@@ -99,30 +99,11 @@ async function createTemplateProject(projectName: string, dirPath: string,
 
     const smdlPath = path.join(dirPath, 'smdl');
     fs.mkdirSync(smdlPath);
+    const dependencies: string[] = [];
 
-    // Create the catalog file
-    const catalogueName = projectName.replace(/[.-]/, '_');
-
-    await fs.promises.writeFile(path.join(smdlPath, `${projectName}.xsmpcat`), `// Copyright \${year} \${user}. All rights reserved.
+    let copyright = `// Copyright (C) \${year} \${user}. All rights reserved.
 //
-// YOUR NOTICE
-//
-// Generation date:  \${date} \${time}
-                
-/**
- * Catalogue ${projectName}
- * 
- * @creator ${os.userInfo().username}
- * @date ${new Date(Date.now()).toISOString()}
- */
-catalogue ${catalogueName}
-
-namespace ${catalogueName}
-{
-    
-} // namespace ${catalogueName}
-
-`);
+// Generation date:  \${date} \${time}`;
 
     if (profile?.id === xsmpSdkProfileId) {
         await fs.promises.writeFile(path.join(dirPath, 'CMakeLists.txt'), `
@@ -204,6 +185,10 @@ target_include_directories(${projectName} PUBLIC src src-gen)
 `);
     }
     else if (profile?.id === tasMdkProfileId) {
+         copyright = `// Copyright (C) \${year} THALES ALENIA SPACE FRANCE. All rights reserved
+`;
+        dependencies.push('TasMdk');
+
         await fs.promises.writeFile(path.join(dirPath, 'Makefile'), `
 COMPONENT_NAME=${projectName}
 
@@ -231,7 +216,7 @@ __SOURCE_FOLDERS__=src,src-gen
 __OPERATIONAL_PYTHON_TOOLS_FOLDER__=helpers
 __VERSION__=1
 `);
-
+        fs.mkdirSync(path.join(dirPath, 'tests'));
         await fs.promises.writeFile(path.join(dirPath, 'tests', 'Makefile'), `
 COMPONENT_NAME=${projectName}--tests
 
@@ -246,23 +231,72 @@ include $(COMPILE_CHAIN)/rules_variants.mk
 $(COMPONENT_NAME)_tests: $(COMPONENT_NAME)_tests_python
 
 $(COMPONENT_NAME)_tests_python:
-	COMPONENT_NAME=$(COMPONENT_NAME) \
-	VT_STDOUT=$(VT_STDOUT) \
-	PATH=\${ROOT_OBJ}/gram_addons--simulator_launcher/BIN:\${PATH} \
-	PYTHONPATH=\${PYTHONPATH} \
-	LD_LIBRARY_PATH=\${LD_LIBRARY_PATH} \
+	COMPONENT_NAME=$(COMPONENT_NAME) \\
+	VT_STDOUT=$(VT_STDOUT) \\
+	PATH=\${ROOT_OBJ}/gram_addons--simulator_launcher/BIN:\${PATH} \\
+	PYTHONPATH=\${PYTHONPATH} \\
+	LD_LIBRARY_PATH=\${LD_LIBRARY_PATH} \\
 	python3 -m gram_addons__python_test_suite.runtests $(TEST_ARGS)
 
 `);
         await fs.promises.writeFile(path.join(dirPath, 'tests', 'component.conf'), `
-__LIBRARIES__=\
-gram_addons--python_test_suite,\
-gram_addons--simulator_launcher,\
+__LIBRARIES__=\\
+gram_addons--python_test_suite,\\
+gram_addons--simulator_launcher,\\
 ${projectName}
 __COMPONENTS_ROOT_PATH__=.
 `);
+        await fs.promises.writeFile(path.join(dirPath, 'tests', `ut_${projectName}.py`), `
+# Copyright (C) ${new Date().getFullYear()} THALES ALENIA SPACE FRANCE. All rights reserved
+ 
+from gram_addons__python_test_suite.gram_test_case import GramTestCase, SECOND
+ 
+# Import your model(s)
+#import ${projectName}.builder.${projectName}.MyModel as MyModelBuilder
+ 
+ 
+class MyModelTestCase(GramTestCase):
+    '''
+    Test case description
+    '''
+ 
+    def buildSimulatorData(self, jsim):
+        # Model instantiation
+        #jsim.create('/MyModel', MyModelBuilder)
+        pass 
+        # Configuration
+        #jsim['/MyModel.fea_debug_level'] = 100
 
+    def test_model_feature1(self):
+        '''
+        Test description
+        ''' 
+        self.sim.run_delta(SECOND)
+ 
+        # Do some checks 
+        #self.assertEqual(self.sim.get_value('/MyModel', 'field_name'), False)     
+`);
     }
+
+    // Create the catalog file
+    const catalogueName = projectName.replace(/[.-]/, '_');
+
+    await fs.promises.writeFile(path.join(smdlPath, `${projectName}.xsmpcat`), `${copyright}
+                
+/**
+ * Catalogue ${projectName}
+ * 
+ * @creator ${os.userInfo().username}
+ * @date ${new Date(Date.now()).toISOString()}
+ */
+catalogue ${catalogueName}
+
+namespace ${catalogueName}
+{
+    
+} // namespace ${catalogueName}
+
+`);
 
     if (tools.some(t => t.id === pythonToolId)) {
         const py_path = path.join(dirPath, 'python');
@@ -382,6 +416,12 @@ profile '${profile.id}'
         content += `
 // use ${tool.label}
 tool '${tool.id}'
+
+`;
+    }
+    for (const dependency of dependencies) {
+        content += `
+dependency '${dependency}'
 
 `;
     }
