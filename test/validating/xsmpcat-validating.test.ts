@@ -38,7 +38,7 @@ describe('Validating Xsmpcat', () => {
 [105:47..105:51]: The PrimitiveType Smp.Bool is not visible.
 [105:22..105:32]: A Parameter shall not be both ByPointer and ByReference.
 [3:9..3:21]: Invalid date format (e.g: 1970-01-01T00:00:00Z).
-[9:0..9:9]: This Catalogue in not contained in a project.
+[9:0..9:9]: This Catalogue is not contained in a project.
 [16:4..16:11]: Missing Type UUID.
 [23:4..23:13]: Missing Type UUID.
 [23:14..23:18]: Duplicated Type name.
