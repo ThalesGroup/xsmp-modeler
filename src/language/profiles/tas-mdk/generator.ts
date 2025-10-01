@@ -20,21 +20,34 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
         return s`
         // Register factory for Model ${model.name}
         simulator->RegisterFactory(new ::TasMdk::Factory(
-                            "${model.name}", // name
-                             ${this.description(model)}, // description
+                            "${model.name}", // Name
+                             ${this.description(model)}, // Description
                             simulator, // parent
                             ${this.uuid(model)}, // UUID
-                            "${this.fqn(model)}",// type name
+                            "${this.fqn(model)}", // Type name
                             [](::Smp::String8 name,
                                 ::Smp::String8 description,
                                 ::Smp::IObject* parent,
                                 ::Smp::Publication::ITypeRegistry* type_registry) {
                                     return new ${this.fqn(model)}(name, description, parent, type_registry);
-                                }, // instantiation callback
-                            typeRegistry // type registry
+                                }, // Instantiation callback
+                            typeRegistry // Type Registry
                             ));
         
         `;
+    }
+
+    override registerService(service: ast.Service): string {
+        return s`
+            // Register Service ${service.name}
+            simulator->AddService( new ${this.fqn(service)}(
+                "${service.name}", // Name
+                ${this.description(service)}, // Description
+                simulator, // Parent
+                typeRegistry // Type Registry
+                ));
+            
+            `;
     }
 
     override factoryIncludes(): Include[] {
