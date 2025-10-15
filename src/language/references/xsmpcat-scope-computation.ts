@@ -1,15 +1,19 @@
-import type { AstNode, AstNodeDescription, AstNodeDescriptionProvider, LangiumCoreServices, LangiumDocument, PrecomputedScopes, ScopeComputation } from 'langium';
+import type { AstNode, AstNodeDescription, AstNodeDescriptionProvider, LangiumDocument, PrecomputedScopes, ScopeComputation } from 'langium';
 import * as ast from '../generated/ast.js';
 import { Cancellation, MultiMap, interruptAndCheck } from 'langium';
 import * as XsmpUtils from '../utils/xsmp-utils.js';
 import { VisibilityKind } from '../utils/visibility-kind.js';
+import { DocumentationHelper } from '../utils/documentation-helper.js';
+import { XsmpServices } from '../xsmp-module.js';
 
 export class XsmpcatScopeComputation implements ScopeComputation {
 
     protected readonly descriptions: AstNodeDescriptionProvider;
+    protected readonly documlentationHelper : DocumentationHelper;
 
-    constructor(services: LangiumCoreServices) {
+    constructor(services: XsmpServices) {
         this.descriptions = services.workspace.AstNodeDescriptionProvider;
+        this.documlentationHelper = services.shared.DocumentationHelper;
     }
 
     async computeExports(document: LangiumDocument, cancelToken = Cancellation.CancellationToken.None): Promise<AstNodeDescription[]> {
@@ -47,6 +51,11 @@ export class XsmpcatScopeComputation implements ScopeComputation {
     computeTypeExports(document: LangiumDocument, type: ast.Type, exportedDescriptions: AstNodeDescription[], typeName: string) {
         //Export the Type
         exportedDescriptions.push(this.descriptions.createDescription(type, typeName, document));
+
+        const uuid = this.documlentationHelper.getUuid(type)?.toString().trim();
+        if(uuid) {
+            exportedDescriptions.push(this.descriptions.createDescription(type, uuid, document));
+        }
         switch (type.$type) {
             case ast.Enumeration: {
                 const elementBaseName = `${typeName}.`;
@@ -134,7 +143,7 @@ export class XsmpcatScopeComputation implements ScopeComputation {
                         if (ast.Constant === member.$type && member.name) {
                             nestedDescriptions.push(this.descriptions.createDescription(member, member.name, document));
                         }
-                        else if (ast.Field === member.$type && member.name) {
+                        else if ((ast.Field === member.$type||ast.Container === member.$type) && member.name) {
                             internalDescriptions.push(this.descriptions.createDescription(member, member.name, document));
                         }
                     });

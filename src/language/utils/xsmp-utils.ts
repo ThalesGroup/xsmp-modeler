@@ -33,6 +33,12 @@ export function escape(input: string | undefined): string {
         .replaceAll('\f', '\\f').replaceAll("'", "\\'").replaceAll('"', '\\"');
 }
 
+export function isUUID(str: string): boolean {
+  const uuidRegex =
+    /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+  return uuidRegex.test(str);
+}
+
 /**
  * @param element the element
  * @returns the visibility

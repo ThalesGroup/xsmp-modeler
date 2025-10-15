@@ -10,6 +10,11 @@
         "id": "xsmpcat",
         "grammar": "src/language/xsmpcat.langium",
         "fileExtensions": [".xsmpcat"]
+    },
+    {
+        "id": "xsmpasb",
+        "grammar": "src/language/xsmpasb.langium",
+        "fileExtensions": [".xsmpasb"]
     }],
     "out": "src/language/generated"
 }

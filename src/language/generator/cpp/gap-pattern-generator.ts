@@ -751,6 +751,7 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
         
         void ${type.name}::DoDisconnect() {
         }
+        ${this.defineMembers(type, false)}
         `;
     }
 

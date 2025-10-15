@@ -1,12 +1,12 @@
 
-import type { AstNode, AstNodeDescription, AstReflection, IndexManager, LangiumDocument, Reference, ReferenceInfo, Scope, ScopeProvider, Stream, URI } from 'langium';
+import type { AstNode, AstNodeDescription, AstNodeDescriptionProvider, AstReflection, IndexManager, LangiumDocument, Reference, ReferenceInfo, Scope, ScopeProvider, Stream, URI } from 'langium';
 import * as ast from '../generated/ast.js';
 import { AstUtils, DocumentCache, EMPTY_SCOPE, WorkspaceCache, stream } from 'langium';
 import type { XsmpTypeProvider } from './type-provider.js';
 import type { ProjectManager } from '../workspace/project-manager.js';
 import { XsmpServices } from '../xsmp-module.js';
 
-export class XsmpcatScopeProvider implements ScopeProvider {
+export class XsmpasbScopeProvider implements ScopeProvider {
     protected readonly visibleUris: WorkspaceCache<URI, Set<string>>;
     protected readonly reflection: AstReflection;
     protected readonly indexManager: IndexManager;
@@ -16,6 +16,8 @@ export class XsmpcatScopeProvider implements ScopeProvider {
     protected readonly precomputedCache: DocumentCache<AstNode, Map<string, AstNodeDescription>>;
     protected readonly projectManager: ProjectManager;
 
+    protected readonly descriptions: AstNodeDescriptionProvider;
+
     constructor(services: XsmpServices) {
         this.visibleUris = new WorkspaceCache<URI, Set<string>>(services.shared);
         this.reflection = services.shared.AstReflection;
@@ -24,6 +26,7 @@ export class XsmpcatScopeProvider implements ScopeProvider {
         this.globalScopeCache = new WorkspaceCache<URI, Scope>(services.shared);
         this.precomputedCache = new DocumentCache<AstNode, Map<string, AstNodeDescription>>(services.shared);
         this.projectManager = services.shared.workspace.ProjectManager;
+        this.descriptions = services.workspace.AstNodeDescriptionProvider;
     }
 
     protected collectScopesFromNode(node: AstNode, scopes: Array<Map<string, AstNodeDescription>>,
@@ -34,16 +37,12 @@ export class XsmpcatScopeProvider implements ScopeProvider {
             scopes.push(precomputed);
         }
         switch (node.$type) {
-            case ast.Model:
-            case ast.Service: {
-                const component = node as ast.Component;
-                if (component.base) {
-                    this.collectScopesFromReference(component.base, scopes);
-                }
-                component.interface.forEach(i => this.collectScopesFromReference(i, scopes));
+            case ast.ModelInstance: {
+                const component = node as ast.ModelInstance;
+                this.collectScopesFromReference(component.implementation, scopes);
                 break;
             }
-            case ast.Interface: {
+            /*case ast.Interface: {
                 (node as ast.Interface).base.forEach(i => this.collectScopesFromReference(i, scopes));
                 break;
             }
@@ -53,7 +52,7 @@ export class XsmpcatScopeProvider implements ScopeProvider {
                 if (clazz.base)
                     this.collectScopesFromReference(clazz.base, scopes);
                 break;
-            }
+            }*/
         }
     }
     protected collectScopesFromReference(node: Reference, scopes: Array<Map<string, AstNodeDescription>>) {
@@ -87,27 +86,36 @@ export class XsmpcatScopeProvider implements ScopeProvider {
 
         const scopes: Array<Map<string, AstNodeDescription>> = [];
 
-        if (ast.DesignatedInitializer === context.container.$type && context.property === 'field') {
-            if (context.container.$container) {
-                const type = this.typeProvider.getType(context.container.$container);
-                switch (type?.$type) {
-                    case ast.Structure:
-                    case ast.Class:
-                    case ast.Exception:
-                        this.collectScopesFromNode(type, scopes, AstUtils.getDocument(type));
-                        parent = EMPTY_SCOPE;
-                        break;
-                    default: return EMPTY_SCOPE;
-                }
+        if (ast.CrossReferenceSegment === context.container.$type && context.property === 'ref') {
+
+            const assembly = AstUtils.getContainerOfType<ast.Assembly>(context.container, ast.isAssembly)
+
+            if (assembly) {
+                this.collectScopesFromNode(assembly, scopes, AstUtils.getDocument(context.container));
+                parent = EMPTY_SCOPE;
             }
             else {
                 return EMPTY_SCOPE;
             }
         }
+        /*else if (ast.SubInstance === context.container.$type && context.property === 'container') {
+
+            if (ast.isModelInstance(context.container.$container)) {
+
+                const instance = context.container.$container as ast.ModelInstance;
+                const scope = new Map<string, AstNodeDescription>();
+                instance.implementation.ref?.elements.filter(ast.isContainer).forEach(c => scope.set(c.name, this.descriptions.createDescription(c, c.name, AstUtils.getDocument(c))));
+
+                return new MapScope(scope, EMPTY_SCOPE);
+            }
+            else {
+                return EMPTY_SCOPE;
+            }
+        }*/
         else {
             let currentNode = context.container.$container;
             const document = AstUtils.getDocument(context.container);
-            parent = this.getGlobalScope(document);
+            parent = this.getGlobalScope(document, this.reflection.getReferenceType(context));
             while (currentNode) {
                 this.collectScopesFromNode(currentNode, scopes, document);
                 currentNode = currentNode.$container;
@@ -124,8 +132,8 @@ export class XsmpcatScopeProvider implements ScopeProvider {
     /**
      * Create a global scope filtered for the given referenceType and on visibles projects URIs
      */
-    protected getGlobalScope(document: LangiumDocument): Scope {
-        return this.globalScopeCache.get(document.uri, () => new GlobalScope(this.indexManager.allElements(undefined, this.projectManager.getVisibleUris(document))));
+    protected getGlobalScope(document: LangiumDocument, type:string): Scope {
+        return this.globalScopeCache.get(document.uri, () => new GlobalScope(this.indexManager.allElements(type, this.projectManager.getVisibleUris(document))));
     }
 
     protected getPrecomputedScope(node: AstNode, document: LangiumDocument): Map<string, AstNodeDescription> {

@@ -2,10 +2,9 @@ import { interruptAndCheck, type AstNode, Cancellation, type LangiumDocument, ty
 import type { DocumentSymbolProvider, NodeKindProvider } from 'langium/lsp';
 import type { DocumentSymbol, DocumentSymbolParams } from 'vscode-languageserver';
 import * as ast from '../generated/ast.js';
-import type { XsmpcatServices } from '../xsmpcat-module.js';
-import type { XsmpprojectServices } from '../xsmpproject-module.js';
 import type { XsmpNodeInfoProvider } from './node-info-provider.js';
 import { type AttributeHelper } from '../utils/attribute-helper.js';
+import { XsmpServices } from '../xsmp-module.js';
 
 export class XsmpDocumentSymbolProvider implements DocumentSymbolProvider {
 
@@ -14,7 +13,7 @@ export class XsmpDocumentSymbolProvider implements DocumentSymbolProvider {
     protected readonly workspaceManager: WorkspaceLock;
     protected readonly attrHelper: AttributeHelper;
 
-    constructor(services: XsmpcatServices | XsmpprojectServices) {
+    constructor(services: XsmpServices) {
         this.nodeKindProvider = services.shared.lsp.NodeKindProvider;
         this.nodeInfoProvider = services.shared.lsp.NodeInfoProvider;
         this.workspaceManager = services.shared.workspace.WorkspaceLock;

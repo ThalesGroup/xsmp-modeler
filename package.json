@@ -2,7 +2,7 @@
     "name": "xsmp-modeler",
     "displayName": "XSMP Modeler",
     "description": "XSMP development framework.",
-    "version": "2.0.0",
+    "version": "1.90.0",
     "publisher": "ydaveluy",
     "author": "ydaveluy",
     "homepage": "https://github.com/thalesgroup/xsmp-modeler",
@@ -99,6 +99,20 @@
                     "light": "./icons/xsmp.png",
                     "dark": "./icons/xsmp.png"
                 }
+            },
+            {
+                "id": "xsmpasb",
+                "aliases": [
+                    "xsmpasb"
+                ],
+                "extensions": [
+                    ".xsmpasb"
+                ],
+                "configuration": "./xsmpasb-language-configuration.json",
+                "icon": {
+                    "light": "./icons/xsmp.png",
+                    "dark": "./icons/xsmp.png"
+                }
             }
         ],
         "grammars": [
@@ -111,6 +125,11 @@
                 "language": "xsmpcat",
                 "scopeName": "source.xsmpcat",
                 "path": "syntaxes/xsmpcat.tmLanguage.json"
+            },
+            {
+                "language": "xsmpasb",
+                "scopeName": "source.xsmpasb",
+                "path": "syntaxes/xsmpasb.tmLanguage.json"
             }
         ],
         "commands": [
@@ -148,7 +167,8 @@
     },
     "activationEvents": [
         "onLanguage:xsmpproject",
-        "onLanguage:xsmpcat"
+        "onLanguage:xsmpcat",
+        "onLanguage:xsmpasb"
     ],
     "main": "./out/extension/main.cjs",
     "bin": {
@@ -160,6 +180,7 @@
         "icons/**",
         "xsmpcat-language-configuration.json",
         "xsmpproject-language-configuration.json",
+        "xsmpasb-language-configuration.json",
         "LICENSE"
     ]
 }

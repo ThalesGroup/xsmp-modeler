@@ -1038,21 +1038,7 @@ export abstract class CppGenerator implements XsmpGenerator {
             default: return undefined;
         }
     }
-    /*protected initialize(element: ast.NamedElement): string | undefined {
-        switch (element.$type) {
-            case ast.Association: return this.initializeAssociation(element as ast.Association);
-            case ast.Constant: return this.initializeConstant(element as ast.Constant);
-            case ast.Container: return this.initializeContainer(element as ast.Container);
-            case ast.EntryPoint: return this.initializeEntryPoint(element as ast.EntryPoint);
-            case ast.EventSink: return this.initializeEventSink(element as ast.EventSink);
-            case ast.EventSource: return this.initializeEventSource(element as ast.EventSource);
-            case ast.Field: return this.initializeField(element as ast.Field);
-            case ast.Operation: return this.initializeOperation(element as ast.Operation);
-            case ast.Property: return this.initializeProperty(element as ast.Property);
-            case ast.Reference: return this.initializeReference(element as ast.Reference);
-            default: return undefined;
-        }
-    }*/
+    
     protected finalize(element: ast.NamedElement): string | undefined {
         switch (element.$type) {
             case ast.Association: return this.finalizeAssociation(element as ast.Association);
@@ -1078,7 +1064,24 @@ export abstract class CppGenerator implements XsmpGenerator {
     protected finalizeMembers(container: ast.WithBody): string {
         return container.elements.map(element => this.finalize(element), this).filter(v => v !== undefined).join('\n');
     }
-
+    protected constructMembers(container: ast.WithBody): string {
+        return container.elements.map(element => this.construct(element), this).filter(v => v !== undefined).join('\n');
+    }
+    protected construct(element: ast.NamedElement): string | undefined {
+        switch (element.$type) {
+            case ast.Association: return this.constructAssociation(element as ast.Association);
+            case ast.Constant: return this.constructConstant(element as ast.Constant);
+            case ast.Container: return this.constructContainer(element as ast.Container);
+            case ast.EntryPoint: return this.constructEntryPoint(element as ast.EntryPoint);
+            case ast.EventSink: return this.constructEventSink(element as ast.EventSink);
+            case ast.EventSource: return this.constructEventSource(element as ast.EventSource);
+            case ast.Field: return this.constructField(element as ast.Field);
+            case ast.Operation: return this.constructOperation(element as ast.Operation);
+            case ast.Property: return this.constructProperty(element as ast.Property);
+            case ast.Reference: return this.constructReference(element as ast.Reference);
+            default: return undefined;
+        }
+    }
     protected declareAssociation(_element: ast.Association): string | undefined {
         return undefined;
     }
@@ -1086,6 +1089,9 @@ export abstract class CppGenerator implements XsmpGenerator {
         return undefined;
     }
     protected initializeAssociation(_element: ast.Association): string | undefined {
+        return undefined;
+    }
+    protected constructAssociation(_element: ast.Association): string | undefined {
         return undefined;
     }
     protected finalizeAssociation(_element: ast.Association): string | undefined {
@@ -1101,6 +1107,9 @@ export abstract class CppGenerator implements XsmpGenerator {
     protected initializeConstant(_element: ast.Constant): string | undefined {
         return undefined;
     }
+    protected constructConstant(_element: ast.Constant): string | undefined {
+        return undefined;
+    }
     protected finalizeConstant(_element: ast.Constant): string | undefined {
         return undefined;
     }
@@ -1112,6 +1121,9 @@ export abstract class CppGenerator implements XsmpGenerator {
         return undefined;
     }
     protected initializeContainer(_element: ast.Container): string | undefined {
+        return undefined;
+    }
+    protected constructContainer(_element: ast.Container): string | undefined {
         return undefined;
     }
     protected finalizeContainer(element: ast.Container): string | undefined {
@@ -1127,6 +1139,9 @@ export abstract class CppGenerator implements XsmpGenerator {
     protected initializeEntryPoint(_element: ast.EntryPoint): string | undefined {
         return undefined;
     }
+    protected constructEntryPoint(_element: ast.EntryPoint): string | undefined {
+        return undefined;
+    }
     protected finalizeEntryPoint(element: ast.EntryPoint): string | undefined {
         return this.finalizePointer(element);
     }
@@ -1138,6 +1153,9 @@ export abstract class CppGenerator implements XsmpGenerator {
         return undefined;
     }
     protected initializeEventSink(_element: ast.EventSink): string | undefined {
+        return undefined;
+    }
+    protected constructEventSink(_element: ast.EventSink): string | undefined {
         return undefined;
     }
     protected finalizeEventSink(element: ast.EventSink): string | undefined {
@@ -1153,6 +1171,9 @@ export abstract class CppGenerator implements XsmpGenerator {
     protected initializeEventSource(_element: ast.EventSource): string | undefined {
         return undefined;
     }
+    protected constructEventSource(_element: ast.EventSource): string | undefined {
+        return undefined;
+    }
     protected finalizeEventSource(element: ast.EventSource): string | undefined {
         return this.finalizePointer(element);
     }
@@ -1164,6 +1185,9 @@ export abstract class CppGenerator implements XsmpGenerator {
         return undefined;
     }
     protected initializeField(_element: ast.Field): string | undefined {
+        return undefined;
+    }
+    protected constructField(_element: ast.Field): string | undefined {
         return undefined;
     }
     protected finalizeField(_element: ast.Field): string | undefined {
@@ -1179,6 +1203,9 @@ export abstract class CppGenerator implements XsmpGenerator {
     protected initializeOperation(_element: ast.Operation): string | undefined {
         return undefined;
     }
+    protected constructOperation(_element: ast.Operation): string | undefined {
+        return undefined;
+    }
     protected finalizeOperation(_element: ast.Operation): string | undefined {
         return undefined;
     }
@@ -1192,6 +1219,9 @@ export abstract class CppGenerator implements XsmpGenerator {
     protected initializeProperty(_element: ast.Property): string | undefined {
         return undefined;
     }
+    protected constructProperty(_element: ast.Property): string | undefined {
+        return undefined;
+    }
     protected finalizeProperty(_element: ast.Property): string | undefined {
         return undefined;
     }
@@ -1203,6 +1233,9 @@ export abstract class CppGenerator implements XsmpGenerator {
         return undefined;
     }
     protected initializeReference(_element: ast.Reference): string | undefined {
+        return undefined;
+    }
+    protected constructReference(_element: ast.Reference): string | undefined {
         return undefined;
     }
     protected finalizeReference(element: ast.Reference): string | undefined {

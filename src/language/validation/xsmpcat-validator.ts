@@ -82,8 +82,7 @@ const reservedNames = new Set([
         'PrimitiveType', 'Property', 'ReferenceType', 'Reference', 'Service', 'SimpleType', 'String',
         'Structure', 'Type', 'ValueReference', 'ValueType', 'VisibilityElement']),
 
-    namedElementRegex = /^[a-zA-Z]\w*$/,
-    uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+    namedElementRegex = /^[a-zA-Z]\w*$/;
 
 /**
  * Implementation of custom validations.
@@ -109,8 +108,10 @@ export class XsmpcatValidator {
         const map = new MultiMap<string, AstNodeDescription>();
         for (const type of this.indexManager.allElements(ast.Type)) {
             if (type.node) {
-                const uuid = this.docHelper.getUuid(type.node as ast.Type)?.toString().trim();
-                if (uuid) {
+              //  const uuid = this.docHelper.getUuid(type.node as ast.Type)?.toString().trim();
+              const uuid = type.name;
+                if(XsmpUtils.isUUID(uuid)){
+              //  if (uuid) {
                     map.add(uuid, type);
                 }
             }
@@ -427,7 +428,7 @@ export class XsmpcatValidator {
                 data: { code: IssueCodes.MissingUuid, actionRange: this.docHelper.getJSDoc(type)?.range ?? { start: type.$cstNode?.range.start, end: type.$cstNode?.range.start } }
             });
         }
-        else if (!uuidRegex.test(uuid.toString().trim())) {
+        else if (!XsmpUtils.isUUID(uuid.toString().trim())) {
             accept('error', 'The UUID is invalid.', { node: type, range: uuid.range, data: diagnosticData(IssueCodes.InvalidUuid) });
         }
         else {

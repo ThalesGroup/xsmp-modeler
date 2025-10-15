@@ -49,6 +49,8 @@ async function startLanguageClient(context: vscode.ExtensionContext): Promise<La
                 { scheme: builtInScheme, language: 'xsmpproject' },
                 { scheme: 'file', language: 'xsmpcat' },
                 { scheme: builtInScheme, language: 'xsmpcat' },
+                { scheme: 'file', language: 'xsmpasb' },
+                { scheme: builtInScheme, language: 'xsmpasb' },
             ],
             markdown: {
                 isTrusted: true, supportHtml: true

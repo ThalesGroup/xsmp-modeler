@@ -110,7 +110,7 @@ export class PythonGenerator implements XsmpGenerator {
 
                 ${components.map(type => s`
                 class ${type.name}:
-                    uuid: ecss_smp.Smp.Uuid = ecss_smp.Smp.Uuid("${this.docHelper.getUuid(type)}")
+                    uuid: ecss_smp.Smp.Uuid = ecss_smp.Smp.Uuid("${this.docHelper.getUuid(type)?.toString().trim()}")
                 `, this).join('\n')}
 
                 `: undefined}

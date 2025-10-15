@@ -522,7 +522,7 @@ Reference returns Reference:
      */
     'reference' interface=[Interface:QualifiedName] MultiplicityDeclaration name=ValidID;
 
-fragment MultiplicityDeclaration*:
+fragment MultiplicityDeclaration:
     optional?='?' | multiplicity=Multiplicity?;
 
 Multiplicity returns Multiplicity:

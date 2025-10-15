@@ -1,13 +1,12 @@
 import { type AstNode, JSDocDocumentationProvider } from 'langium';
 import * as ast from '../generated/ast.js';
 import { type DocumentationHelper } from '../utils/documentation-helper.js';
-import { type XsmpcatServices } from '../xsmpcat-module.js';
-import { type XsmpprojectServices } from '../xsmpproject-module.js';
+import { XsmpServices } from '../xsmp-module.js';
 
 export class XsmpDocumentationProvider extends JSDocDocumentationProvider {
 
     protected readonly docHelper: DocumentationHelper;
-    constructor(services: XsmpcatServices | XsmpprojectServices) {
+    constructor(services: XsmpServices ) {
         super(services);
         this.docHelper = services.shared.DocumentationHelper;
     }

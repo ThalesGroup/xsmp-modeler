@@ -1,7 +1,7 @@
 import { inject } from 'langium';
 import type { DeepPartial, Module } from 'langium';
 import { type DefaultSharedModuleContext, type LangiumSharedServices, type LangiumServices, createDefaultModule, createDefaultSharedModule } from 'langium/lsp';
-import { XsmpGeneratedSharedModule, XsmpcatGeneratedModule, XsmpprojectGeneratedModule } from './generated/module.js';
+import { XsmpGeneratedSharedModule, XsmpasbGeneratedModule, XsmpcatGeneratedModule, XsmpprojectGeneratedModule } from './generated/module.js';
 import type { XsmpprojectServices } from './xsmpproject-module.js';
 import { XsmpprojectModule } from './xsmpproject-module.js';
 import { registerXsmpcatValidationChecks } from './validation/xsmpcat-validator.js';
@@ -21,6 +21,7 @@ import { ProjectManager } from './workspace/project-manager.js';
 import { XsmpLanguageServer } from './lsp/language-server.js';
 import { registerTasMdkValidationChecks } from './profiles/tas-mdk/validator.js';
 import { XsmpDocumentBuilder } from './workspace/document-builder.js';
+import { XsmpasbModule, XsmpasbServices } from './xsmpasb-module.js';
 
 export type XsmpServices = LangiumServices & { shared: XsmpSharedServices; }
 /**
@@ -42,6 +43,7 @@ export function createXsmpServices(context: DefaultSharedModuleContext): {
     shared: XsmpSharedServices,
     xsmpcat: XsmpcatServices,
     xsmpproject: XsmpprojectServices,
+    xsmpasb: XsmpasbServices,
 } {
     const shared = inject(
         createDefaultSharedModule(context),
@@ -67,12 +69,20 @@ export function createXsmpServices(context: DefaultSharedModuleContext): {
     registerXsmpcatValidationChecks(xsmpcat);
     registerTasMdkValidationChecks(xsmpcat);
 
+    // XSMP Assembly
+    const xsmpasb = inject(
+        createDefaultModule({ shared }),
+        XsmpasbGeneratedModule,
+        XsmpasbModule
+    );
+    shared.ServiceRegistry.register(xsmpasb);
+
     if (!context.connection) {
         // We don't run inside a language server
         // Therefore, initialize the configuration provider instantly
         shared.workspace.ConfigurationProvider.initialized({});
     }
-    return { shared, xsmpcat, xsmpproject, };
+    return { shared, xsmpcat, xsmpproject, xsmpasb, };
 }
 /**
  * Declaration of custom shared services

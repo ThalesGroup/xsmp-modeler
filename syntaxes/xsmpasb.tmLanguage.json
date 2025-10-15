@@ -1,0 +1,58 @@
+{
+	"scopeName": "source.xsmpasb",
+	"patterns": [
+		{
+			"match": "\\b(assembly|event|link|interface|field|import|int32|string|call)\\b",
+			"name": "keyword.control.xsmp.asb"
+		},
+		{
+			"match": "(?<!\\\\)(\"(?:[^\"\\\\]|\\\\.)*\")|(?<!\\\\)('(?:[^'\\\\]|\\\\.)*')",
+			"name": "string.quoted.double.xsmp.asb"
+		},
+		{
+			"include": "#annotations"
+		},
+		{
+			"include": "#comments"
+		}
+	],
+	"repository": {
+		"comments": {
+			"patterns": [
+				{
+					"name": "comment.line.double-dash.xsmp.asb",
+					"begin": "(^[ \\t]+)?(?=//)",
+					"end": "(?=$)"
+				},
+				{
+					"name": "comment.block.documentation.xsmp.asb",
+					"match": "/\\*\\*\\*/"
+				},
+				{
+					"name": "comment.block.documentation.xsmp.asb",
+					"begin": "/\\*\\*[^\\*\\/]",
+					"end": "\\*/",
+					"patterns": [
+						{
+							"match": "@[^\\s]+",
+							"name": "comment.block.documentation.tag.xsmp.asb"
+						}
+					]
+				},
+				{
+					"name": "comment.block.xsmp.asb",
+					"match": "/\\*(?:\\*\\*+)?\\*/"
+				},
+				{
+					"name": "comment.block.xsmp.asb",
+					"begin": "/\\*(?:[^\\*]|\\*\\*)",
+					"end": "\\*/"
+				}
+			]
+		},
+		"annotations": {
+			"name": "storage.type.annotation.xsmp.asb",
+			"match": "@\\s*(?:(?:[a-zA-Z_]\\w*\\s*\\.\\s*)*[a-zA-Z_]\\w*)?"
+		}
+	}
+}
