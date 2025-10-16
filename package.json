@@ -52,7 +52,7 @@
         "esbuild": "^0.25.9",
         "esbuild-plugin-copy": "^2.1.1",
         "eslint": "^9.35.0",
-        "langium-cli": "^3.5.2",
+        "langium-cli": "^4.1.0",
         "shx": "^0.4.0",
         "typescript": "^5.9.2",
         "typescript-eslint": "^8.44.0",
