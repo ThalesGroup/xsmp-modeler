@@ -15,7 +15,7 @@ ComponentConfiguration returns ComponentConfiguration:
     '}';
 
 ConfigurationUsage returns ConfigurationUsage:
-    'using' configuration=[Configuration:ValidID]
+    'include' configuration=[Configuration:ValidID]
     ('at' path=CfgPath)?;
 
 
@@ -26,16 +26,20 @@ Value returns Value:
     SimpleValue | ArrayValue | StructureValue;
 
 FieldValue returns FieldValue:
-    field=CfgPath (':'|'=') value=Value;
+    field=CfgPath '=' value=Value;
+
+OptFieldValue returns FieldValue:
+    (field=CfgPath '=')? value=Value;
 
 ArrayValue returns ArrayValue:
     '[' (elements+=Value (','elements+=Value)*)? ']';
 
 StructureValue returns StructureValue:
-    '{' (elements+=FieldValue (','elements+=FieldValue)*)? '}';
+    '{' (elements+=OptFieldValue (','elements+=OptFieldValue)*)? '}';
 
 SimpleValue returns SimpleValue:
-    Int8Value | Int16Value | Int32Value | Int64Value | UInt8Value | UInt16Value | UInt32Value | UInt64Value | BoolValue | Float32Value | Float64Value | Char8Value | String8Value;
+    Int8Value | Int16Value | Int32Value | Int64Value | UInt8Value | UInt16Value | UInt32Value | UInt64Value 
+    | EnumerationValue | BoolValue | Float32Value | Float64Value | Char8Value | String8Value | DurationValue |DateTimeValue;
 
 Int8Value returns Int8Value:
     value=INT'i8';
@@ -53,6 +57,10 @@ UInt32Value returns UInt32Value:
     value=INT'u32';
 UInt64Value returns UInt64Value:
     value=INT'u64';
+
+EnumerationValue returns EnumerationValue:
+    value=INT'lit';
+
 BoolValue returns BoolValue:
     value?='true' | 'false';
 
@@ -67,12 +75,20 @@ Char8Value returns Char8Value:
 
 String8Value returns String8Value:
     value=STRING;
-//TODO handle duration and datetime values
+
+DurationValue returns DurationValue:
+    value=DURATION_STRING;
+
+DateTimeValue returns DateTimeValue:
+    value=DATETIME_STRING;
 
 
-CfgPath returns string: '/'? ValidID (('.'|'/') ValidID | '[' INT ']')*;
+CfgPath returns string:
+    ('/'? ValidID (('.'|'/') ValidID | '[' INT ']')* | '/');
 
 hidden terminal WS: /\s+/;
+terminal DATETIME_STRING: /"[^"]*"dt/;
+terminal DURATION_STRING: /"[^"]*"d/;
 terminal STRING: /"[^"]*"/;
 terminal CHAR: /'[^']*'/;
 

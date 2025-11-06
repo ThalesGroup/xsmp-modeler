@@ -26,7 +26,7 @@ interface Value {
 }
 
 interface FieldValue extends Value {
-    field: string
+    field?: string
     value:Value
 }
 interface SimpleValue extends Value {
@@ -60,6 +60,9 @@ interface UInt32Value extends SimpleValue {
     value: number
 }
 interface UInt64Value extends SimpleValue {
+    value: number
+}
+interface EnumerationValue extends SimpleValue {
     value: number
 }
 interface Float32Value extends SimpleValue {

@@ -2,7 +2,7 @@
 	"scopeName": "source.xsmpcfg",
 	"patterns": [
 		{
-			"match": "\\b(configuration|using|at)\\b",
+			"match": "\\b(configuration|include|at)\\b",
 			"name": "keyword.control.xsmp.cfg"
 		},
 		{

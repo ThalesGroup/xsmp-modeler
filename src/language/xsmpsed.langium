@@ -40,7 +40,7 @@ Trigger returns Trigger:
 
 
 ExecuteTask returns ExecuteTask:
-    'execute' task=[Task:ValidID] ('<' parameters+=TemplateArgument (',' parameters+=TemplateArgument)*'>')? ('at' root=Path)?;
+    'execute' task=[Task:QualifiedName] ('<' parameters+=TemplateArgument (',' parameters+=TemplateArgument)*'>')? ('at' root=Path)?;
 
 TemplateArgument returns TemplateArgument:
     StringArgument | Int32Argument;
@@ -59,23 +59,27 @@ Event returns Event:
 
 MissionEvent returns MissionEvent:
     'mission' 'event' name=ValidID ':'
-    task=[Task:ValidID] '=' missionTime=STRING;
+    task=[Task:QualifiedName] '=' missionTime=STRING;
 
 EpochEvent returns EpochEvent:
     'epoch' 'event' name=ValidID ':'
-    task=[Task:ValidID] '=' epochTime=STRING;
+    task=[Task:QualifiedName] '=' epochTime=STRING;
 
 
 SimulationEvent returns SimulationEvent:
     'simulation' 'event' name=ValidID ':'
-    task=[Task:ValidID] '=' simulationTime=STRING;
+    task=[Task:QualifiedName] '=' simulationTime=STRING;
 
 ZuluEvent returns ZuluEvent:
     'zulu' 'event' name=ValidID ':'
-    task=[Task:ValidID] '=' zuluTime=STRING;
+    task=[Task:QualifiedName] '=' zuluTime=STRING;
 
 Name returns string:
     ValidID;
+
+
+QualifiedName returns string:
+    ValidID ('.' ValidID)*;
 
 Path returns string:
     '/'? Name (('.'|'/') Name)*;

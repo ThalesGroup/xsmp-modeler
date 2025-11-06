@@ -34,7 +34,7 @@ FieldLink returns FieldLink:
     'field' 'link' ownerPath=LnkPath '->' clientPath=LnkPath;
 
 InterfaceLink returns InterfaceLink:
-    'interface' 'link' ownerPath=LnkPath (':'backReference=ValidID)? '->' clientPath=LnkPath ':' reference=ValidID;
+    'interface' 'link' ownerPath=LnkPath ':' reference=ValidID  '->' clientPath=LnkPath (':'backReference=ValidID)?;
 
 
 ValidID returns string:
@@ -42,7 +42,7 @@ ValidID returns string:
 
 
 LnkPath returns string:
-    '/'? ValidID (('.'|'/') ValidID | '[' INT ']')*;
+    ('/'? ValidID (('.'|'/') ValidID | '[' INT ']')* | '/' );
 
 hidden terminal WS: /\s+/;
 
