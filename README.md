@@ -65,7 +65,7 @@ XSMP Modeler provides additional tools to extend its functionality:
 
 ## Sponsors
 
-<a href="https://cnes.fr"><img src="icons/logo_cnes.png" align=center height=120 width=400 alt=Mercury></a>
+<a href="https://cnes.fr"><img src="icons/logo_cnes.png" align=center height=121 width=142 alt=Cnes></a>
 
 
 ## License
