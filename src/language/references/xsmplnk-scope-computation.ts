@@ -4,7 +4,7 @@ import { Cancellation, MultiMap } from 'langium';
 import { XsmpServices } from '../xsmp-module.js';
 import path from "path";
 
-export class XsmpasbScopeComputation implements ScopeComputation {
+export class XsmplnkScopeComputation implements ScopeComputation {
 
     protected readonly descriptions: AstNodeDescriptionProvider;
 
@@ -13,23 +13,17 @@ export class XsmpasbScopeComputation implements ScopeComputation {
     }
 
     async computeExports(document: LangiumDocument, cancelToken = Cancellation.CancellationToken.None): Promise<AstNodeDescription[]> {
-        const assembly = document.parseResult.value as ast.Assembly,
-            exportedDescriptions: AstNodeDescription[] = [];
+        const linkBase = document.parseResult.value as ast.LinkBase;
+        const exportedDescriptions: AstNodeDescription[] = [];
 
-        exportedDescriptions.push(this.descriptions.createDescription(assembly, path.basename(document.uri.fsPath), document));
+        exportedDescriptions.push(this.descriptions.createDescription(linkBase, path.basename(document.uri.fsPath), document));
 
         return exportedDescriptions;
     }
 
     async computeLocalScopes(document: LangiumDocument, cancelToken = Cancellation.CancellationToken.None): Promise<PrecomputedScopes> {
         const scopes = new MultiMap<AstNode, AstNodeDescription>();
-        const assembly = document.parseResult.value as ast.Assembly;
 
-        for (const parameter of assembly.parameters) {
-            if (parameter.name) {
-                scopes.add(assembly, this.descriptions.createDescription(parameter, parameter.name, document));
-            }
-        }
         return scopes;
     }
 

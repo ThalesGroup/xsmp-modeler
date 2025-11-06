@@ -1,13 +1,13 @@
 {
-	"scopeName": "source.xsmpasb",
+	"scopeName": "source.xsmplnk",
 	"patterns": [
 		{
-			"match": "\\b(assembly|event|link|interface|field|import|int32|string|call|model|configure|subscribe|property|using|config)\\b",
-			"name": "keyword.control.xsmp.asb"
+			"match": "\\b(event|field|interface|link)\\b",
+			"name": "keyword.control.xsmp.lnk"
 		},
 		{
 			"match": "(?<!\\\\)(\"(?:[^\"\\\\]|\\\\.)*\")|(?<!\\\\)('(?:[^'\\\\]|\\\\.)*')",
-			"name": "string.quoted.double.xsmp.asb"
+			"name": "string.quoted.double.xsmp.lnk"
 		},
 		{
 			"include": "#annotations"
@@ -23,38 +23,38 @@
 		"comments": {
 			"patterns": [
 				{
-					"name": "comment.line.double-dash.xsmp.asb",
+					"name": "comment.line.double-dash.xsmp.lnk",
 					"begin": "(^[ \\t]+)?(?=//)",
 					"end": "(?=$)"
 				},
 				{
-					"name": "comment.block.documentation.xsmp.asb",
+					"name": "comment.block.documentation.xsmp.lnk",
 					"match": "/\\*\\*\\*/"
 				},
 				{
-					"name": "comment.block.documentation.xsmp.asb",
+					"name": "comment.block.documentation.xsmp.lnk",
 					"begin": "/\\*\\*[^\\*\\/]",
 					"end": "\\*/",
 					"patterns": [
 						{
 							"match": "@[^\\s]+",
-							"name": "comment.block.documentation.tag.xsmp.asb"
+							"name": "comment.block.documentation.tag.xsmp.lnk"
 						}
 					]
 				},
 				{
-					"name": "comment.block.xsmp.asb",
+					"name": "comment.block.xsmp.lnk",
 					"match": "/\\*(?:\\*\\*+)?\\*/"
 				},
 				{
-					"name": "comment.block.xsmp.asb",
+					"name": "comment.block.xsmp.lnk",
 					"begin": "/\\*(?:[^\\*]|\\*\\*)",
 					"end": "\\*/"
 				}
 			]
 		},
 		"annotations": {
-			"name": "storage.type.annotation.xsmp.asb",
+			"name": "storage.type.annotation.xsmp.lnk",
 			"match": "@\\s*(?:(?:[a-zA-Z_]\\w*\\s*\\.\\s*)*[a-zA-Z_]\\w*)?"
 		},
 		"literals": {

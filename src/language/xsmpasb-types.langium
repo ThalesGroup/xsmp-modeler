@@ -1,9 +1,14 @@
 
 import "./xsmpcat-types"
+import "./xsmpsed-types"
+import "./xsmplnk-types"
+import "./xsmpcfg-types"
 
 interface Assembly {
+
+    name: Name
     parameters: TemplateParameter[]
-    configurations: ComponentConfiguration[]
+    configurations: AssemblyComponentConfiguration[]
     model: ModelInstance
 }
 
@@ -32,113 +37,61 @@ interface Int32Argument extends TemplateArgument {
 
 
 
-interface ComponentConfiguration {
-    name: string
-    type: string
+interface AssemblyComponentConfiguration {
+    name: Path
+    elements: (GlobalEventHandler|Invocation|FieldValue)[]
+}
+
+interface GlobalEventHandler {
+entryPointName: Name
+globalEventName: string
 }
 
 interface ModelInstance {
     name: Name
     implementation: @Component
-    elements: (SubInstance|Link|Invocation)[]
+    elements: (GlobalEventHandler|SubInstance|Link|Invocation|FieldValue)[]
 }
 
 interface AssemblyInstance {
     name: Name
     assembly: @Assembly
     arguments: TemplateArgument[]
-    elements: (SubInstance|Link|Invocation)[]
+    configuration?:@Configuration
+    linkBase?:@LinkBase
+    elements: (AssemblyComponentConfiguration)[]
 }
 
+type Name=string;
+/*
 interface Name {
     segments:Segment[]
-}
+}*/
 interface Segment {
 }
 
-interface Path {
-    segments: Name[]
-}
-interface StringSegment extends Segment {
+interface IdSegment extends Segment {
     name:string
 }
-interface CrossReferenceSegment extends Segment {
+interface XRefSegment extends Segment {
     ref:@TemplateParameter
 }
 
+type Path = string;
+
 interface SubInstance {
-    container: @Container
+    container: Name
     instance: ModelInstance|AssemblyInstance
 }
 
-interface Link {
-    source: Path
-    target: Path
-}
-interface EventLink extends Link {
-}
-interface FieldLink extends Link {
-}
-interface InterfaceLink extends Link {
-    reference:@Reference
-    backReference?:@Reference
-}
 
 interface Invocation {}
 
 interface OperationCall extends Invocation {
-    operation: @Operation
+    operation: Name
     parameters: ParameterValue[]
 }
-
-interface ParameterValue {
-    parameter: @Parameter
+interface PropertyValue extends Invocation {
+    property: Name
     value: SimpleValue
-}
-
-interface SimpleValue {}
-interface Int8Value extends SimpleValue {
-    value: number
-}
-interface Int16Value extends SimpleValue {
-    value: number
-}
-interface Int32Value extends SimpleValue {
-    value: number
-}
-interface Int64Value extends SimpleValue {
-    value: number
-}
-interface UInt8Value extends SimpleValue {
-    value: number
-}
-interface UInt16Value extends SimpleValue {
-    value: number
-}
-interface UInt32Value extends SimpleValue {
-    value: number
-}
-interface UInt64Value extends SimpleValue {
-    value: number
-}
-interface Float32Value extends SimpleValue {
-    value: number
-}
-interface Float64Value extends SimpleValue {
-    value: number
-}
-interface Char8Value extends SimpleValue {
-    value: number
-}
-interface String8Value extends SimpleValue {
-    value: string
-}
-interface BoolValue extends SimpleValue {
-    value: boolean
-}
-interface DateTimeValue extends SimpleValue {
-    value: string
-}
-interface DurationValue extends SimpleValue {
-    value: string
 }

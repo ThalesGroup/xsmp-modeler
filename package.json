@@ -2,7 +2,7 @@
     "name": "xsmp-modeler",
     "displayName": "XSMP Modeler",
     "description": "XSMP development framework.",
-    "version": "1.91.0",
+    "version": "1.92.0",
     "publisher": "ydaveluy",
     "author": "ydaveluy",
     "homepage": "https://github.com/thalesgroup/xsmp-modeler",
@@ -63,7 +63,7 @@
         "npm": "10.2.4"
     },
     "engines": {
-        "vscode": "^1.67.0",
+        "vscode": "^1.82.0",
         "node": ">=18.0.0"
     },
     "contributes": {
@@ -113,6 +113,48 @@
                     "light": "./icons/xsmp.png",
                     "dark": "./icons/xsmp.png"
                 }
+            },
+            {
+                "id": "xsmpcfg",
+                "aliases": [
+                    "xsmpcfg"
+                ],
+                "extensions": [
+                    ".xsmpcfg"
+                ],
+                "configuration": "./xsmpcfg-language-configuration.json",
+                "icon": {
+                    "light": "./icons/xsmp.png",
+                    "dark": "./icons/xsmp.png"
+                }
+            },
+            {
+                "id": "xsmplnk",
+                "aliases": [
+                    "xsmplnk"
+                ],
+                "extensions": [
+                    ".xsmplnk"
+                ],
+                "configuration": "./xsmplnk-language-configuration.json",
+                "icon": {
+                    "light": "./icons/xsmp.png",
+                    "dark": "./icons/xsmp.png"
+                }
+            },
+            {
+                "id": "xsmpsed",
+                "aliases": [
+                    "xsmpsed"
+                ],
+                "extensions": [
+                    ".xsmpsed"
+                ],
+                "configuration": "./xsmpsed-language-configuration.json",
+                "icon": {
+                    "light": "./icons/xsmp.png",
+                    "dark": "./icons/xsmp.png"
+                }
             }
         ],
         "grammars": [
@@ -130,6 +172,21 @@
                 "language": "xsmpasb",
                 "scopeName": "source.xsmpasb",
                 "path": "syntaxes/xsmpasb.tmLanguage.json"
+            },
+            {
+                "language": "xsmpcfg",
+                "scopeName": "source.xsmpcfg",
+                "path": "syntaxes/xsmpcfg.tmLanguage.json"
+            },
+            {
+                "language": "xsmplnk",
+                "scopeName": "source.xsmplnk",
+                "path": "syntaxes/xsmplnk.tmLanguage.json"
+            },
+            {
+                "language": "xsmpsed",
+                "scopeName": "source.xsmpsed",
+                "path": "syntaxes/xsmpsed.tmLanguage.json"
             }
         ],
         "commands": [
@@ -168,7 +225,10 @@
     "activationEvents": [
         "onLanguage:xsmpproject",
         "onLanguage:xsmpcat",
-        "onLanguage:xsmpasb"
+        "onLanguage:xsmpasb",
+        "onLanguage:xsmpcfg",
+        "onLanguage:xsmplnk",
+        "onLanguage:xsmpsed"
     ],
     "main": "./out/extension/main.cjs",
     "bin": {
@@ -181,6 +241,9 @@
         "xsmpcat-language-configuration.json",
         "xsmpproject-language-configuration.json",
         "xsmpasb-language-configuration.json",
+        "xsmpcfg-language-configuration.json",
+        "xsmplnk-language-configuration.json",
+        "xsmpsed-language-configuration.json",
         "LICENSE"
     ]
 }

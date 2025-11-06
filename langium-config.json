@@ -15,6 +15,21 @@
         "id": "xsmpasb",
         "grammar": "src/language/xsmpasb.langium",
         "fileExtensions": [".xsmpasb"]
+    },
+    {
+        "id": "xsmpcfg",
+        "grammar": "src/language/xsmpcfg.langium",
+        "fileExtensions": [".xsmpcfg"]
+    },
+    {
+        "id": "xsmplnk",
+        "grammar": "src/language/xsmplnk.langium",
+        "fileExtensions": [".xsmplnk"]
+    },
+    {
+        "id": "xsmpsed",
+        "grammar": "src/language/xsmpsed.langium",
+        "fileExtensions": [".xsmpsed"]
     }],
     "out": "src/language/generated"
 }

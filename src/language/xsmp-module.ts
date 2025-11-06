@@ -1,7 +1,7 @@
 import { inject } from 'langium';
 import type { DeepPartial, Module } from 'langium';
 import { type DefaultSharedModuleContext, type LangiumSharedServices, type LangiumServices, createDefaultModule, createDefaultSharedModule } from 'langium/lsp';
-import { XsmpGeneratedSharedModule, XsmpasbGeneratedModule, XsmpcatGeneratedModule, XsmpprojectGeneratedModule } from './generated/module.js';
+import { XsmpGeneratedSharedModule, XsmpasbGeneratedModule, XsmpcatGeneratedModule, XsmpcfgGeneratedModule, XsmplnkGeneratedModule, XsmpprojectGeneratedModule, XsmpsedGeneratedModule } from './generated/module.js';
 import type { XsmpprojectServices } from './xsmpproject-module.js';
 import { XsmpprojectModule } from './xsmpproject-module.js';
 import { registerXsmpcatValidationChecks } from './validation/xsmpcat-validator.js';
@@ -22,6 +22,9 @@ import { XsmpLanguageServer } from './lsp/language-server.js';
 import { registerTasMdkValidationChecks } from './profiles/tas-mdk/validator.js';
 import { XsmpDocumentBuilder } from './workspace/document-builder.js';
 import { XsmpasbModule, XsmpasbServices } from './xsmpasb-module.js';
+import { XsmpcfgModule, XsmpcfgServices } from './xsmpcfg-module.js';
+import { XsmplnkModule, XsmplnkServices } from './xsmplnk-module.js';
+import { XsmpsedModule, XsmpsedServices } from './xsmpsed-module.js';
 
 export type XsmpServices = LangiumServices & { shared: XsmpSharedServices; }
 /**
@@ -44,6 +47,9 @@ export function createXsmpServices(context: DefaultSharedModuleContext): {
     xsmpcat: XsmpcatServices,
     xsmpproject: XsmpprojectServices,
     xsmpasb: XsmpasbServices,
+    xsmpcfg: XsmpcfgServices,
+    xsmplnk: XsmplnkServices,
+    xsmpsed: XsmpsedServices,
 } {
     const shared = inject(
         createDefaultSharedModule(context),
@@ -77,12 +83,39 @@ export function createXsmpServices(context: DefaultSharedModuleContext): {
     );
     shared.ServiceRegistry.register(xsmpasb);
 
+    // XSMP Configuration
+    const xsmpcfg = inject(
+        createDefaultModule({ shared }),
+        XsmpcfgGeneratedModule,
+        XsmpcfgModule
+    );
+    shared.ServiceRegistry.register(xsmpcfg);
+
+
+    // XSMP LinkBase
+    const xsmplnk = inject(
+        createDefaultModule({ shared }),
+        XsmplnkGeneratedModule,
+        XsmplnkModule
+    );
+    shared.ServiceRegistry.register(xsmplnk);
+
+
+    // XSMP Schedule
+    const xsmpsed = inject(
+        createDefaultModule({ shared }),
+        XsmpsedGeneratedModule,
+        XsmpsedModule
+    );
+    shared.ServiceRegistry.register(xsmpsed);
+
+
     if (!context.connection) {
         // We don't run inside a language server
         // Therefore, initialize the configuration provider instantly
         shared.workspace.ConfigurationProvider.initialized({});
     }
-    return { shared, xsmpcat, xsmpproject, xsmpasb, };
+    return { shared, xsmpcat, xsmpproject, xsmpasb, xsmpcfg, xsmplnk, xsmpsed, };
 }
 /**
  * Declaration of custom shared services

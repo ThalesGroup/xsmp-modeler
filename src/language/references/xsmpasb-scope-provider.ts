@@ -86,7 +86,7 @@ export class XsmpasbScopeProvider implements ScopeProvider {
 
         const scopes: Array<Map<string, AstNodeDescription>> = [];
 
-        if (ast.CrossReferenceSegment === context.container.$type && context.property === 'ref') {
+        if (ast.XRefSegment === context.container.$type && context.property === 'ref') {
 
             const assembly = AstUtils.getContainerOfType<ast.Assembly>(context.container, ast.isAssembly)
 

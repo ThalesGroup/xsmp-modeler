@@ -6,32 +6,31 @@ import { XsmpCommentProvider } from './lsp/comment-provider.js';
 import type { XsmpServices } from './xsmp-module.js';
 import { XsmpDocumentationProvider } from './lsp/documentation-provider.js';
 import { XsmpRenameProvider } from './lsp/xsmp-rename-provider.js';
-import { XsmpasbScopeComputation } from './references/xsmpasb-scope-computation.js';
-//import { XsmpasbScopeProvider } from './references/xsmpasb-scope-provider.js';
+import { XsmpcfgScopeComputation } from './references/xsmpcfg-scope-computation.js';
 
 /**
  * Declaration of Xsmp services.
  */
-export interface XsmpasbAddedServices {
+export interface XsmpcfgAddedServices {
     readonly validation: {
-       // readonly XsmpasbValidator: XsmpasbValidator
+       // readonly XsmpcfgValidator: XsmpcfgValidator
     },
 }
 
 /**
  * Union of Langium default services and Xsmp custom services.
  */
-export type XsmpasbServices = XsmpServices & XsmpasbAddedServices
+export type XsmpcfgServices = XsmpServices & XsmpcfgAddedServices
 
 /**
  * Dependency injection module that overrides Langium default services and contributes the
  * declared custom services. The Langium defaults can be partially specified to override only
  * selected services, while the Xsmp services must be fully specified.
  */
-export const XsmpasbModule: Module<XsmpasbServices, PartialLangiumServices & XsmpasbAddedServices> = {
+export const XsmpcfgModule: Module<XsmpcfgServices, PartialLangiumServices & XsmpcfgAddedServices> = {
     references: {
       //  ScopeProvider: (services) => new XsmpasbScopeProvider(services),
-        ScopeComputation: (services) => new XsmpasbScopeComputation(services),
+        ScopeComputation: (services) => new XsmpcfgScopeComputation(services),
     },
     validation: {
     },

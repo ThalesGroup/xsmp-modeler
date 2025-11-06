@@ -25,7 +25,7 @@ Features status:
 - [x] Python Tool - generator
 - [x] xsmp-sdk Profile - generator
 - [ ] AsciiDoc Tool - generator (in progress)
-- [ ] esa-cdk Profile - generator
+- [x] esa-cdk Profile - generator
 - [ ] esa-cdk-legacy Profile - generator
 - [ ] SMP Tool - import
 - [ ] Command Line Interface
@@ -62,6 +62,11 @@ XSMP Modeler provides additional tools to extend its functionality:
 
 - **SMP Tool**: Generates SMP modeling files (smpcat, smppkg) from XSMP textual modeling files.
 - **AsciiDoc Tool**: Generates AsciiDoc documentation from XSMP modeling files.
+
+## Sponsors
+
+<a href="https://cnes.fr"><img src="icons/logo_cnes.png" align=center height=120 width=400 alt=Mercury></a>
+
 
 ## License
 

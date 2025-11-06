@@ -21,9 +21,9 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
 
     override clean(projectUri: URI) {
         fs.rmSync(UriUtils.joinPath(projectUri, this.includeGenFolder).fsPath, { recursive: true, force: true });
-        /*if (this.includeGenFolder !== this.sourceGenFolder) {
+        if (this.includeGenFolder !== this.sourceGenFolder) {
             fs.rmSync(UriUtils.joinPath(projectUri, this.sourceGenFolder).fsPath, { recursive: true, force: true });
-        }*/
+        }
     }
     name(element: ast.NamedElement | string, gen: boolean): string {
         const genSuffix = 'Gen';
