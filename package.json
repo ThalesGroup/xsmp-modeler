@@ -46,7 +46,7 @@
     "devDependencies": {
         "@types/node": "^24.0.0",
         "@types/vscode": "~1.82.0",
-        "@vitest/coverage-v8": "^3.2.4",
+        "@vitest/coverage-v8": "^4.0.10",
         "@vscode/vsce": "^3.6.0",
         "concurrently": "^9.2.1",
         "esbuild": "^0.25.9",
