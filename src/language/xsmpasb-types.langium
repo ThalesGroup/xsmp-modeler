@@ -5,7 +5,6 @@ import "./xsmplnk-types"
 import "./xsmpcfg-types"
 
 interface Assembly {
-
     name: Name
     parameters: TemplateParameter[]
     configurations: AssemblyComponentConfiguration[]
@@ -43,8 +42,8 @@ interface AssemblyComponentConfiguration {
 }
 
 interface GlobalEventHandler {
-entryPointName: Name
-globalEventName: string
+    entryPointName: Name
+    globalEventName: string
 }
 
 interface ModelInstance {
@@ -62,20 +61,7 @@ interface AssemblyInstance {
     elements: (AssemblyComponentConfiguration)[]
 }
 
-type Name=string;
-/*
-interface Name {
-    segments:Segment[]
-}*/
-interface Segment {
-}
-
-interface IdSegment extends Segment {
-    name:string
-}
-interface XRefSegment extends Segment {
-    ref:@TemplateParameter
-}
+type Name = string;
 
 type Path = string;
 
@@ -85,7 +71,8 @@ interface SubInstance {
 }
 
 
-interface Invocation {}
+interface Invocation {
+}
 
 interface OperationCall extends Invocation {
     operation: Name

@@ -9,8 +9,6 @@ import { xsmpVersion } from '../../version.js';
 export class EsaCdkGenerator extends GapPatternCppGenerator {
     constructor(services: XsmpSharedServices) {
         super(services, CxxStandard.CXX_STD_11);
-        this.includeGenFolder = 'include-gen';
-        this.includeFolder = 'include';
     }
     protected override generatedBy(): string {
         return `EsaCdkGenerator-${xsmpVersion}`;

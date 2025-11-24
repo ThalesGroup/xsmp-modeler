@@ -84,7 +84,11 @@ DateTimeValue returns DateTimeValue:
 
 
 CfgPath returns string:
-    ('/'? ValidID (('.'|'/') ValidID | '[' INT ']')* | '/');
+    ('/'? Segment (('.'|'/') Segment | '[' INT ']')* | '/');
+
+
+Segment returns string:
+    ValidID | '..'|'.';
 
 hidden terminal WS: /\s+/;
 terminal DATETIME_STRING: /"[^"]*"dt/;

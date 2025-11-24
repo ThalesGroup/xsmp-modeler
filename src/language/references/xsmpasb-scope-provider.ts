@@ -1,7 +1,7 @@
 
 import type { AstNode, AstNodeDescription, AstNodeDescriptionProvider, AstReflection, IndexManager, LangiumDocument, Reference, ReferenceInfo, Scope, ScopeProvider, Stream, URI } from 'langium';
 import * as ast from '../generated/ast.js';
-import { AstUtils, DocumentCache, EMPTY_SCOPE, WorkspaceCache, stream } from 'langium';
+import { AstUtils, DocumentCache, WorkspaceCache, stream } from 'langium';
 import type { XsmpTypeProvider } from './type-provider.js';
 import type { ProjectManager } from '../workspace/project-manager.js';
 import { XsmpServices } from '../xsmp-module.js';
@@ -86,7 +86,7 @@ export class XsmpasbScopeProvider implements ScopeProvider {
 
         const scopes: Array<Map<string, AstNodeDescription>> = [];
 
-        if (ast.XRefSegment === context.container.$type && context.property === 'ref') {
+        /*if (ast.XRefSegment === context.container.$type && context.property === 'ref') {
 
             const assembly = AstUtils.getContainerOfType<ast.Assembly>(context.container, ast.isAssembly)
 
@@ -97,7 +97,7 @@ export class XsmpasbScopeProvider implements ScopeProvider {
             else {
                 return EMPTY_SCOPE;
             }
-        }
+        }*/
         /*else if (ast.SubInstance === context.container.$type && context.property === 'container') {
 
             if (ast.isModelInstance(context.container.$container)) {
@@ -112,7 +112,7 @@ export class XsmpasbScopeProvider implements ScopeProvider {
                 return EMPTY_SCOPE;
             }
         }*/
-        else {
+       // else {
             let currentNode = context.container.$container;
             const document = AstUtils.getDocument(context.container);
             parent = this.getGlobalScope(document, this.reflection.getReferenceType(context));
@@ -120,7 +120,7 @@ export class XsmpasbScopeProvider implements ScopeProvider {
                 this.collectScopesFromNode(currentNode, scopes, document);
                 currentNode = currentNode.$container;
             }
-        }
+        //}
 
         for (let i = scopes.length - 1; i >= 0; i--) {
             parent = new MapScope(scopes[i], parent);

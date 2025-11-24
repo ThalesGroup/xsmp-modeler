@@ -2,7 +2,7 @@
     "name": "xsmp-modeler",
     "displayName": "XSMP Modeler",
     "description": "XSMP development framework.",
-    "version": "1.93.0",
+    "version": "1.94.0",
     "publisher": "ydaveluy",
     "author": "ydaveluy",
     "homepage": "https://github.com/thalesgroup/xsmp-modeler",
@@ -36,27 +36,27 @@
     },
     "dependencies": {
         "chalk": "~5.6.2",
-        "commander": "~14.0.1",
+        "commander": "~14.0.2",
         "langium": "~3.5.0",
-        "p-limit": "^7.1.1",
+        "p-limit": "^7.2.0",
         "vscode-languageclient": "~9.0.1",
         "vscode-languageserver": "~9.0.1",
-        "xmlbuilder2": "^3.1.1"
+        "xmlbuilder2": "^4.0.0"
     },
     "devDependencies": {
         "@types/node": "^24.0.0",
         "@types/vscode": "~1.82.0",
-        "@vitest/coverage-v8": "^3.2.4",
-        "@vscode/vsce": "^3.6.0",
+        "@vitest/coverage-v8": "^4.0.13",
+        "@vscode/vsce": "^3.7.1",
         "concurrently": "^9.2.1",
-        "esbuild": "^0.25.9",
+        "esbuild": "^0.27.0",
         "esbuild-plugin-copy": "^2.1.1",
-        "eslint": "^9.35.0",
+        "eslint": "^9.39.1",
         "langium-cli": "^3.5.2",
         "shx": "^0.4.0",
-        "typescript": "^5.9.2",
-        "typescript-eslint": "^8.44.0",
-        "vitest": "^3.2.4"
+        "typescript": "^5.9.3",
+        "typescript-eslint": "^8.47.0",
+        "vitest": "^4.0.13"
     },
     "volta": {
         "node": "18.19.1",
