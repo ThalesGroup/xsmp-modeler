@@ -4,7 +4,6 @@ import "./xsmpsed-types"
 import "./xsmplnk-types"
 import "./xsmpcfg-types"
 
-
 interface Assembly extends Document {
     parameters: TemplateParameter[]
     configurations: AssemblyComponentConfiguration[]

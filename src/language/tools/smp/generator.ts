@@ -5,6 +5,8 @@ import type * as Types from './model/types.js';
 import type * as Package from './model/package.js';
 import type * as xlink from './model/xlink.js';
 import type * as Configuration from './model/configuration.js';
+import type * as LinkBase from './model/linkbase.js';
+import type * as Assembly from './model/assembly.js';
 import * as XsmpUtils from '../../utils/xsmp-utils.js';
 
 import * as Duration from '../../utils/duration.js';
@@ -46,7 +48,12 @@ export class SmpGenerator implements XsmpGenerator {
             acceptTask(() => this.generateConfiguration(node, projectUri, notice));
 
         }
+        else if (ast.isLinkBase(node)) {
+            acceptTask(() => this.generateLinkBase(node, projectUri, notice));
+
+        }
     }
+
     protected getId(element: ast.NamedElement | ast.ReturnParameter): string {
         return this.docHelper.getId(element) ?? XsmpUtils.fqn(element);
     }
@@ -586,14 +593,14 @@ export class SmpGenerator implements XsmpGenerator {
         const obj = {
             '!notice': notice,
             '!generatedBy': this.generatedBy(),
-            'Configuration:Configuration': await this.convertConfiguration(configuration),
+            'Configuration:Configuration': this.convertConfiguration(configuration),
         },
             doc = create({ version: '1.0', encoding: 'UTF-8' }, obj);
         return doc.end({ prettyPrint: true });
     }
 
 
-    protected async convertConfiguration(configuration: ast.Configuration): Promise<Configuration.Configuration> {
+    protected convertConfiguration(configuration: ast.Configuration): Configuration.Configuration {
         const id = this.docHelper.getId(configuration) ?? `_${XsmpUtils.fqn(configuration)}`;
         return {
             '@xmlns:Elements': 'http://www.ecss.nl/smp/2019/Core/Elements',
@@ -609,7 +616,7 @@ export class SmpGenerator implements XsmpGenerator {
             '@Version': this.docHelper.getVersion(configuration),
             Description: this.docHelper.getDescription(configuration),
             Metadata: configuration.attributes.map(this.convertMetadata, this),
-            Include: configuration.elements.filter(ast.isConfigurationUsage).map( this.convertConfigurationUsage, this),
+            Include: configuration.elements.filter(ast.isConfigurationUsage).map(this.convertConfigurationUsage, this),
             Component: configuration.elements.filter(ast.isComponentConfiguration).map(this.convertComponentConfiguration, this),
         };
     }
@@ -626,8 +633,8 @@ export class SmpGenerator implements XsmpGenerator {
         switch (value.$type) {
             case 'BoolValue': return { '@xsi:type': 'Types:BoolValue', '@Value': (value as ast.BoolValue).value } as Types.BoolValue;
             case 'Char8Value': return { '@xsi:type': 'Types:Char8Value', '@Value': (value as ast.Char8Value).value } as Types.Char8Value;
-            case 'DateTimeValue': return { '@xsi:type': 'Types:DateTimeValue', '@Value': (value as ast.DateTimeValue).value.slice(1,-3) } as Types.DateTimeValue;
-            case 'DurationValue': return { '@xsi:type': 'Types:DurationValue', '@Value': (value as ast.DurationValue).value.slice(1,-2) } as Types.DurationValue;
+            case 'DateTimeValue': return { '@xsi:type': 'Types:DateTimeValue', '@Value': (value as ast.DateTimeValue).value.slice(1, -3) } as Types.DateTimeValue;
+            case 'DurationValue': return { '@xsi:type': 'Types:DurationValue', '@Value': (value as ast.DurationValue).value.slice(1, -2) } as Types.DurationValue;
             case 'Float32Value': return { '@xsi:type': 'Types:Float32Value', '@Value': parseFloat((value as ast.Float32Value).value) } as Types.Float32Value;
             case 'Float64Value': return { '@xsi:type': 'Types:Float64Value', '@Value': parseFloat((value as ast.Float64Value).value) } as Types.Float64Value;
             case 'Int8Value': return { '@xsi:type': 'Types:Int8Value', '@Value': BigInt((value as ast.Int8Value).value) } as Types.Int8Value;
@@ -653,6 +660,63 @@ export class SmpGenerator implements XsmpGenerator {
             Configuration: this.convertXlink(include.configuration, include),
         };
     }
+
+
+    async generateLinkBase(linkBase: ast.LinkBase, projectUri: URI, notice: string | undefined): Promise<void> {
+        const outputDir = await this.createOutputDir(projectUri);
+        const smpcatFile = UriUtils.joinPath(outputDir, UriUtils.basename(linkBase.$document?.uri as URI).replace(/\.xsmplnk$/, '.smplnk'));
+        fs.promises.writeFile(smpcatFile.fsPath, await this.doGenerateLinkBase(linkBase, notice));
+    }
+    async doGenerateLinkBase(linkBase: ast.LinkBase, notice: string | undefined): Promise<string> {
+        const obj = {
+            '!notice': notice,
+            '!generatedBy': this.generatedBy(),
+            'LinkBase:LinkBase': await this.convertLinkBase(linkBase),
+        },
+            doc = create({ version: '1.0', encoding: 'UTF-8' }, obj);
+        return doc.end({ prettyPrint: true });
+    }
+
+    protected convertLinkBase(linkBase: ast.LinkBase): LinkBase.LinkBase {
+        const id = this.docHelper.getId(linkBase) ?? `_${XsmpUtils.fqn(linkBase)}`;
+        return {
+            '@xmlns:Elements': 'http://www.ecss.nl/smp/2019/Core/Elements',
+            '@xmlns:LinkBase': 'http://www.ecss.nl/smp/2019/Smdl/LinkBase',
+            '@xmlns:xsd': 'http://www.w3.org/2001/XMLSchema',
+            '@xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
+            '@xmlns:xlink': 'http://www.w3.org/1999/xlink',
+            '@Id': id,
+            '@Name': linkBase.name,
+            '@Title': this.docHelper.getTitle(linkBase),
+            '@Date': this.convertDate(this.docHelper.getDate(linkBase)),
+            '@Creator': this.docHelper.getCreator(linkBase),
+            '@Version': this.docHelper.getVersion(linkBase),
+            Description: this.docHelper.getDescription(linkBase),
+            Metadata: linkBase.attributes.map(this.convertMetadata, this),
+            Component: linkBase.elements.filter(ast.isComponentLinkBase).map(this.convertComponentLinkBase, this),
+        };
+    }
+
+    convertComponentLinkBase(linkBase: ast.ComponentLinkBase): LinkBase.ComponentLinkBase {
+        return {
+            '@Path': linkBase.name,
+            Link: linkBase.elements.filter(ast.isLink).map(this.convertLink, this),
+            Component: linkBase.elements.filter(ast.isComponentLinkBase).map(this.convertComponentLinkBase, this),
+        };
+    }
+    convertLink(link: ast.Link): LinkBase.Link {
+        switch (link.$type) {
+            case 'EventLink': return { '@xsi:type': 'LinkBase:EventLink', '@OwnerPath': link.ownerPath, '@ClientPath': link.clientPath } as LinkBase.EventLink;
+            case 'FieldLink': return { '@xsi:type': 'LinkBase:FieldLink', '@OwnerPath': link.ownerPath, '@ClientPath': link.clientPath } as LinkBase.FieldLink;
+            case 'InterfaceLink': return {
+                '@xsi:type': 'LinkBase:InterfaceLink', '@OwnerPath': link.ownerPath, '@ClientPath': link.clientPath,
+                "@Reference": (link as ast.InterfaceLink).reference, "@BackReference": (link as ast.InterfaceLink).backReference
+            } as LinkBase.InterfaceLink;
+            default: return { '@xsi:type': 'LinkBase:Link', '@OwnerPath': link.ownerPath, '@ClientPath': link.clientPath } as LinkBase.Link;
+        }
+    }
+
+
 
 
     public async doGeneratePackage(catalogue: ast.Catalogue, notice: string | undefined): Promise<string> {

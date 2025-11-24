@@ -1,8 +1,9 @@
 
 import "./xsmpasb-types"
 
-interface Schedule {
-    name:string
+import "./xsmp-elements"
+
+interface Schedule extends Document{
     parameters: TemplateParameter[]
     elements:(Task|Event)[]
     epochTime?:string

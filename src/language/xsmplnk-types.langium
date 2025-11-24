@@ -1,6 +1,8 @@
 
-interface LinkBase {
-    name: string
+
+import "./xsmp-elements"
+
+interface LinkBase extends Document{
     elements: ComponentLinkBase[]
 }
 
