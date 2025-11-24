@@ -43,9 +43,9 @@ ModelInstance returns ModelInstance:
     '}')?;
 
 AssemblyInstance returns AssemblyInstance:
-    name=Name ':' assembly=[Assembly:STRING] ('<' arguments+=TemplateArgument (',' arguments+=TemplateArgument)*'>')?
-    ('using' 'config' configuration=[Configuration:STRING])?
-    ('using' 'link' linkBase=[LinkBase:STRING])?
+    name=Name ':' assembly=[Assembly:ValidID] ('<' arguments+=TemplateArgument (',' arguments+=TemplateArgument)*'>')?
+    ('using' 'config' configuration=[Configuration:ValidID])?
+    ('using' 'link' linkBase=[LinkBase:ValidID])?
     ('{'
         elements+=(ComponentConfiguration)*
     '}')?;

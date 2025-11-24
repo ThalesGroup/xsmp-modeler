@@ -2,7 +2,6 @@ import type { AstNode, AstNodeDescription, AstNodeDescriptionProvider, LangiumDo
 import * as ast from '../generated/ast.js';
 import { Cancellation, MultiMap } from 'langium';
 import { XsmpServices } from '../xsmp-module.js';
-import path from "path";
 
 export class XsmplnkScopeComputation implements ScopeComputation {
 
@@ -16,7 +15,10 @@ export class XsmplnkScopeComputation implements ScopeComputation {
         const linkBase = document.parseResult.value as ast.LinkBase;
         const exportedDescriptions: AstNodeDescription[] = [];
 
-        exportedDescriptions.push(this.descriptions.createDescription(linkBase, path.basename(document.uri.fsPath), document));
+        //Export the Link
+        if (linkBase.name) {
+            exportedDescriptions.push(this.descriptions.createDescription(linkBase, linkBase.name, document));
+        }
 
         return exportedDescriptions;
     }

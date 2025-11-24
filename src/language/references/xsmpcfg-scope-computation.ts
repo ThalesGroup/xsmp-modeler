@@ -2,7 +2,6 @@ import type { AstNode, AstNodeDescription, AstNodeDescriptionProvider, LangiumDo
 import * as ast from '../generated/ast.js';
 import { Cancellation, MultiMap } from 'langium';
 import { XsmpServices } from '../xsmp-module.js';
-import path from "path";
 
 export class XsmpcfgScopeComputation implements ScopeComputation {
 
@@ -13,12 +12,13 @@ export class XsmpcfgScopeComputation implements ScopeComputation {
     }
 
     async computeExports(document: LangiumDocument, cancelToken = Cancellation.CancellationToken.None): Promise<AstNodeDescription[]> {
-        const cfg = document.parseResult.value as ast.Configuration;
+        const configuration = document.parseResult.value as ast.Configuration;
         const exportedDescriptions: AstNodeDescription[] = [];
 
-        exportedDescriptions.push(this.descriptions.createDescription(cfg, path.basename(document.uri.fsPath), document));
-        exportedDescriptions.push(this.descriptions.createDescription(cfg, cfg.name, document));
-
+        //Export the Configuration
+        if (configuration.name) {
+            exportedDescriptions.push(this.descriptions.createDescription(configuration, configuration.name, document));
+        }
         return exportedDescriptions;
     }
 
