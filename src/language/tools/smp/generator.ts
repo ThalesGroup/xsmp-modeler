@@ -4,6 +4,7 @@ import type * as Elements from './model/elements.js';
 import type * as Types from './model/types.js';
 import type * as Package from './model/package.js';
 import type * as xlink from './model/xlink.js';
+import type * as Configuration from './model/configuration.js';
 import * as XsmpUtils from '../../utils/xsmp-utils.js';
 
 import * as Duration from '../../utils/duration.js';
@@ -26,9 +27,25 @@ export class SmpGenerator implements XsmpGenerator {
 
     protected readonly docHelper: DocumentationHelper;
     protected readonly attrHelper: AttributeHelper;
+    protected readonly smdlGenFolder = 'smdl-gen';
+
     constructor(services: XsmpSharedServices) {
         this.docHelper = services.DocumentationHelper;
         this.attrHelper = services.AttributeHelper;
+    }
+    clean(projectUri: URI) {
+        fs.rmSync(UriUtils.joinPath(projectUri, this.smdlGenFolder).fsPath, { recursive: true, force: true });
+    }
+    generate(node: AstNode, projectUri: URI, acceptTask: TaskAcceptor) {
+        const notice = this.safeXmlComment(getCopyrightNotice(node.$document));
+        if (ast.isCatalogue(node)) {
+            acceptTask(() => this.generateCatalogue(node, projectUri, notice));
+            acceptTask(() => this.generatePackage(node, projectUri, notice));
+        }
+        else if (ast.isConfiguration(node)) {
+            acceptTask(() => this.generateConfiguration(node, projectUri, notice));
+
+        }
     }
     protected getId(element: ast.NamedElement | ast.ReturnParameter): string {
         return this.docHelper.getId(element) ?? XsmpUtils.fqn(element);
@@ -39,8 +56,11 @@ export class SmpGenerator implements XsmpGenerator {
             '@Id': this.getId(element),
             '@Name': element.name,
             Description: this.docHelper.getDescription(element),
-            Metadata: element.attributes.map(this.convertAttribute, this),
+            Metadata: element.attributes.map(this.convertMetadata, this),
         };
+    }
+    protected convertMetadata(element: ast.Metadata): Elements.Metadata {
+        return this.convertAttribute(element as ast.Attribute);
     }
     protected convertAttribute(element: ast.Attribute): Types.Attribute {
         return {
@@ -48,8 +68,8 @@ export class SmpGenerator implements XsmpGenerator {
             '@Id': `${this.getId(element.$container)}.${element.type.ref?.name}.${element.$containerIndex}`,
             '@Name': element.type.ref?.name ?? '',
             Type: this.convertXlink(element.type, element),
-            Value: element.value ? this.convertValue((element.type.ref as ast.AttributeType).type.ref, element.value) :
-                this.convertValue((element.type.ref as ast.AttributeType).type.ref, (element.type.ref as ast.AttributeType).default!),
+            Value: element.value ? this.convertTypedValue((element.type.ref as ast.AttributeType).type.ref, element.value) :
+                this.convertTypedValue((element.type.ref as ast.AttributeType).type.ref, (element.type.ref as ast.AttributeType).default!),
         };
     }
     protected convertVisibilityKind(element: ast.VisibilityElement): Types.VisibilityKind | undefined {
@@ -269,7 +289,7 @@ export class SmpGenerator implements XsmpGenerator {
         return XsmpUtils.escape(Solver.getValue(expression)?.stringValue()?.getValue());
     }
 
-    protected convertValue(type: ast.Type | undefined, expression: ast.Expression): Types.Value {
+    protected convertTypedValue(type: ast.Type | undefined, expression: ast.Expression): Types.Value {
 
         if (type) {
             switch (XsmpUtils.getPTK(type)) {
@@ -325,12 +345,12 @@ export class SmpGenerator implements XsmpGenerator {
                 case PTK.String8: return { '@xsi:type': 'Types:String8ArrayValue', ItemValue: expression.elements.map(e => ({ '@Value': this.toString8(e) })) } as Types.String8ArrayValue;
             }
         }
-        return { '@xsi:type': 'Types:ArrayValue', ItemValue: expression.elements.map(e => this.convertValue(type.itemType.ref, e), this) } as Types.ArrayValue;
+        return { '@xsi:type': 'Types:ArrayValue', ItemValue: expression.elements.map(e => this.convertTypedValue(type.itemType.ref, e), this) } as Types.ArrayValue;
     }
 
     protected convertStructureValue(type: ast.Structure, expression: ast.CollectionLiteral): Types.StructureValue {
         const fields = this.attrHelper.getAllFields(type).toArray();
-        return { '@xsi:type': 'Types:StructureValue', FieldValue: expression.elements.map((e, index) => this.convertValue(fields.at(index)?.type.ref, e), this) };
+        return { '@xsi:type': 'Types:StructureValue', FieldValue: expression.elements.map((e, index) => this.convertTypedValue(fields.at(index)?.type.ref, e), this) };
     }
 
     protected convertAttributeType(attributeType: ast.AttributeType): Types.AttributeType {
@@ -338,7 +358,7 @@ export class SmpGenerator implements XsmpGenerator {
         return {
             ...this.convertType(attributeType, 'Types:AttributeType'),
             Type: this.convertXlink(attributeType.type, attributeType),
-            Default: attributeType.default ? this.convertValue(attributeType.type.ref, attributeType.default) : undefined,
+            Default: attributeType.default ? this.convertTypedValue(attributeType.type.ref, attributeType.default) : undefined,
             '@AllowMultiple': this.docHelper.allowMultiple(attributeType),
             Usage: this.docHelper.getUsages(attributeType)?.map(t => t.toString()),
         };
@@ -385,7 +405,7 @@ export class SmpGenerator implements XsmpGenerator {
 
             let href = `#${this.docHelper.getId(link.ref) ?? XsmpUtils.fqn(link.ref)}`;
             if (doc !== refDoc) {
-                let fileName = UriUtils.basename(refDoc.uri).replace(/\.xsmpcat$/, '.smpcat');
+                let fileName = UriUtils.basename(refDoc.uri).replace(/\.xsmp([a-z0-9]+)$/i, '.smp$1');
                 if (fileName === 'ecss.smp@ECSS_SMP_2020.smpcat') { fileName = 'http://www.ecss.nl/smp/2019/Smdl'; }
                 if (fileName === 'ecss.smp@ECSS_SMP_2025.smpcat') { fileName = 'http://www.ecss.nl/smp/2019/Smdl'; }
                 href = fileName + href;
@@ -413,7 +433,7 @@ export class SmpGenerator implements XsmpGenerator {
             '@Id': `${id}.${parameter.name ?? 'return'}`,
             '@Name': parameter.name ?? 'return',
             Description: this.docHelper.getDescription(parameter),
-            Metadata: parameter.attributes.map(this.convertAttribute, this),
+            Metadata: parameter.attributes.map(this.convertMetadata, this),
             Type: this.convertXlink(parameter.type, parameter),
             '@Direction': 'return',
         };
@@ -423,9 +443,9 @@ export class SmpGenerator implements XsmpGenerator {
             '@Id': `${id}.${parameter.name}`,
             '@Name': parameter.name,
             Description: this.docHelper.getDescription(parameter),
-            Metadata: parameter.attributes.map(this.convertAttribute, this),
+            Metadata: parameter.attributes.map(this.convertMetadata, this),
             Type: this.convertXlink(parameter.type, parameter),
-            Default: parameter.default ? this.convertValue(parameter.type.ref, parameter.default) : undefined,
+            Default: parameter.default ? this.convertTypedValue(parameter.type.ref, parameter.default) : undefined,
             '@Direction': parameter.direction,
         };
     }
@@ -456,14 +476,14 @@ export class SmpGenerator implements XsmpGenerator {
         return {
             ...this.convertVisibilityElement(constant),
             Type: this.convertXlink(constant.type, constant),
-            Value: this.convertValue(constant.type.ref, constant.value),
+            Value: this.convertTypedValue(constant.type.ref, constant.value),
         };
     }
     protected convertField(field: ast.Field): Types.Field {
         return {
             ...this.convertVisibilityElement(field),
             Type: this.convertXlink(field.type, field),
-            Default: field.default ? this.convertValue(field.type.ref, field.default) : undefined,
+            Default: field.default ? this.convertTypedValue(field.type.ref, field.default) : undefined,
             '@State': XsmpUtils.isState(field) ? undefined : false,
             '@Input': XsmpUtils.isInput(field) ? true : undefined,
             '@Output': XsmpUtils.isOutput(field) ? true : undefined,
@@ -499,7 +519,7 @@ export class SmpGenerator implements XsmpGenerator {
             '@Creator': this.docHelper.getCreator(catalogue),
             '@Version': this.docHelper.getVersion(catalogue),
             Description: this.docHelper.getDescription(catalogue),
-            Metadata: catalogue.attributes.map(this.convertAttribute, this),
+            Metadata: catalogue.attributes.map(this.convertMetadata, this),
             Namespace: catalogue.elements.map(this.convertNamespace, this),
         };
     }
@@ -523,7 +543,7 @@ export class SmpGenerator implements XsmpGenerator {
             '@Creator': this.docHelper.getCreator(catalogue),
             '@Version': this.docHelper.getVersion(catalogue),
             Description: this.docHelper.getDescription(catalogue),
-            Metadata: catalogue.attributes.map(this.convertAttribute, this),
+            Metadata: catalogue.attributes.map(this.convertMetadata, this),
             Implementation: AstUtils.streamAllContents(catalogue).filter(ast.isType).filter(e => !ast.isInterface(e)).map(e =>
                 this.convertXlink({ ref: e, $refText: e.name })).toArray(),
             Dependency: dependencies.map(e => ({ '@xlink:title': e.name, '@xlink:href': `${UriUtils.basename(AstUtils.getDocument(e).uri).replace(/\.xsmpcat$/, '.smppkg')}#${this.docHelper.getId(e) ?? '_' + XsmpUtils.fqn(e)}` }), this),
@@ -555,18 +575,85 @@ export class SmpGenerator implements XsmpGenerator {
         }
         return safeComment;
     }
-    generate(node: AstNode, projectUri: URI, acceptTask: TaskAcceptor) {
-        if (ast.isCatalogue(node)) {
-            const notice = this.safeXmlComment(getCopyrightNotice(node.$document));
-            acceptTask(() => this.generateCatalogue(node, projectUri, notice));
-            acceptTask(() => this.generatePackage(node, projectUri, notice));
+
+    async generateConfiguration(configuration: ast.Configuration, projectUri: URI, notice: string | undefined): Promise<void> {
+        const outputDir = await this.createOutputDir(projectUri);
+        const smpcatFile = UriUtils.joinPath(outputDir, UriUtils.basename(configuration.$document?.uri as URI).replace(/\.xsmpcfg$/, '.smpcfg'));
+        fs.promises.writeFile(smpcatFile.fsPath, await this.doGenerateConfiguration(configuration, notice));
+
+    }
+    async doGenerateConfiguration(configuration: ast.Configuration, notice: string | undefined): Promise<string> {
+        const obj = {
+            '!notice': notice,
+            '!generatedBy': this.generatedBy(),
+            'Configuration:Configuration': await this.convertConfiguration(configuration),
+        },
+            doc = create({ version: '1.0', encoding: 'UTF-8' }, obj);
+        return doc.end({ prettyPrint: true });
+    }
+
+
+    protected async convertConfiguration(configuration: ast.Configuration): Promise<Configuration.Configuration> {
+        const id = this.docHelper.getId(configuration) ?? `_${XsmpUtils.fqn(configuration)}`;
+        return {
+            '@xmlns:Elements': 'http://www.ecss.nl/smp/2019/Core/Elements',
+            '@xmlns:Configuration': 'http://www.ecss.nl/smp/2019/Smdl/Configuration',
+            '@xmlns:xsd': 'http://www.w3.org/2001/XMLSchema',
+            '@xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
+            '@xmlns:xlink': 'http://www.w3.org/1999/xlink',
+            '@Id': id,
+            '@Name': configuration.name,
+            '@Title': this.docHelper.getTitle(configuration),
+            '@Date': this.convertDate(this.docHelper.getDate(configuration)),
+            '@Creator': this.docHelper.getCreator(configuration),
+            '@Version': this.docHelper.getVersion(configuration),
+            Description: this.docHelper.getDescription(configuration),
+            Metadata: configuration.attributes.map(this.convertMetadata, this),
+            Include: configuration.elements.filter(ast.isConfigurationUsage).map( this.convertConfigurationUsage, this),
+            Component: configuration.elements.filter(ast.isComponentConfiguration).map(this.convertComponentConfiguration, this),
+        };
+    }
+    convertComponentConfiguration(component: ast.ComponentConfiguration): Configuration.ComponentConfiguration {
+        return {
+            Path: component.name,
+            Include: component.elements.filter(ast.isConfigurationUsage).map(this.convertConfigurationUsage, this),
+            Component: component.elements.filter(ast.isComponentConfiguration).map(this.convertComponentConfiguration, this),
+            FieldValue: component.elements.filter(ast.isValue).map(this.convertValue, this),
+        };
+    }
+
+    convertValue(value: ast.Value): Types.Value {
+        switch (value.$type) {
+            case 'BoolValue': return { '@xsi:type': 'Types:BoolValue', '@Value': (value as ast.BoolValue).value } as Types.BoolValue;
+            case 'Char8Value': return { '@xsi:type': 'Types:Char8Value', '@Value': (value as ast.Char8Value).value } as Types.Char8Value;
+            case 'DateTimeValue': return { '@xsi:type': 'Types:DateTimeValue', '@Value': (value as ast.DateTimeValue).value.slice(1,-3) } as Types.DateTimeValue;
+            case 'DurationValue': return { '@xsi:type': 'Types:DurationValue', '@Value': (value as ast.DurationValue).value.slice(1,-2) } as Types.DurationValue;
+            case 'Float32Value': return { '@xsi:type': 'Types:Float32Value', '@Value': parseFloat((value as ast.Float32Value).value) } as Types.Float32Value;
+            case 'Float64Value': return { '@xsi:type': 'Types:Float64Value', '@Value': parseFloat((value as ast.Float64Value).value) } as Types.Float64Value;
+            case 'Int8Value': return { '@xsi:type': 'Types:Int8Value', '@Value': BigInt((value as ast.Int8Value).value) } as Types.Int8Value;
+            case 'Int16Value': return { '@xsi:type': 'Types:Int16Value', '@Value': (value as ast.Int16Value).value } as Types.Int16Value;
+            case 'Int32Value': return { '@xsi:type': 'Types:Int32Value', '@Value': (value as ast.Int32Value).value } as Types.Int32Value;
+            case 'Int64Value': return { '@xsi:type': 'Types:Int64Value', '@Value': (value as ast.Int64Value).value } as Types.Int64Value;
+            case 'UInt8Value': return { '@xsi:type': 'Types:UInt8Value', '@Value': (value as ast.UInt8Value).value } as Types.UInt8Value;
+            case 'UInt16Value': return { '@xsi:type': 'Types:UInt16Value', '@Value': (value as ast.UInt16Value).value } as Types.UInt16Value;
+            case 'UInt32Value': return { '@xsi:type': 'Types:UInt32Value', '@Value': (value as ast.UInt32Value).value } as Types.UInt32Value;
+            case 'UInt64Value': return { '@xsi:type': 'Types:UInt64Value', '@Value': (value as ast.UInt64Value).value } as Types.UInt64Value;
+            case 'EnumerationValue': return { '@xsi:type': 'Types:EnumerationValue', '@Value': (value as ast.EnumerationValue).value } as Types.EnumerationValue;
+            case 'String8Value': return { '@xsi:type': 'Types:String8Value', '@Value': (value as ast.String8Value).value } as Types.String8Value;
+            case 'ArrayValue': return { '@xsi:type': 'Types:ArrayValue', ItemValue: (value as ast.ArrayValue).elements.map(this.convertValue, this) } as Types.ArrayValue;
+            case 'StructureValue': return { '@xsi:type': 'Types:StructureValue', FieldValue: (value as ast.ArrayValue).elements.map(this.convertValue, this) } as Types.StructureValue;
+            case 'FieldValue': return { ...this.convertValue((value as ast.FieldValue).value), '@Field': (value as ast.FieldValue).field }
+            default: return { '@xsi:type': 'Types:Value' } as Types.Value;
         }
     }
 
-    protected readonly smdlGenFolder = 'smdl-gen';
-    clean(projectUri: URI) {
-        fs.rmSync(UriUtils.joinPath(projectUri, this.smdlGenFolder).fsPath, { recursive: true, force: true });
+    convertConfigurationUsage(include: ast.ConfigurationUsage): Configuration.ConfigurationUsage {
+        return {
+            Path: include.path,
+            Configuration: this.convertXlink(include.configuration, include),
+        };
     }
+
 
     public async doGeneratePackage(catalogue: ast.Catalogue, notice: string | undefined): Promise<string> {
 

@@ -134,7 +134,7 @@ terminal fragment FRACTIONALCONSTANT:DIGITSEQUENCE? '.' DIGITSEQUENCE | DIGITSEQ
 terminal fragment DIGITSEQUENCE:/[0-9][0-9']*/;
 terminal fragment EXPONENTPART:/[eE][+-]?[0-9][0-9']*/;
 
-terminal INT returns number: /[+-]?(0|[1-9]\d*)/;
+terminal INT returns bigint: /[+-]?(0|[1-9]\d*)/;
 
 
 hidden terminal ML_COMMENT: /\/\*[\s\S]*?\*\//;

@@ -1,5 +1,5 @@
 
-
+import "./xsmp-elements"
 type RangeKind = RangeKind_Exclusive | RangeKind_MinInclusive | RangeKind_MaxInclusive | RangeKind_Inclusive;
 type RangeKind_Exclusive = '<.<';
 type RangeKind_MinInclusive = '..<';
@@ -16,17 +16,13 @@ type Invokable = Operation | Property;
 type Publicable = Invokable | Field;
 
 
-interface Catalogue extends NamedElement {
+interface Catalogue extends Document {
     elements:Namespace[]
 }
 
-interface NamedElement {
-    name: string
-    attributes: Attribute[]
-}
 
 
-interface Attribute {
+interface Attribute extends Metadata{
     ^type: @Type
     value?: Expression
 }

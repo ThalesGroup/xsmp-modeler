@@ -157,7 +157,8 @@ export class XsmpcatValidator {
 
     private checkAttributes(element: ast.NamedElement | ast.ReturnParameter, accept: ValidationAcceptor) {
         const visited = new Set<ast.AttributeType>();
-        for (const attribute of element.attributes) {
+        for (const metadata of element.attributes) {
+            const attribute = metadata as ast.Attribute
             if (!attribute.type) {
                 accept('error', 'Missing type.', { node: attribute, keyword: '@' });
             }

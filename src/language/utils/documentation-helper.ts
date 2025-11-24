@@ -104,17 +104,17 @@ export class DocumentationHelper {
         return this.getTag(element, 'unit')?.toString().trim();
     }
 
-    getTitle(element: ast.Catalogue): string | undefined {
+    getTitle(element: ast.Document): string | undefined {
         return this.getTag(element, 'title')?.toString().trim();
     }
-    getDate(element: ast.Catalogue): JSDocParagraph | undefined {
+    getDate(element: ast.Document): JSDocParagraph | undefined {
         return this.getTag(element, 'date');
     }
 
-    getCreator(element: ast.Catalogue): string | undefined {
+    getCreator(element: ast.Document): string | undefined {
         return this.getTags(element, 'creator')?.map(e => e.toString().trim()).join(', ');
     }
-    getVersion(element: ast.Catalogue): string | undefined {
+    getVersion(element: ast.Document): string | undefined {
         return this.getTag(element, 'version')?.toString().trim();
     }
 

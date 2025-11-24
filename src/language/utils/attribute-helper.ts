@@ -41,7 +41,7 @@ export class AttributeHelper {
         this.cache = new WorkspaceCache(services);
     }
     attribute(element: astPartial.NamedElement | astPartial.ReturnParameter, id: Attributes): astPartial.Attribute | undefined {
-        return this.cache.get({ key: id, node: element }, () => element.attributes.find(a => a.type?.ref && fqn(a.type.ref) === id)) as astPartial.Attribute | undefined;
+        return this.cache.get({ key: id, node: element }, () => element.attributes.find(a => (a as astPartial.Attribute).type?.ref && fqn((a as ast.Attribute).type.ref) === id)) as astPartial.Attribute | undefined;
     }
     isAttributeTrue(attribute: astPartial.Attribute | undefined): boolean | undefined {
         if (!attribute) {

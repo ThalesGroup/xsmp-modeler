@@ -105,7 +105,7 @@ export class XsmpDocumentGenerator {
 
         // generate files
 
-        const documents = this.langiumDocuments.all.filter(doc => this.isValid(doc) && project === this.projectManager.getProject(doc));
+        const documents = this.langiumDocuments.all.filter(doc => this.isValid(doc) && project === this.projectManager.getProject(doc)).toArray();
         const tasks: Array<Promise<void>> = [];
 
         const taskAcceptor: TaskAcceptor = (task: Task) => { tasks.push(limit(task)); };

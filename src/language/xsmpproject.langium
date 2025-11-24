@@ -1,7 +1,7 @@
 grammar Xsmpproject
 import 'xsmpproject-types'
 
-entry Document:
+entry ProjectRoot:
     Project | Profile | Tool;
 
 hidden terminal WS: /\s+/;

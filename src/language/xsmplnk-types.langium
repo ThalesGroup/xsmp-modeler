@@ -1,7 +1,4 @@
 
-//import "./xsmpcat-types"
-import "./xsmpcfg-types"
-
 interface LinkBase {
     name: string
     elements: ComponentLinkBase[]

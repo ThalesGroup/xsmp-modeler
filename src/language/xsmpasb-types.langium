@@ -4,6 +4,7 @@ import "./xsmpsed-types"
 import "./xsmplnk-types"
 import "./xsmpcfg-types"
 
+
 interface Assembly {
     name: Name
     parameters: TemplateParameter[]
@@ -19,7 +20,7 @@ interface StringParameter extends TemplateParameter {
     value?: string
 }
 interface Int32Parameter extends TemplateParameter {
-    value?: number
+    value?: bigint
 }
 
 
@@ -31,7 +32,7 @@ interface StringArgument extends TemplateArgument {
     value: string
 }
 interface Int32Argument extends TemplateArgument {
-    value: number
+    value: bigint
 }
 
 
