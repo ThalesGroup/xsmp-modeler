@@ -50,50 +50,38 @@ export class XsmpDocumentGenerator {
 
     async generate(uri: URI, cancelToken: Cancellation.CancellationToken): Promise<void> {
         const document = this.langiumDocuments.getDocument(uri);
-        if (!document || !this.isValid(document)) {
+        if (!document) {
             return;
         }
-        const tasks: Array<Promise<void>> = [];
 
-        const taskAcceptor: TaskAcceptor = (task: Task) => { tasks.push(limit(task)); };
-        if (ast.isCatalogue(document.parseResult.value)) {
-            const project = this.projectManager.getProject(document);
-            if (project) {
-                this.generateCatalogue(project, document.parseResult.value, taskAcceptor);
-            }
+        if (ast.isProject(document.parseResult.value)) {
+            return await this.generateProject(document.parseResult.value, cancelToken);
         }
-        else if (ast.isProject(document.parseResult.value)) {
-            const project = document.parseResult.value;
-            for (const doc of this.langiumDocuments.all) {
-                if (this.isValid(doc) && ast.isCatalogue(doc.parseResult.value) && project === this.projectManager.getProject(doc)) {
-                    this.generateCatalogue(project, doc.parseResult.value, taskAcceptor);
-                }
-            }
-        }
-        await interruptAndCheck(cancelToken);
 
-        if (tasks.length > 0) {
-            await Promise.all(tasks);
-        }
+        const project = this.projectManager.getProject(document)
+        if (project && this.isValid(document))
+            return await this.generateProject(project, cancelToken);
+
+
     }
 
-    generateCatalogue(project: ast.Project, catalogue: ast.Catalogue, taskAcceptor: TaskAcceptor) {
-
+    async generateProject(project: ast.Project, cancelToken: Cancellation.CancellationToken): Promise<void> {
         const projectUri = UriUtils.dirname(project.$document?.uri as URI);
 
+        // clean up previous generated files
         for (const profile of project.elements.filter(ast.isProfileReference)) {
             switch (profile.profile?.ref?.name) {
                 case 'org.eclipse.xsmp.profile.xsmp-sdk':
                 case 'xsmp-sdk':
-                    this.xsmpSdkGenerator.generate(catalogue, projectUri, taskAcceptor);
+                    this.xsmpSdkGenerator.clean(projectUri);
                     break;
                 case 'org.eclipse.xsmp.profile.esa-cdk':
                 case 'esa-cdk':
-                    this.esaCdkGenerator.generate(catalogue, projectUri, taskAcceptor);
+                    this.esaCdkGenerator.clean(projectUri);
                     break;
                 case 'org.eclipse.xsmp.profile.tas-mdk':
-                    this.tasMdkGenerator.generate(catalogue, projectUri, taskAcceptor);
-                    this.tasMdkPythonGenerator.generate(catalogue, projectUri, taskAcceptor);
+                    this.tasMdkGenerator.clean(projectUri);
+                    this.tasMdkPythonGenerator.clean(projectUri);
                     break;
             }
         }
@@ -102,7 +90,7 @@ export class XsmpDocumentGenerator {
             switch (tool.tool?.ref?.name) {
                 case 'org.eclipse.xsmp.tool.smp':
                 case 'smp':
-                    this.smpGenerator.generate(catalogue, projectUri, taskAcceptor);
+                    this.smpGenerator.clean(projectUri);
                     break;
                 case 'org.eclipse.xsmp.tool.adoc':
                 case 'adoc':
@@ -110,9 +98,56 @@ export class XsmpDocumentGenerator {
                     break;
                 case 'org.eclipse.xsmp.tool.python':
                 case 'python':
-                    this.pythonGenerator.generate(catalogue, projectUri, taskAcceptor);
+                    this.pythonGenerator.clean(projectUri);
                     break;
             }
+        }
+
+        // generate files
+
+        const documents = this.langiumDocuments.all.filter(doc => this.isValid(doc) && project === this.projectManager.getProject(doc));
+        const tasks: Array<Promise<void>> = [];
+
+        const taskAcceptor: TaskAcceptor = (task: Task) => { tasks.push(limit(task)); };
+
+        for (const profile of project.elements.filter(ast.isProfileReference)) {
+            switch (profile.profile?.ref?.name) {
+                case 'org.eclipse.xsmp.profile.xsmp-sdk':
+                case 'xsmp-sdk':
+                    documents.forEach(doc => this.xsmpSdkGenerator.generate(doc.parseResult.value, projectUri, taskAcceptor));
+                    break;
+                case 'org.eclipse.xsmp.profile.esa-cdk':
+                case 'esa-cdk':
+                    documents.forEach(doc => this.esaCdkGenerator.generate(doc.parseResult.value, projectUri, taskAcceptor));
+                    break;
+                case 'org.eclipse.xsmp.profile.tas-mdk':
+                    documents.forEach(doc => this.tasMdkGenerator.generate(doc.parseResult.value, projectUri, taskAcceptor));
+                    documents.forEach(doc => this.tasMdkPythonGenerator.generate(doc.parseResult.value, projectUri, taskAcceptor));
+                    break;
+            }
+        }
+
+        for (const tool of project.elements.filter(ast.isToolReference)) {
+            switch (tool.tool?.ref?.name) {
+                case 'org.eclipse.xsmp.tool.smp':
+                case 'smp':
+                    documents.forEach(doc => this.smpGenerator.generate(doc.parseResult.value, projectUri, taskAcceptor));
+                    break;
+                case 'org.eclipse.xsmp.tool.adoc':
+                case 'adoc':
+                    //TODO
+                    break;
+                case 'org.eclipse.xsmp.tool.python':
+                case 'python':
+                    documents.forEach(doc => this.pythonGenerator.generate(doc.parseResult.value, projectUri, taskAcceptor));
+                    break;
+            }
+        }
+
+        await interruptAndCheck(cancelToken);
+
+        if (tasks.length > 0) {
+            await Promise.all(tasks);
         }
     }
 }
