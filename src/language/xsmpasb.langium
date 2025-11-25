@@ -1,5 +1,6 @@
 grammar Xsmpasb
-import 'xsmpasb-types'
+
+import 'xsmp-types'
 
 entry Assembly returns Assembly:
     'assembly' ('<' parameters+=TemplateParameter (',' parameters+=TemplateParameter)*'>')? name=Name
@@ -37,13 +38,13 @@ Int32Argument returns Int32Argument:
 
 
 ModelInstance returns ModelInstance:
-    name=Name ':' implementation=[Component:UuidOrTypeName]
+    name=Name ':' (implementation=[Component:QualifiedName] | strImplementation=STRING)
     ('{'
         elements+=(GlobalEventHandler|SubInstance|Link|Invocation|FieldValue)*
     '}')?;
 
 AssemblyInstance returns AssemblyInstance:
-    name=Name ':' assembly=[Assembly:ValidID] ('<' arguments+=TemplateArgument (',' arguments+=TemplateArgument)*'>')?
+    name=Name ':' assembly=[Assembly:ValidID] ('<' (arguments+=TemplateArgument (',' arguments+=TemplateArgument)*)?'>')?
     ('using' 'config' configuration=[Configuration:ValidID])?
     ('using' 'link' linkBase=[LinkBase:ValidID])?
     ('{'
@@ -168,8 +169,8 @@ hidden terminal SL_COMMENT: /\/\/[^\n\r]*/;
 
 
 
-UuidOrTypeName returns string:
-    UUID | ValidID ('.' ValidID)*;
+QualifiedName returns string:
+     ValidID ('.' ValidID)+;
 
 ValidID returns string:
     ID | 'string' | 'int32' | 'assembly';

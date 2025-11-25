@@ -1,5 +1,6 @@
 grammar Xsmplnk
-import 'xsmplnk-types'
+
+import 'xsmp-types'
 
 /*
  * This stand-alone file format allows collecting Links between objects in different Assemblies.

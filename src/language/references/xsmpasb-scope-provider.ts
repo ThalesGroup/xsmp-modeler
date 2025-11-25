@@ -38,8 +38,8 @@ export class XsmpasbScopeProvider implements ScopeProvider {
         }
         switch (node.$type) {
             case ast.ModelInstance: {
-                const component = node as ast.ModelInstance;
-                this.collectScopesFromReference(component.implementation, scopes);
+              //  const component = node as ast.ModelInstance;
+               // this.collectScopesFromReference(component.implementation, scopes);
                 break;
             }
             /*case ast.Interface: {

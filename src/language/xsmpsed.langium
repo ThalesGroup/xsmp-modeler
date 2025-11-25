@@ -1,5 +1,6 @@
 grammar Xsmpsed
-import 'xsmpsed-types'
+
+import 'xsmp-types'
 
 entry Schedule returns Schedule:
     'schedule' ('<' parameters+=TemplateParameter (',' parameters+=TemplateParameter)*'>')? name=Name

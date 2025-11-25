@@ -1,6 +1,6 @@
 grammar Xsmpcat
 
-import 'xsmpcat-types'
+import 'xsmp-types'
 
 hidden terminal WS: /\s+/;
 terminal ID: /[_a-zA-Z]\w*/;

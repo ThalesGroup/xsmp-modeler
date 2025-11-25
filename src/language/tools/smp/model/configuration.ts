@@ -5,6 +5,7 @@ import type { Xlink } from './xlink.js';
 
 export interface Configuration extends Document {
     '@xmlns:Elements': string;
+    '@xmlns:Types': string;
     '@xmlns:Configuration': string;
     '@xmlns:xsd': string;
     '@xmlns:xsi': string;

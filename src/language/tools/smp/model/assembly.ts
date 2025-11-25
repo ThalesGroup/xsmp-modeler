@@ -6,15 +6,14 @@ import type { SimpleValue, Value } from './types.js';
 export interface Assembly extends Document {
   '@xmlns:Elements': string;
   '@xmlns:Types': string;
-  '@xmlns:Catalogue': string;
+  '@xmlns:LinkBase': string;
   '@xmlns:Assembly': string;
-  '@xmlns:Configuration': string;
   '@xmlns:xsd': string;
   '@xmlns:xsi': string;
   '@xmlns:xlink': string;
   ComponentConfiguration?: ComponentConfiguration[];
   Parameter?: TemplateArgument[];
-  Model?: ModelInstance[];
+  Model?: ModelInstance;
 }
 
 
@@ -25,17 +24,18 @@ export interface NamedElement {
 }
 
 export interface TemplateArgument extends NamedElement {
+  '@xsi:type':string;
 }
 
 export interface Int32Argument extends TemplateArgument {
-  value: number
+  value?: bigint
 }
 export interface StringArgument extends TemplateArgument {
-  value: string
+  value?: string
 }
 
 
-export interface ComponentConfiguration extends NamedElement {
+export interface ComponentConfiguration {
   InstancePath?: string;
   FieldValue?: Value[];
   Invocation?: Invocation[];
@@ -51,7 +51,7 @@ export interface OperationCall extends Invocation {
 }
 export interface ParameterValue {
   '@Parameter': string;
-  Value?: SimpleValue[]
+  Value?: SimpleValue;
 }
 export interface PropertyValue extends Invocation {
   '@Property': string;

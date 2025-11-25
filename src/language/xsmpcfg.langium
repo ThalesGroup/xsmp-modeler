@@ -1,5 +1,6 @@
 grammar Xsmpcfg
-import 'xsmpcfg-types'
+
+import 'xsmp-types'
 
 entry Configuration returns Configuration:
     'configuration' name=ValidID
@@ -9,27 +10,30 @@ entry Configuration returns Configuration:
 
 
 ComponentConfiguration returns ComponentConfiguration:
-    name=CfgPath 
+    name=CfgPath (':' component=[Component:QualifiedName])?
     '{' 
     elements+=(ConfigurationUsage|ComponentConfiguration|FieldValue)*
     '}';
 
 ConfigurationUsage returns ConfigurationUsage:
     'include' configuration=[Configuration:ValidID]
-    ('at' path=CfgPath)?;
+    ('at' 'unsafe'? path=CfgPath)?;
 
 
 ValidID returns string:
     ID | 'configuration'|'using'|'at'|'i8'|'i16'|'i32'|'i64'|'u8'|'u16'|'u32'|'u64'|'f32'|'f64';
 
+QualifiedName returns string:
+    ValidID ('.' ValidID)*;
+
 Value returns Value:
     SimpleValue | ArrayValue | StructureValue;
 
 FieldValue returns FieldValue:
-    field=CfgPath '=' value=Value;
+    'unsafe'? field=CfgPath '=' value=Value;
 
 OptFieldValue returns FieldValue:
-    (field=CfgPath '=')? value=Value;
+    ('unsafe'? field=CfgPath '=')? value=Value;
 
 ArrayValue returns ArrayValue:
     '[' (elements+=Value (','elements+=Value)*)? ']';
@@ -59,7 +63,7 @@ UInt64Value returns UInt64Value:
     value=INT'u64';
 
 EnumerationValue returns EnumerationValue:
-    value=INT'lit';
+    (value=INT'lit' | reference=[EnumerationLiteral:QualifiedName]);
 
 BoolValue returns BoolValue:
     value?='true' | 'false';

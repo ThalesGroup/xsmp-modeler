@@ -40,18 +40,22 @@ export class SmpGenerator implements XsmpGenerator {
     }
     generate(node: AstNode, projectUri: URI, acceptTask: TaskAcceptor) {
         const notice = this.safeXmlComment(getCopyrightNotice(node.$document));
-        if (ast.isCatalogue(node)) {
-            acceptTask(() => this.generateCatalogue(node, projectUri, notice));
-            acceptTask(() => this.generatePackage(node, projectUri, notice));
+        switch (node.$type) {
+            case ast.Catalogue:
+                acceptTask(() => this.generateCatalogue(node as ast.Catalogue, projectUri, notice));
+                acceptTask(() => this.generatePackage(node as ast.Catalogue, projectUri, notice));
+                break;
+            case ast.Configuration:
+                acceptTask(() => this.generateConfiguration(node as ast.Configuration, projectUri, notice));
+                break;
+            case ast.LinkBase:
+                acceptTask(() => this.generateLinkBase(node as ast.LinkBase, projectUri, notice));
+                break
+            case ast.Assembly:
+                acceptTask(() => this.generateAssembly(node as ast.Assembly, projectUri, notice));
+                break
         }
-        else if (ast.isConfiguration(node)) {
-            acceptTask(() => this.generateConfiguration(node, projectUri, notice));
 
-        }
-        else if (ast.isLinkBase(node)) {
-            acceptTask(() => this.generateLinkBase(node, projectUri, notice));
-
-        }
     }
 
     protected getId(element: ast.NamedElement | ast.ReturnParameter): string {
@@ -141,10 +145,10 @@ export class SmpGenerator implements XsmpGenerator {
         throw Error(`Unsupported type ${type.$type}`);
     }
 
-    protected convertType(type: ast.Type, id: string): Types.Type {
+    protected convertType(type: ast.Type, typeName: string): Types.Type {
 
         return {
-            '@xsi:type': id,
+            '@xsi:type': typeName,
             ...this.convertVisibilityElement(type),
             '@Uuid': this.docHelper.getUuid(type)?.toString().trim() ?? '',
         };
@@ -405,6 +409,17 @@ export class SmpGenerator implements XsmpGenerator {
             '@xsi:type': 'Types:Exception',
         };
     }
+
+    protected filename(document: AstNode | undefined): string | undefined {
+        if (!document) {
+            return undefined;
+        }
+        let fileName = UriUtils.basename(AstUtils.getDocument(document).uri).replace(/\.xsmp([a-z0-9]+)$/i, '.smp$1');
+        if (fileName === 'ecss.smp@ECSS_SMP_2020.smpcat') { fileName = 'http://www.ecss.nl/smp/2019/Smdl'; }
+        else if (fileName === 'ecss.smp@ECSS_SMP_2025.smpcat') { fileName = 'http://www.ecss.nl/smp/2019/Smdl'; }
+        return fileName;
+    }
+
     protected convertXlink(link: Reference<ast.NamedElement>, context?: AstNode): xlink.Xlink {
         if (link.ref) {
             const refDoc = AstUtils.getDocument(link.ref);
@@ -412,10 +427,7 @@ export class SmpGenerator implements XsmpGenerator {
 
             let href = `#${this.docHelper.getId(link.ref) ?? XsmpUtils.fqn(link.ref)}`;
             if (doc !== refDoc) {
-                let fileName = UriUtils.basename(refDoc.uri).replace(/\.xsmp([a-z0-9]+)$/i, '.smp$1');
-                if (fileName === 'ecss.smp@ECSS_SMP_2020.smpcat') { fileName = 'http://www.ecss.nl/smp/2019/Smdl'; }
-                if (fileName === 'ecss.smp@ECSS_SMP_2025.smpcat') { fileName = 'http://www.ecss.nl/smp/2019/Smdl'; }
-                href = fileName + href;
+                href = this.filename(link.ref) + href;
             }
 
             return { '@xlink:title': link.ref.name, '@xlink:href': href };
@@ -601,9 +613,10 @@ export class SmpGenerator implements XsmpGenerator {
 
 
     protected convertConfiguration(configuration: ast.Configuration): Configuration.Configuration {
-        const id = this.docHelper.getId(configuration) ?? `_${XsmpUtils.fqn(configuration)}`;
+        const id = this.docHelper.getId(configuration) ?? configuration.name;
         return {
             '@xmlns:Elements': 'http://www.ecss.nl/smp/2019/Core/Elements',
+            '@xmlns:Types': 'http://www.ecss.nl/smp/2019/Core/Types',
             '@xmlns:Configuration': 'http://www.ecss.nl/smp/2019/Smdl/Configuration',
             '@xmlns:xsd': 'http://www.w3.org/2001/XMLSchema',
             '@xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
@@ -631,25 +644,30 @@ export class SmpGenerator implements XsmpGenerator {
 
     convertValue(value: ast.Value): Types.Value {
         switch (value.$type) {
-            case 'BoolValue': return { '@xsi:type': 'Types:BoolValue', '@Value': (value as ast.BoolValue).value } as Types.BoolValue;
-            case 'Char8Value': return { '@xsi:type': 'Types:Char8Value', '@Value': (value as ast.Char8Value).value } as Types.Char8Value;
-            case 'DateTimeValue': return { '@xsi:type': 'Types:DateTimeValue', '@Value': (value as ast.DateTimeValue).value.slice(1, -3) } as Types.DateTimeValue;
-            case 'DurationValue': return { '@xsi:type': 'Types:DurationValue', '@Value': (value as ast.DurationValue).value.slice(1, -2) } as Types.DurationValue;
-            case 'Float32Value': return { '@xsi:type': 'Types:Float32Value', '@Value': parseFloat((value as ast.Float32Value).value) } as Types.Float32Value;
-            case 'Float64Value': return { '@xsi:type': 'Types:Float64Value', '@Value': parseFloat((value as ast.Float64Value).value) } as Types.Float64Value;
-            case 'Int8Value': return { '@xsi:type': 'Types:Int8Value', '@Value': BigInt((value as ast.Int8Value).value) } as Types.Int8Value;
-            case 'Int16Value': return { '@xsi:type': 'Types:Int16Value', '@Value': (value as ast.Int16Value).value } as Types.Int16Value;
-            case 'Int32Value': return { '@xsi:type': 'Types:Int32Value', '@Value': (value as ast.Int32Value).value } as Types.Int32Value;
-            case 'Int64Value': return { '@xsi:type': 'Types:Int64Value', '@Value': (value as ast.Int64Value).value } as Types.Int64Value;
-            case 'UInt8Value': return { '@xsi:type': 'Types:UInt8Value', '@Value': (value as ast.UInt8Value).value } as Types.UInt8Value;
-            case 'UInt16Value': return { '@xsi:type': 'Types:UInt16Value', '@Value': (value as ast.UInt16Value).value } as Types.UInt16Value;
-            case 'UInt32Value': return { '@xsi:type': 'Types:UInt32Value', '@Value': (value as ast.UInt32Value).value } as Types.UInt32Value;
-            case 'UInt64Value': return { '@xsi:type': 'Types:UInt64Value', '@Value': (value as ast.UInt64Value).value } as Types.UInt64Value;
-            case 'EnumerationValue': return { '@xsi:type': 'Types:EnumerationValue', '@Value': (value as ast.EnumerationValue).value } as Types.EnumerationValue;
-            case 'String8Value': return { '@xsi:type': 'Types:String8Value', '@Value': (value as ast.String8Value).value } as Types.String8Value;
-            case 'ArrayValue': return { '@xsi:type': 'Types:ArrayValue', ItemValue: (value as ast.ArrayValue).elements.map(this.convertValue, this) } as Types.ArrayValue;
-            case 'StructureValue': return { '@xsi:type': 'Types:StructureValue', FieldValue: (value as ast.ArrayValue).elements.map(this.convertValue, this) } as Types.StructureValue;
-            case 'FieldValue': return { ...this.convertValue((value as ast.FieldValue).value), '@Field': (value as ast.FieldValue).field }
+            case ast.BoolValue: return { '@xsi:type': 'Types:BoolValue', '@Value': (value as ast.BoolValue).value } as Types.BoolValue;
+            case ast.Char8Value: return { '@xsi:type': 'Types:Char8Value', '@Value': (value as ast.Char8Value).value } as Types.Char8Value;
+            case ast.DateTimeValue: return { '@xsi:type': 'Types:DateTimeValue', '@Value': (value as ast.DateTimeValue).value.slice(1, -3) } as Types.DateTimeValue;
+            case ast.DurationValue: return { '@xsi:type': 'Types:DurationValue', '@Value': (value as ast.DurationValue).value.slice(1, -2) } as Types.DurationValue;
+            case ast.Float32Value: return { '@xsi:type': 'Types:Float32Value', '@Value': parseFloat((value as ast.Float32Value).value) } as Types.Float32Value;
+            case ast.Float64Value: return { '@xsi:type': 'Types:Float64Value', '@Value': parseFloat((value as ast.Float64Value).value) } as Types.Float64Value;
+            case ast.Int8Value: return { '@xsi:type': 'Types:Int8Value', '@Value': BigInt((value as ast.Int8Value).value) } as Types.Int8Value;
+            case ast.Int16Value: return { '@xsi:type': 'Types:Int16Value', '@Value': (value as ast.Int16Value).value } as Types.Int16Value;
+            case ast.Int32Value: return { '@xsi:type': 'Types:Int32Value', '@Value': (value as ast.Int32Value).value } as Types.Int32Value;
+            case ast.Int64Value: return { '@xsi:type': 'Types:Int64Value', '@Value': (value as ast.Int64Value).value } as Types.Int64Value;
+            case ast.UInt8Value: return { '@xsi:type': 'Types:UInt8Value', '@Value': (value as ast.UInt8Value).value } as Types.UInt8Value;
+            case ast.UInt16Value: return { '@xsi:type': 'Types:UInt16Value', '@Value': (value as ast.UInt16Value).value } as Types.UInt16Value;
+            case ast.UInt32Value: return { '@xsi:type': 'Types:UInt32Value', '@Value': (value as ast.UInt32Value).value } as Types.UInt32Value;
+            case ast.UInt64Value: return { '@xsi:type': 'Types:UInt64Value', '@Value': (value as ast.UInt64Value).value } as Types.UInt64Value;
+            case ast.EnumerationValue: {
+                const enumValue = value as ast.EnumerationValue;
+                if (enumValue.value)
+                    return { '@xsi:type': 'Types:EnumerationValue', '@Value': enumValue.value } as Types.EnumerationValue;
+                return { '@xsi:type': 'Types:EnumerationValue', '@Value': this.toEnumerationValue(enumValue.reference?.ref?.value!), '@Literal': Solver.getValue(enumValue.reference?.ref?.value!)?.enumerationLiteral()?.getValue().name } as Types.EnumerationValue;
+            }
+            case ast.String8Value: return { '@xsi:type': 'Types:String8Value', '@Value': (value as ast.String8Value).value } as Types.String8Value;
+            case ast.ArrayValue: return { '@xsi:type': 'Types:ArrayValue', ItemValue: (value as ast.ArrayValue).elements.map(this.convertValue, this) } as Types.ArrayValue;
+            case ast.StructureValue: return { '@xsi:type': 'Types:StructureValue', FieldValue: (value as ast.ArrayValue).elements.map(this.convertValue, this) } as Types.StructureValue;
+            case ast.FieldValue: return { ...this.convertValue((value as ast.FieldValue).value), '@Field': (value as ast.FieldValue).field }
             default: return { '@xsi:type': 'Types:Value' } as Types.Value;
         }
     }
@@ -678,7 +696,7 @@ export class SmpGenerator implements XsmpGenerator {
     }
 
     protected convertLinkBase(linkBase: ast.LinkBase): LinkBase.LinkBase {
-        const id = this.docHelper.getId(linkBase) ?? `_${XsmpUtils.fqn(linkBase)}`;
+        const id = this.docHelper.getId(linkBase) ?? linkBase.name;
         return {
             '@xmlns:Elements': 'http://www.ecss.nl/smp/2019/Core/Elements',
             '@xmlns:LinkBase': 'http://www.ecss.nl/smp/2019/Smdl/LinkBase',
@@ -706,9 +724,9 @@ export class SmpGenerator implements XsmpGenerator {
     }
     convertLink(link: ast.Link): LinkBase.Link {
         switch (link.$type) {
-            case 'EventLink': return { '@xsi:type': 'LinkBase:EventLink', '@OwnerPath': link.ownerPath, '@ClientPath': link.clientPath } as LinkBase.EventLink;
-            case 'FieldLink': return { '@xsi:type': 'LinkBase:FieldLink', '@OwnerPath': link.ownerPath, '@ClientPath': link.clientPath } as LinkBase.FieldLink;
-            case 'InterfaceLink': return {
+            case ast.EventLink: return { '@xsi:type': 'LinkBase:EventLink', '@OwnerPath': link.ownerPath, '@ClientPath': link.clientPath } as LinkBase.EventLink;
+            case ast.FieldLink: return { '@xsi:type': 'LinkBase:FieldLink', '@OwnerPath': link.ownerPath, '@ClientPath': link.clientPath } as LinkBase.FieldLink;
+            case ast.InterfaceLink: return {
                 '@xsi:type': 'LinkBase:InterfaceLink', '@OwnerPath': link.ownerPath, '@ClientPath': link.clientPath,
                 "@Reference": (link as ast.InterfaceLink).reference, "@BackReference": (link as ast.InterfaceLink).backReference
             } as LinkBase.InterfaceLink;
@@ -718,6 +736,154 @@ export class SmpGenerator implements XsmpGenerator {
 
 
 
+    async generateAssembly(assembly: ast.Assembly, projectUri: URI, notice: string | undefined): Promise<void> {
+        const outputDir = await this.createOutputDir(projectUri);
+        const smpcatFile = UriUtils.joinPath(outputDir, UriUtils.basename(assembly.$document?.uri as URI).replace(/\.xsmpasb$/, '.smpasb'));
+        fs.promises.writeFile(smpcatFile.fsPath, await this.doGenerateAssembly(assembly, notice));
+    }
+    async doGenerateAssembly(assembly: ast.Assembly, notice: string | undefined): Promise<string> {
+        const obj = {
+            '!notice': notice,
+            '!generatedBy': this.generatedBy(),
+            'Assembly:Assembly': await this.convertAssembly(assembly),
+        },
+            doc = create({ version: '1.0', encoding: 'UTF-8' }, obj);
+        return doc.end({ prettyPrint: true });
+    }
+
+    protected convertAssembly(assembly: ast.Assembly): Assembly.Assembly {
+        const id = this.docHelper.getId(assembly) ?? assembly.name;
+        return {
+            '@xmlns:Elements': 'http://www.ecss.nl/smp/2019/Core/Elements',
+            '@xmlns:Types': 'http://www.ecss.nl/smp/2019/Core/Types',
+            '@xmlns:LinkBase': 'http://www.ecss.nl/smp/2019/Smdl/LinkBase',
+            '@xmlns:Assembly': 'http://www.ecss.nl/smp/2019/Smdl/Assembly',
+            '@xmlns:xsd': 'http://www.w3.org/2001/XMLSchema',
+            '@xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
+            '@xmlns:xlink': 'http://www.w3.org/1999/xlink',
+            '@Id': id,
+            '@Name': assembly.name,
+            '@Title': this.docHelper.getTitle(assembly),
+            '@Date': this.convertDate(this.docHelper.getDate(assembly)),
+            '@Creator': this.docHelper.getCreator(assembly),
+            '@Version': this.docHelper.getVersion(assembly),
+            Description: this.docHelper.getDescription(assembly),
+            Metadata: assembly.attributes.map(this.convertMetadata, this),
+            ComponentConfiguration: assembly.configurations.map(this.convertAssemblyComponentConfiguration, this),
+            Parameter: assembly.parameters.map(this.convertTemplateParameter, this),
+            Model: this.convertModelInstance(assembly.model)
+        };
+    }
+
+    convertModelInstance(model: ast.ModelInstance): Assembly.ModelInstance {
+        return {
+            '@Name': model.name,
+            Description: this.docHelper.getDescription(model),
+            '@Implementation': model.implementation ? model.implementation.$refText.replace("\.", "::") : model.strImplementation!,
+            Assembly: model.elements.filter(ast.isSubInstance).filter(i => ast.isAssemblyInstance(i.instance)).map(this.convertAssemblyInstance, this),
+            Model: model.elements.filter(ast.isSubInstance).filter(i => ast.isModelInstance(i.instance)).map(this.convertSubModelInstance, this),
+            Link: model.elements.filter(ast.isLink).map(this.convertLink, this),
+            FieldValue: model.elements.filter(ast.isFieldValue).map(this.convertValue, this),
+            Invocation: model.elements.filter(ast.isInvocation).map(this.convertInvocation, this),
+            GlobalEventHandler: model.elements.filter(ast.isGlobalEventHandler).map(this.convertGlobalEventHandler, this),
+
+
+        };
+    }
+    convertAssemblyInstance(instance: ast.SubInstance): Assembly.AssemblyInstance {
+        const assembly = instance.instance as ast.AssemblyInstance;
+        return {
+            '@Container': instance.container,
+            '@Assembly': this.filename(assembly.assembly?.ref)!,
+            '@Name': assembly.name,
+            Description: this.docHelper.getDescription(assembly),
+            Argument: assembly.arguments.map(this.convertTemplateArgument, this),
+            ModelConfiguration: assembly.elements.map(this.convertAssemblyComponentConfiguration, this),
+            '@Configuration': this.filename(assembly.configuration?.ref),
+            '@LinkBase': this.filename(assembly.linkBase?.ref),
+
+        }
+    }
+    convertSubModelInstance(instance: ast.SubInstance): Assembly.SubModelInstance {
+        return {
+            '@Container': instance.container,
+            ...this.convertModelInstance(instance.instance as ast.ModelInstance)
+        }
+
+    }
+    convertTemplateArgument(parameter: ast.TemplateArgument): Assembly.TemplateArgument {
+
+        switch (parameter.$type) {
+            case ast.Int32Argument: return {
+                '@xsi:type': 'Assembly:Int32Argument',
+                '@Name': parameter.parameter.ref?.name,
+                Value: (parameter as ast.Int32Argument).value
+            } as Assembly.Int32Argument;
+            case ast.StringArgument: return {
+                '@xsi:type': 'Assembly:StringArgument',
+                '@Name': parameter.parameter.ref?.name,
+                Value: (parameter as ast.StringArgument).value
+            } as Assembly.StringArgument;
+            default: return {
+                '@xsi:type': 'Assembly:TemplateArgument',
+                '@Name': parameter.parameter.ref!.name,
+            };
+        }
+    }
+
+    convertTemplateParameter(parameter: ast.TemplateParameter): Assembly.TemplateArgument {
+
+        switch (parameter.$type) {
+            case ast.Int32Parameter: return {
+                '@xsi:type': 'Assembly:Int32Argument',
+                '@Name': parameter.name,
+                Value: (parameter as ast.Int32Parameter).value
+            } as Assembly.Int32Argument;
+            case ast.StringParameter: return {
+                '@xsi:type': 'Assembly:StringArgument',
+                '@Name': parameter.name,
+                Value: (parameter as ast.StringParameter).value
+            } as Assembly.StringArgument;
+            default: return {
+                '@xsi:type': 'Assembly:TemplateArgument',
+                '@Name': parameter.name,
+            };
+        }
+    }
+
+    convertAssemblyComponentConfiguration(component: ast.AssemblyComponentConfiguration): Assembly.ComponentConfiguration {
+        return {
+            InstancePath: component.name,
+            Invocation: component.elements.filter(ast.isInvocation).map(this.convertInvocation, this),
+            GlobalEventHandler: component.elements.filter(ast.isGlobalEventHandler).map(this.convertGlobalEventHandler, this),
+            FieldValue: component.elements.filter(ast.isValue).map(v => this.convertValue(v as ast.Value), this),
+        };
+    }
+
+    convertInvocation(invocation: ast.Invocation): Assembly.Invocation {
+        switch (invocation.$type) {
+            case ast.OperationCall: return {
+                '@xsi:type': 'Assembly:OperationCall', '@Operation': (invocation as ast.OperationCall).operation,
+                Parameter: (invocation as ast.OperationCall).parameters.map(this.convertParameterValue, this)
+            } as Assembly.OperationCall;
+            case ast.PropertyValue: return {
+                '@xsi:type': 'Assembly:PropertyValue', '@Property': (invocation as ast.PropertyValue).property,
+                Value: this.convertValue((invocation as ast.PropertyValue).value)
+            } as Assembly.PropertyValue;
+            default: return { '@xsi:type': 'Assembly:Invocation' } as Assembly.Invocation;
+        }
+    }
+
+    convertParameterValue(value: ast.ParameterValue): Assembly.ParameterValue {
+        return { Value: this.convertValue(value.value), '@Parameter': value.parameter };
+    }
+
+    convertGlobalEventHandler(handler: ast.GlobalEventHandler): Assembly.GlobalEventHandler {
+        return {
+            '@EntryPointName': handler.entryPointName,
+            '@GlobalEventName': handler.globalEventName
+        };
+    }
 
     public async doGeneratePackage(catalogue: ast.Catalogue, notice: string | undefined): Promise<string> {
 

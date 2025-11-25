@@ -52,10 +52,10 @@ export class XsmpcatScopeComputation implements ScopeComputation {
         //Export the Type
         exportedDescriptions.push(this.descriptions.createDescription(type, typeName, document));
 
-        const uuid = this.documlentationHelper.getUuid(type)?.toString().trim();
+        /*const uuid = this.documlentationHelper.getUuid(type)?.toString().trim();
         if(uuid) {
             exportedDescriptions.push(this.descriptions.createDescription(type, uuid, document));
-        }
+        }*/
         switch (type.$type) {
             case ast.Enumeration: {
                 const elementBaseName = `${typeName}.`;

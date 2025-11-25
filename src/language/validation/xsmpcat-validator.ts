@@ -108,10 +108,8 @@ export class XsmpcatValidator {
         const map = new MultiMap<string, AstNodeDescription>();
         for (const type of this.indexManager.allElements(ast.Type)) {
             if (type.node) {
-              //  const uuid = this.docHelper.getUuid(type.node as ast.Type)?.toString().trim();
-              const uuid = type.name;
-                if(XsmpUtils.isUUID(uuid)){
-              //  if (uuid) {
+                const uuid = this.docHelper.getUuid(type.node as ast.Type)?.toString().trim();
+                if (XsmpUtils.isUUID(uuid)) {
                     map.add(uuid, type);
                 }
             }
