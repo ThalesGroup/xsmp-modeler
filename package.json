@@ -41,7 +41,7 @@
         "p-limit": "^7.2.0",
         "vscode-languageclient": "~9.0.1",
         "vscode-languageserver": "~9.0.1",
-        "xmlbuilder2": "^4.0.0"
+        "xmlbuilder2": "^4.0.1"
     },
     "devDependencies": {
         "@types/node": "^24.0.0",
