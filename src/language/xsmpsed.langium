@@ -28,20 +28,20 @@ Activity returns Activity:
 
 
 CallOperation returns CallOperation:
-    'call' operationPath=Path '(' (parameters+=ParameterValue (',' parameters+=ParameterValue)*)? ')';
+    'call' name=ValidID ':' operationPath=Path '(' (parameters+=ParameterValue (',' parameters+=ParameterValue)*)? ')';
 
 SetProperty returns SetProperty:
-    'property' propertyPath=Path '=' value=SimpleValue;
+    'property' name=ValidID ':' propertyPath=Path '=' value=SimpleValue;
 
 Transfer returns Transfer:
-    'transfer' outputFieldPath=Path '->' inputFieldPath=Path;
+    'transfer' name=ValidID ':' outputFieldPath=Path '->' inputFieldPath=Path;
 
 Trigger returns Trigger:
-    'trig' entryPoint=Path;
+    'trig' name=ValidID ':' entryPoint=Path;
 
 
 ExecuteTask returns ExecuteTask:
-    'execute' task=[Task:QualifiedName] ('<' parameters+=TemplateArgument (',' parameters+=TemplateArgument)*'>')? ('at' root=Path)?;
+    'execute' name=ValidID ':' task=[Task:QualifiedName] ('<' parameters+=TemplateArgument (',' parameters+=TemplateArgument)*'>')? ('at' root=Path)?;
 
 TemplateArgument returns TemplateArgument:
     StringArgument | Int32Argument;
@@ -53,27 +53,27 @@ Int32Argument returns Int32Argument:
     parameter=[TemplateParameter:ValidID] '=' value=INT;
 
 EmitGlobalEvent returns EmitGlobalEvent:
-    asynchronous?='async'? 'emit' eventName=STRING;
+    asynchronous?='async'? 'emit' name=ValidID ':' eventName=STRING;
 
 Event returns Event:
     MissionEvent | EpochEvent | SimulationEvent | ZuluEvent /* | GlobalEventTriggeredEvent*/;
 
 MissionEvent returns MissionEvent:
-    'mission' 'event' name=ValidID ':'
-    task=[Task:QualifiedName] '=' missionTime=STRING;
+    'event' name=ValidID ':'
+    task=[Task:QualifiedName] 'mission' missionTime=STRING ('cycle' cycleTime=STRING ('repeat' repeatCount=INT)?)?;
 
 EpochEvent returns EpochEvent:
-    'epoch' 'event' name=ValidID ':'
-    task=[Task:QualifiedName] '=' epochTime=STRING;
+    'event' name=ValidID ':'
+    task=[Task:QualifiedName] 'epoch' epochTime=STRING ('cycle' cycleTime=STRING ('repeat' repeatCount=INT)?)?;
 
 
 SimulationEvent returns SimulationEvent:
-    'simulation' 'event' name=ValidID ':'
-    task=[Task:QualifiedName] '=' simulationTime=STRING;
+    'event' name=ValidID ':'
+    task=[Task:QualifiedName] 'simulation' simulationTime=STRING ('cycle' cycleTime=STRING ('repeat' repeatCount=INT)?)?;
 
 ZuluEvent returns ZuluEvent:
-    'zulu' 'event' name=ValidID ':'
-    task=[Task:QualifiedName] '=' zuluTime=STRING;
+    'event' name=ValidID ':'
+    task=[Task:QualifiedName] 'zulu' zuluTime=STRING ('cycle' cycleTime=STRING ('repeat' repeatCount=INT)?)?;
 
 Name returns string:
     ValidID;
@@ -89,7 +89,8 @@ ParameterValue returns ParameterValue:
     parameter=ValidID '=' value=SimpleValue;
 
 SimpleValue returns SimpleValue:
-    Int8Value | Int16Value | Int32Value | Int64Value | UInt8Value | UInt16Value | UInt32Value | UInt64Value | BoolValue | Float32Value | Float64Value | Char8Value | String8Value;
+    Int8Value | Int16Value | Int32Value | Int64Value | UInt8Value | UInt16Value | UInt32Value | EnumerationValue
+    | UInt64Value | BoolValue | Float32Value | Float64Value | Char8Value | String8Value | DurationValue | DateTimeValue;
 
 Int8Value returns Int8Value:
     value=INT'i8';
@@ -109,6 +110,8 @@ UInt64Value returns UInt64Value:
     value=INT'u64';
 BoolValue returns BoolValue:
     value?='true' | 'false';
+EnumerationValue returns EnumerationValue:
+    (value=INT'lit' | reference=[EnumerationLiteral:QualifiedName]);
 
 Float32Value returns Float32Value:
     value=FLOATING_LITERAL'f32';
@@ -121,9 +124,16 @@ Char8Value returns Char8Value:
 
 String8Value returns String8Value:
     value=STRING;
-//TODO handle duration and datetime values
+
+DurationValue returns DurationValue:
+    value=DURATION_STRING;
+
+DateTimeValue returns DateTimeValue:
+    value=DATETIME_STRING;
 
 hidden terminal WS: /\s+/;
+terminal DATETIME_STRING: /"[^"]*"dt/;
+terminal DURATION_STRING: /"[^"]*"d/;
 terminal STRING: /"[^"]*"/;
 terminal CHAR: /'[^']*'/;
 

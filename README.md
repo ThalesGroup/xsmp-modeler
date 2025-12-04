@@ -43,11 +43,11 @@ It includes:
 
 ### Visual Studio Code
 
-From [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=ydaveluy.xsmp-modeler&ssr=false#overview)
+From [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=ydaveluy.xsmp-modeler)
 
 ### Eclipse
 
-See [xsmp-modeler-eclipse](https://github.com/ThalesGroup/xsmp-modeler-eclipse/tree/gh-pages)
+See [xsmp-modeler-eclipse](https://github.com/ydaveluy/xsmp-modeler-eclipse/tree/gh-pages)
 
 ## Profiles
 
@@ -60,7 +60,7 @@ XSMP Modeler offers specific profiles to enhance its functionality:
 
 XSMP Modeler provides additional tools to extend its functionality:
 
-- **SMP Tool**: Generates SMP modeling files (smpcat, smppkg) from XSMP textual modeling files.
+- **SMP Tool**: Generates SMP modeling files (smpcat, smppkg, smpcfg, smplnk, smpasb) from XSMP textual modeling files.
 - **AsciiDoc Tool**: Generates AsciiDoc documentation from XSMP modeling files.
 
 ## Sponsors

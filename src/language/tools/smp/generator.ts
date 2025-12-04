@@ -7,6 +7,7 @@ import type * as xlink from './model/xlink.js';
 import type * as Configuration from './model/configuration.js';
 import type * as LinkBase from './model/linkbase.js';
 import type * as Assembly from './model/assembly.js';
+import type * as Schedule from './model/schedule.js';
 import * as XsmpUtils from '../../utils/xsmp-utils.js';
 
 import * as Duration from '../../utils/duration.js';
@@ -53,6 +54,9 @@ export class SmpGenerator implements XsmpGenerator {
                 break
             case ast.Assembly:
                 acceptTask(() => this.generateAssembly(node as ast.Assembly, projectUri, notice));
+                break
+            case ast.Schedule:
+                acceptTask(() => this.generateSchedule(node as ast.Schedule, projectUri, notice));
                 break
         }
 
@@ -699,7 +703,7 @@ export class SmpGenerator implements XsmpGenerator {
         const id = this.docHelper.getId(linkBase) ?? linkBase.name;
         return {
             '@xmlns:Elements': 'http://www.ecss.nl/smp/2019/Core/Elements',
-            '@xmlns:LinkBase': 'http://www.ecss.nl/smp/2019/Smdl/LinkBase',
+            '@xmlns:LinkBase': 'http://www.ecss.nl/smp/2025/Smdl/LinkBase',
             '@xmlns:xsd': 'http://www.w3.org/2001/XMLSchema',
             '@xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
             '@xmlns:xlink': 'http://www.w3.org/1999/xlink',
@@ -756,8 +760,8 @@ export class SmpGenerator implements XsmpGenerator {
         return {
             '@xmlns:Elements': 'http://www.ecss.nl/smp/2019/Core/Elements',
             '@xmlns:Types': 'http://www.ecss.nl/smp/2019/Core/Types',
-            '@xmlns:LinkBase': 'http://www.ecss.nl/smp/2019/Smdl/LinkBase',
-            '@xmlns:Assembly': 'http://www.ecss.nl/smp/2019/Smdl/Assembly',
+            '@xmlns:LinkBase': 'http://www.ecss.nl/smp/2025/Smdl/LinkBase',
+            '@xmlns:Assembly': 'http://www.ecss.nl/smp/2025/Smdl/Assembly',
             '@xmlns:xsd': 'http://www.w3.org/2001/XMLSchema',
             '@xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
             '@xmlns:xlink': 'http://www.w3.org/1999/xlink',
@@ -874,7 +878,7 @@ export class SmpGenerator implements XsmpGenerator {
         }
     }
 
-    convertParameterValue(value: ast.ParameterValue): Assembly.ParameterValue {
+    convertParameterValue(value: ast.ParameterValue): Assembly.ParameterValue | Schedule.ParameterValue {
         return { Value: this.convertValue(value.value), '@Parameter': value.parameter };
     }
 
@@ -883,6 +887,145 @@ export class SmpGenerator implements XsmpGenerator {
             '@EntryPointName': handler.entryPointName,
             '@GlobalEventName': handler.globalEventName
         };
+    }
+
+
+
+    async generateSchedule(schedule: ast.Schedule, projectUri: URI, notice: string | undefined): Promise<void> {
+        const outputDir = await this.createOutputDir(projectUri);
+        const smpcatFile = UriUtils.joinPath(outputDir, UriUtils.basename(schedule.$document?.uri as URI).replace(/\.xsmpasb$/, '.smpasb'));
+        fs.promises.writeFile(smpcatFile.fsPath, await this.doGenerateSchedule(schedule, notice));
+    }
+    async doGenerateSchedule(schedule: ast.Schedule, notice: string | undefined): Promise<string> {
+        const obj = {
+            '!notice': notice,
+            '!generatedBy': this.generatedBy(),
+            'Schedule:Schedule': await this.convertSchedule(schedule),
+        },
+            doc = create({ version: '1.0', encoding: 'UTF-8' }, obj);
+        return doc.end({ prettyPrint: true });
+    }
+
+    protected convertSchedule(schedule: ast.Schedule): Schedule.Schedule {
+        const id = this.docHelper.getId(schedule) ?? schedule.name;
+        return {
+            '@xmlns:Elements': 'http://www.ecss.nl/smp/2019/Core/Elements',
+            '@xmlns:Types': 'http://www.ecss.nl/smp/2019/Core/Types',
+            '@xmlns:LinkBase': 'http://www.ecss.nl/smp/2025/Smdl/LinkBase',
+            '@xmlns:Assembly': 'http://www.ecss.nl/smp/2025/Smdl/Assembly',
+            '@xmlns:Schedule': 'http://www.ecss.nl/smp/2025/Smdl/Schedule',
+            '@xmlns:xsd': 'http://www.w3.org/2001/XMLSchema',
+            '@xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
+            '@xmlns:xlink': 'http://www.w3.org/1999/xlink',
+            '@Id': id,
+            '@Name': schedule.name,
+            '@Title': this.docHelper.getTitle(schedule),
+            '@Date': this.convertDate(this.docHelper.getDate(schedule)),
+            '@Creator': this.docHelper.getCreator(schedule),
+            '@Version': this.docHelper.getVersion(schedule),
+            Description: this.docHelper.getDescription(schedule),
+            Metadata: schedule.attributes.map(this.convertMetadata, this),
+            Parameter: schedule.parameters.map(this.convertTemplateParameter, this),
+            '@EpochTime': schedule.epochTime,
+            '@MissionStart': schedule.missionStart,
+            Task: schedule.elements.filter(ast.isTask).map(this.convertTask, this),
+            Event: schedule.elements.filter(ast.isEvent).map(this.convertEvent, this),
+        };
+    }
+
+    convertTask(task: ast.Task): Schedule.Task {
+        return {
+            ...this.convertNamedElement(task),
+            Activity: task.elements.map(this.convertActivity, this)
+        };
+    }
+    convertActivity(activity: ast.Activity): Schedule.Activity {
+        switch (activity.$type) {
+            case ast.CallOperation:
+                return {
+                    '@xsi:type': 'Schedule:CallOperation',
+                    ...this.convertNamedElement(activity),
+                    OperationPath: (activity as ast.CallOperation).operationPath,
+                    Parameter: (activity as ast.CallOperation).parameters.map(this.convertParameterValue, this)
+                } as Schedule.CallOperation;
+            case ast.EmitGlobalEvent:
+                return {
+                    '@xsi:type': 'Schedule:CallOperation',
+                    ...this.convertNamedElement(activity),
+                    EventName: (activity as ast.EmitGlobalEvent).eventName,
+                    Synchronous: !(activity as ast.EmitGlobalEvent).asynchronous
+                } as Schedule.EmitGlobalEvent;
+            case ast.ExecuteTask:
+                return {
+                    '@xsi:type': 'Schedule:ExecuteTask',
+                    ...this.convertNamedElement(activity),
+                    Root: (activity as ast.ExecuteTask).root,
+                    Task: this.convertXlink((activity as ast.ExecuteTask).task),
+                    Argument: (activity as ast.ExecuteTask).parameters.map(this.convertTemplateArgument, this),
+                } as Schedule.ExecuteTask;
+            case ast.SetProperty:
+                return {
+                    '@xsi:type': 'Schedule:SetProperty',
+                    ...this.convertNamedElement(activity),
+                    PropertyPath: (activity as ast.SetProperty).propertyPath,
+                    Value: this.convertValue((activity as ast.SetProperty).value),
+                } as Schedule.SetProperty;
+            case ast.Transfer:
+                return {
+                    '@xsi:type': 'Schedule:Transfer',
+                    ...this.convertNamedElement(activity),
+                    OutputFieldPath: (activity as ast.Transfer).outputFieldPath,
+                    InputFieldPath: (activity as ast.Transfer).inputFieldPath,
+                } as Schedule.Transfer;
+            case ast.Trigger:
+                return {
+                    '@xsi:type': 'Schedule:Trigger',
+                    ...this.convertNamedElement(activity),
+                    EntryPoint: (activity as ast.Trigger).entryPoint,
+                } as Schedule.Trigger;
+            default:
+                return {
+                    '@xsi:type': 'Schedule:Activity',
+                    ...this.convertNamedElement(activity),
+                } as Schedule.Activity;
+        }
+    }
+
+    private convertEventBase(event: ast.Event): Schedule.Event {
+        return {
+            '@xsi:type': `Schedule:${event.$type}`,
+            ...this.convertNamedElement(event),
+            Task: this.convertXlink(event.task),
+            "@CycleTime": event.cycleTime,
+            "@RepeatCount": event.repeatCount,
+        };
+    }
+
+    convertEvent(event: ast.Event): Schedule.Event {
+        switch (event.$type) {
+            case ast.EpochEvent:
+                return {
+                    ...this.convertEventBase(event),
+                    '@EpochTime': (event as ast.EpochEvent).epochTime,
+                } as Schedule.EpochEvent;
+            case ast.MissionEvent:
+                return {
+                    ...this.convertEventBase(event),
+                    '@MissionTime': (event as ast.MissionEvent).missionTime,
+                } as Schedule.MissionEvent;
+            case ast.SimulationEvent:
+                return {
+                    ...this.convertEventBase(event),
+                    '@SimulationTime': (event as ast.SimulationEvent).simulationTime,
+                } as Schedule.SimulationEvent;
+            case ast.ZuluEvent:
+                return {
+                    ...this.convertEventBase(event),
+                    '@ZuluTime': (event as ast.ZuluEvent).zuluTime,
+                } as Schedule.ZuluEvent;
+            default:
+                return this.convertEventBase(event);
+        }
     }
 
     public async doGeneratePackage(catalogue: ast.Catalogue, notice: string | undefined): Promise<string> {

@@ -1,12 +1,9 @@
 
 export interface NamedElement {
-
     '@Id': string;
     '@Name': string;
-
     Description?: string;
     Metadata?: Metadata[];
-
 }
 
 export interface Document extends NamedElement {
@@ -18,7 +15,6 @@ export interface Document extends NamedElement {
 
 export interface Metadata extends NamedElement {
     '@xsi:type': string;
-
 }
 
 export interface Comment extends Metadata { }

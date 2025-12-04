@@ -7,7 +7,6 @@ interface NamedElement {
 }
 
 interface Document extends NamedElement {
-
 }
 
 
@@ -104,7 +103,7 @@ interface Catalogue extends Document {
 
 
 
-interface Attribute extends Metadata{
+interface Attribute extends Metadata {
     ^type: @Type
     value?: Expression
 }
@@ -410,15 +409,13 @@ interface GlobalEventHandler {
     globalEventName: string
 }
 
-interface ModelInstance extends NamedElement{
-
+interface ModelInstance extends NamedElement {
     implementation?: @Component
     strImplementation?:string
     elements: (GlobalEventHandler|SubInstance|Link|Invocation|FieldValue)[]
 }
 
-interface AssemblyInstance extends NamedElement{
-   
+interface AssemblyInstance extends NamedElement {
     assembly: @Assembly
     arguments: TemplateArgument[]
     configuration?:@Configuration
@@ -468,7 +465,7 @@ interface ConfigurationUsage {
 
 
 
-interface LinkBase extends Document{
+interface LinkBase extends Document {
     elements: ComponentLinkBase[]
 }
 
@@ -494,28 +491,26 @@ interface InterfaceLink extends Link {
 
 
 
-interface Schedule extends Document{
+interface Schedule extends Document {
     parameters: TemplateParameter[]
     elements:(Task|Event)[]
     epochTime?:string
     missionStart?:string
 }
 
-interface Task {
-    name: string
+interface Task extends NamedElement {
     elements: Activity[]
 }
 
 
-interface Event {
-    name: string
+interface Event extends NamedElement {
     task: @Task
     cycleTime: string="PT0S"
-    repeatCount: number=0
+    repeatCount?: bigint
 }
 
 interface GlobalEventTriggeredEvent extends Event {
-    delay?:number
+    delay?:bigint
     startEvent:string
     stopEvent?:string
     //timeKind
@@ -535,7 +530,7 @@ interface ZuluEvent extends Event {
     zuluTime:string
 }
 
-interface Activity {
+interface Activity extends NamedElement {
 }
 
 

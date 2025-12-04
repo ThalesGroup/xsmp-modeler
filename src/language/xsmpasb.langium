@@ -123,7 +123,7 @@ UInt32Value returns UInt32Value:
 UInt64Value returns UInt64Value:
     value=INT'u64';
 EnumerationValue returns EnumerationValue:
-    value=INT'lit';
+    (value=INT'lit' | reference=[EnumerationLiteral:QualifiedName]);
 BoolValue returns BoolValue:
     value?='true' | 'false';
 
@@ -170,7 +170,7 @@ hidden terminal SL_COMMENT: /\/\/[^\n\r]*/;
 
 
 QualifiedName returns string:
-     ValidID ('.' ValidID)+;
+    ValidID ('.' ValidID)+;
 
 ValidID returns string:
     ID | 'string' | 'int32' | 'assembly';

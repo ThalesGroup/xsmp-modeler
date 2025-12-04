@@ -41,22 +41,22 @@
         "p-limit": "^7.2.0",
         "vscode-languageclient": "~9.0.1",
         "vscode-languageserver": "~9.0.1",
-        "xmlbuilder2": "^4.0.0"
+        "xmlbuilder2": "^4.0.3"
     },
     "devDependencies": {
         "@types/node": "^24.0.0",
         "@types/vscode": "~1.82.0",
-        "@vitest/coverage-v8": "^4.0.13",
+        "@vitest/coverage-v8": "^4.0.15",
         "@vscode/vsce": "^3.7.1",
         "concurrently": "^9.2.1",
-        "esbuild": "^0.27.0",
+        "esbuild": "^0.27.1",
         "esbuild-plugin-copy": "^2.1.1",
         "eslint": "^9.39.1",
         "langium-cli": "^3.5.2",
         "shx": "^0.4.0",
         "typescript": "^5.9.3",
-        "typescript-eslint": "^8.47.0",
-        "vitest": "^4.0.13"
+        "typescript-eslint": "^8.48.1",
+        "vitest": "^4.0.15"
     },
     "volta": {
         "node": "18.19.1",
