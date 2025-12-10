@@ -424,7 +424,7 @@ export class SmpGenerator implements XsmpGenerator {
         return fileName;
     }
 
-    protected convertXlink(link: Reference<ast.NamedElement>, context?: AstNode): xlink.Xlink {
+    protected convertXlink(link: Reference<ast.NamedElement>, context: AstNode | undefined): xlink.Xlink {
         if (link.ref) {
             const refDoc = AstUtils.getDocument(link.ref);
             const doc = context ? AstUtils.getDocument(context) : undefined;
@@ -568,7 +568,7 @@ export class SmpGenerator implements XsmpGenerator {
             Description: this.docHelper.getDescription(catalogue),
             Metadata: catalogue.attributes.map(this.convertMetadata, this),
             Implementation: AstUtils.streamAllContents(catalogue).filter(ast.isType).filter(e => !ast.isInterface(e)).map(e =>
-                this.convertXlink({ ref: e, $refText: e.name })).toArray(),
+                this.convertXlink({ ref: e, $refText: e.name }, undefined)).toArray(),
             Dependency: dependencies.map(e => ({ '@xlink:title': e.name, '@xlink:href': `${UriUtils.basename(AstUtils.getDocument(e).uri).replace(/\.xsmpcat$/, '.smppkg')}#${this.docHelper.getId(e) ?? '_' + XsmpUtils.fqn(e)}` }), this),
         };
     }
@@ -601,8 +601,8 @@ export class SmpGenerator implements XsmpGenerator {
 
     async generateConfiguration(configuration: ast.Configuration, projectUri: URI, notice: string | undefined): Promise<void> {
         const outputDir = await this.createOutputDir(projectUri);
-        const smpcatFile = UriUtils.joinPath(outputDir, UriUtils.basename(configuration.$document?.uri as URI).replace(/\.xsmpcfg$/, '.smpcfg'));
-        fs.promises.writeFile(smpcatFile.fsPath, await this.doGenerateConfiguration(configuration, notice));
+        const smpcfgFile = UriUtils.joinPath(outputDir, UriUtils.basename(configuration.$document?.uri as URI).replace(/\.xsmpcfg$/, '.smpcfg'));
+        fs.promises.writeFile(smpcfgFile.fsPath, await this.doGenerateConfiguration(configuration, notice));
 
     }
     async doGenerateConfiguration(configuration: ast.Configuration, notice: string | undefined): Promise<string> {
@@ -686,8 +686,8 @@ export class SmpGenerator implements XsmpGenerator {
 
     async generateLinkBase(linkBase: ast.LinkBase, projectUri: URI, notice: string | undefined): Promise<void> {
         const outputDir = await this.createOutputDir(projectUri);
-        const smpcatFile = UriUtils.joinPath(outputDir, UriUtils.basename(linkBase.$document?.uri as URI).replace(/\.xsmplnk$/, '.smplnk'));
-        fs.promises.writeFile(smpcatFile.fsPath, await this.doGenerateLinkBase(linkBase, notice));
+        const smplnkFile = UriUtils.joinPath(outputDir, UriUtils.basename(linkBase.$document?.uri as URI).replace(/\.xsmplnk$/, '.smplnk'));
+        fs.promises.writeFile(smplnkFile.fsPath, await this.doGenerateLinkBase(linkBase, notice));
     }
     async doGenerateLinkBase(linkBase: ast.LinkBase, notice: string | undefined): Promise<string> {
         const obj = {
@@ -742,8 +742,8 @@ export class SmpGenerator implements XsmpGenerator {
 
     async generateAssembly(assembly: ast.Assembly, projectUri: URI, notice: string | undefined): Promise<void> {
         const outputDir = await this.createOutputDir(projectUri);
-        const smpcatFile = UriUtils.joinPath(outputDir, UriUtils.basename(assembly.$document?.uri as URI).replace(/\.xsmpasb$/, '.smpasb'));
-        fs.promises.writeFile(smpcatFile.fsPath, await this.doGenerateAssembly(assembly, notice));
+        const smpasbFile = UriUtils.joinPath(outputDir, UriUtils.basename(assembly.$document?.uri as URI).replace(/\.xsmpasb$/, '.smpasb'));
+        fs.promises.writeFile(smpasbFile.fsPath, await this.doGenerateAssembly(assembly, notice));
     }
     async doGenerateAssembly(assembly: ast.Assembly, notice: string | undefined): Promise<string> {
         const obj = {
@@ -893,8 +893,8 @@ export class SmpGenerator implements XsmpGenerator {
 
     async generateSchedule(schedule: ast.Schedule, projectUri: URI, notice: string | undefined): Promise<void> {
         const outputDir = await this.createOutputDir(projectUri);
-        const smpcatFile = UriUtils.joinPath(outputDir, UriUtils.basename(schedule.$document?.uri as URI).replace(/\.xsmpasb$/, '.smpasb'));
-        fs.promises.writeFile(smpcatFile.fsPath, await this.doGenerateSchedule(schedule, notice));
+        const smpsedFile = UriUtils.joinPath(outputDir, UriUtils.basename(schedule.$document?.uri as URI).replace(/\.xsmpsed$/, '.smpsed'));
+        fs.promises.writeFile(smpsedFile.fsPath, await this.doGenerateSchedule(schedule, notice));
     }
     async doGenerateSchedule(schedule: ast.Schedule, notice: string | undefined): Promise<string> {
         const obj = {
@@ -944,49 +944,56 @@ export class SmpGenerator implements XsmpGenerator {
             case ast.CallOperation:
                 return {
                     '@xsi:type': 'Schedule:CallOperation',
-                    ...this.convertNamedElement(activity),
+                    '@Id': "this.getId(element)",
+                    '@Name': "element.name",
                     OperationPath: (activity as ast.CallOperation).operationPath,
                     Parameter: (activity as ast.CallOperation).parameters.map(this.convertParameterValue, this)
                 } as Schedule.CallOperation;
             case ast.EmitGlobalEvent:
                 return {
                     '@xsi:type': 'Schedule:CallOperation',
-                    ...this.convertNamedElement(activity),
+                    '@Id': "this.getId(element)",
+                    '@Name': "element.name",
                     EventName: (activity as ast.EmitGlobalEvent).eventName,
                     Synchronous: !(activity as ast.EmitGlobalEvent).asynchronous
                 } as Schedule.EmitGlobalEvent;
             case ast.ExecuteTask:
                 return {
                     '@xsi:type': 'Schedule:ExecuteTask',
-                    ...this.convertNamedElement(activity),
+                    '@Id': "this.getId(element)",
+                    '@Name': "element.name",
                     Root: (activity as ast.ExecuteTask).root,
-                    Task: this.convertXlink((activity as ast.ExecuteTask).task),
-                    Argument: (activity as ast.ExecuteTask).parameters.map(this.convertTemplateArgument, this),
+                    Task: this.convertXlink((activity as ast.ExecuteTask).task, activity),
+                    Argument: (activity as ast.ExecuteTask).parameter.map(this.convertTemplateArgument, this),
                 } as Schedule.ExecuteTask;
             case ast.SetProperty:
                 return {
                     '@xsi:type': 'Schedule:SetProperty',
-                    ...this.convertNamedElement(activity),
+                    '@Id': "this.getId(element)",
+                    '@Name': "element.name",
                     PropertyPath: (activity as ast.SetProperty).propertyPath,
                     Value: this.convertValue((activity as ast.SetProperty).value),
                 } as Schedule.SetProperty;
             case ast.Transfer:
                 return {
                     '@xsi:type': 'Schedule:Transfer',
-                    ...this.convertNamedElement(activity),
+                    '@Id': "this.getId(element)",
+                    '@Name': "element.name",
                     OutputFieldPath: (activity as ast.Transfer).outputFieldPath,
                     InputFieldPath: (activity as ast.Transfer).inputFieldPath,
                 } as Schedule.Transfer;
             case ast.Trigger:
                 return {
                     '@xsi:type': 'Schedule:Trigger',
-                    ...this.convertNamedElement(activity),
+                    '@Id': "this.getId(element)",
+                    '@Name': "element.name",
                     EntryPoint: (activity as ast.Trigger).entryPoint,
                 } as Schedule.Trigger;
             default:
                 return {
                     '@xsi:type': 'Schedule:Activity',
-                    ...this.convertNamedElement(activity),
+                    '@Id': "this.getId(element)",
+                    '@Name': "element.name",
                 } as Schedule.Activity;
         }
     }
@@ -994,8 +1001,9 @@ export class SmpGenerator implements XsmpGenerator {
     private convertEventBase(event: ast.Event): Schedule.Event {
         return {
             '@xsi:type': `Schedule:${event.$type}`,
-            ...this.convertNamedElement(event),
-            Task: this.convertXlink(event.task),
+            '@Id': "this.getId(element)",
+            '@Name': "element.name",
+            Task: this.convertXlink(event.task, event),
             "@CycleTime": event.cycleTime,
             "@RepeatCount": event.repeatCount,
         };

@@ -503,7 +503,7 @@ interface Task extends NamedElement {
 }
 
 
-interface Event extends NamedElement {
+interface Event {
     task: @Task
     cycleTime: string="PT0S"
     repeatCount?: bigint
@@ -530,13 +530,13 @@ interface ZuluEvent extends Event {
     zuluTime:string
 }
 
-interface Activity extends NamedElement {
+interface Activity {
 }
 
 
 interface ExecuteTask extends Activity {
     task:@Task
-    parameters: TemplateArgument[]
+    parameter: TemplateArgument[]
     root?:string
 }
 

@@ -6,6 +6,8 @@ import { XsmpCommentProvider } from './lsp/comment-provider.js';
 import type { XsmpServices } from './xsmp-module.js';
 import { XsmpDocumentationProvider } from './lsp/documentation-provider.js';
 import { XsmpRenameProvider } from './lsp/xsmp-rename-provider.js';
+import { XsmpsedScopeComputation } from './references/xsmpsed-scope-computation.js';
+import { XsmpsedScopeProvider } from './references/xsmpsed-scope-provider.js';
 
 /**
  * Declaration of Xsmp services.
@@ -28,15 +30,14 @@ export type XsmpsedServices = XsmpServices & XsmpsedAddedServices
  */
 export const XsmpsedModule: Module<XsmpsedServices, PartialLangiumServices & XsmpsedAddedServices> = {
     references: {
-        //  ScopeProvider: (services) => new XsmpasbScopeProvider(services),
-        //ScopeComputation: (services) => new XsmplnkScopeComputation(services),
+        ScopeProvider: (services) => new XsmpsedScopeProvider(services),
+        ScopeComputation: (services) => new XsmpsedScopeComputation(services),
     },
     validation: {
     },
     lsp: {
         //  Formatter: () => new XsmpasbFormatter(),
         DocumentSymbolProvider: (services) => new XsmpDocumentSymbolProvider(services),
-
         RenameProvider: (services) => new XsmpRenameProvider(services),
     },
     parser:

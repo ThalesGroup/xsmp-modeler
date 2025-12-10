@@ -2,7 +2,7 @@
 	"scopeName": "source.xsmpsed",
 	"patterns": [
 		{
-			"match": "\\b(schedule|task|call|property|transfer|trig|execute|async|emit|mission|epoch|simulation|zulu|event|at)\\b",
+			"match": "\\b(schedule|task|call|property|transfer|trig|execute|async|emit|mission|epoch|simulation|zulu|event|at|cycle|repeat)\\b",
 			"name": "keyword.control.xsmp.sed"
 		},
 		{

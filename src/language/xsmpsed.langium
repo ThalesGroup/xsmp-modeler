@@ -3,7 +3,9 @@ grammar Xsmpsed
 import 'xsmp-types'
 
 entry Schedule returns Schedule:
-    'schedule' ('<' parameters+=TemplateParameter (',' parameters+=TemplateParameter)*'>')? name=Name
+    'schedule' ('<' parameters+=TemplateParameter (',' parameters+=TemplateParameter)*'>')? name=ValidID
+
+    (('epoch' epochTime=STRING) ('mission' missionStart=STRING)? | ('mission' missionStart=STRING) ('epoch' epochTime=STRING)?)?
     elements+=(Task|Event)*;
 
 
@@ -28,20 +30,20 @@ Activity returns Activity:
 
 
 CallOperation returns CallOperation:
-    'call' name=ValidID ':' operationPath=Path '(' (parameters+=ParameterValue (',' parameters+=ParameterValue)*)? ')';
+    'call' operationPath=Path '(' (parameters+=ParameterValue (',' parameters+=ParameterValue)*)? ')';
 
 SetProperty returns SetProperty:
-    'property' name=ValidID ':' propertyPath=Path '=' value=SimpleValue;
+    'property' propertyPath=Path '=' value=SimpleValue;
 
 Transfer returns Transfer:
-    'transfer' name=ValidID ':' outputFieldPath=Path '->' inputFieldPath=Path;
+    'transfer' outputFieldPath=Path '->' inputFieldPath=Path;
 
 Trigger returns Trigger:
-    'trig' name=ValidID ':' entryPoint=Path;
+    'trig' entryPoint=Path;
 
 
 ExecuteTask returns ExecuteTask:
-    'execute' name=ValidID ':' task=[Task:QualifiedName] ('<' parameters+=TemplateArgument (',' parameters+=TemplateArgument)*'>')? ('at' root=Path)?;
+    'execute' task=[Task:QualifiedName] ('<' parameter+=TemplateArgument (',' parameter+=TemplateArgument)*'>')? ('at' root=Path)?;
 
 TemplateArgument returns TemplateArgument:
     StringArgument | Int32Argument;
@@ -53,26 +55,27 @@ Int32Argument returns Int32Argument:
     parameter=[TemplateParameter:ValidID] '=' value=INT;
 
 EmitGlobalEvent returns EmitGlobalEvent:
-    asynchronous?='async'? 'emit' name=ValidID ':' eventName=STRING;
+    asynchronous?='async'? 'emit' eventName=STRING;
 
 Event returns Event:
-    MissionEvent | EpochEvent | SimulationEvent | ZuluEvent /* | GlobalEventTriggeredEvent*/;
+    MissionEvent | EpochEvent | SimulationEvent | ZuluEvent // | GlobalEventTriggeredEvent
+;
 
 MissionEvent returns MissionEvent:
-    'event' name=ValidID ':'
+    'event'
     task=[Task:QualifiedName] 'mission' missionTime=STRING ('cycle' cycleTime=STRING ('repeat' repeatCount=INT)?)?;
 
 EpochEvent returns EpochEvent:
-    'event' name=ValidID ':'
+    'event'
     task=[Task:QualifiedName] 'epoch' epochTime=STRING ('cycle' cycleTime=STRING ('repeat' repeatCount=INT)?)?;
 
 
 SimulationEvent returns SimulationEvent:
-    'event' name=ValidID ':'
+    'event'
     task=[Task:QualifiedName] 'simulation' simulationTime=STRING ('cycle' cycleTime=STRING ('repeat' repeatCount=INT)?)?;
 
 ZuluEvent returns ZuluEvent:
-    'event' name=ValidID ':'
+    'event'
     task=[Task:QualifiedName] 'zulu' zuluTime=STRING ('cycle' cycleTime=STRING ('repeat' repeatCount=INT)?)?;
 
 Name returns string:
