@@ -1,5 +1,5 @@
 
-import * as fs from 'fs'
+import * as fs from 'node:fs'
 
 const INPUT_FILE = "./src/language/generated/ast.ts";
 const OUTPUT_FILE = "./src/language/generated/ast-partial.ts";

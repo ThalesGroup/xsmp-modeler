@@ -1,4 +1,4 @@
-import * as fs from 'fs';
+import * as fs from 'node:fs';
 import * as ast from '../../generated/ast.js';
 import { type URI, UriUtils, type AstNode, type Reference, AstUtils, isReference } from 'langium';
 import { type TaskAcceptor, type XsmpGenerator } from '../../generator/generator.js';
@@ -102,7 +102,7 @@ export class ADocGenerator implements XsmpGenerator {
         if (!str) {
             return '';
         }
-        return str.replace(/\|/g, '\\|');
+        return str.replaceAll('\|', '\\|');
     }
 
     /**

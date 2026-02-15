@@ -10,7 +10,7 @@ export function getCopyrightNotice(document: LangiumDocument | undefined, prefix
         return notice;
     }
     if (notice) {
-        return prefix + notice.replace(/\r?\n/g, `\n${prefix}`);
+        return prefix + notice.replaceAll(/\r?\n/g, `\n${prefix}`);
     }
     return undefined;
 }
@@ -41,7 +41,7 @@ function computeCopyrightNotice(document: LangiumDocument): string | undefined {
             }
 
             return processVariables(
-                node.text.replace(mlEndsPattern, '')
+                node.text.replaceAll(mlEndsPattern, '')
                     .replaceAll(mlMiddlePattern, '\n')
                     .trim()
             );

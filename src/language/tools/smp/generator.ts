@@ -14,7 +14,7 @@ import * as Duration from '../../utils/duration.js';
 
 import type { AstNode, JSDocParagraph, Reference, URI } from 'langium';
 import { AstUtils, UriUtils } from 'langium';
-import * as fs from 'fs';
+import * as fs from 'node:fs';
 import * as Solver from '../../utils/solver.js';
 import { isGeneratedBy, type TaskAcceptor, type XsmpGenerator } from '../../generator/generator.js';
 import { create } from 'xmlbuilder2';

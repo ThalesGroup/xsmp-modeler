@@ -99,11 +99,11 @@ export class XsmpValueConverter extends DefaultValueConverter {
                 } else if (ch === 'u' || ch === 'U') {
                     const hexLength = ch === 'u' ? 4 : 8,
                         hexCode = str.slice(i, i + hexLength);
-                    result += String.fromCodePoint(parseInt(hexCode, 16));
+                    result += String.fromCodePoint(Number.parseInt(hexCode, 16));
                     i += hexLength;
                 } else if (ch === 'x') {
                     const hexCode = str.slice(i, i + 2);
-                    result += String.fromCharCode(parseInt(hexCode, 16));
+                    result += String.fromCodePoint(Number.parseInt(hexCode, 16));
                     i += 2;
                 } else if (ch >= '0' && ch <= '7') {
 
@@ -118,7 +118,7 @@ export class XsmpValueConverter extends DefaultValueConverter {
                         octalCode += ch;
                         i++;
                     }
-                    result += String.fromCharCode(parseInt(octalCode, 8));
+                    result += String.fromCodePoint(Number.parseInt(octalCode, 8));
                 } else {
                     result += ch;
                 }

@@ -1,11 +1,11 @@
 import * as ast from '../../generated/ast.js';
 import { type AstNode, AstUtils, type JSDocElement, type JSDocTag, type URI, UriUtils, WorkspaceCache } from 'langium';
-import * as fs from 'fs';
+import * as fs from 'node:fs';
 import type { TaskAcceptor, XsmpGenerator } from '../generator.js';
 import { escape, fqn, getAccessKind, getNodeType, getPTK, isAbstractType, isInput, isOutput, isState } from '../../utils/xsmp-utils.js';
 import * as CopyrightNoticeProvider from '../copyright-notice-provider.js';
 import { expandToString as s } from 'langium/generate';
-import * as Path from 'path';
+import * as Path from 'node:path';
 import { format as ClangFormat } from './clang-format.js';
 import type { XsmpSharedServices } from '../../xsmp-module.js';
 import type { XsmpTypeProvider } from '../../references/type-provider.js';

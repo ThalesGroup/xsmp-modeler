@@ -1,4 +1,4 @@
-import { spawn, spawnSync } from 'child_process';
+import { spawn, spawnSync } from 'node:child_process';
 const clangFormatCommand = process.platform.startsWith('win') ? 'clang-format.exe' : 'clang-format';
 const isClangFormatAvailable = computeIsClangFormatAvailable();
 

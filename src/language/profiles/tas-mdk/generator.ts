@@ -6,7 +6,7 @@ import { expandToString as s } from 'langium/generate';
 import { getAccessKind, isInput, isOutput, isState, isAbstractType } from '../../utils/xsmp-utils.js';
 import { VisibilityKind } from '../../utils/visibility-kind.js';
 import { xsmpVersion } from '../../version.js';
-import * as Path from 'path';
+import * as Path from 'node:path';
 import { AstUtils } from 'langium';
 
 export class TasMdkGenerator extends GapPatternCppGenerator {
