@@ -15,6 +15,7 @@ import { xsmpVersion } from '../../version.js';
 import { OperatorKind } from '../../utils/operator-kind.js';
 import { type DocumentationHelper } from '../../utils/documentation-helper.js';
 import { type AttributeHelper } from '../../utils/attribute-helper.js';
+import { ViewKind } from '../../utils/view_kind.js';
 
 export enum CxxStandard { CXX_STD_11 = 0, CXX_STD_14 = 1, CXX_STD_17 = 2 }
 
@@ -493,8 +494,13 @@ export abstract class CppGenerator implements XsmpGenerator {
 
     protected viewKind(element: ast.Property | ast.Field | ast.Operation | ast.EntryPoint, defaultViewKind: string = '::Smp::ViewKind::VK_All'): string {
         const vk = this.attrHelper.getViewKind(element);
-        if (vk) {
-            return this.expression(vk);
+        if (vk !== undefined) {
+            switch (vk) {
+                case ViewKind.VK_None: return '::Smp::ViewKind::VK_None';
+                case ViewKind.VK_Debug: return '::Smp::ViewKind::VK_Debug';
+                case ViewKind.VK_Expert: return '::Smp::ViewKind::VK_Expert';
+                case ViewKind.VK_All: return '::Smp::ViewKind::VK_All';
+            }
         }
         return defaultViewKind;
     }
@@ -1038,7 +1044,7 @@ export abstract class CppGenerator implements XsmpGenerator {
             default: return undefined;
         }
     }
-    
+
     protected finalize(element: ast.NamedElement): string | undefined {
         switch (element.$type) {
             case ast.Association: return this.finalizeAssociation(element as ast.Association);

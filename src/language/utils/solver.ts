@@ -1,7 +1,7 @@
 import * as ast from '../generated/ast-partial.js';
 import { AstUtils, diagnosticData, type ValidationAcceptor } from 'langium';
 import * as Duration from './duration.js';
-import { fqn, getPTK, isConstantVisibleFrom } from './xsmp-utils.js';
+import { escape, fqn, getPTK, isConstantVisibleFrom } from './xsmp-utils.js';
 import { type FloatingPTK, type IntegralPTK, isFloatingType, isIntegralType, PTK } from './primitive-type-kind.js';
 
 import { Location } from 'vscode-languageserver';
@@ -66,6 +66,7 @@ export class BoolValue extends Value<BoolValue> {
         super();
         this.value = value;
     }
+    override toString(): string { return this.value.toString(); }
     override not(): BoolValue { return new BoolValue(!this.value); }
     override getValue(): boolean { return this.value; }
     override primitiveTypeKind(): PTK { return PTK.Bool; }
@@ -79,6 +80,7 @@ export class StringValue extends Value<StringValue> {
         super();
         this.value = value;
     }
+    override toString(): string { return `"${escape(this.value.toString())}"`; }
     override getValue(): string { return this.value; }
     override primitiveTypeKind(): PTK { return PTK.String8; }
     override stringValue(): this | undefined { return this; }
@@ -118,6 +120,7 @@ export class CharValue extends Value<CharValue> {
         super();
         this.value = value;
     }
+    override toString(): string { return `'${escape(this.value.toString())}'`; }
     override getValue(): string { return this.value; }
     override primitiveTypeKind(): PTK { return PTK.Char8; }
     override charValue(): this | undefined { return this; }
@@ -129,6 +132,7 @@ export class EnumerationLiteralValue extends Value<EnumerationLiteralValue> {
         super();
         this.value = value;
     }
+    override toString(): string { return this.value.name??''; }
     override getValue(): ast.EnumerationLiteral { return this.value; }
     override enumerationLiteral(): this { return this; }
     override primitiveTypeKind(): PTK { return PTK.Enum; }
@@ -202,6 +206,7 @@ export class IntegralValue extends Value<IntegralValue> {
         this.type = type;
 
     }
+    override toString(): string { return this.value.toString(); }
     override getValue(): bigint { return this.value; }
     override primitiveTypeKind(): IntegralPTK { return this.type; }
     override boolValue(): BoolValue { return new BoolValue(this.value !== BigInt(0)); }
@@ -271,6 +276,7 @@ export class FloatValue extends Value<FloatValue> {
         }
         return new FloatValue(parseFloat(text), PTK.Float64);
     }
+    override toString(): string { return this.value.toString(); }
 
     override getValue(): number { return this.value; }
     override primitiveTypeKind(): FloatingPTK { return this.type; }

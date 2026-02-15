@@ -8,6 +8,8 @@ import { fqn, getRealVisibility } from './xsmp-utils.js';
 import * as Solver from './solver.js';
 import { OperatorKind } from './operator-kind.js';
 import { VisibilityKind } from './visibility-kind.js';
+import { ViewKind } from './view_kind.js';
+import { PTK } from './primitive-type-kind.js';
 
 export type Attributes = 'Attributes.Static'
     | 'Attributes.Const' | 'Attributes.Mutable'
@@ -173,10 +175,37 @@ export class AttributeHelper {
             this.attributeBoolValue(element, 'Attributes.SimpleArray') ?? false
         ) as boolean;
     }
-    getViewKind(node: astPartial.Property | astPartial.Field | astPartial.Operation | astPartial.EntryPoint): astPartial.Expression | undefined {
+    getViewKind(node: astPartial.Property | astPartial.Field | astPartial.Operation | astPartial.EntryPoint): ViewKind | undefined {
         return this.cache.get({ key: 'getViewKind', node: node }, () =>
-            this.attribute(node, 'Attributes.View')?.value
-        ) as astPartial.Expression | undefined;
+            this.computeViewKind(node)
+        ) as ViewKind | undefined;
+    }
+    private computeViewKind(node: astPartial.NamedElement): ViewKind | undefined {
+        const expr = Solver.getValue(this.attribute(node, 'Attributes.View')?.value);
+        if (!expr) {
+            return undefined;
+        }
+        const literal = expr.enumerationLiteral()?.getValue();
+        if (literal !== undefined) {
+            switch (literal.name) {
+                case 'VK_None': return ViewKind.VK_None;
+                case 'VK_Debug': return ViewKind.VK_Debug;
+                case 'VK_Expert': return ViewKind.VK_Expert;
+                case 'VK_All': return ViewKind.VK_All;
+                default: return undefined;
+            }
+        }
+        const integral = expr.integralValue(PTK.Int32)?.getValue();
+        if (integral !== undefined) {
+            switch (integral) {
+                case BigInt(0): return ViewKind.VK_None;
+                case BigInt(1): return ViewKind.VK_Debug;
+                case BigInt(2): return ViewKind.VK_Expert;
+                case BigInt(3): return ViewKind.VK_All;
+                default: return undefined;
+            }
+        }
+        return undefined;
     }
 
     /**

@@ -12,6 +12,7 @@ import type { ProjectManager } from './project-manager.js';
 import { TasMdkGenerator } from '../profiles/tas-mdk/generator.js';
 import { TasMdkPythonGenerator } from '../profiles/tas-mdk/python-generator.js';
 import { EsaCdkGenerator } from '../profiles/esa-cdk/generator.js';
+import { ADocGenerator } from '../tools/adoc/generator.js';
 
 const limit = pLimit(8);
 
@@ -27,6 +28,7 @@ export class XsmpDocumentGenerator {
     protected readonly tasMdkGenerator: TasMdkGenerator;
     protected readonly tasMdkPythonGenerator: TasMdkPythonGenerator;
     protected readonly esaCdkGenerator: EsaCdkGenerator;
+    protected readonly adocGenerator: ADocGenerator;
 
     constructor(services: XsmpSharedServices) {
         this.langiumDocuments = services.workspace.LangiumDocuments;
@@ -42,6 +44,7 @@ export class XsmpDocumentGenerator {
         this.tasMdkPythonGenerator = new TasMdkPythonGenerator(services);
 
         this.esaCdkGenerator = new EsaCdkGenerator(services);
+        this.adocGenerator = new ADocGenerator(services);
     }
 
     private isValid(document: LangiumDocument): boolean {
@@ -94,7 +97,7 @@ export class XsmpDocumentGenerator {
                     break;
                 case 'org.eclipse.xsmp.tool.adoc':
                 case 'adoc':
-                    //TODO
+                    this.adocGenerator.clean(projectUri);
                     break;
                 case 'org.eclipse.xsmp.tool.python':
                 case 'python':
@@ -135,7 +138,7 @@ export class XsmpDocumentGenerator {
                     break;
                 case 'org.eclipse.xsmp.tool.adoc':
                 case 'adoc':
-                    //TODO
+                    documents.forEach(doc => this.adocGenerator.generate(doc.parseResult.value, projectUri, taskAcceptor));
                     break;
                 case 'org.eclipse.xsmp.tool.python':
                 case 'python':

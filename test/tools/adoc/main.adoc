@@ -1,0 +1,7 @@
+:doctype: book
+:toc:
+:pdf-themesdir: {docdir}
+
+= Catalogue document
+
+include::Test-gen.adoc[]

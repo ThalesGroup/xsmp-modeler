@@ -1,0 +1,41 @@
+extends: default
+page:
+  margin: [1.5in, 0.75in]
+  numbering:
+    start_at: title
+base:
+  font-family: Helvetica
+running_content:
+  start_at: title
+header:
+  height: 1.25in
+  border-width: 0.25
+  border-color: #DDDDDD
+  recto:
+    right:
+      content: |
+        *Date:* {localdatetime} +
+        *Page:* {page-number}/{page-count}
+  verso:
+    right:
+      content: $header-recto-right-content
+footer:
+  height: 0.85in
+  font-size: 9
+  recto:
+    left:
+      content: ''
+    center:
+      content: |
+        *XSMP* +
+        This document has been automatically generated using the Adoc tool from XSMP Modeler. +
+        © {localyear}, All Rights Reserved
+    right:
+      content: ''
+  verso:
+    left:
+      content: $footer-recto-left-content
+    center:
+      content: $footer-recto-center-content
+    right:
+      content: $footer-recto-right-content
