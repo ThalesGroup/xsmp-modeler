@@ -35,7 +35,7 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
                 acceptor(context, this.createSnippetItem('field link', 'field link ${1:owner} -> ${2:client}', 'Field Link'));
                 break;
             case 'interface':
-                acceptor(context, this.createSnippetItem('interface link', 'interface link ${1:owner} : ${2:reference} -> ${3:client}${4:: ${5:backReference}}', 'Interface Link'));
+                acceptor(context, this.createSnippetItem('interface link', 'interface link ${1:sourcePath} -> ${2:client}${3::${4:backReference}}', 'Interface Link'));
                 break;
         }
     }
@@ -159,7 +159,7 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
             ));
             acceptor(context, this.createSnippetItem('Event Link', 'event link ${1:owner} -> ${2:client}', 'Event Link'));
             acceptor(context, this.createSnippetItem('Field Link', 'field link ${1:owner} -> ${2:client}', 'Field Link'));
-            acceptor(context, this.createSnippetItem('Interface Link', 'interface link ${1:owner} : ${2:reference} -> ${3:client}${4:: ${5:backReference}}', 'Interface Link'));
+            acceptor(context, this.createSnippetItem('Interface Link', 'interface link ${1:sourcePath} -> ${2:client}${3::${4:backReference}}', 'Interface Link'));
             return;
         }
 

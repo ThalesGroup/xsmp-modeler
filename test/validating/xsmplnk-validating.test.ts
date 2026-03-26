@@ -167,8 +167,8 @@ Root: demo.Root
 
 /
 {
-    interface link . : logger -> child : backLogger
-    interface link . : logger -> .
+    interface link logger -> child:backLogger
+    interface link logger -> .
 }
 `, `assembly DemoAsm
 

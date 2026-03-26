@@ -497,8 +497,9 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
                             && ast.isReferenceType(candidate.interface?.ref)
                             && XsmpUtils.isBaseOfReferenceType(candidate.interface.ref, ownerContext.component)
                         );
-                    const backReferenceText = ast.isReference(backReference) && backReference.name ? ` : ${backReference.name}` : '';
-                    const text = `interface link ${ownerContext.path} : ${reference.name} -> ${clientContext.path}${backReferenceText}`;
+                    const backReferenceText = ast.isReference(backReference) && backReference.name ? `:${backReference.name}` : '';
+                    const sourcePath = this.qualifyRelativeMemberPath(ownerContext.path, reference.name);
+                    const text = `interface link ${sourcePath} -> ${clientContext.path}${backReferenceText}`;
                     acceptor(context, this.createContextualValueItem(
                         context,
                         text,

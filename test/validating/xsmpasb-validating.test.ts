@@ -226,7 +226,7 @@ Root: demo.Root
 Root: demo.System
 {
     bus += Bus: NestedAsm
-    interface link Bus : logger -> Bus.Child
+    interface link Bus.logger -> Bus.Child
 }
 `, [
             ['nested.xsmpasb', `assembly NestedAsm
@@ -234,7 +234,7 @@ Root: demo.System
 NestedRoot: demo.Root
 {
     child += Child: demo.Child
-    interface link . : logger -> Child
+    interface link logger -> Child
 }
 `]
         ]);

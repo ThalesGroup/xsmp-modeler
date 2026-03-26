@@ -10,7 +10,7 @@ Root: "Impl"
 {
     event link src -> dst
     field link src.out -> dst.in
-    interface link src: ref -> dst: back
+    interface link src.ref -> dst:back
     call init(a = 1i32, b = 2i32)
     property flag = true
     state = [1i32, 2i32]

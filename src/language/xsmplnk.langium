@@ -71,16 +71,18 @@ FieldLink returns FieldLink:
 
 InterfaceLink returns InterfaceLink:
     /**
-     * `interface link <owner> : <reference> -> <client> [: <backReference>]`
+     * `interface link <sourcePath> -> <client> [:<backReference>]`
      *
      * Connects one published reference to a compatible client component.
+     * The last segment of `sourcePath` selects the published reference, while any preceding segments navigate to the owner component instance.
      *
      * **Example**
      * ```xsmp
-     * interface link . : logger -> payload
+     * interface link logger -> payload
+     * interface link nested.logger -> payload:backLogger
      * ```
      */
-    'interface' 'link' ownerPath=Path ':' reference=LocalNamedReference  '->' clientPath=Path (':'backReference=LocalNamedReference)?;
+    'interface' 'link' sourcePath=Path '->' clientPath=Path (':'backReference=LocalNamedReference)?;
 
 LocalNamedReference returns LocalNamedReference:
     (unsafe?='unsafe' strReference=ValidID | reference=[NamedElement:ValidID]);

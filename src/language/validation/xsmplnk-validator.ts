@@ -3,7 +3,7 @@ import * as ast from '../generated/ast-partial.js';
 import type { XsmplnkServices } from '../xsmplnk-module.js';
 import { checkName } from './name-validator-utils.js';
 import type { Xsmpl2PathResolver } from '../references/xsmpl2-path-resolver.js';
-import type { IdentifierPatternService } from '../references/identifier-pattern-service.js';
+import type { IdentifierPatternService, TemplateBindings } from '../references/identifier-pattern-service.js';
 import type { XsmpPathService } from '../references/xsmp-path-service.js';
 import { isValidExpandedL2Identifier } from './l2-validator-utils.js';
 import * as XsmpUtils from '../utils/xsmp-utils.js';
@@ -81,10 +81,9 @@ export class XsmplnkValidator {
     }
 
     checkInterfaceLink(link: ast.InterfaceLink, accept: ValidationAcceptor): void {
-        this.checkLinkPaths(link, accept);
-        if (link.reference) {
-            this.checkInterfaceReference(link, link.reference, 'reference', 'Owner', 'Client', accept);
-        }
+        this.checkLinkPath(link, link.sourcePath, 'sourcePath', accept);
+        this.checkLinkPath(link, link.clientPath, 'clientPath', accept);
+        this.checkInterfaceSource(link, accept);
         if (link.backReference) {
             this.checkInterfaceReference(link, link.backReference, 'backReference', 'Client', 'Owner', accept);
         }
@@ -95,7 +94,17 @@ export class XsmplnkValidator {
         this.checkLinkPath(link.clientPath, accept);
     }
 
-    private checkLinkPath(path: ast.Path | undefined, accept: ValidationAcceptor): void {
+    private checkLinkPath(path: ast.Path | undefined, accept: ValidationAcceptor): void;
+    private checkLinkPath(link: ast.InterfaceLink, path: ast.Path | undefined, property: 'sourcePath' | 'clientPath', accept: ValidationAcceptor): void;
+    private checkLinkPath(
+        linkOrPath: ast.InterfaceLink | ast.Path | undefined,
+        pathOrAccept: ast.Path | ValidationAcceptor | undefined,
+        propertyOrAccept?: 'sourcePath' | 'clientPath' | ValidationAcceptor,
+        acceptMaybe?: ValidationAcceptor,
+    ): void {
+        const link = ast.isInterfaceLink(linkOrPath) ? linkOrPath : undefined;
+        const path = ast.isInterfaceLink(linkOrPath) ? pathOrAccept as ast.Path | undefined : linkOrPath;
+        const accept = (ast.isInterfaceLink(linkOrPath) ? acceptMaybe : pathOrAccept) as ValidationAcceptor;
         if (!path) {
             return;
         }
@@ -105,14 +114,16 @@ export class XsmplnkValidator {
         if (!this.checkPathTemplateParameters(path, accept)) {
             return;
         }
-        const resolution = this.pathResolver.getLinkBaseEndpointPathResolution(path);
+        const resolution = link && propertyOrAccept === 'sourcePath'
+            ? this.pathResolver.getInterfaceLinkSourceResolution(link)
+            : this.pathResolver.getLinkBaseEndpointPathResolution(path);
         this.acceptPathError(resolution.invalidMessage, resolution.invalidNode, accept);
     }
 
     private checkInterfaceReference(
         link: ast.InterfaceLink,
         reference: ast.LocalNamedReference,
-        property: 'reference' | 'backReference',
+        property: 'backReference',
         sourceSide: 'Owner' | 'Client',
         targetSide: 'Owner' | 'Client',
         accept: ValidationAcceptor,
@@ -129,7 +140,7 @@ export class XsmplnkValidator {
             return;
         }
         const expectedType = ast.isReferenceType(target.interface?.ref) ? target.interface.ref : undefined;
-        const oppositeContext = this.pathResolver.getInterfaceLinkEndpointContext(link, property === 'reference' ? 'client' : 'owner');
+        const oppositeContext = this.pathResolver.getInterfaceLinkEndpointContext(link, 'owner');
         if (expectedType && oppositeContext.component && !this.isCompatibleReferenceTarget(expectedType, oppositeContext.component)) {
             accept('error', `The selected reference shall be compatible with the ${targetSide} Component.`, {
                 node: link,
@@ -138,10 +149,29 @@ export class XsmplnkValidator {
         }
     }
 
+    private checkInterfaceSource(link: ast.InterfaceLink, accept: ValidationAcceptor): void {
+        const sourcePath = link.sourcePath;
+        if (!sourcePath || sourcePath.unsafe) {
+            return;
+        }
+        const resolution = this.pathResolver.getInterfaceLinkSourceResolution(link);
+        if (!resolution.active || resolution.invalidMessage || !ast.isReference(resolution.finalElement)) {
+            return;
+        }
+        const expectedType = ast.isReferenceType(resolution.finalElement.interface?.ref) ? resolution.finalElement.interface.ref : undefined;
+        const oppositeContext = this.pathResolver.getInterfaceLinkEndpointContext(link, 'client');
+        if (expectedType && oppositeContext.component && !this.isCompatibleReferenceTarget(expectedType, oppositeContext.component)) {
+            accept('error', 'The selected source reference shall be compatible with the Client Component.', {
+                node: link,
+                property: 'sourcePath'
+            });
+        }
+    }
+
     private checkReferenceUpperBounds(linkBase: ast.LinkBase, accept: ValidationAcceptor): void {
         const usages = new Map<string, LinkBaseReferenceUsageBucket>();
         for (const link of AstUtils.streamAst(linkBase).filter(ast.isInterfaceLink)) {
-            this.collectReferenceUsage(link, 'reference', link.ownerPath, link.reference, usages);
+            this.collectSourceReferenceUsage(link, usages);
             this.collectReferenceUsage(link, 'backReference', link.clientPath, link.backReference, usages);
         }
         for (const usage of usages.values()) {
@@ -159,7 +189,7 @@ export class XsmplnkValidator {
 
     private collectReferenceUsage(
         link: ast.InterfaceLink,
-        property: 'reference' | 'backReference',
+        property: 'backReference',
         path: ast.Path | undefined,
         reference: ast.LocalNamedReference | undefined,
         usages: Map<string, LinkBaseReferenceUsageBucket>,
@@ -191,6 +221,57 @@ export class XsmplnkValidator {
             usages: [],
         };
         usage.usages.push({ link, property });
+        usages.set(key, usage);
+    }
+
+    private collectSourceReferenceUsage(
+        link: ast.InterfaceLink,
+        usages: Map<string, LinkBaseReferenceUsageBucket>,
+    ): void {
+        if (!link.sourcePath || link.sourcePath.unsafe) {
+            return;
+        }
+        const source = this.pathService.splitInterfaceLinkSourcePath(link.sourcePath);
+        if (!source?.referenceSegment) {
+            return;
+        }
+        const ownerContext: {
+            active: boolean;
+            finalComponent?: ast.Component;
+            finalBindings?: TemplateBindings;
+            invalidMessage?: string;
+        } = source.ownerPath
+            ? this.pathResolver.getLinkBaseEndpointPathResolution(source.ownerPath as ast.Path)
+            : {
+                active: true,
+                finalComponent: this.pathResolver.getInterfaceLinkEndpointContext(link, 'owner').component,
+                finalBindings: this.pathResolver.getInterfaceLinkEndpointContext(link, 'owner').bindings,
+            };
+        if (!ownerContext.active || ownerContext.invalidMessage || !ownerContext.finalComponent) {
+            return;
+        }
+        const targetReference = this.pathResolver.resolveReferenceSegmentTarget(source.referenceSegment, ownerContext.finalComponent, ownerContext.finalBindings);
+        if (!targetReference) {
+            return;
+        }
+        const upper = XsmpUtils.getUpper(targetReference);
+        if (upper === undefined || upper < BigInt(0)) {
+            return;
+        }
+        const componentPath = source.ownerPath
+            ? this.getAbsoluteComponentPath(link, source.ownerPath as ast.Path)
+            : this.getAbsoluteComponentPath(link);
+        if (!componentPath) {
+            return;
+        }
+        const key = `${componentPath}::${targetReference.name ?? '<unknown>'}`;
+        const usage = usages.get(key) ?? {
+            upper,
+            referenceName: targetReference.name ?? '<unknown>',
+            componentPath,
+            usages: [],
+        };
+        usage.usages.push({ link, property: 'sourcePath' });
         usages.set(key, usage);
     }
 
@@ -268,7 +349,7 @@ export class XsmplnkValidator {
         return XsmpUtils.isBaseOfReferenceType(expectedType, component);
     }
 
-    private getAbsoluteComponentPath(link: ast.InterfaceLink, path: ast.Path): string | undefined {
+    private getAbsoluteComponentPath(link: ast.InterfaceLink, path?: ast.Path): string | undefined {
         const componentLinkBase = AstUtils.getContainerOfType(link, ast.isComponentLinkBase);
         if (!componentLinkBase) {
             return undefined;
@@ -277,7 +358,7 @@ export class XsmplnkValidator {
         if (!baseSegments) {
             return undefined;
         }
-        const targetSegments = this.applyPathToSegments(baseSegments, path);
+        const targetSegments = path ? this.applyPathToSegments(baseSegments, path) : [...baseSegments];
         if (!targetSegments) {
             return undefined;
         }
@@ -335,6 +416,6 @@ interface LinkBaseReferenceUsageBucket {
     componentPath: string;
     usages: Array<{
         link: ast.InterfaceLink;
-        property: 'reference' | 'backReference';
+        property: 'sourcePath' | 'backReference';
     }>;
 }

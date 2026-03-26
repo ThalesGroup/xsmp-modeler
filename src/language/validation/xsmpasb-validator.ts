@@ -1,7 +1,7 @@
 import { AstUtils, type ValidationAcceptor, type ValidationChecks } from 'langium';
 import * as ast from '../generated/ast-partial.js';
 import type { XsmpasbServices } from '../xsmpasb-module.js';
-import { checkNoParentTraversal, checkRelativePath, isAbsolutePath, isValidExpandedL2Identifier } from './l2-validator-utils.js';
+import { checkNoParentTraversal, checkRelativePath, hasParentTraversal, isAbsolutePath, isValidExpandedL2Identifier } from './l2-validator-utils.js';
 import { checkName } from './name-validator-utils.js';
 import type { Xsmpl2PathResolver } from '../references/xsmpl2-path-resolver.js';
 import type { IdentifierPatternService, TemplateBindings } from '../references/identifier-pattern-service.js';
@@ -197,10 +197,9 @@ export class XsmpasbValidator extends XsmpcfgValidator {
     }
 
     checkInterfaceLink(link: ast.InterfaceLink, accept: ValidationAcceptor): void {
-        this.checkLinkPaths(link, accept);
-        if (link.reference) {
-            this.checkInterfaceReference(link.reference, 'reference', 'Owner', 'Client', accept);
-        }
+        this.checkLinkPath(link, link.sourcePath, 'sourcePath', undefined, accept);
+        this.checkLinkPath(link, link.clientPath, 'clientPath', undefined, accept);
+        this.checkInterfaceSource(link, accept);
         if (link.backReference) {
             this.checkInterfaceReference(link.backReference, 'backReference', 'Client', 'Owner', accept);
         }
@@ -318,7 +317,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
         const usages = new Map<string, ReferenceUsageBucket>();
         this.visitAssemblyOccurrences(rootOccurrence, rootOccurrence, occurrence => {
             for (const link of occurrence.model.elements.filter(ast.isInterfaceLink)) {
-                this.collectReferenceUsage(link, 'reference', link.ownerPath, link.reference, occurrence, rootOccurrence, usages);
+                this.collectSourceReferenceUsage(link, occurrence, rootOccurrence, usages);
                 this.collectReferenceUsage(link, 'backReference', link.clientPath, link.backReference, occurrence, rootOccurrence, usages);
             }
         });
@@ -337,7 +336,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
 
     private checkInterfaceReference(
         reference: ast.LocalNamedReference,
-        property: 'reference' | 'backReference',
+        property: 'backReference',
         sourceSide: 'Owner' | 'Client',
         targetSide: 'Owner' | 'Client',
         accept: ValidationAcceptor,
@@ -358,11 +357,30 @@ export class XsmpasbValidator extends XsmpcfgValidator {
             return;
         }
         const expectedType = ast.isReferenceType(target.interface?.ref) ? target.interface.ref : undefined;
-        const oppositeContext = this.l2PathResolver.getInterfaceLinkEndpointContext(link, property === 'reference' ? 'client' : 'owner');
+        const oppositeContext = this.l2PathResolver.getInterfaceLinkEndpointContext(link, 'owner');
         if (expectedType && oppositeContext.component && !XsmpUtils.isBaseOfReferenceType(expectedType, oppositeContext.component)) {
             accept('error', `The selected reference shall be compatible with the ${targetSide} Component.`, {
                 node: link,
                 property
+            });
+        }
+    }
+
+    private checkInterfaceSource(link: ast.InterfaceLink, accept: ValidationAcceptor): void {
+        const sourcePath = link.sourcePath;
+        if (!sourcePath || sourcePath.unsafe) {
+            return;
+        }
+        const resolution = this.l2PathResolver.getInterfaceLinkSourceResolution(link);
+        if (!resolution.active || resolution.invalidMessage || !ast.isReference(resolution.finalElement)) {
+            return;
+        }
+        const expectedType = ast.isReferenceType(resolution.finalElement.interface?.ref) ? resolution.finalElement.interface.ref : undefined;
+        const oppositeContext = this.l2PathResolver.getInterfaceLinkEndpointContext(link, 'client');
+        if (expectedType && oppositeContext.component && !XsmpUtils.isBaseOfReferenceType(expectedType, oppositeContext.component)) {
+            accept('error', 'The selected source reference shall be compatible with the Client Component.', {
+                node: link,
+                property: 'sourcePath'
             });
         }
     }
@@ -377,7 +395,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
 
     private collectReferenceUsage(
         link: ast.InterfaceLink,
-        property: 'reference' | 'backReference',
+        property: 'backReference',
         path: ast.Path | undefined,
         reference: ast.LocalNamedReference | undefined,
         occurrence: AssemblyOccurrence,
@@ -410,11 +428,49 @@ export class XsmpasbValidator extends XsmpcfgValidator {
         usages.set(key, usage);
     }
 
+    private collectSourceReferenceUsage(
+        link: ast.InterfaceLink,
+        occurrence: AssemblyOccurrence,
+        rootOccurrence: AssemblyOccurrence,
+        usages: Map<string, ReferenceUsageBucket>,
+    ): void {
+        if (!link.sourcePath || link.sourcePath.unsafe) {
+            return;
+        }
+        const source = this.pathService.splitInterfaceLinkSourcePath(link.sourcePath);
+        if (!source?.referenceSegment) {
+            return;
+        }
+        const targetOccurrence = source.ownerPath
+            ? this.resolveOccurrencePath(source.ownerPath as ast.Path, occurrence, rootOccurrence)
+            : occurrence;
+        if (!targetOccurrence?.component) {
+            return;
+        }
+        const targetReference = this.l2PathResolver.resolveReferenceSegmentTarget(source.referenceSegment, targetOccurrence.component, targetOccurrence.bindings);
+        if (!targetReference) {
+            return;
+        }
+        const upper = XsmpUtils.getUpper(targetReference);
+        if (upper === undefined || upper < BigInt(0)) {
+            return;
+        }
+        const key = `${targetOccurrence.absolutePath}::${targetReference.name ?? '<unknown>'}`;
+        const usage = usages.get(key) ?? {
+            upper,
+            referenceName: targetReference.name ?? '<unknown>',
+            instancePath: this.displayOccurrencePath(targetOccurrence),
+            usages: [],
+        };
+        usage.usages.push({ link, property: 'sourcePath' });
+        usages.set(key, usage);
+    }
+
     private checkLinkPath(
-        link: ast.Link,
+        link: ast.Link | ast.InterfaceLink,
         path: ast.Path | undefined,
-        property: 'ownerPath' | 'clientPath',
-        absoluteMessage: string,
+        property: 'ownerPath' | 'clientPath' | 'sourcePath',
+        absoluteMessage: string | undefined,
         accept: ValidationAcceptor,
     ): void {
         if (!path) {
@@ -426,11 +482,25 @@ export class XsmpasbValidator extends XsmpcfgValidator {
         if (!this.checkAssemblyPathTemplateParameters(path, accept)) {
             return;
         }
-        checkNoParentTraversal(accept, link, path, property);
-        const resolution = this.l2PathResolver.getAssemblyLinkPathResolution(path);
+        if (hasParentTraversal(path)) {
+            if (property === 'sourcePath' && ast.isInterfaceLink(link)) {
+                accept('error', 'Paths shall not contain \'..\'.', { node: link, property: 'sourcePath' });
+            } else {
+                const narrowedProperty = property === 'ownerPath' ? 'ownerPath' : 'clientPath';
+                accept('error', 'Paths shall not contain \'..\'.', { node: link, property: narrowedProperty });
+            }
+        }
+        const resolution = ast.isInterfaceLink(link) && property === 'sourcePath'
+            ? this.l2PathResolver.getInterfaceLinkSourceResolution(link)
+            : this.l2PathResolver.getAssemblyLinkPathResolution(path);
         this.acceptPathError(resolution.invalidMessage, resolution.invalidNode, accept);
-        if (isAbsolutePath(path)) {
-            accept('error', absoluteMessage, { node: link, property });
+        if (absoluteMessage && isAbsolutePath(path)) {
+            if (property === 'sourcePath' && ast.isInterfaceLink(link)) {
+                accept('error', absoluteMessage, { node: link, property: 'sourcePath' });
+            } else {
+                const narrowedProperty = property === 'ownerPath' ? 'ownerPath' : 'clientPath';
+                accept('error', absoluteMessage, { node: link, property: narrowedProperty });
+            }
         }
     }
 
@@ -913,6 +983,6 @@ interface ReferenceUsageBucket {
     instancePath: string;
     usages: Array<{
         link: ast.InterfaceLink;
-        property: 'reference' | 'backReference';
+        property: 'sourcePath' | 'backReference';
     }>;
 }

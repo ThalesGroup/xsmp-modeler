@@ -880,9 +880,9 @@ export class SmpGenerator implements XsmpGenerator {
             case ast.FieldLink: return { '@xsi:type': 'LinkBase:FieldLink', OwnerPath: ownerPath, ClientPath: clientPath } as LinkBase.FieldLink;
             case ast.InterfaceLink: return {
                 '@xsi:type': 'LinkBase:InterfaceLink',
-                OwnerPath: ownerPath,
+                OwnerPath: this.pathService.stringifyInterfaceLinkOwnerPath((link as ast.InterfaceLink).sourcePath) ?? '',
                 ClientPath: clientPath,
-                Reference: this.pathService.stringifyLocalNamedReference((link as ast.InterfaceLink).reference, false) ?? '',
+                Reference: this.pathService.stringifyInterfaceLinkReference((link as ast.InterfaceLink).sourcePath) ?? '',
                 BackReference: this.pathService.stringifyLocalNamedReference((link as ast.InterfaceLink).backReference, false)
             } as LinkBase.InterfaceLink;
             default: return { '@xsi:type': 'LinkBase:Link', OwnerPath: ownerPath, ClientPath: clientPath } as LinkBase.Link;

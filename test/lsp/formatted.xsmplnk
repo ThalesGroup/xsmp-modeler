@@ -3,7 +3,7 @@ link Demo for DemoAsm
 {
     event link unsafe a -> b
     field link out -> {Target}.in
-    interface link child: ref -> child: back
+    interface link child.ref -> child:back
     child
     {
         field link unsafe local.out -> local.in

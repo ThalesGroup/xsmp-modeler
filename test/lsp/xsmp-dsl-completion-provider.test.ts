@@ -244,7 +244,7 @@ configure /
         const referenceText = `link Demo for DemoAsm
 /
 {
-    interface link . : @@ -> child : ##
+    interface link @@ -> child:##
 }
 `;
         const ownerCursor = referenceText.indexOf('@@');

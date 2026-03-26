@@ -7,7 +7,7 @@ link OrbitalLinks for OrbitalSegment
     /** Connects the avionics power bus to the platform router input. */
     field link {BusMember}.power.lineVoltage -> {RouterMember}.incomingBus
     /** Injects the segment logger as the avionics logger reference. */
-    interface link {BusMember}: logger -> {LoggerMember}
+    interface link {BusMember}.logger -> {LoggerMember}
     /** Routes the avionics mode publication to the platform inbound sink. */
     event link {BusMember}.publishedMode -> inboundMode
 

@@ -28,7 +28,7 @@ export class XsmplnkCompletionProvider extends XsmpCompletionProviderBase {
                 acceptor(context, this.createSnippetItem('field link', 'field link ${1:owner} -> ${2:client}', 'Field Link'));
                 break;
             case 'interface':
-                acceptor(context, this.createSnippetItem('interface link', 'interface link ${1:owner} : ${2:reference} -> ${3:client}${4:: ${5:backReference}}', 'Interface Link'));
+                acceptor(context, this.createSnippetItem('interface link', 'interface link ${1:sourcePath} -> ${2:client}${3::${4:backReference}}', 'Interface Link'));
                 break;
         }
     }
@@ -49,7 +49,7 @@ export class XsmplnkCompletionProvider extends XsmpCompletionProviderBase {
             ));
             acceptor(context, this.createSnippetItem('Event Link', 'event link ${1:owner} -> ${2:client}', 'Event Link'));
             acceptor(context, this.createSnippetItem('Field Link', 'field link ${1:owner} -> ${2:client}', 'Field Link'));
-            acceptor(context, this.createSnippetItem('Interface Link', 'interface link ${1:owner} : ${2:reference} -> ${3:client}${4:: ${5:backReference}}', 'Interface Link'));
+            acceptor(context, this.createSnippetItem('Interface Link', 'interface link ${1:sourcePath} -> ${2:client}${3::${4:backReference}}', 'Interface Link'));
         } else if (this.isAtStatementStart(context) && linkBase) {
             acceptor(context, this.createSnippetItem(
                 'Root Component Link Base',
@@ -58,10 +58,7 @@ export class XsmplnkCompletionProvider extends XsmpCompletionProviderBase {
             ));
         }
 
-        if (this.getLinePrefix(context).includes('interface link')) {
-            this.addInterfaceReferenceCompletions(context, acceptor);
-        }
-
+        this.addInterfaceReferenceCompletions(context, acceptor);
         this.addComponentLinkBaseCompletions(context, acceptor);
     }
 
@@ -78,26 +75,6 @@ export class XsmplnkCompletionProvider extends XsmpCompletionProviderBase {
             );
         }
         return undefined;
-    }
-
-    protected addInterfaceReferenceCompletions(context: CompletionContext, acceptor: CompletionAcceptor): void {
-        const linePrefix = this.getLinePrefix(context);
-        if (!linePrefix.includes(':')) {
-            return;
-        }
-
-        const afterArrow = linePrefix.includes('->') && linePrefix.lastIndexOf(':') > linePrefix.lastIndexOf('->');
-        const fallbackComponent = this.getFallbackInterfaceComponent(context, afterArrow);
-        for (const candidate of this.l2PathResolver.getComponentMembersByKind(fallbackComponent, ['reference'])) {
-            if (ast.isReference(candidate) && candidate.name) {
-                acceptor(context, this.createContextualValueItem(
-                    context,
-                    candidate.name,
-                    candidate.name,
-                    `Reference of ${candidate.$container.name}.`
-                ));
-            }
-        }
     }
 
     protected addComponentLinkBaseCompletions(context: CompletionContext, acceptor: CompletionAcceptor): void {
@@ -126,12 +103,46 @@ export class XsmplnkCompletionProvider extends XsmpCompletionProviderBase {
         this.addContextualInterfaceLinkCompletions(context, acceptor, component);
     }
 
+    protected addInterfaceReferenceCompletions(context: CompletionContext, acceptor: CompletionAcceptor): void {
+        const linePrefix = this.getLinePrefix(context);
+        if (!linePrefix.includes('interface link')) {
+            return;
+        }
+
+        const arrowIndex = linePrefix.indexOf('->');
+        const colonIndex = linePrefix.lastIndexOf(':');
+        if (arrowIndex >= 0 && colonIndex > arrowIndex) {
+            const fallbackComponent = this.getFallbackInterfaceComponent(context, true);
+            for (const candidate of this.l2PathResolver.getComponentMembersByKind(fallbackComponent, ['reference'])) {
+                if (ast.isReference(candidate) && candidate.name) {
+                    acceptor(context, this.createContextualValueItem(
+                        context,
+                        candidate.name,
+                        candidate.name,
+                        `Reference of ${candidate.$container.name}.`
+                    ));
+                }
+            }
+            return;
+        }
+
+        const ownerComponent = this.getFallbackInterfaceComponent(context, false);
+        for (const candidate of this.l2PathResolver.getComponentMembersByKind(ownerComponent, ['reference'])) {
+            if (ast.isReference(candidate) && candidate.name) {
+                acceptor(context, this.createContextualValueItem(
+                    context,
+                    candidate.name,
+                    candidate.name,
+                    `Reference of ${candidate.$container.name}.`
+                ));
+            }
+        }
+    }
+
     protected getFallbackInterfaceComponent(context: CompletionContext, afterArrow: boolean): ast.Component | undefined {
-        const linkBase = this.getRecoveryContainerOfType(context, ast.isLinkBase);
-        const assembly = ast.isAssembly(linkBase?.assembly?.ref) ? linkBase.assembly.ref : undefined;
-        const implementation = assembly?.model?.implementation?.ref;
-        const rootComponent = ast.isComponent(implementation)
-            ? implementation
+        const componentLinkBase = this.getRecoveryContainerOfType(context, ast.isComponentLinkBase);
+        const rootComponent = componentLinkBase
+            ? this.l2PathResolver.getEffectiveComponentLinkBaseComponent(componentLinkBase)
             : undefined;
         if (!rootComponent) {
             return undefined;
@@ -139,13 +150,37 @@ export class XsmplnkCompletionProvider extends XsmpCompletionProviderBase {
         if (!afterArrow) {
             return rootComponent;
         }
+
         const linePrefix = this.getLinePrefix(context);
-        const clientMatch = /->\s*([_a-zA-Z]\w*)\s*:\s*[_a-zA-Z0-9]*$/.exec(linePrefix);
-        const clientSegment = clientMatch?.[1];
-        if (!clientSegment) {
+        const arrowIndex = linePrefix.indexOf('->');
+        if (arrowIndex < 0) {
             return undefined;
         }
-        const child = this.l2PathResolver.getComponentPathMembers(rootComponent).find(member => member.name === clientSegment);
-        return child ? this.typedPathResolver.getChildComponentForPathMember(child) : undefined;
+        const afterArrowText = linePrefix.slice(arrowIndex + 2);
+        const clientPath = afterArrowText.split(':', 1)[0]?.trim();
+        return this.resolveRelativeComponentPath(rootComponent, clientPath);
+    }
+
+    protected resolveRelativeComponentPath(component: ast.Component | undefined, pathText: string | undefined): ast.Component | undefined {
+        if (!component || !pathText) {
+            return component;
+        }
+
+        let current: ast.Component | undefined = component;
+        const segments = pathText.split('.');
+        for (const segment of segments) {
+            const trimmed = segment.trim();
+            if (!trimmed || trimmed === '.') {
+                continue;
+            }
+            const member: ast.Container | ast.Reference | undefined = this.l2PathResolver
+                .getComponentPathMembers(current)
+                .find(candidate => candidate.name === trimmed);
+            current = member ? this.typedPathResolver.getChildComponentForPathMember(member) : undefined;
+            if (!current) {
+                return undefined;
+            }
+        }
+        return current;
     }
 }

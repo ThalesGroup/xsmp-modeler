@@ -94,9 +94,9 @@ export class XsmpDocumentSymbolProvider implements DocumentSymbolProvider {
             }
             case ast.InterfaceLink: {
                 const link = node as ast.InterfaceLink;
-                const reference = this.pathService.stringifyLocalNamedReference(link.reference) ?? '<unknown>';
+                const sourcePath = this.pathService.stringifyPath(link.sourcePath) ?? '<unknown>';
                 const backReference = this.pathService.stringifyLocalNamedReference(link.backReference);
-                return `interface link ${this.pathService.stringifyPath(link.ownerPath)}: ${reference} -> ${this.pathService.stringifyPath(link.clientPath)}${backReference ? `: ${backReference}` : ''}`;
+                return `interface link ${sourcePath} -> ${this.pathService.stringifyPath(link.clientPath)}${backReference ? `:${backReference}` : ''}`;
             }
             case ast.OperationCall: {
                 const call = node as ast.OperationCall;

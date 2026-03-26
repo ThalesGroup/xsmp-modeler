@@ -213,17 +213,19 @@ FieldLink returns FieldLink:
 
 InterfaceLink returns InterfaceLink:
     /**
-     * `interface link <owner> : <reference> -> <client> [: <backReference>]`
+     * `interface link <sourcePath> -> <client> [:<backReference>]`
      *
      * Connects a reference of one component instance to another compatible component instance.
+     * The last segment of `sourcePath` selects the published reference, while any preceding segments navigate to the owner instance.
      * Use `backReference` to create an additional reverse connection when the target publishes one.
      *
      * **Example**
      * ```xsmp
-     * interface link . : logger -> child
+     * interface link logger -> child
+     * interface link nested.logger -> child:backLogger
      * ```
      */
-    'interface' 'link' ownerPath=Path ':' reference=LocalNamedReference  '->' clientPath=Path (':'backReference=LocalNamedReference)?;
+    'interface' 'link' sourcePath=Path '->' clientPath=Path (':'backReference=LocalNamedReference)?;
 
 Invocation returns Invocation:
     OperationCall | PropertyValue;

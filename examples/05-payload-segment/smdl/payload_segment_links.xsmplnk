@@ -7,7 +7,7 @@ link PayloadSegmentLinks for PayloadSegment
     /** Routes camera frames toward the downlink router. */
     field link {PayloadMember}.camera.frames -> {RouterMember}.sourceFrames
     /** Injects the payload logger into the payload logger reference. */
-    interface link {PayloadMember}: logger -> {LoggerMember}
+    interface link {PayloadMember}.logger -> {LoggerMember}
     /** Publishes payload mode changes to the platform inbound sink. */
     event link {PayloadMember}.payloadMode -> inboundMode
 

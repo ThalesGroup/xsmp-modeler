@@ -531,7 +531,7 @@ interface ComponentLinkBase {
 }
 
 interface Link {
-    ownerPath: Path
+    ownerPath?: Path
     clientPath: Path
 }
 interface EventLink extends Link {
@@ -539,7 +539,7 @@ interface EventLink extends Link {
 interface FieldLink extends Link {
 }
 interface InterfaceLink extends Link {
-    reference: LocalNamedReference
+    sourcePath: Path
     backReference?: LocalNamedReference
 }
 

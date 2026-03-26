@@ -16,7 +16,7 @@ export abstract class XsmpFormatterBase extends AbstractFormatter {
         formatter.keyword(kind).append(Formatting.oneSpace());
         formatter.keyword('link').append(Formatting.oneSpace());
         if (kind === 'interface') {
-            formatter.keywords(':').prepend(Formatting.noSpace()).append(Formatting.oneSpace());
+            formatter.keywords(':').surround(Formatting.noSpace());
         }
         formatter.keyword('->').surround(Formatting.oneSpace());
     }

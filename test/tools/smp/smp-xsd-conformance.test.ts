@@ -100,7 +100,7 @@ include Other at child
     const source = `link Demo
 /Root
 {
-    interface link svc: ref -> client: back
+    interface link svc.ref -> client:back
 }
 `;
 

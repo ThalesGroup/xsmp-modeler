@@ -7,6 +7,13 @@ type RecoverablePathSegment = partialAst.PathSegment;
 type RecoverablePathNamedSegment = partialAst.PathNamedSegment;
 type RecoverableLocalNamedReference = partialAst.LocalNamedReference;
 
+export interface InterfaceLinkSourcePathParts {
+    ownerPath?: RecoverablePath;
+    ownerText: string;
+    referenceSegment?: RecoverablePathNamedSegment;
+    referenceText: string;
+}
+
 export class XsmpPathService {
     protected readonly identifierPatternService: IdentifierPatternService;
 
@@ -47,6 +54,41 @@ export class XsmpPathService {
             return undefined;
         }
         return includeUnsafe && reference.unsafe ? `unsafe ${text}` : text;
+    }
+
+    splitInterfaceLinkSourcePath(path: RecoverablePath | undefined): InterfaceLinkSourcePathParts | undefined {
+        if (!path) {
+            return undefined;
+        }
+        const segments = this.getPathSegments(path);
+        const lastSegment = segments.at(-1);
+        const actualLastSegment = partialAst.isPathMember(lastSegment) ? lastSegment.segment : lastSegment;
+        const referenceSegment = partialAst.isPathNamedSegment(actualLastSegment) ? actualLastSegment : undefined;
+        const referenceText = referenceSegment ? this.getSegmentText(referenceSegment) : '';
+
+        if (segments.length === 1 && !path.absolute) {
+            return {
+                ownerText: '.',
+                referenceSegment,
+                referenceText,
+            };
+        }
+
+        const ownerPath = this.createPathSlice(path, Math.max(segments.length - 1, 0));
+        return {
+            ownerPath,
+            ownerText: this.stringifyPath(ownerPath, false) ?? (path.absolute ? '/' : '.'),
+            referenceSegment,
+            referenceText,
+        };
+    }
+
+    stringifyInterfaceLinkOwnerPath(path: RecoverablePath | undefined): string | undefined {
+        return this.splitInterfaceLinkSourcePath(path)?.ownerText;
+    }
+
+    stringifyInterfaceLinkReference(path: RecoverablePath | undefined): string | undefined {
+        return this.splitInterfaceLinkSourcePath(path)?.referenceText;
     }
 
     getPathSegments<T extends RecoverablePath>(path: T): Array<NonNullable<T['head']> | T['elements'][number]> {
@@ -100,5 +142,15 @@ export class XsmpPathService {
             return '';
         }
         return reference.reference?.ref?.name ?? reference.reference?.$refText ?? reference.strReference ?? '';
+    }
+
+    protected createPathSlice(path: RecoverablePath, segmentCount: number): RecoverablePath {
+        return {
+            $type: path.$type,
+            unsafe: false,
+            absolute: path.absolute,
+            head: segmentCount > 0 ? path.head : undefined,
+            elements: segmentCount > 1 ? path.elements.slice(0, segmentCount - 1) : [],
+        } as RecoverablePath;
     }
 }

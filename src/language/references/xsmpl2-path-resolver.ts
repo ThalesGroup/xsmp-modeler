@@ -38,6 +38,12 @@ export interface AsbInstancePathResolution {
     segmentBindings?: ReadonlyMap<ast.PathNamedSegment, TemplateBindings | undefined>;
 }
 
+export interface InterfaceLinkSourceResolution extends L2PathResolution<ast.Reference> {
+    ownerPath?: ast.Path;
+    ownerText: string;
+    referenceText: string;
+}
+
 interface AssemblyNodeChild {
     member: ast.Container;
     instance: ast.ModelInstance | ast.AssemblyInstance;
@@ -102,6 +108,16 @@ export class Xsmpl2PathResolver {
         return this.getComponentMembers(component as ast.Component | undefined, kinds);
     }
 
+    resolveReferenceSegmentTarget(
+        segment: ast.PathNamedSegment | undefined,
+        component: ast.Component | undefined,
+        bindings?: TemplateBindings,
+    ): ast.Reference | undefined {
+        const candidates = this.getComponentMembers(component, ['reference']);
+        const resolved = this.resolveNamedSegmentTarget(segment, candidates, bindings);
+        return ast.isReference(resolved) ? resolved : undefined;
+    }
+
     getNamedSegmentCandidates(segment: ast.PathNamedSegment | undefined): readonly ast.NamedElement[] {
         return this.getNamedSegmentContext(segment).candidates;
     }
@@ -126,6 +142,31 @@ export class Xsmpl2PathResolver {
         bindings?: TemplateBindings;
     } {
         return this.getInterfaceLinkEndpointComponent(link, side);
+    }
+
+    getInterfaceLinkSourceResolution(link: ast.InterfaceLink): InterfaceLinkSourceResolution {
+        if (!link.sourcePath) {
+            return {
+                active: false,
+                ownerText: '.',
+                referenceText: '',
+                namedSegments: new Map(),
+                segmentBindings: new Map(),
+            };
+        }
+        if (AstUtils.getContainerOfType(link, ast.isModelInstance)) {
+            return this.computeAssemblyInterfaceLinkSourceResolution(link.sourcePath);
+        }
+        if (AstUtils.getContainerOfType(link, ast.isComponentLinkBase)) {
+            return this.computeLinkBaseInterfaceLinkSourceResolution(link.sourcePath);
+        }
+        return {
+            active: false,
+            ownerText: '.',
+            referenceText: '',
+            namedSegments: new Map(),
+            segmentBindings: new Map(),
+        };
     }
 
     getLocalNamedReferenceCandidates(reference: ast.LocalNamedReference): readonly ast.NamedElement[] {
@@ -262,14 +303,6 @@ export class Xsmpl2PathResolver {
 
         if (ast.isInterfaceLink(container)) {
             const property = (reference as AstNode & { $containerProperty?: string }).$containerProperty;
-            if (property === 'reference' || container.reference === reference) {
-                const resolution = this.getInterfaceLinkEndpointComponent(container, 'owner');
-                return {
-                    candidates: this.getComponentMembers(resolution.component, ['reference']),
-                    component: resolution.component,
-                    bindings: resolution.bindings,
-                };
-            }
             if (property === 'backReference' || container.backReference === reference) {
                 const resolution = this.getInterfaceLinkEndpointComponent(container, 'client');
                 return {
@@ -391,7 +424,14 @@ export class Xsmpl2PathResolver {
         component?: ast.Component;
         bindings?: TemplateBindings;
     } {
-        const path = side === 'owner' ? link.ownerPath : link.clientPath;
+        if (side === 'owner') {
+            const source = this.getInterfaceLinkSourceResolution(link);
+            return {
+                component: source.finalComponent,
+                bindings: source.finalBindings,
+            };
+        }
+        const path = link.clientPath;
         if (!path) {
             return {};
         }
@@ -429,6 +469,9 @@ export class Xsmpl2PathResolver {
             return this.resolveAssemblyFieldEndpointPath(path, baseNode, expectedKind);
         }
         if (ast.isInterfaceLink(link)) {
+            if (path === link.sourcePath) {
+                return this.computeAssemblyInterfaceLinkSourceResolution(path);
+            }
             return this.resolveAssemblyInstancePathAsMember(path, baseNode);
         }
 
@@ -457,10 +500,185 @@ export class Xsmpl2PathResolver {
             return this.resolveComponentFieldEndpointPath(path, baseStack, path === link.ownerPath ? 'outputField' : 'inputField', bindings);
         }
         if (ast.isInterfaceLink(link)) {
+            if (path === link.sourcePath) {
+                return this.computeLinkBaseInterfaceLinkSourceResolution(path);
+            }
             return this.typedComponentResolutionToL2(this.typedPathResolver.resolveComponentPath(path, baseStack, bindings), bindings);
         }
 
         return this.inactiveResolution();
+    }
+
+    protected computeAssemblyInterfaceLinkSourceResolution(path: ast.Path): InterfaceLinkSourceResolution {
+        const link = AstUtils.getContainerOfType(path, ast.isInterfaceLink);
+        const model = link ? AstUtils.getContainerOfType(link, ast.isModelInstance) : undefined;
+        const baseNode = model ? this.getAssemblyNode(model, this.getAssemblyTemplateBindings(path)) : undefined;
+        return this.resolveAssemblyInterfaceLinkSource(path, baseNode);
+    }
+
+    protected resolveAssemblyInterfaceLinkSource(path: ast.Path, baseNode: AssemblyNode | undefined): InterfaceLinkSourceResolution {
+        const parts = this.pathService.splitInterfaceLinkSourcePath(path);
+        const namedSegments = new Map<ast.PathNamedSegment, readonly ast.NamedElement[]>();
+        const segmentBindings = new Map<ast.PathNamedSegment, TemplateBindings | undefined>();
+        if (!baseNode) {
+            return {
+                active: false,
+                ownerPath: parts?.ownerPath as ast.Path | undefined,
+                ownerText: parts?.ownerText ?? '.',
+                referenceText: parts?.referenceText ?? '',
+                namedSegments,
+                segmentBindings,
+            };
+        }
+        if (!parts?.referenceSegment) {
+            return {
+                active: true,
+                ownerPath: parts?.ownerPath as ast.Path | undefined,
+                ownerText: parts?.ownerText ?? '.',
+                referenceText: parts?.referenceText ?? '',
+                invalidMessage: 'The interface source path shall end with a Reference name.',
+                invalidNode: path,
+                namedSegments,
+                segmentBindings,
+            };
+        }
+
+        let ownerComponent = baseNode.component;
+        let ownerBindings = baseNode.bindings;
+        if (parts.ownerPath) {
+            const ownerResolution = this.resolveAssemblyInstancePath(parts.ownerPath as ast.Path, baseNode);
+            this.mergeNamedSegments(namedSegments, ownerResolution.namedSegments);
+            this.mergeSegmentBindings(segmentBindings, ownerResolution.segmentBindings);
+            if (!ownerResolution.active || ownerResolution.invalidMessage || !ownerResolution.finalComponent) {
+                return {
+                    active: ownerResolution.active,
+                    ownerPath: parts.ownerPath as ast.Path,
+                    ownerText: parts.ownerText,
+                    referenceText: parts.referenceText,
+                    finalComponent: ownerResolution.finalComponent,
+                    finalBindings: ownerResolution.finalBindings,
+                    invalidMessage: ownerResolution.invalidMessage,
+                    invalidNode: ownerResolution.invalidNode,
+                    namedSegments,
+                    segmentBindings,
+                };
+            }
+            ownerComponent = ownerResolution.finalComponent;
+            ownerBindings = ownerResolution.finalBindings;
+        }
+
+        const referenceCandidates = this.getComponentMembers(ownerComponent, ['reference']);
+        namedSegments.set(parts.referenceSegment, referenceCandidates);
+        segmentBindings.set(parts.referenceSegment, ownerBindings);
+        const resolvedReference = this.typedPathResolver.resolveNamedElement(parts.referenceSegment, referenceCandidates, ownerBindings);
+        if (!ast.isReference(resolvedReference)) {
+            return {
+                active: true,
+                ownerPath: parts.ownerPath as ast.Path | undefined,
+                ownerText: parts.ownerText,
+                referenceText: parts.referenceText,
+                finalComponent: ownerComponent,
+                finalBindings: ownerBindings,
+                invalidMessage: `The path segment '${this.pathService.getSegmentText(parts.referenceSegment)}' shall resolve to a Reference of the owner Component.`,
+                invalidNode: parts.referenceSegment,
+                namedSegments,
+                segmentBindings,
+            };
+        }
+        return {
+            active: true,
+            ownerPath: parts.ownerPath as ast.Path | undefined,
+            ownerText: parts.ownerText,
+            referenceText: parts.referenceText,
+            finalElement: resolvedReference,
+            finalComponent: ownerComponent,
+            finalBindings: ownerBindings,
+            namedSegments,
+            segmentBindings,
+        };
+    }
+
+    protected computeLinkBaseInterfaceLinkSourceResolution(path: ast.Path): InterfaceLinkSourceResolution {
+        const parts = this.pathService.splitInterfaceLinkSourcePath(path);
+        const namedSegments = new Map<ast.PathNamedSegment, readonly ast.NamedElement[]>();
+        const segmentBindings = new Map<ast.PathNamedSegment, TemplateBindings | undefined>();
+        const baseStack = this.getBaseStackForLinkBaseComponentPath(path);
+        const bindings = this.getLinkBaseTemplateBindings(path);
+        if (!baseStack) {
+            return {
+                active: false,
+                ownerPath: parts?.ownerPath as ast.Path | undefined,
+                ownerText: parts?.ownerText ?? '.',
+                referenceText: parts?.referenceText ?? '',
+                namedSegments,
+                segmentBindings,
+            };
+        }
+        if (!parts?.referenceSegment) {
+            return {
+                active: true,
+                ownerPath: parts?.ownerPath as ast.Path | undefined,
+                ownerText: parts?.ownerText ?? '.',
+                referenceText: parts?.referenceText ?? '',
+                invalidMessage: 'The interface source path shall end with a Reference name.',
+                invalidNode: path,
+                namedSegments,
+                segmentBindings,
+            };
+        }
+
+        let ownerComponent = baseStack.at(-1);
+        const ownerBindings = bindings;
+        if (parts.ownerPath) {
+            const ownerResolution = this.typedPathResolver.resolveComponentPath(parts.ownerPath as ast.Path, baseStack, bindings);
+            this.mergeNamedSegments(namedSegments, ownerResolution.namedSegments);
+            if (!ownerResolution.active || ownerResolution.invalidMessage || !ownerResolution.finalComponent) {
+                return {
+                    active: ownerResolution.active,
+                    ownerPath: parts.ownerPath as ast.Path,
+                    ownerText: parts.ownerText,
+                    referenceText: parts.referenceText,
+                    finalComponent: ownerResolution.finalComponent,
+                    finalBindings: ownerBindings,
+                    invalidMessage: ownerResolution.invalidMessage,
+                    invalidNode: ownerResolution.invalidNode,
+                    namedSegments,
+                    segmentBindings,
+                };
+            }
+            ownerComponent = ownerResolution.finalComponent;
+        }
+
+        const referenceCandidates = this.getComponentMembers(ownerComponent, ['reference']);
+        namedSegments.set(parts.referenceSegment, referenceCandidates);
+        segmentBindings.set(parts.referenceSegment, ownerBindings);
+        const resolvedReference = this.typedPathResolver.resolveNamedElement(parts.referenceSegment, referenceCandidates, ownerBindings);
+        if (!ast.isReference(resolvedReference)) {
+            return {
+                active: true,
+                ownerPath: parts.ownerPath as ast.Path | undefined,
+                ownerText: parts.ownerText,
+                referenceText: parts.referenceText,
+                finalComponent: ownerComponent,
+                finalBindings: ownerBindings,
+                invalidMessage: `The path segment '${this.pathService.getSegmentText(parts.referenceSegment)}' shall resolve to a Reference of the owner Component.`,
+                invalidNode: parts.referenceSegment,
+                namedSegments,
+                segmentBindings,
+            };
+        }
+
+        return {
+            active: true,
+            ownerPath: parts.ownerPath as ast.Path | undefined,
+            ownerText: parts.ownerText,
+            referenceText: parts.referenceText,
+            finalElement: resolvedReference,
+            finalComponent: ownerComponent,
+            finalBindings: ownerBindings,
+            namedSegments,
+            segmentBindings,
+        };
     }
 
     protected computeScheduleActivityPathResolution(path: ast.Path): L2PathResolution {
@@ -1137,6 +1355,27 @@ export class Xsmpl2PathResolver {
         return this.getAssemblyTemplateBindings(node)
             ?? this.getScheduleTemplateBindings(node)
             ?? this.getLinkBaseTemplateBindings(node);
+    }
+
+    protected mergeNamedSegments(
+        target: Map<ast.PathNamedSegment, readonly ast.NamedElement[]>,
+        source: ReadonlyMap<ast.PathNamedSegment, readonly ast.NamedElement[]>,
+    ): void {
+        for (const [segment, candidates] of source) {
+            target.set(segment, candidates);
+        }
+    }
+
+    protected mergeSegmentBindings(
+        target: Map<ast.PathNamedSegment, TemplateBindings | undefined>,
+        source: ReadonlyMap<ast.PathNamedSegment, TemplateBindings | undefined> | undefined,
+    ): void {
+        if (!source) {
+            return;
+        }
+        for (const [segment, bindings] of source) {
+            target.set(segment, bindings);
+        }
     }
 
     protected getAssemblyTemplateBindings(node: AstNode | undefined): TemplateBindings | undefined {
