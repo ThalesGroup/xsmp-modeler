@@ -13,6 +13,7 @@ import type { Xsmpl2PathResolver } from '../references/xsmpl2-path-resolver.js';
 import type { IdentifierPatternService } from '../references/identifier-pattern-service.js';
 import type { XsmpPathService } from '../references/xsmp-path-service.js';
 import * as XsmpUtils from '../utils/xsmp-utils.js';
+import { collectUsedTemplateParameterNames, warnUnusedTemplateParameters } from './template-parameter-validator-utils.js';
 
 export function registerXsmpsedValidationChecks(services: XsmpsedServices) {
     const registry = services.validation.ValidationRegistry;
@@ -71,6 +72,16 @@ export class XsmpsedValidator {
                 property: 'parameters'
             });
         }
+
+        const usedTemplateNames = collectUsedTemplateParameterNames(schedule, this.identifierPatternService);
+        if (hasRelativePath) {
+            for (const parameter of schedule.parameters) {
+                if (ast.isStringParameter(parameter) && parameter.name) {
+                    usedTemplateNames.add(parameter.name);
+                }
+            }
+        }
+        warnUnusedTemplateParameters(schedule.parameters, usedTemplateNames, accept);
     }
 
     checkTask(task: ast.Task, accept: ValidationAcceptor): void {

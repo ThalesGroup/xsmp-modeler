@@ -10,6 +10,7 @@ import * as Solver from '../utils/solver.js';
 import * as XsmpUtils from '../utils/xsmp-utils.js';
 import { XsmpcfgValidator } from './xsmpcfg-validator.js';
 import type { XsmpcfgServices } from '../xsmpcfg-module.js';
+import { collectUsedTemplateParameterNames, warnUnusedTemplateParameters } from './template-parameter-validator-utils.js';
 
 export function registerXsmpasbValidationChecks(services: XsmpasbServices) {
     const registry = services.validation.ValidationRegistry;
@@ -53,6 +54,12 @@ export class XsmpasbValidator extends XsmpcfgValidator {
                 }
             }
         }
+
+        warnUnusedTemplateParameters(
+            assembly.parameters,
+            collectUsedTemplateParameterNames(assembly, this.identifierPatternService),
+            accept
+        );
     }
 
     checkModelInstance(model: ast.ModelInstance, accept: ValidationAcceptor): void {

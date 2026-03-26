@@ -3,7 +3,7 @@ schedule <root: string = "/payloadSegment", PayloadMember: string = "payload", R
 task Prime: demo.payloadsegment.PayloadPlatform
 {
     call {LoggerMember}.log(message = "payload bootstrap")
-    property platformMode = demo.foundation.Mode.Nominal
+    property mode = demo.foundation.Mode.Nominal
     trig {PayloadMember}.capture
     execute Flush at {PayloadMember}
     async emit "PayloadReady"

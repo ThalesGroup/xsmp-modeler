@@ -12,6 +12,7 @@ import { XsmpReferences } from './references/xsmp-references.js';
 import { XsmplnkScopeProvider } from './references/xsmplnk-scope-provider.js';
 import { XsmplnkScopeComputation } from './references/xsmplnk-scope-computation.js';
 import { XsmplnkValidator } from './validation/xsmplnk-validator.js';
+import { XsmpPathCodeActionProvider } from './lsp/xsmp-path-code-action.js';
 
 /**
  * Declaration of Xsmp services.
@@ -45,7 +46,7 @@ export const XsmplnkModule: Module<XsmplnkServices, PartialLangiumServices & Xsm
     lsp: {
         Formatter: () => new XsmplnkFormatter(),
         DocumentSymbolProvider: (services) => new XsmpDocumentSymbolProvider(services),
-
+        CodeActionProvider: () => new XsmpPathCodeActionProvider(),
         RenameProvider: (services) => new XsmpRenameProvider(services),
     },
     parser:

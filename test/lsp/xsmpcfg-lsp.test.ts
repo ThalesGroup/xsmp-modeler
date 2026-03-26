@@ -1,7 +1,8 @@
 import { afterEach, beforeAll, describe, expect, test } from 'vitest';
 import { clearDocuments, parseHelper } from 'langium/test';
 import { EmptyFileSystem, type LangiumDocument, URI } from 'langium';
-import { MarkupContent, type LocationLink, type Range, type TextDocumentPositionParams } from 'vscode-languageserver';
+import { CodeActionKind, MarkupContent, TextEdit, type CodeAction, type LocationLink, type Range, type TextDocumentPositionParams } from 'vscode-languageserver';
+import type { CodeActionParams } from 'vscode-languageserver-protocol';
 import { createXsmpServices } from '../../src/language/xsmp-module.js';
 import { Catalogue, Configuration, Project } from '../../src/language/generated/ast.js';
 import * as fs from 'node:fs';
@@ -19,7 +20,8 @@ beforeAll(async () => {
     services = createXsmpServices(EmptyFileSystem);
     parseProject = parseHelper<Project>(services.xsmpproject);
     parseCatalogue = parseHelper<Catalogue>(services.xsmpcat);
-    parseConfiguration = parseHelper<Configuration>(services.xsmpcfg);
+    const doParseConfiguration = parseHelper<Configuration>(services.xsmpcfg);
+    parseConfiguration = (input, options) => doParseConfiguration(input, { validation: true, ...options });
 
     await services.shared.workspace.WorkspaceManager.initializeWorkspace([]);
 });
@@ -168,7 +170,53 @@ namespace demo
 
         expect(locations).toHaveLength(0);
     });
+
+    test('offers a quick fix to declare invalid typed paths as unsafe', async () => {
+        const configuration = extractCursor(`configuration Demo
+/Root: demo.Root
+{
+    @@state.unknown = 1i32
+}
+`);
+
+        const { configurationDocument } = await parseProjectDocuments(catalogueSource, configuration.text);
+        expect(configurationDocument.diagnostics?.some(diagnostic => diagnostic.message.includes('unknown'))).toBe(true);
+
+        const actions = await getCodeActions(configurationDocument);
+        expect(actions).toHaveLength(1);
+        expect(actions[0].title).toBe('Declare as `unsafe`.');
+        expect(actions[0].edit?.changes?.[configurationDocument.textDocument.uri]).toEqual([
+            TextEdit.insert(configurationDocument.textDocument.positionAt(configuration.cursor), 'unsafe ')
+        ]);
+    });
 });
+
+const catalogueSource = `catalogue Demo
+
+namespace demo
+{
+    public array IntPair = Smp.Int32[2]
+
+    public struct Counters
+    {
+        field Smp.Int32 count
+        field Smp.Bool enabled
+        field IntPair values
+    }
+
+    public model Child
+    {
+        field Smp.Int32 value
+    }
+
+    public model Root
+    {
+        field Counters state
+        field Smp.Bool flag
+        container Child child
+    }
+}
+`;
 
 async function parseProjectDocuments(catalogueSource: string, configurationSource: string): Promise<{
     catalogueDocument: LangiumDocument<Catalogue>;
@@ -208,6 +256,22 @@ source "src"
 
 async function getDefinitions(document: LangiumDocument<Configuration>, offset: number): Promise<LocationLink[]> {
     return await services.xsmpcfg.lsp.DefinitionProvider?.getDefinition(document, positionParams(document, offset)) ?? [];
+}
+
+async function getCodeActions(document: LangiumDocument<Configuration>): Promise<CodeAction[]> {
+    const diagnostics = document.diagnostics ?? [];
+    const params: CodeActionParams = {
+        textDocument: { uri: document.textDocument.uri },
+        range: diagnostics[0]?.range ?? {
+            start: document.textDocument.positionAt(0),
+            end: document.textDocument.positionAt(0),
+        },
+        context: {
+            diagnostics,
+            only: [CodeActionKind.QuickFix],
+        },
+    };
+    return (await services.xsmpcfg.lsp.CodeActionProvider?.getCodeActions(document, params) ?? []) as CodeAction[];
 }
 
 function positionParams(document: LangiumDocument, offset: number): TextDocumentPositionParams {

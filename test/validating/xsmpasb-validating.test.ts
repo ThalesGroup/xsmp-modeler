@@ -182,6 +182,25 @@ Root: demo.Root
 
         expect(getMessages(document)).toEqual([]);
     });
+
+    test('warns when an assembly template parameter is not used', async () => {
+        const document = await parseInProject(`assembly <Used = "Left", Unused = "Right"> Demo
+
+configure {Used}Receiver
+{
+    count = 1i32
+}
+
+Root: demo.Root
+{
+    child += {Used}Receiver: demo.Child
+}
+`);
+
+        expect(getMessages(document)).toEqual([
+            "The Template Parameter 'Unused' is not used.",
+        ]);
+    });
 });
 
 async function parseInProject(source: string, extraAssemblies: Array<[string, string]> = []): Promise<LangiumDocument<Assembly>> {

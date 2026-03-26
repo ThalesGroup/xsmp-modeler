@@ -152,6 +152,20 @@ task Main: demo.Root
             "The expanded path segment '1bad' is not valid for SMP Level 2.",
         ]);
     });
+
+    test('warns when a schedule template parameter is not used', async () => {
+        const document = await parseInProject(`schedule <Target = "child", Unused = 7> Demo
+
+task Main: demo.Root
+{
+    call {Target}.reset()
+}
+`);
+
+        expect(getMessages(document)).toEqual([
+            "The Template Parameter 'Unused' is not used.",
+        ]);
+    });
 });
 
 async function parseInProject(source: string): Promise<LangiumDocument<Schedule>> {

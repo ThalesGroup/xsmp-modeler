@@ -1,7 +1,8 @@
 import { afterEach, beforeAll, describe, expect, test } from 'vitest';
 import { clearDocuments, parseHelper } from 'langium/test';
 import { EmptyFileSystem, type LangiumDocument, URI } from 'langium';
-import { MarkupContent, type LocationLink, type Range, type TextDocumentPositionParams } from 'vscode-languageserver';
+import { CodeActionKind, MarkupContent, TextEdit, type CodeAction, type LocationLink, type Range, type TextDocumentPositionParams } from 'vscode-languageserver';
+import type { CodeActionParams } from 'vscode-languageserver-protocol';
 import { createXsmpServices } from '../../src/language/xsmp-module.js';
 import { Assembly, Catalogue, LinkBase, Project, Schedule } from '../../src/language/generated/ast.js';
 import * as fs from 'node:fs';
@@ -74,9 +75,12 @@ beforeAll(async () => {
     services = createXsmpServices(EmptyFileSystem);
     parseProject = parseHelper<Project>(services.xsmpproject);
     parseCatalogue = parseHelper<Catalogue>(services.xsmpcat);
-    parseAssembly = parseHelper<Assembly>(services.xsmpasb);
-    parseLinkBase = parseHelper<LinkBase>(services.xsmplnk);
-    parseSchedule = parseHelper<Schedule>(services.xsmpsed);
+    const doParseAssembly = parseHelper<Assembly>(services.xsmpasb);
+    const doParseLinkBase = parseHelper<LinkBase>(services.xsmplnk);
+    const doParseSchedule = parseHelper<Schedule>(services.xsmpsed);
+    parseAssembly = (input, options) => doParseAssembly(input, { validation: true, ...options });
+    parseLinkBase = (input, options) => doParseLinkBase(input, { validation: true, ...options });
+    parseSchedule = (input, options) => doParseSchedule(input, { validation: true, ...options });
 
     await services.shared.workspace.WorkspaceManager.initializeWorkspace([]);
 });
@@ -220,6 +224,32 @@ Root: demo.Root
         const suffixLocations = await getDefinitions(services.xsmpasb.lsp.DefinitionProvider, document, suffixPlaceholderOffset);
         expectLocation(suffixLocations, document, [suffixDefinitionOffset, suffixDefinitionOffset + 'Suffix'.length]);
     });
+
+    test('offers a quick fix to declare invalid assembly paths as unsafe', async () => {
+        const catalogue = extractRange(assemblyCatalogueSource);
+        const assemblyPath = extractCursor(`assembly Demo
+
+configure @@missing
+{
+    count = 1i32
+}
+
+Root: demo.Root
+{
+    child += Child: demo.Child
+}
+`);
+
+        const { document } = await parseAssemblyWorkspace(catalogue.text, assemblyPath.text);
+        expect(document.diagnostics?.some(diagnostic => diagnostic.message.includes('missing'))).toBe(true);
+
+        const actions = await getCodeActions(services.xsmpasb.lsp.CodeActionProvider, document);
+        expect(actions).toHaveLength(1);
+        expect(actions[0].title).toBe('Declare as `unsafe`.');
+        expect(actions[0].edit?.changes?.[document.textDocument.uri]).toEqual([
+            TextEdit.insert(document.textDocument.positionAt(assemblyPath.cursor), 'unsafe ')
+        ]);
+    });
 });
 
 async function parseAssemblyWorkspace(catalogueText: string, assemblyText: string): Promise<{
@@ -291,6 +321,25 @@ async function getDefinitions(
     offset: number,
 ): Promise<LocationLink[]> {
     return await provider?.getDefinition(document, positionParams(document, offset)) ?? [];
+}
+
+async function getCodeActions(
+    provider: { getCodeActions(document: LangiumDocument, params: CodeActionParams): Promise<Array<CodeAction>> | Array<CodeAction> } | undefined,
+    document: LangiumDocument,
+): Promise<CodeAction[]> {
+    const diagnostics = document.diagnostics ?? [];
+    const params: CodeActionParams = {
+        textDocument: { uri: document.textDocument.uri },
+        range: diagnostics[0]?.range ?? {
+            start: document.textDocument.positionAt(0),
+            end: document.textDocument.positionAt(0),
+        },
+        context: {
+            diagnostics,
+            only: [CodeActionKind.QuickFix],
+        },
+    };
+    return await provider?.getCodeActions(document, params) ?? [];
 }
 
 function positionParams(document: LangiumDocument, offset: number): TextDocumentPositionParams {
