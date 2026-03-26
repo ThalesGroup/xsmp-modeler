@@ -1,0 +1,10 @@
+configuration Demo
+/local:pkg.Comp
+{
+include Other at unsafe child
+unsafe state={x=1i32,y=true}
+child
+{
+value=[1i32,2i32]
+}
+}

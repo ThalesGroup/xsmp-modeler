@@ -1,0 +1,12 @@
+schedule <_root: string = "/Root", count: int32 = 1> Demo epoch "2025-01-01T00:00:00Z" mission "PT0S"
+task Main
+{
+    call op(a = 1i32, b = 2i32)
+    property flag = true
+    transfer out -> in
+    trig entry
+    execute Other<_root = "sub", count = 2> at child
+    async emit "Tick"
+}
+event Main mission "PT1S" cycle "PT2S" repeat 3
+event Main on "Boot" until "Stop" using mission delay "PT5S" cycle "PT30S" repeat 4

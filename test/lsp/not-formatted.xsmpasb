@@ -1,0 +1,19 @@
+assembly<_root:string="root",count:int32=1>Demo
+configure child/path
+{
+subscribe Start->"Boot"
+call init(a=1i32,b=2i32)
+property flag=true
+state={x=1i32,y=true}
+}
+Root:"Impl"
+{
+event link src->dst
+field link src.out->dst.in
+interface link src:ref->dst:back
+call init(a=1i32,b=2i32)
+property flag=true
+state=[1i32,2i32]
+child += Child:"ChildImpl"
+sub += Nested:NestedAsm<_root="nested",count=2> using config Conf using link Links
+}

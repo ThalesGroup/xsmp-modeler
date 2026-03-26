@@ -1,0 +1,11 @@
+link Demo
+/Root
+{
+event link a->b
+field link out->in
+interface link svc:ref->client:back
+child
+{
+field link local.out->local.in
+}
+}
