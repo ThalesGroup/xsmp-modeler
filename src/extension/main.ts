@@ -5,7 +5,8 @@ import satisfies from 'semver/functions/satisfies.js';
 import { LanguageClient, TransportKind } from 'vscode-languageclient/node.js';
 import { builtInScheme } from 'xsmp';
 import { createProjectWizard } from 'xsmp/wizard';
-import { GetServerFileContentRequest, RegisterContributions } from 'xsmp/lsp';
+import { GenerateAllProjects, GenerateProject, GetServerFileContentRequest, RegisterContributions } from 'xsmp/lsp';
+import type { XsmpProjectGenerationReport } from 'xsmp/lsp';
 import type {
     XsmpContributionRegistrationReport,
     XsmpExtensionContributionManifestEntry,
@@ -37,12 +38,31 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         vscode.commands.registerCommand('xsmp.wizard', () => createProjectWizard(getClient()))
     );
     context.subscriptions.push(
+        vscode.commands.registerCommand('xsmp.generate', async (uri?: vscode.Uri) => {
+            const targetUri = uri?.toString() ?? vscode.window.activeTextEditor?.document.uri.toString() ?? null;
+            if (!targetUri) {
+                void vscode.window.showErrorMessage('Open or select a project document before running XSMP generation.');
+                return;
+            }
+            const report = await getClient().sendRequest(GenerateProject, targetUri);
+            reportProjectGeneration(report, 'XSMP project generation completed.');
+        })
+    );
+    context.subscriptions.push(
+        vscode.commands.registerCommand('xsmp.generateAll', async () => {
+            const report = await getClient().sendRequest(GenerateAllProjects);
+            reportProjectGeneration(report, 'XSMP workspace generation completed.');
+        })
+    );
+    context.subscriptions.push(
         vscode.commands.registerCommand('xsmp.registerContributor', async (entries: XsmpResolvedContributionManifestEntry | XsmpResolvedContributionManifestEntry[]) => {
             const payload = Array.isArray(entries) ? entries : [entries];
             const report = await getClient().sendRequest(RegisterContributions, payload);
             reportContributionRegistration(report, 'XSMP contribution registration completed with errors.');
         })
     );
+
+    void generateAllOnStartupIfEnabled();
 
 }
 
@@ -151,6 +171,30 @@ function logContributionError(error: unknown): void {
     logContributionMessage(String(error));
 }
 
+function reportProjectGeneration(report: XsmpProjectGenerationReport, successPrefix: string): void {
+    const generatedCount = report.generatedProjects.length;
+    const skippedCount = report.skippedProjects.length;
+
+    if (skippedCount === 0) {
+        const message = generatedCount === 0
+            ? `${successPrefix} No project was generated.`
+            : generatedCount === 1
+                ? `${successPrefix} Generated project '${report.generatedProjects[0]}'.`
+                : `${successPrefix} Generated ${generatedCount} project(s).`;
+        void vscode.window.showInformationMessage(message);
+        return;
+    }
+
+    const skippedDetails = report.skippedProjects
+        .map((project: XsmpProjectGenerationReport['skippedProjects'][number]) => `${project.projectName} (${project.errorCount} error${project.errorCount === 1 ? '' : 's'})`)
+        .join(', ');
+    const generatedDetails = generatedCount > 0
+        ? `Generated ${generatedCount} project(s). `
+        : '';
+
+    void vscode.window.showWarningMessage(`${generatedDetails}Skipped ${skippedCount} project(s): ${skippedDetails}`);
+}
+
 // This function is called when the extension is deactivated.
 export function deactivate(): Thenable<void> | undefined {
     return client?.stop();
@@ -161,6 +205,27 @@ function getClient(): LanguageClient {
         throw new Error('XSMP language client is not initialized.');
     }
     return client;
+}
+
+async function generateAllOnStartupIfEnabled(): Promise<void> {
+    if (vscode.workspace.workspaceFolders === undefined || vscode.workspace.workspaceFolders.length === 0) {
+        return;
+    }
+
+    const enabled = vscode.workspace.getConfiguration('xsmp').get<boolean>('generateAllOnStartup', false);
+    if (!enabled) {
+        return;
+    }
+
+    logContributionMessage('Automatic XSMP workspace generation on startup is enabled. Launching generate all.');
+    try {
+        const report = await getClient().sendRequest(GenerateAllProjects);
+        reportProjectGeneration(report, 'XSMP startup generation completed.');
+    } catch (error) {
+        logContributionMessage('Automatic XSMP startup generation failed.');
+        logContributionError(error);
+        void vscode.window.showErrorMessage('XSMP startup generation failed. See "XSMP Contributions" for details.');
+    }
 }
 
 async function startLanguageClient(context: vscode.ExtensionContext): Promise<LanguageClient> {

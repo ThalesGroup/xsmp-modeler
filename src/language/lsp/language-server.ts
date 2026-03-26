@@ -1,5 +1,5 @@
 import { DefaultLanguageServer } from 'langium/lsp';
-import { RequestType } from 'vscode-languageserver';
+import { RequestType, RequestType0 } from 'vscode-languageserver';
 import type {
     XsmpContributionKind,
     XsmpContributionRegistrationReport,
@@ -11,12 +11,18 @@ import type {
     XsmpResolvedContributionManifestEntry,
 } from '../contributions/xsmp-extension-types.js';
 import type { XsmpSharedServices } from '../xsmp-module.js';
+import * as ast from '../generated/ast-partial.js';
+import { AstUtils, Cancellation, URI } from 'langium';
+export type { XsmpProjectGenerationFailure, XsmpProjectGenerationReport } from '../workspace/document-generator.js';
+import type { XsmpProjectGenerationReport } from '../workspace/document-generator.js';
 
 export const GetServerFileContentRequest = new RequestType<string, string | null, void>('xsmp/getServerFileContent');
 export const RegisterContributions = new RequestType<XsmpResolvedContributionManifestEntry[], XsmpContributionRegistrationReport, void>('xsmp/registerContributions');
 export const GetContributionSummaries = new RequestType<XsmpContributionKind | undefined, XsmpContributionSummary[], void>('xsmp/getContributionSummaries');
 export const GetContributionWizardPrompts = new RequestType<XsmpProjectWizardPromptsRequest, XsmpContributionWizardPrompt[], void>('xsmp/getContributionWizardPrompts');
 export const ScaffoldProject = new RequestType<XsmpProjectScaffoldRequest, XsmpContributionScaffoldResult, void>('xsmp/scaffoldProject');
+export const GenerateProject = new RequestType<string | null, XsmpProjectGenerationReport, void>('xsmp/generateProject');
+export const GenerateAllProjects = new RequestType0<XsmpProjectGenerationReport, void>('xsmp/generateAllProjects');
 
 export class XsmpLanguageServer extends DefaultLanguageServer {
 
@@ -47,5 +53,52 @@ export class XsmpLanguageServer extends DefaultLanguageServer {
             await registry.ready;
             return await registry.scaffoldProject(request);
         });
+
+        this.services.lsp.Connection?.onRequest(GenerateProject, async (uri) => {
+            const sharedServices = this.services as XsmpSharedServices;
+            const project = await this.resolveProjectFromUri(sharedServices, uri);
+            if (!project) {
+                return {
+                    generatedProjects: [],
+                    skippedProjects: [{ projectName: uri ?? 'current selection', errorCount: 1 }],
+                };
+            }
+            return await sharedServices.DocumentGenerator.generateValidatedProject(project, Cancellation.CancellationToken.None);
+        });
+
+        this.services.lsp.Connection?.onRequest(GenerateAllProjects, async () => {
+            const sharedServices = this.services as XsmpSharedServices;
+            await sharedServices.workspace.WorkspaceManager.ready;
+            const projects = sharedServices.workspace.ProjectManager.getProjects().toArray()
+                .sort((left, right) => (left.name ?? '').localeCompare(right.name ?? ''));
+            return await sharedServices.DocumentGenerator.generateValidatedProjects(projects, Cancellation.CancellationToken.None);
+        });
+    }
+
+    protected async resolveProjectFromUri(services: XsmpSharedServices, uri: string | null): Promise<ast.Project | undefined> {
+        if (!uri) {
+            return undefined;
+        }
+
+        const parsedUri = URI.parse(uri);
+        if (!services.ServiceRegistry.hasServices(parsedUri)) {
+            return undefined;
+        }
+
+        const document = await services.workspace.LangiumDocuments.getOrCreateDocument(parsedUri);
+        if (ast.isProject(document.parseResult.value)) {
+            return document.parseResult.value;
+        }
+
+        const project = services.workspace.ProjectManager.getProject(document);
+        if (project) {
+            return project;
+        }
+
+        const containingProject = services.workspace.ProjectManager.getProjects().find(candidate => {
+            const projectUri = AstUtils.getDocument(candidate).uri;
+            return projectUri.toString() === uri;
+        });
+        return containingProject;
     }
 }

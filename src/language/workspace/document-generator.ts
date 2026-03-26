@@ -1,4 +1,4 @@
-import { DocumentState, interruptAndCheck, UriUtils } from 'langium';
+import { AstUtils, DocumentState, interruptAndCheck, UriUtils } from 'langium';
 import type { Cancellation, LangiumDocument, LangiumDocuments, ServiceRegistry, URI } from 'langium';
 import * as ast from '../generated/ast-partial.js';
 import { DiagnosticSeverity } from 'vscode-languageserver';
@@ -11,17 +11,33 @@ import type { XsmpRegisteredContribution } from '../contributions/xsmp-extension
 
 const limit = pLimit(8);
 
+export interface XsmpProjectGenerationFailure {
+    readonly projectName: string;
+    readonly errorCount: number;
+}
+
+export interface XsmpProjectGenerationReport {
+    readonly generatedProjects: readonly string[];
+    readonly skippedProjects: readonly XsmpProjectGenerationFailure[];
+}
+
 export class XsmpDocumentGenerator {
     protected readonly langiumDocuments: LangiumDocuments;
     protected readonly serviceRegistry: ServiceRegistry;
     protected readonly projectManager: ProjectManager;
     protected readonly contributionRegistry: XsmpContributionRegistry;
+    protected readonly documentBuilder: XsmpSharedServices['workspace']['DocumentBuilder'];
+    protected readonly workspaceManager: XsmpSharedServices['workspace']['WorkspaceManager'];
+    protected readonly workspaceLock: XsmpSharedServices['workspace']['WorkspaceLock'];
 
     constructor(services: XsmpSharedServices) {
         this.langiumDocuments = services.workspace.LangiumDocuments;
         this.serviceRegistry = services.ServiceRegistry;
         this.projectManager = services.workspace.ProjectManager;
         this.contributionRegistry = services.ContributionRegistry;
+        this.documentBuilder = services.workspace.DocumentBuilder;
+        this.workspaceManager = services.workspace.WorkspaceManager;
+        this.workspaceLock = services.workspace.WorkspaceLock;
     }
 
     private isValid(document: LangiumDocument): boolean {
@@ -73,6 +89,45 @@ export class XsmpDocumentGenerator {
         }
     }
 
+    async generateValidatedProject(project: ast.Project, cancelToken: Cancellation.CancellationToken): Promise<XsmpProjectGenerationReport> {
+        const projectName = this.getProjectDisplayName(project);
+        await this.rebuildWorkspace(cancelToken);
+        const errorCount = this.getScopedErrorCount(project);
+        if (errorCount > 0) {
+            return {
+                generatedProjects: [],
+                skippedProjects: [{ projectName, errorCount }],
+            };
+        }
+
+        await this.generateProject(project, cancelToken);
+        return {
+            generatedProjects: [projectName],
+            skippedProjects: [],
+        };
+    }
+
+    async generateValidatedProjects(projects: readonly ast.Project[], cancelToken: Cancellation.CancellationToken): Promise<XsmpProjectGenerationReport> {
+        await this.rebuildWorkspace(cancelToken);
+
+        const generatedProjects: string[] = [];
+        const skippedProjects: XsmpProjectGenerationFailure[] = [];
+
+        for (const project of projects) {
+            const projectName = this.getProjectDisplayName(project);
+            const errorCount = this.getScopedErrorCount(project);
+            if (errorCount > 0) {
+                skippedProjects.push({ projectName, errorCount });
+                continue;
+            }
+
+            await this.generateProject(project, cancelToken);
+            generatedProjects.push(projectName);
+        }
+
+        return { generatedProjects, skippedProjects };
+    }
+
     protected getActiveContributions(project: ast.Project): XsmpRegisteredContribution[] {
         const contributions: XsmpRegisteredContribution[] = [];
         const seen = new Set<string>();
@@ -96,5 +151,44 @@ export class XsmpDocumentGenerator {
         }
 
         return contributions;
+    }
+
+    protected async rebuildWorkspace(cancelToken: Cancellation.CancellationToken): Promise<void> {
+        await this.workspaceManager.ready;
+        await this.workspaceLock.write(async (token) => {
+            await this.documentBuilder.build(this.langiumDocuments.all.toArray(), { validation: true }, token);
+            await interruptAndCheck(cancelToken);
+        });
+    }
+
+    protected getScopedErrorCount(project: ast.Project): number {
+        return this.getScopedDocuments(project).reduce((count, document) => {
+            return count
+                + document.parseResult.parserErrors.length
+                + (document.diagnostics?.filter(diagnostic => diagnostic.severity === DiagnosticSeverity.Error).length ?? 0);
+        }, 0);
+    }
+
+    protected getScopedDocuments(project: ast.Project): LangiumDocument[] {
+        const reachableProjects = this.projectManager.getDependencies(project);
+        const reachableProjectUris = new Set(
+            [...reachableProjects].map(reachableProject => AstUtils.getDocument(reachableProject).uri.toString())
+        );
+
+        return this.langiumDocuments.all.toArray()
+            .filter(document => {
+                if (document.uri.scheme !== 'file') {
+                    return false;
+                }
+                if (reachableProjectUris.has(document.uri.toString())) {
+                    return true;
+                }
+                const ownerProject = this.projectManager.getProject(document);
+                return Boolean(ownerProject && reachableProjects.has(ownerProject));
+            });
+    }
+
+    protected getProjectDisplayName(project: ast.Project): string {
+        return project.name ?? AstUtils.getDocument(project).uri.path;
     }
 }

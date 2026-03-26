@@ -254,6 +254,16 @@
                 "title": "Create a new project"
             },
             {
+                "command": "xsmp.generate",
+                "category": "Xsmp",
+                "title": "Generate Project"
+            },
+            {
+                "command": "xsmp.generateAll",
+                "category": "Xsmp",
+                "title": "Generate All Projects"
+            },
+            {
                 "command": "xsmp.registerContributor",
                 "category": "Xsmp",
                 "title": "Register a contributor",
@@ -325,9 +335,23 @@
                     }
                 ]
             }
+        },
+        "configuration": {
+            "title": "XSMP",
+            "properties": {
+                "xsmp.generateAllOnStartup": {
+                    "type": "boolean",
+                    "default": false,
+                    "scope": "window",
+                    "markdownDescription": "Automatically run `Xsmp: Generate All Projects` once the XSMP workspace has finished loading at startup."
+                }
+            }
         }
     },
     "activationEvents": [
+        "onCommand:xsmp.wizard",
+        "onCommand:xsmp.generate",
+        "onCommand:xsmp.generateAll",
         "onLanguage:xsmpproject",
         "onLanguage:xsmpcat",
         "onLanguage:xsmpasb",
