@@ -26,9 +26,11 @@ export class XsmpNodeInfoProvider {
             case ast.EventSource: return `EventSource<${(node as ast.EventSource).type?.$refText}>`;
             case ast.Field: return (node as ast.Field).type?.$refText;
             case ast.AttributeType: return (node as ast.AttributeType).type?.$refText;
+            case ast.AssemblyInstance: return (node as ast.AssemblyInstance).assembly?.$refText;
             case ast.EventType: return (node as ast.EventType).eventArgs?.$refText ?? 'void';
             case ast.Integer: return (node as ast.Integer).primitiveType?.$refText ?? 'Smp::Int32';
             case ast.Float: return (node as ast.Float).primitiveType?.$refText ?? 'Smp::Float64';
+            case ast.ModelInstance: return (node as ast.ModelInstance).implementation?.$refText ?? (node as ast.ModelInstance).strImplementation;
             case ast.ValueReference: return (node as ast.ValueReference).type?.$refText + '*';
             case ast.ArrayType: return `${(node as ast.ArrayType).itemType?.$refText}[${getValueAs((node as ast.ArrayType).size, PTK.Int64)?.getValue()}]`;
             case ast.Operation: return (node as ast.Operation).returnParameter?.type?.$refText ?? 'void';
