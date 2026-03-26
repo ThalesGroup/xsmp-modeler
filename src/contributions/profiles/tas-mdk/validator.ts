@@ -5,19 +5,22 @@ import {
     type AstNodeDescription,
     UriUtils
 } from 'langium';
-import * as ast from '../../generated/ast-partial.js';
-import type { XsmpcatServices } from '../../xsmpcat-module.js';
-import * as XsmpUtils from '../../utils/xsmp-utils.js';
-import { VisibilityKind } from '../../utils/visibility-kind.js';
-import { type DocumentationHelper } from '../../utils/documentation-helper.js';
-import { type AttributeHelper } from '../../utils/attribute-helper.js';
-import type { ProjectManager } from '../../workspace/project-manager.js';
+import * as ast from '../../../language/generated/ast-partial.js';
+import type { XsmpcatServices } from '../../../language/xsmpcat-module.js';
+import * as XsmpUtils from '../../../language/utils/xsmp-utils.js';
+import { VisibilityKind } from '../../../language/utils/visibility-kind.js';
+import { type DocumentationHelper } from '../../../language/utils/documentation-helper.js';
+import { type AttributeHelper } from '../../../language/utils/attribute-helper.js';
+import type { ProjectManager } from '../../../language/workspace/project-manager.js';
 
 let validator: TasMdkValidator;
 /**
  * Register custom validation checks.
  */
-export function registerTasMdkValidationChecks(services: XsmpcatServices) {
+export function registerTasMdkValidationChecks(
+    services: XsmpcatServices,
+    category: string = 'org.eclipse.xsmp.profile.tas-mdk',
+) {
     const registry = services.validation.ValidationRegistry;
     validator = new TasMdkValidator(services);
     const checks: ValidationChecks<ast.XsmpAstType> = {
@@ -34,7 +37,7 @@ export function registerTasMdkValidationChecks(services: XsmpcatServices) {
         Reference: validator.checkReference,
         Operation: validator.checkOperation,
     };
-    registry.register(checks, validator, 'org.eclipse.xsmp.profile.tas-mdk');
+    registry.register(checks, validator, category);
 }
 
 function getRootBase(component: ast.Component): ast.Component | undefined {

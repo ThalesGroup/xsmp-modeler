@@ -15,14 +15,15 @@ Project returns Project:
      * `project "<project-name>" [using "<standard>"]`
      *
      * Declares an XSMP project root.
-     * Use a project to select the SMP standard revision, list modeling sources, enable tools and declare dependencies on other XSMP projects.
+     * Use a project to select the SMP standard revision, list modeling sources, activate installed profiles and tools, and declare dependencies on other XSMP projects.
      *
      * **Example**
      * ```xsmp
      * project "MissionDemo" using "ECSS_SMP_2025"
      * source "smdl"
      * dependency "foundation"
-     * tool "adoc"
+     * profile "xsmp-sdk"
+     * tool "smp"
      * ```
      */
     'project' name=STRING  (/** Specify which version of the standard to use. */ 'using' standard=STRING)?
@@ -32,12 +33,13 @@ ProfileReference returns ProfileReference:
     /**
      * `profile "<profile-name>"`
      *
-     * Activates a built-in XSMP profile for the current project.
-     * Profiles group reusable conventions or generators that should apply to every source of the project.
+     * Activates an XSMP profile contribution for the current project.
+     * Profiles usually group reusable conventions, generators or validation rules that should apply to every source of the project.
+     * Use content assist to pick one of the installed profile identifiers.
      *
      * **Example**
      * ```xsmp
-     * profile "esa-cdk"
+     * profile "xsmp-sdk"
      * ```
      */
     'profile' profile=[Profile:STRING];
@@ -46,12 +48,13 @@ ToolReference returns ToolReference:
     /**
      * `tool "<tool-name>"`
      *
-     * Enables an additional tool for the current project.
-     * Tools typically provide code generation, export or extra validation passes.
+     * Enables an XSMP tool contribution for the current project.
+     * Tools typically provide code generation, export pipelines or extra validation passes.
+     * Use content assist to pick one of the installed tool identifiers.
      *
      * **Example**
      * ```xsmp
-     * tool "adoc"
+     * tool "smp"
      * ```
      */
     'tool' tool=[Tool:STRING];
@@ -88,11 +91,12 @@ Profile returns Profile:
     /**
      * `profile "<profile-name>"`
      *
-     * Declares a built-in profile name that can be referenced from a project.
+     * Declares an XSMP profile contribution identifier that can be referenced from a project.
+     * In practice, profile descriptors are usually provided by installed XSMP extensions.
      *
      * **Example**
      * ```xsmp
-     * profile "esa-cdk"
+     * profile "xsmp-sdk"
      * ```
      */
     'profile' name=STRING;
@@ -101,13 +105,12 @@ Tool returns Tool:
     /**
      * `tool "<tool-name>"`
      *
-     * Declares a built-in tool name that can be referenced from a project.
+     * Declares an XSMP tool contribution identifier that can be referenced from a project.
+     * In practice, tool descriptors are usually provided by installed XSMP extensions.
      *
      * **Example**
      * ```xsmp
-     * tool "adoc"
+     * tool "smp"
      * ```
      */
     'tool' name=STRING;
-
-

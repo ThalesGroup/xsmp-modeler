@@ -1,13 +1,16 @@
 import type { AstNodeDescription, MaybePromise, ReferenceInfo, Stream } from 'langium';
-import { AstUtils, UriUtils, type GrammarAST } from 'langium';
+import { AstUtils, UriUtils, stream, type GrammarAST } from 'langium';
 import type { CompletionAcceptor, CompletionContext, NextFeature } from 'langium/lsp';
 import * as ast from '../generated/ast-partial.js';
 import type { XsmpprojectServices } from '../xsmpproject-module.js';
 import { XsmpCompletionProviderBase } from './xsmp-completion-provider-base.js';
 import { SmpStandards, type ProjectManager } from '../workspace/project-manager.js';
+import type { XsmpContributionRegistry } from '../contributions/xsmp-contribution-registry.js';
+import type { XsmpContributionKind } from '../contributions/xsmp-extension-types.js';
 
 export class XsmpprojectCompletionProvider extends XsmpCompletionProviderBase {
     protected readonly projectManager: ProjectManager;
+    protected readonly contributionRegistry: XsmpContributionRegistry;
     protected readonly snippetOnlyKeywords = new Set([
         'project',
         'profile',
@@ -19,6 +22,7 @@ export class XsmpprojectCompletionProvider extends XsmpCompletionProviderBase {
     constructor(services: XsmpprojectServices) {
         super(services);
         this.projectManager = services.shared.workspace.ProjectManager;
+        this.contributionRegistry = services.shared.ContributionRegistry;
     }
 
     protected override completionForKeyword(context: CompletionContext, keyword: GrammarAST.Keyword, acceptor: CompletionAcceptor): MaybePromise<void> {
@@ -42,12 +46,28 @@ export class XsmpprojectCompletionProvider extends XsmpCompletionProviderBase {
                     && !this.projectManager.getDependencies(project).has(d.node));
             }
             if (this.isReferenceProperty(refInfo, ast.ToolReference, ast.ToolReference.tool)) {
-                return this.scopeProvider.getScope(refInfo).getAllElements().filter(d =>
-                    !project.elements.filter(ast.isToolReference).some(r => r.tool?.$refText === d.name));
+                const used = new Set(
+                    project.elements
+                        .filter(ast.isToolReference)
+                        .map(reference => this.contributionRegistry.resolveContribution('tool', reference.tool?.$refText ?? reference.tool?.ref?.name)?.contribution.id)
+                        .filter((name): name is string => Boolean(name))
+                );
+                const descriptions = this.contributionRegistry
+                    .getContributionDescriptions('tool', false)
+                    .filter(description => !used.has(description.name));
+                return stream(descriptions);
             }
             if (this.isReferenceProperty(refInfo, ast.ProfileReference, ast.ProfileReference.profile)) {
-                return this.scopeProvider.getScope(refInfo).getAllElements().filter(d =>
-                    !project.elements.filter(ast.isProfileReference).some(r => r.profile?.$refText === d.name));
+                const used = new Set(
+                    project.elements
+                        .filter(ast.isProfileReference)
+                        .map(reference => this.contributionRegistry.resolveContribution('profile', reference.profile?.$refText ?? reference.profile?.ref?.name)?.contribution.id)
+                        .filter((name): name is string => Boolean(name))
+                );
+                const descriptions = this.contributionRegistry
+                    .getContributionDescriptions('profile', false)
+                    .filter(description => !used.has(description.name));
+                return stream(descriptions);
             }
         }
         return this.scopeProvider.getScope(refInfo).getAllElements();
@@ -105,14 +125,14 @@ export class XsmpprojectCompletionProvider extends XsmpCompletionProviderBase {
             case 'profile':
                 acceptor(context, this.createKeywordSnippet(
                     keyword,
-                    'profile "${1:esa-cdk}"',
+                    `profile "${this.createPlaceholder(1, this.getContributionSnippetDefault('profile', 'profile'))}"`,
                     'Profile Reference'
                 ));
                 break;
             case 'tool':
                 acceptor(context, this.createKeywordSnippet(
                     keyword,
-                    'tool "${1:adoc}"',
+                    `tool "${this.createPlaceholder(1, this.getContributionSnippetDefault('tool', 'tool'))}"`,
                     'Tool Reference'
                 ));
                 break;
@@ -155,13 +175,13 @@ export class XsmpprojectCompletionProvider extends XsmpCompletionProviderBase {
             } else if (kind === 'profile') {
                 acceptor(context, this.createSnippetItem(
                     'Profile',
-                    'profile "${1:esa-cdk}"',
+                    `profile "${this.createPlaceholder(1, this.getContributionSnippetDefault('profile', 'profile'))}"`,
                     'Profile Definition'
                 ));
             } else if (kind === 'tool') {
                 acceptor(context, this.createSnippetItem(
                     'Tool',
-                    'tool "${1:adoc}"',
+                    `tool "${this.createPlaceholder(1, this.getContributionSnippetDefault('tool', 'tool'))}"`,
                     'Tool Definition'
                 ));
             }
@@ -180,14 +200,18 @@ export class XsmpprojectCompletionProvider extends XsmpCompletionProviderBase {
         ));
         acceptor(context, this.createSnippetItem(
             'Profile',
-            `profile "${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.ProfileReference, ast.ProfileReference.profile), 'esa-cdk')}"`,
+            `profile "${this.createChoicePlaceholder(1, this.contributionRegistry.getCanonicalNames('profile'), this.getContributionSnippetDefault('profile', 'profile'))}"`,
             'Profile Reference'
         ));
         acceptor(context, this.createSnippetItem(
             'Tool',
-            `tool "${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.ToolReference, ast.ToolReference.tool), 'adoc')}"`,
+            `tool "${this.createChoicePlaceholder(1, this.contributionRegistry.getCanonicalNames('tool'), this.getContributionSnippetDefault('tool', 'tool'))}"`,
             'Tool Reference'
         ));
+    }
+
+    protected getContributionSnippetDefault(kind: XsmpContributionKind, fallback: string): string {
+        return this.contributionRegistry.getPreferredContributionId(kind) ?? fallback;
     }
 
     protected getDocumentKind(context: CompletionContext): 'project' | 'profile' | 'tool' | undefined {

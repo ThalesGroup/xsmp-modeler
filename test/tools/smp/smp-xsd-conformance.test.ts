@@ -2,7 +2,7 @@ import { afterEach, beforeAll, describe, expect, test } from 'vitest';
 import { EmptyFileSystem, type LangiumDocument, URI } from 'langium';
 import { clearDocuments, parseHelper } from 'langium/test';
 import { createXsmpServices } from '../../../src/language/xsmp-module.js';
-import { SmpGenerator } from '../../../src/language/tools/smp/generator.js';
+import { SmpGenerator } from '../../../src/contributions/tools/smp/generator.js';
 import {
   Assembly,
   Catalogue,

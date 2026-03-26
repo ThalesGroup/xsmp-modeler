@@ -1,28 +1,154 @@
 import type { LanguageClientOptions, ServerOptions } from 'vscode-languageclient/node.js';
 import * as vscode from 'vscode';
 import * as path from 'node:path';
+import satisfies from 'semver/functions/satisfies.js';
 import { LanguageClient, TransportKind } from 'vscode-languageclient/node.js';
 import { builtInScheme } from '../language/builtins.js';
 import { createProjectWizard } from '../language/wizard/wizard.js';
-import { GetServerFileContentRequest, RegisterContributor } from '../language/lsp/language-server.js';
+import { GetServerFileContentRequest, RegisterContributions } from '../language/lsp/language-server.js';
+import type {
+    XsmpContributionRegistrationReport,
+    XsmpExtensionContributionManifestEntry,
+    XsmpResolvedContributionManifestEntry,
+} from '../language/contributions/xsmp-extension-types.js';
+import { xsmpExtensionApiVersion } from '../language/version.js';
 
 let client: LanguageClient | undefined;
+let contributionOutputChannel: vscode.OutputChannel | undefined;
 
 // This function is called when the extension is activated.
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-    client = await startLanguageClient(context);
-    BuiltinLibraryFileSystemProvider.register(context);
+    contributionOutputChannel = vscode.window.createOutputChannel('XSMP Contributions');
+    context.subscriptions.push(contributionOutputChannel);
+
+    try {
+        client = await startLanguageClient(context);
+        BuiltinLibraryFileSystemProvider.register(context);
+        await registerDiscoveredXsmpContributions(context);
+    } catch (error) {
+        logContributionMessage('Failed to activate XSMP extension.');
+        logContributionError(error);
+        contributionOutputChannel.show(true);
+        throw error;
+    }
 
     // New project Wizard
     context.subscriptions.push(
-        vscode.commands.registerCommand('xsmp.wizard', createProjectWizard)
+        vscode.commands.registerCommand('xsmp.wizard', () => createProjectWizard(getClient()))
     );
     context.subscriptions.push(
-        vscode.commands.registerCommand('xsmp.registerContributor', async (modulePath: string) => {
-            await getClient().sendRequest(RegisterContributor, modulePath);
+        vscode.commands.registerCommand('xsmp.registerContributor', async (entries: XsmpResolvedContributionManifestEntry | XsmpResolvedContributionManifestEntry[]) => {
+            const payload = Array.isArray(entries) ? entries : [entries];
+            const report = await getClient().sendRequest(RegisterContributions, payload);
+            reportContributionRegistration(report, 'XSMP contribution registration completed with errors.');
         })
     );
 
+}
+
+async function registerDiscoveredXsmpContributions(context: vscode.ExtensionContext): Promise<void> {
+    const contributions: XsmpResolvedContributionManifestEntry[] = [];
+    const skippedEntries: string[] = [];
+    for (const extension of vscode.extensions.all) {
+        if (extension.id === context.extension.id) {
+            continue;
+        }
+
+        const manifestEntries = readXsmpContributionEntries(extension.packageJSON);
+        if (manifestEntries.length === 0) {
+            continue;
+        }
+
+        for (const entry of manifestEntries) {
+            if (!satisfies(xsmpExtensionApiVersion, entry.apiVersion)) {
+                skippedEntries.push(`${extension.id}: skipped contribution '${entry.descriptor}' because API ${entry.apiVersion} does not satisfy ${xsmpExtensionApiVersion}`);
+                continue;
+            }
+            contributions.push({
+                extensionId: extension.id,
+                extensionRoot: extension.extensionPath,
+                descriptorPath: path.resolve(extension.extensionPath, entry.descriptor),
+                handlerPath: path.resolve(extension.extensionPath, entry.handler),
+                apiVersion: entry.apiVersion,
+                aliases: [...(entry.aliases ?? [])],
+                deprecatedAliases: [...(entry.deprecatedAliases ?? [])],
+                builtins: [...(entry.builtins ?? [])].map(builtin => path.resolve(extension.extensionPath, builtin)),
+                wizard: entry.wizard,
+            });
+        }
+    }
+
+    for (const message of skippedEntries) {
+        logContributionMessage(message);
+    }
+
+    if (contributions.length > 0) {
+        logContributionMessage(`Registering ${contributions.length} external XSMP contribution(s).`);
+        const report = await getClient().sendRequest(RegisterContributions, contributions);
+        reportContributionRegistration(report, 'Some XSMP contributions failed to initialize.');
+    }
+}
+
+function readXsmpContributionEntries(packageJson: unknown): readonly XsmpExtensionContributionManifestEntry[] {
+    if (typeof packageJson !== 'object' || packageJson === null) {
+        return [];
+    }
+    const contributes = Reflect.get(packageJson, 'contributes');
+    if (typeof contributes !== 'object' || contributes === null) {
+        return [];
+    }
+    const xsmp = Reflect.get(contributes, 'xsmp');
+    return Array.isArray(xsmp) ? xsmp as readonly XsmpExtensionContributionManifestEntry[] : [];
+}
+
+function reportContributionRegistration(
+    report: XsmpContributionRegistrationReport,
+    prefix: string,
+): void {
+    for (const entry of report.registered) {
+        logContributionMessage(`Registered ${entry.kind} contribution '${entry.id}' from '${entry.extensionId}'.`);
+    }
+
+    if (report.failures.length === 0) {
+        return;
+    }
+
+    logContributionMessage(`Encountered ${report.failures.length} contribution registration failure(s).`);
+    for (const failure of report.failures) {
+        logContributionMessage(`- ${failure.extensionId} [${failure.phase}] ${failure.contributionId ?? path.basename(failure.descriptorPath)}: ${failure.message}`);
+        logContributionMessage(`  descriptor: ${failure.descriptorPath}`);
+        logContributionMessage(`  handler: ${failure.handlerPath}`);
+        if (failure.stack) {
+            contributionOutputChannel?.appendLine(failure.stack);
+        }
+    }
+
+    const details = report.failures
+        .slice(0, 3)
+        .map(failure => `${failure.extensionId} (${failure.phase}): ${failure.message}`)
+        .join('\n');
+    const remaining = report.failures.length > 3 ? `\n…and ${report.failures.length - 3} more.` : '';
+    void vscode.window.showWarningMessage(`${prefix}\n${details}${remaining}`, 'Show Details')
+        .then(selection => {
+            if (selection === 'Show Details') {
+                contributionOutputChannel?.show(true);
+            }
+        });
+}
+
+function logContributionMessage(message: string): void {
+    contributionOutputChannel?.appendLine(`[${new Date().toISOString()}] ${message}`);
+}
+
+function logContributionError(error: unknown): void {
+    if (error instanceof Error) {
+        logContributionMessage(error.message);
+        if (error.stack) {
+            contributionOutputChannel?.appendLine(error.stack);
+        }
+        return;
+    }
+    logContributionMessage(String(error));
 }
 
 // This function is called when the extension is deactivated.

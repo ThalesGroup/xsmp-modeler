@@ -1,13 +1,13 @@
-import * as ast from '../../generated/ast.js';
+import * as ast from '../../../language/generated/ast.js';
 import { type AstNode, type URI, UriUtils } from 'langium';
 import * as fs from 'node:fs';
-import type { TaskAcceptor, XsmpGenerator } from '../../generator/generator.js';
-import { fqn } from '../../utils/xsmp-utils.js';
-import * as CopyrightNoticeProvider from '../../generator/copyright-notice-provider.js';
+import type { TaskAcceptor, XsmpGenerator } from '../../../language/generator/generator.js';
+import { fqn } from '../../../language/utils/xsmp-utils.js';
+import * as CopyrightNoticeProvider from '../../../language/generator/copyright-notice-provider.js';
 import { expandToString as s } from 'langium/generate';
 import * as Path from 'node:path';
-import type { XsmpSharedServices } from '../../xsmp-module.js';
-import { type DocumentationHelper } from '../../utils/documentation-helper.js';
+import type { XsmpSharedServices } from '../../../language/xsmp-module.js';
+import { type DocumentationHelper } from '../../../language/utils/documentation-helper.js';
 
 export class TasMdkPythonGenerator implements XsmpGenerator {
 

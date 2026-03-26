@@ -35,10 +35,12 @@
         "publish": "vsce publish"
     },
     "dependencies": {
+        "@types/semver": "^7.7.1",
         "chalk": "~5.6.2",
         "commander": "~14.0.3",
         "langium": "4.2.1",
         "p-limit": "^7.3.0",
+        "semver": "^7.7.4",
         "vscode-languageclient": "~9.0.1",
         "vscode-languageserver": "~9.0.1",
         "xmlbuilder2": "^4.0.3"
@@ -200,6 +202,53 @@
                 "category": "Xsmp",
                 "title": "Register a contributor",
                 "enablement": "false"
+            }
+        ],
+        "xsmp": [
+            {
+                "descriptor": "out/contributions/tools/smp/smp.xsmptool",
+                "handler": "out/contributions/tools/smp/contributor.cjs",
+                "apiVersion": "^1.0.0",
+                "aliases": [
+                    "org.eclipse.xsmp.tool.smp"
+                ]
+            },
+            {
+                "descriptor": "out/contributions/tools/adoc/adoc.xsmptool",
+                "handler": "out/contributions/tools/adoc/contributor.cjs",
+                "apiVersion": "^1.0.0",
+                "deprecatedAliases": [
+                    "org.eclipse.xsmp.tool.adoc"
+                ]
+            },
+            {
+                "descriptor": "out/contributions/tools/python/python.xsmptool",
+                "handler": "out/contributions/tools/python/contributor.cjs",
+                "apiVersion": "^1.0.0",
+                "deprecatedAliases": [
+                    "org.eclipse.xsmp.tool.python"
+                ]
+            },
+            {
+                "descriptor": "out/contributions/profiles/xsmp-sdk/xsmp-sdk.xsmpprofile",
+                "handler": "out/contributions/profiles/xsmp-sdk/contributor.cjs",
+                "apiVersion": "^1.0.0",
+                "deprecatedAliases": [
+                    "org.eclipse.xsmp.profile.xsmp-sdk"
+                ]
+            },
+            {
+                "descriptor": "out/contributions/profiles/esa-cdk/esa-cdk.xsmpprofile",
+                "handler": "out/contributions/profiles/esa-cdk/contributor.cjs",
+                "apiVersion": "^1.0.0",
+                "aliases": [
+                    "org.eclipse.xsmp.profile.esa-cdk"
+                ]
+            },
+            {
+                "descriptor": "out/contributions/profiles/tas-mdk/tas-mdk.xsmpprofile",
+                "handler": "out/contributions/profiles/tas-mdk/contributor.cjs",
+                "apiVersion": "^1.0.0"
             }
         ],
         "configurationDefaults": {

@@ -22,6 +22,8 @@ afterEach(async () => {
 
 describe('Xsmpproject completion provider', () => {
     test('offers contextual root and project statement snippets', async () => {
+        const preferredProfileId = services.shared.ContributionRegistry.getPreferredContributionId('profile') ?? 'profile';
+        const preferredToolId = services.shared.ContributionRegistry.getPreferredContributionId('tool') ?? 'tool';
         const rootDocument = await parseRoot('', { documentUri: 'memory:///root/xsmp.project' });
         documents.push(rootDocument);
 
@@ -41,6 +43,22 @@ describe('Xsmpproject completion provider', () => {
         expect(labels(projectItems)).toContain('Dependency');
         expect(labels(projectItems)).toContain('Profile');
         expect(labels(projectItems)).toContain('Tool');
+        expect(findSnippetItem(projectItems, 'Profile')?.insertText).toContain(preferredProfileId);
+        expect(findSnippetItem(projectItems, 'Tool')?.insertText).toContain(preferredToolId);
+    });
+
+    test('uses registry-backed defaults for profile and tool snippets', async () => {
+        const preferredProfileId = services.shared.ContributionRegistry.getPreferredContributionId('profile') ?? 'profile';
+        const preferredToolId = services.shared.ContributionRegistry.getPreferredContributionId('tool') ?? 'tool';
+        const profileDocument = await parseRoot('', { documentUri: 'memory:///esa.xsmpprofile' });
+        const toolDocument = await parseRoot('', { documentUri: 'memory:///adoc.xsmptool' });
+        documents.push(profileDocument, toolDocument);
+
+        const profileItems = await getCompletionItems(profileDocument, 0);
+        const toolItems = await getCompletionItems(toolDocument, 0);
+
+        expect(findSnippetItem(profileItems, 'Profile')?.insertText).toContain(preferredProfileId);
+        expect(findSnippetItem(toolItems, 'Tool')?.insertText).toContain(preferredToolId);
     });
 
     test('offers standard values', async () => {

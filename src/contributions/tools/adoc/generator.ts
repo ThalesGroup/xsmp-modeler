@@ -1,15 +1,15 @@
 import * as fs from 'node:fs';
-import * as ast from '../../generated/ast.js';
+import * as ast from '../../../language/generated/ast.js';
 import { type URI, UriUtils, type AstNode, type Reference, AstUtils, isReference } from 'langium';
-import { type TaskAcceptor, type XsmpGenerator } from '../../generator/generator.js';
-import { fqn, getLower, getNodeType, getRealVisibility, getUpper } from '../../utils/xsmp-utils.js';
-import { VisibilityKind, VisibilityKinds } from '../../utils/visibility-kind.js';
+import { type TaskAcceptor, type XsmpGenerator } from '../../../language/generator/generator.js';
+import { fqn, getLower, getNodeType, getRealVisibility, getUpper } from '../../../language/utils/xsmp-utils.js';
+import { VisibilityKind, VisibilityKinds } from '../../../language/utils/visibility-kind.js';
 import { expandToString as s } from 'langium/generate';
-import { type DocumentationHelper } from '../../utils/documentation-helper.js';
-import { type AttributeHelper } from '../../utils/attribute-helper.js';
-import { type XsmpSharedServices } from '../../xsmp-module.js';
-import * as Solver from '../../utils/solver.js';
-import { ViewKind } from '../../utils/view_kind.js';
+import { type DocumentationHelper } from '../../../language/utils/documentation-helper.js';
+import { type AttributeHelper } from '../../../language/utils/attribute-helper.js';
+import { type XsmpSharedServices } from '../../../language/xsmp-module.js';
+import * as Solver from '../../../language/utils/solver.js';
+import { ViewKind } from '../../../language/utils/view_kind.js';
 
 /**
  * AsciiDoc generator for XSMP Catalogues
@@ -46,8 +46,7 @@ export class ADocGenerator implements XsmpGenerator {
         }
 
         if (ast.isCollectionLiteral(expr)) {
-            const cl = expr as ast.CollectionLiteral;
-            return this.getShortValuesArray(cl);
+            return this.getShortValuesArray(expr);
         }
         if (ast.isKeywordExpression(expr)) {
             return expr.name;

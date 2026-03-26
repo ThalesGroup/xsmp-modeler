@@ -7,7 +7,7 @@ import { Catalogue, isCatalogue } from "../../../src/language/generated/ast-part
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
-import { SmpGenerator } from "../../../src/language/tools/smp/generator.js";
+import { SmpGenerator } from "../../../src/contributions/tools/smp/generator.js";
 import { setGeneratedBy } from "../../../src/language/generator/generator.js";
 
 let services: ReturnType<typeof createXsmpServices>;

@@ -1,4 +1,4 @@
-import * as ast from '../../generated/ast.js';
+import * as ast from '../../../language/generated/ast.js';
 import type * as Catalogue from './model/catalogue.js';
 import type * as Elements from './model/elements.js';
 import type * as Types from './model/types.js';
@@ -8,27 +8,27 @@ import type * as Configuration from './model/configuration.js';
 import type * as LinkBase from './model/linkbase.js';
 import type * as Assembly from './model/assembly.js';
 import type * as Schedule from './model/schedule.js';
-import * as XsmpUtils from '../../utils/xsmp-utils.js';
+import * as XsmpUtils from '../../../language/utils/xsmp-utils.js';
 
-import * as Duration from '../../utils/duration.js';
+import * as Duration from '../../../language/utils/duration.js';
 
 import type { AstNode, JSDocParagraph, Reference, URI } from 'langium';
 import { AstUtils, UriUtils, isReference } from 'langium';
 import * as fs from 'node:fs';
-import * as Solver from '../../utils/solver.js';
-import { isGeneratedBy, type TaskAcceptor, type XsmpGenerator } from '../../generator/generator.js';
+import * as Solver from '../../../language/utils/solver.js';
+import { isGeneratedBy, type TaskAcceptor, type XsmpGenerator } from '../../../language/generator/generator.js';
 import { create } from 'xmlbuilder2';
-import { type FloatingPTK, type IntegralPTK, PTK } from '../../utils/primitive-type-kind.js';
-import { VisibilityKind } from '../../utils/visibility-kind.js';
-import { type XsmpSharedServices } from '../../xsmp-module.js';
-import { type DocumentationHelper } from '../../utils/documentation-helper.js';
-import { type AttributeHelper } from '../../utils/attribute-helper.js';
-import { getCopyrightNotice } from '../../generator/copyright-notice-provider.js';
-import { xsmpVersion } from '../../version.js';
-import type { ProjectManager } from '../../workspace/project-manager.js';
-import type { XsmpPathService } from '../../references/xsmp-path-service.js';
-import type { XsmpcfgPathResolver } from '../../references/xsmpcfg-path-resolver.js';
-import type { Xsmpl2PathResolver } from '../../references/xsmpl2-path-resolver.js';
+import { type FloatingPTK, type IntegralPTK, PTK } from '../../../language/utils/primitive-type-kind.js';
+import { VisibilityKind } from '../../../language/utils/visibility-kind.js';
+import { type XsmpSharedServices } from '../../../language/xsmp-module.js';
+import { type DocumentationHelper } from '../../../language/utils/documentation-helper.js';
+import { type AttributeHelper } from '../../../language/utils/attribute-helper.js';
+import { getCopyrightNotice } from '../../../language/generator/copyright-notice-provider.js';
+import { xsmpVersion } from '../../../language/version.js';
+import type { ProjectManager } from '../../../language/workspace/project-manager.js';
+import type { XsmpPathService } from '../../../language/references/xsmp-path-service.js';
+import type { XsmpcfgPathResolver } from '../../../language/references/xsmpcfg-path-resolver.js';
+import type { Xsmpl2PathResolver } from '../../../language/references/xsmpl2-path-resolver.js';
 
 export class SmpGenerator implements XsmpGenerator {
 

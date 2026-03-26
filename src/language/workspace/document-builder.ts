@@ -3,13 +3,16 @@ import { DefaultDocumentBuilder, ValidationCategory } from 'langium';
 import type { XsmpSharedServices } from '../xsmp-module.js';
 import type { ProjectManager } from './project-manager.js';
 import * as ast from '../generated/ast-partial.js';
+import type { XsmpContributionRegistry } from '../contributions/xsmp-contribution-registry.js';
 
 export class XsmpDocumentBuilder extends DefaultDocumentBuilder {
 
     protected readonly projectManager: () => ProjectManager;
+    protected readonly contributionRegistry: () => XsmpContributionRegistry;
     constructor(services: XsmpSharedServices) {
         super(services);
         this.projectManager = () => services.workspace.ProjectManager;
+        this.contributionRegistry = () => services.ContributionRegistry;
     }
 
     protected override async validate(document: LangiumDocument, cancelToken: Cancellation.CancellationToken): Promise<void> {
@@ -39,13 +42,17 @@ export class XsmpDocumentBuilder extends DefaultDocumentBuilder {
         const categories = ['fast', 'built-in'];
         if (project) {
             for (const profile of project.elements.filter(ast.isProfileReference)) {
-                if (profile.profile?.ref?.name) {
-                    categories.push(profile.profile.ref.name);
+                const rawName = profile.profile?.$refText ?? profile.profile?.ref?.name;
+                const contribution = this.contributionRegistry().resolveContribution('profile', rawName)?.contribution;
+                if (contribution) {
+                    categories.push(contribution.validationCategory);
                 }
             }
             for (const tool of project.elements.filter(ast.isToolReference)) {
-                if (tool.tool?.ref?.name) {
-                    categories.push(tool.tool.ref.name);
+                const rawName = tool.tool?.$refText ?? tool.tool?.ref?.name;
+                const contribution = this.contributionRegistry().resolveContribution('tool', rawName)?.contribution;
+                if (contribution) {
+                    categories.push(contribution.validationCategory);
                 }
             }
         }

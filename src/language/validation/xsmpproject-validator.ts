@@ -3,9 +3,10 @@ import type { XsmpprojectServices } from '../xsmpproject-module.js';
 import * as fs from 'node:fs';
 import * as ast from '../generated/ast-partial.js';
 import { DiagnosticTag, Location } from 'vscode-languageserver';
-import { type DocumentationHelper } from '../utils/documentation-helper.js';
 import { isSameOrContainedPath } from '../utils/path-utils.js';
 import { SmpStandards, type ProjectManager } from '../workspace/project-manager.js';
+import type { XsmpContributionKind, XsmpContributionResolution } from '../contributions/xsmp-extension-types.js';
+import type { XsmpContributionRegistry } from '../contributions/xsmp-contribution-registry.js';
 
 /**
  * Register custom validation checks.
@@ -27,14 +28,14 @@ export function registerXsmpprojectValidationChecks(services: XsmpprojectService
 export class XsmpprojectValidator {
     protected readonly indexManager: IndexManager;
     protected readonly globalCache: WorkspaceCache<string, MultiMap<string, AstNodeDescription>>;
-    protected readonly docHelper: DocumentationHelper;
     protected readonly projectManager: ProjectManager;
+    protected readonly contributionRegistry: XsmpContributionRegistry;
 
     constructor(services: XsmpprojectServices) {
         this.indexManager = services.shared.workspace.IndexManager;
         this.globalCache = new WorkspaceCache<string, MultiMap<string, AstNodeDescription>>(services.shared);
-        this.docHelper = services.shared.DocumentationHelper;
         this.projectManager = services.shared.workspace.ProjectManager;
+        this.contributionRegistry = services.shared.ContributionRegistry;
     }
 
     private computeNamesForProjects(): MultiMap<string, AstNodeDescription> {
@@ -45,15 +46,18 @@ export class XsmpprojectValidator {
         return map;
     }
 
-    checkTypeReference<N extends AstNode>(accept: ValidationAcceptor, node: N, reference: Reference, property: Properties<N>, index?: number): boolean {
+    checkTypeReference<N extends AstNode>(accept: ValidationAcceptor, node: N, reference: Reference, _property: Properties<N>, _index?: number): boolean {
         if (!reference.ref) {
             return false;
         }
-        const deprecated = this.docHelper.getDeprecated(reference.ref);
-        if (deprecated) {
-            accept('warning', deprecated.toString().length > 0 ? `Deprecated: ${deprecated.toString()}` : 'Deprecated.', { node, property, index, tags: [DiagnosticTag.Deprecated] });
-        }
         return true;
+    }
+
+    protected resolveContributionReference(
+        kind: XsmpContributionKind,
+        reference: Reference | undefined,
+    ): XsmpContributionResolution | undefined {
+        return this.contributionRegistry.resolveContribution(kind, reference?.$refText);
     }
 
     checkProfile(profile: ast.Profile, accept: ValidationAcceptor): void {
@@ -85,44 +89,69 @@ export class XsmpprojectValidator {
                 property: ast.Project.standard
             });
         }
-        if(project.name)
-        {const duplicates = this.globalCache.get('projects', () => this.computeNamesForProjects()).get(project.name);
-        if (duplicates.length > 1) {
-            accept('error', 'Duplicated project name', {
-                node: project,
-                property: ast.Project.name,
-                relatedInformation: duplicates.filter(d => d.node !== project).map(d => ({ location: Location.create(d.documentUri.toString(), d.nameSegment!.range), message: d.name }))
-            });
+        if (project.name) {
+            const duplicates = this.globalCache.get('projects', () => this.computeNamesForProjects()).get(project.name);
+            if (duplicates.length > 1) {
+                accept('error', 'Duplicated project name', {
+                    node: project,
+                    property: ast.Project.name,
+                    relatedInformation: duplicates
+                        .filter(description => description.node !== project && description.nameSegment)
+                        .map(description => ({
+                            location: Location.create(description.documentUri.toString(), description.nameSegment!.range),
+                            message: description.name
+                        }))
+                });
+            }
         }
-    }
         // Check only one profile (or zero)
-        let profile: ast.Profile | undefined;
+        let profile: string | undefined;
 
         const projectUri = UriUtils.dirname(AstUtils.getDocument(project).uri);
-        const tools = new Set<ast.Tool>();
+        const tools = new Set<string>();
         const dependencies = new Set<ast.Project>();
 
         project.elements.forEach((element) => {
             switch (element.$type) {
                 case ast.ProfileReference.$type: {
                     if (element.profile && this.checkTypeReference(accept, element, element.profile, ast.ProfileReference.profile)) {
-                        if (profile) {
+                        const resolved = this.resolveContributionReference('profile', element.profile);
+                        if (resolved?.kind === 'deprecatedAlias') {
+                            accept('warning', `Deprecated: Use the "${resolved.contribution.id}" profile instead.`, {
+                                node: element,
+                                property: ast.ProfileReference.profile,
+                                tags: [DiagnosticTag.Deprecated],
+                            });
+                        }
+                        const canonicalName = resolved?.contribution.id ?? element.profile.ref?.name;
+                        if (profile && canonicalName) {
                             accept('error', 'A profile is already defined.', { node: element, property: ast.ProfileReference.profile });
                         }
-                        else {
-                            profile = element.profile.ref;
+                        else if (canonicalName) {
+                            profile = canonicalName;
                         }
                     }
                     break;
                 }
                 case ast.ToolReference.$type: {
                     if (element.tool && this.checkTypeReference(accept, element, element.tool, ast.ToolReference.tool)) {
+                        const resolved = this.resolveContributionReference('tool', element.tool);
+                        if (resolved?.kind === 'deprecatedAlias') {
+                            accept('warning', `Deprecated: Use the "${resolved.contribution.id}" tool instead.`, {
+                                node: element,
+                                property: ast.ToolReference.tool,
+                                tags: [DiagnosticTag.Deprecated],
+                            });
+                        }
+                        const canonicalName = resolved?.contribution.id ?? element.tool.ref?.name;
 
                         // Check no duplicated tool
-                        if (tools.has(element.tool.ref!))
-                            accept('error', `Duplicated tool '${element.tool.ref?.name}'.`, { node: element, property: ast.ToolReference.tool });
-                        else
-                            tools.add(element.tool.ref!);
+                        if (canonicalName) {
+                            if (tools.has(canonicalName))
+                                accept('error', `Duplicated tool '${canonicalName}'.`, { node: element, property: ast.ToolReference.tool });
+                            else
+                                tools.add(canonicalName);
+                        }
                     }
                     break;
                 }

@@ -29,16 +29,38 @@ const plugins = [
     },
     copy({
         assets: {
-            // Copy the 'lib' directory to the 'out' directory
             from: './src/lib/**',
             to: './lib/',
+        },
+    }),
+    copy({
+        assets: {
+            from: [
+                './src/contributions/**/*.xsmpcat',
+                './src/contributions/**/*.xsmpcfg',
+                './src/contributions/**/*.xsmpasb',
+                './src/contributions/**/*.xsmplnk',
+                './src/contributions/**/*.xsmpsed',
+                './src/contributions/**/*.xsmptool',
+                './src/contributions/**/*.xsmpprofile'
+            ],
+            to: './contributions/',
         },
     }),
 ];
 
 const ctx = await esbuild.context({
     // Entry points for the vscode extension and the language server
-    entryPoints: ['src/extension/main.ts', 'src/language/main.ts'],
+    entryPoints: [
+        'src/extension/main.ts',
+        'src/language/main.ts',
+        'src/contributions/tools/smp/contributor.ts',
+        'src/contributions/tools/adoc/contributor.ts',
+        'src/contributions/tools/python/contributor.ts',
+        'src/contributions/profiles/xsmp-sdk/contributor.ts',
+        'src/contributions/profiles/esa-cdk/contributor.ts',
+        'src/contributions/profiles/tas-mdk/contributor.ts',
+    ],
     outdir: 'out',
     bundle: true,
     target: "ES2017",

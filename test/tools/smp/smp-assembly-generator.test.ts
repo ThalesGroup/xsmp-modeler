@@ -7,7 +7,7 @@ import { Assembly, Catalogue, Project, isAssembly } from '../../../src/language/
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { SmpGenerator } from '../../../src/language/tools/smp/generator.js';
+import { SmpGenerator } from '../../../src/contributions/tools/smp/generator.js';
 import { setGeneratedBy } from '../../../src/language/generator/generator.js';
 
 let services: ReturnType<typeof createXsmpServices>;

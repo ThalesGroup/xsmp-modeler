@@ -27,7 +27,6 @@ import { DocumentationHelper } from './utils/documentation-helper.js';
 import { AttributeHelper } from './utils/attribute-helper.js';
 import { ProjectManager } from './workspace/project-manager.js';
 import { XsmpLanguageServer } from './lsp/language-server.js';
-import { registerTasMdkValidationChecks } from './profiles/tas-mdk/validator.js';
 import { XsmpDocumentBuilder } from './workspace/document-builder.js';
 import type { XsmpasbServices } from './xsmpasb-module.js';
 import { XsmpasbModule } from './xsmpasb-module.js';
@@ -38,6 +37,11 @@ import { XsmplnkModule } from './xsmplnk-module.js';
 import type { XsmpsedServices } from './xsmpsed-module.js';
 import { XsmpsedModule } from './xsmpsed-module.js';
 import { registerXsmpcfgValidationChecks } from './validation/xsmpcfg-validator.js';
+import { XsmpContributionRegistry, resolveContributionManifestEntries } from './contributions/xsmp-contribution-registry.js';
+import type { XsmpExtensionContributionManifestEntry } from './contributions/xsmp-extension-types.js';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { xsmpPackageRoot } from './version.js';
 
 export type XsmpServices = LangiumServices & { shared: XsmpSharedServices; }
 /**
@@ -86,7 +90,6 @@ export function createXsmpServices(context: DefaultSharedModuleContext): {
     );
     shared.ServiceRegistry.register(xsmpcat);
     registerXsmpcatValidationChecks(xsmpcat);
-    registerTasMdkValidationChecks(xsmpcat);
 
     // XSMP Assembly
     const xsmpasb = inject(
@@ -129,6 +132,15 @@ export function createXsmpServices(context: DefaultSharedModuleContext): {
         // Therefore, initialize the configuration provider instantly
         shared.workspace.ConfigurationProvider.initialized({});
     }
+    shared.ContributionRegistry.setBootstrapServices({ shared, xsmpcat, xsmpproject, xsmpasb, xsmpcfg, xsmplnk, xsmpsed });
+    void shared.ContributionRegistry.initializeBuiltins(loadBuiltinContributionEntries()).catch(error => {
+        if (isIgnorableContributionInitializationError(error)) {
+            return;
+        }
+        setImmediate(() => {
+            throw new Error('Built-in XSMP contribution initialization failed.', { cause: error });
+        });
+    });
     return { shared, xsmpcat, xsmpproject, xsmpasb, xsmpcfg, xsmplnk, xsmpsed, };
 }
 /**
@@ -147,6 +159,7 @@ export interface XsmpAddedSharedServices {
     },
     readonly DocumentationHelper: DocumentationHelper,
     readonly AttributeHelper: AttributeHelper,
+    readonly ContributionRegistry: XsmpContributionRegistry,
     readonly workspace: {
         ProjectManager: ProjectManager,
     },
@@ -166,6 +179,7 @@ export const XsmpSharedModule: Module<XsmpSharedServices, DeepPartial<XsmpShared
     L2PathResolver: (services) => new Xsmpl2PathResolver(services),
     DocumentGenerator: (services) => new XsmpDocumentGenerator(services),
     DocumentationHelper: (services) => new DocumentationHelper(services),
+    ContributionRegistry: (services) => new XsmpContributionRegistry(services),
     TypeProvider: (services) => new XsmpTypeProvider(services),
     lsp: {
         DocumentUpdateHandler: (services) => new XsmpDocumentUpdateHandler(services),
@@ -180,3 +194,25 @@ export const XsmpSharedModule: Module<XsmpSharedServices, DeepPartial<XsmpShared
         DocumentBuilder: (services) => new XsmpDocumentBuilder(services),
     },
 };
+
+function loadBuiltinContributionEntries() {
+    const packageJson = JSON.parse(
+        fs.readFileSync(path.join(xsmpPackageRoot, 'package.json'), 'utf-8')
+    ) as {
+        name: string;
+        publisher: string;
+        contributes?: {
+            xsmp?: readonly XsmpExtensionContributionManifestEntry[];
+        };
+    };
+
+    return resolveContributionManifestEntries(
+        `${packageJson.publisher}.${packageJson.name}`,
+        xsmpPackageRoot,
+        packageJson.contributes?.xsmp,
+    );
+}
+
+function isIgnorableContributionInitializationError(error: unknown): boolean {
+    return error instanceof Error && error.message.includes('Closing rpc while "fetch" was pending');
+}

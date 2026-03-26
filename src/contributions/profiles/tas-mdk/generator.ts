@@ -1,11 +1,11 @@
-import { GapPatternCppGenerator } from '../../generator/cpp/gap-pattern-generator.js';
-import type { XsmpSharedServices } from '../../xsmp-module.js';
-import { CxxStandard, type Include } from '../../generator/cpp/generator.js';
-import * as ast from '../../generated/ast.js';
+import { GapPatternCppGenerator } from '../../../language/generator/cpp/gap-pattern-generator.js';
+import type { XsmpSharedServices } from '../../../language/xsmp-module.js';
+import { CxxStandard, type Include } from '../../../language/generator/cpp/generator.js';
+import * as ast from '../../../language/generated/ast.js';
 import { expandToString as s } from 'langium/generate';
-import { getAccessKind, isInput, isOutput, isState, isAbstractType } from '../../utils/xsmp-utils.js';
-import { VisibilityKind } from '../../utils/visibility-kind.js';
-import { xsmpVersion } from '../../version.js';
+import { getAccessKind, isInput, isOutput, isState, isAbstractType } from '../../../language/utils/xsmp-utils.js';
+import { VisibilityKind } from '../../../language/utils/visibility-kind.js';
+import { xsmpVersion } from '../../../language/version.js';
 import * as Path from 'node:path';
 import { AstUtils } from 'langium';
 

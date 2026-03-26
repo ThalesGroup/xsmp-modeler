@@ -6,7 +6,7 @@ import { createXsmpServices } from "../../../src/language/xsmp-module.js";
 import { Catalogue, isCatalogue } from "../../../src/language/generated/ast-partial.js";
 import * as path from 'path';
 import * as fs from 'fs';
-import { ADocGenerator } from "../../../src/language/tools/adoc/generator.js";
+import { ADocGenerator } from "../../../src/contributions/tools/adoc/generator.js";
 import { setGeneratedBy } from "../../../src/language/generator/generator.js";
 
 let services: ReturnType<typeof createXsmpServices>;

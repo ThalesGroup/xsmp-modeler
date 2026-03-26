@@ -62,8 +62,8 @@ describe('Linking tests', () => {
                 esa-cdk
 
             Tools:
-                org.eclipse.xsmp.tool.smp
-                org.eclipse.xsmp.tool.adoc
+                smp
+                adoc
 
             Dependencies:
                 project-name

@@ -8,6 +8,7 @@ import { XsmpCommentProvider } from './lsp/comment-provider.js';
 import type { XsmpServices } from './xsmp-module.js';
 import { XsmpprojectTokenBuilder } from './parser/xsmpproject-token-builder.js';
 import { XsmpRenameProvider } from './lsp/xsmp-rename-provider.js';
+import { XsmpprojectScopeProvider } from './references/xsmpproject-scope-provider.js';
 
 /**
  * Declaration of custom services.
@@ -43,5 +44,8 @@ export const XsmpprojectModule: Module<XsmpprojectServices, PartialLangiumServic
     },
     parser: {
         TokenBuilder: () => new XsmpprojectTokenBuilder(),
+    },
+    references: {
+        ScopeProvider: (services) => new XsmpprojectScopeProvider(services),
     },
 };

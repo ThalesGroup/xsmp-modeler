@@ -4,6 +4,8 @@ import * as ast from '../generated/ast-partial.js';
 import { isBuiltinLibrary } from '../builtins.js';
 import { isSource } from '../generated/ast-partial.js';
 import { isSameOrContainedPath } from '../utils/path-utils.js';
+import type { XsmpContributionRegistry } from '../contributions/xsmp-contribution-registry.js';
+import type { XsmpSharedServices } from '../xsmp-module.js';
 
 export const SmpStandards: string[] = ['ECSS_SMP_2020', 'ECSS_SMP_2025'];
 
@@ -13,11 +15,13 @@ export class ProjectManager {
     protected readonly visibleUrisCache: WorkspaceCache<URI, Set<string>>;
     protected readonly documents: LangiumDocuments;
     protected readonly services: LangiumSharedCoreServices;
+    protected readonly contributionRegistry: XsmpContributionRegistry;
 
-    constructor(services: LangiumSharedCoreServices) {
+    constructor(services: XsmpSharedServices) {
 
         this.documents = services.workspace.LangiumDocuments;
         this.services = services;
+        this.contributionRegistry = services.ContributionRegistry;
         this.projectCache = new WorkspaceCache<URI, ast.Project | undefined>(services);
         this.dependenciesCache = new WorkspaceCache<URI, Set<ast.Project>>(services);
         this.visibleUrisCache = new WorkspaceCache<URI, Set<string>>(services);
@@ -92,16 +96,42 @@ export class ProjectManager {
         const standard = project.standard;
         const dependencies = this.getDependencies(project);
         dependencies.forEach(dep => uris.add(AstUtils.getDocument(dep).uri.toString()));
+        const activeContributionIds = this.getActiveContributionIds(dependencies);
+        this.contributionRegistry.getPayloadBuiltinUrisForContributions(activeContributionIds).forEach(uri => uris.add(uri));
 
         const folders = this.getSourceFolders(dependencies);
         this.documents.all.forEach(doc => {
             if (this.isUriInFolders(doc.uri, folders) ||
-                (isBuiltinLibrary(doc.uri) && (!doc.uri.path.includes('@') || doc.uri.path.includes('@' + standard)))) {
+                (isBuiltinLibrary(doc.uri)
+                    && !this.contributionRegistry.isContributionDocument(doc.uri)
+                    && (!doc.uri.path.includes('@') || doc.uri.path.includes('@' + standard)))) {
                 uris.add(doc.uri.toString());
             }
         });
 
         return uris;
+    }
+
+    protected getActiveContributionIds(projects: Set<ast.Project>): Set<string> {
+        const ids = new Set<string>();
+        for (const project of projects) {
+            for (const element of project.elements) {
+                if (ast.isToolReference(element)) {
+                    const rawName = element.tool?.$refText ?? element.tool?.ref?.name;
+                    const resolved = this.contributionRegistry.resolveContribution('tool', rawName);
+                    if (resolved) {
+                        ids.add(resolved.contribution.id);
+                    }
+                } else if (ast.isProfileReference(element)) {
+                    const rawName = element.profile?.$refText ?? element.profile?.ref?.name;
+                    const resolved = this.contributionRegistry.resolveContribution('profile', rawName);
+                    if (resolved) {
+                        ids.add(resolved.contribution.id);
+                    }
+                }
+            }
+        }
+        return ids;
     }
     protected getSourceFolders(projects: Set<ast.Project>): Set<string> {
         const uris = new Set<string>();

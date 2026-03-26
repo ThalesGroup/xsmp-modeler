@@ -1,14 +1,14 @@
-import * as ast from '../../generated/ast.js';
+import * as ast from '../../../language/generated/ast.js';
 import { expandToString as s } from 'langium/generate';
-import * as CopyrightNoticeProvider from '../../generator/copyright-notice-provider.js';
+import * as CopyrightNoticeProvider from '../../../language/generator/copyright-notice-provider.js';
 import type { AstNode, URI } from 'langium';
 import { UriUtils } from 'langium';
 import * as fs from 'node:fs';
 import * as Path from 'node:path';
-import type { TaskAcceptor, XsmpGenerator } from '../../generator/generator.js';
-import { xsmpVersion } from '../../version.js';
-import { type XsmpSharedServices } from '../../xsmp-module.js';
-import { type DocumentationHelper } from '../../utils/documentation-helper.js';
+import type { TaskAcceptor, XsmpGenerator } from '../../../language/generator/generator.js';
+import { xsmpVersion } from '../../../language/version.js';
+import { type XsmpSharedServices } from '../../../language/xsmp-module.js';
+import { type DocumentationHelper } from '../../../language/utils/documentation-helper.js';
 
 export class PythonGenerator implements XsmpGenerator {
     protected readonly docHelper: DocumentationHelper;
@@ -118,4 +118,3 @@ export class PythonGenerator implements XsmpGenerator {
             `);
     }
 }
-
