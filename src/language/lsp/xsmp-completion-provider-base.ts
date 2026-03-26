@@ -255,6 +255,26 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
         };
     }
 
+    protected createContextualSnippetItem(
+        context: CompletionContext,
+        label: string,
+        insertText: string,
+        detail: string,
+        documentation?: MarkupContent | string,
+        sortText = '3000',
+    ): CompletionValueItem {
+        return {
+            label,
+            textEdit: TextEdit.replace(this.getReplacementRange(context), insertText),
+            insertTextFormat: InsertTextFormat.Snippet,
+            documentation,
+            kind: CompletionItemKind.Snippet,
+            detail,
+            filterText: label,
+            sortText: this.createSortText(sortText, label),
+        };
+    }
+
     protected createKeywordSnippet(keyword: GrammarAST.Keyword, insertText: string, detail: string, label = keyword.value): CompletionValueItem {
         return this.createSnippetItem(label, insertText, detail, this.getKeywordDocumentation(keyword), '3000');
     }

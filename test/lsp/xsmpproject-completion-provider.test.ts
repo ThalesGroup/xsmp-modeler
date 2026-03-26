@@ -21,11 +21,12 @@ afterEach(async () => {
 });
 
 describe('Xsmpproject completion provider', () => {
-    test('offers contextual root and project statement snippets', async () => {
+    test('offers contextual root and concrete project statements', async () => {
         const preferredProfileId = services.shared.ContributionRegistry.getPreferredContributionId('profile') ?? 'profile';
         const preferredToolId = services.shared.ContributionRegistry.getPreferredContributionId('tool') ?? 'tool';
+        const dependencyDocument = await parseRoot('project "foundation"\nsource "smdl"\n', { documentUri: 'memory:///foundation/xsmp.project' });
         const rootDocument = await parseRoot('', { documentUri: 'memory:///root/xsmp.project' });
-        documents.push(rootDocument);
+        documents.push(dependencyDocument, rootDocument);
 
         const rootItems = await getCompletionItems(rootDocument, 0);
         expect(labels(rootItems)).toContain('Project');
@@ -37,14 +38,13 @@ describe('Xsmpproject completion provider', () => {
 `;
         const projectDocument = await parseRoot(projectText.replace('@@', ''), { documentUri: 'memory:///project/xsmp.project' });
         documents.push(projectDocument);
+        await services.shared.workspace.DocumentBuilder.build(documents, { validation: false });
 
         const projectItems = await getCompletionItems(projectDocument, projectText.indexOf('@@'));
         expect(labels(projectItems)).toContain('Source');
-        expect(labels(projectItems)).toContain('Dependency');
-        expect(labels(projectItems)).toContain('Profile');
-        expect(labels(projectItems)).toContain('Tool');
-        expect(findSnippetItem(projectItems, 'Profile')?.insertText).toContain(preferredProfileId);
-        expect(findSnippetItem(projectItems, 'Tool')?.insertText).toContain(preferredToolId);
+        expect(labels(projectItems)).toContain(`dependency "foundation"`);
+        expect(labels(projectItems)).toContain(`profile "${preferredProfileId}"`);
+        expect(labels(projectItems)).toContain(`tool "${preferredToolId}"`);
     });
 
     test('uses registry-backed defaults for profile and tool snippets', async () => {
@@ -76,6 +76,28 @@ profile ""
 
         const standardItems = await getCompletionItems(projectDocument, projectText.indexOf('@@'));
         expect(labels(standardItems)).toContain('ECSS_SMP_2025');
+    });
+
+    test('replaces statement prefixes with concrete profile, tool and dependency statements', async () => {
+        const preferredProfileId = services.shared.ContributionRegistry.getPreferredContributionId('profile') ?? 'profile';
+        const preferredToolId = services.shared.ContributionRegistry.getPreferredContributionId('tool') ?? 'tool';
+        const dependencyDocument = await parseRoot('project "foundation"\nsource "smdl"\n', { documentUri: 'memory:///foundation/xsmp.project' });
+        const projectText = `project "MissionDemo"
+source "smdl"
+to@@
+`;
+        const projectDocument = await parseRoot(projectText.replace('@@', ''), { documentUri: 'memory:///mission/xsmp.project' });
+        documents.push(dependencyDocument, projectDocument);
+        await services.shared.workspace.DocumentBuilder.build(documents, { validation: false });
+
+        const items = await getCompletionItems(projectDocument, projectText.indexOf('@@'));
+        expect(labels(items)).toContain(`tool "${preferredToolId}"`);
+        expect(labels(items)).not.toContain('Tool');
+        expect(labels(items)).toContain(`profile "${preferredProfileId}"`);
+        expect(labels(items)).toContain('dependency "foundation"');
+
+        const toolItem = items.find(item => item.label === `tool "${preferredToolId}"`);
+        expect(toolItem?.textEdit?.newText).toContain('tool "');
     });
 });
 

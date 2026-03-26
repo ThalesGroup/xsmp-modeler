@@ -1,12 +1,13 @@
 import type { AstNodeDescription, MaybePromise, ReferenceInfo, Stream } from 'langium';
 import { AstUtils, UriUtils, stream, type GrammarAST } from 'langium';
 import type { CompletionAcceptor, CompletionContext, NextFeature } from 'langium/lsp';
+import type { MarkupContent } from 'vscode-languageserver';
 import * as ast from '../generated/ast-partial.js';
 import type { XsmpprojectServices } from '../xsmpproject-module.js';
 import { XsmpCompletionProviderBase } from './xsmp-completion-provider-base.js';
 import { SmpStandards, type ProjectManager } from '../workspace/project-manager.js';
 import type { XsmpContributionRegistry } from '../contributions/xsmp-contribution-registry.js';
-import type { XsmpContributionKind } from '../contributions/xsmp-extension-types.js';
+import type { XsmpContributionKind, XsmpContributionSummary } from '../contributions/xsmp-extension-types.js';
 
 export class XsmpprojectCompletionProvider extends XsmpCompletionProviderBase {
     protected readonly projectManager: ProjectManager;
@@ -158,7 +159,7 @@ export class XsmpprojectCompletionProvider extends XsmpCompletionProviderBase {
     }
 
     protected override addStandaloneCompletions(context: CompletionContext, acceptor: CompletionAcceptor): void {
-        if (!this.isAtStatementStart(context)) {
+        if (!this.isAtStatementPrefix(context)) {
             return;
         }
 
@@ -193,21 +194,9 @@ export class XsmpprojectCompletionProvider extends XsmpCompletionProviderBase {
             'source "${1:smdl}"',
             'Project Source Root'
         ));
-        acceptor(context, this.createSnippetItem(
-            'Dependency',
-            `dependency "${this.createPlaceholder(1, 'foundation')}"`,
-            'Project Dependency'
-        ));
-        acceptor(context, this.createSnippetItem(
-            'Profile',
-            `profile "${this.createChoicePlaceholder(1, this.contributionRegistry.getCanonicalNames('profile'), this.getContributionSnippetDefault('profile', 'profile'))}"`,
-            'Profile Reference'
-        ));
-        acceptor(context, this.createSnippetItem(
-            'Tool',
-            `tool "${this.createChoicePlaceholder(1, this.contributionRegistry.getCanonicalNames('tool'), this.getContributionSnippetDefault('tool', 'tool'))}"`,
-            'Tool Reference'
-        ));
+        this.addContextualContributionStatementCompletions(context, project, 'profile', acceptor);
+        this.addContextualContributionStatementCompletions(context, project, 'tool', acceptor);
+        this.addContextualDependencyCompletions(context, project, acceptor);
     }
 
     protected getContributionSnippetDefault(kind: XsmpContributionKind, fallback: string): string {
@@ -227,5 +216,123 @@ export class XsmpprojectCompletionProvider extends XsmpCompletionProviderBase {
             default:
                 return undefined;
         }
+    }
+
+    protected addContextualContributionStatementCompletions(
+        context: CompletionContext,
+        project: ast.Project,
+        kind: XsmpContributionKind,
+        acceptor: CompletionAcceptor,
+    ): void {
+        const used = new Set(
+            project.elements
+                .filter(element => kind === 'profile' ? ast.isProfileReference(element) : ast.isToolReference(element))
+                .map(element => {
+                    if (ast.isProfileReference(element)) {
+                        return this.contributionRegistry.resolveContribution('profile', element.profile?.$refText ?? element.profile?.ref?.name)?.contribution.id;
+                    }
+                    if (ast.isToolReference(element)) {
+                        return this.contributionRegistry.resolveContribution('tool', element.tool?.$refText ?? element.tool?.ref?.name)?.contribution.id;
+                    }
+                    return undefined;
+                })
+                .filter((name): name is string => Boolean(name))
+        );
+
+        const summaries = this.contributionRegistry
+            .getContributionSummaries(kind)
+            .filter(summary => !used.has(summary.id));
+
+        if (summaries.length === 0) {
+            const fallback = this.getContributionSnippetDefault(kind, kind);
+            acceptor(context, this.createContextualSnippetItem(
+                context,
+                this.createContributionStatementLabel(kind, fallback),
+                `${kind} "${this.createPlaceholder(1, fallback)}"`,
+                kind === 'profile' ? 'Profile Reference' : 'Tool Reference',
+                undefined,
+                '2500',
+            ));
+            return;
+        }
+
+        for (const summary of summaries) {
+            acceptor(context, this.createContextualSnippetItem(
+                context,
+                this.createContributionStatementLabel(kind, summary.id),
+                `${kind} "${summary.id}"`,
+                kind === 'profile' ? 'Profile Reference' : 'Tool Reference',
+                this.getContributionStatementDocumentation(summary),
+                '2500',
+            ));
+        }
+    }
+
+    protected addContextualDependencyCompletions(
+        context: CompletionContext,
+        project: ast.Project,
+        acceptor: CompletionAcceptor,
+    ): void {
+        const currentDependencies = this.projectManager.getDependencies(project);
+        const candidates = this.projectManager
+            .getProjects()
+            .filter((candidate): candidate is ast.Project => Boolean(candidate.name)
+                && !currentDependencies.has(candidate)
+                && !this.projectManager.getDependencies(candidate).has(project))
+            .toArray()
+            .sort((left, right) => (left.name ?? '').localeCompare(right.name ?? ''));
+
+        if (candidates.length === 0) {
+            acceptor(context, this.createContextualSnippetItem(
+                context,
+                'dependency "<project-name>"',
+                `dependency "${this.createPlaceholder(1, 'project')}"`,
+                'Project Dependency',
+                undefined,
+                '2500',
+            ));
+            return;
+        }
+
+        for (const candidate of candidates) {
+            acceptor(context, this.createContextualSnippetItem(
+                context,
+                `dependency "${candidate.name}"`,
+                `dependency "${candidate.name}"`,
+                'Project Dependency',
+                this.getDependencyStatementDocumentation(candidate),
+                '2500',
+            ));
+        }
+    }
+
+    protected createContributionStatementLabel(kind: XsmpContributionKind, id: string): string {
+        return `${kind} "${id}"`;
+    }
+
+    protected getContributionStatementDocumentation(summary: XsmpContributionSummary): MarkupContent | undefined {
+        const lines = [
+            `Enable the installed XSMP ${summary.kind} \`${summary.id}\`.`,
+        ];
+        if (summary.description) {
+            lines.push('', summary.description);
+        }
+        return {
+            kind: 'markdown',
+            value: lines.join('\n'),
+        };
+    }
+
+    protected getDependencyStatementDocumentation(project: ast.Project): MarkupContent {
+        return {
+            kind: 'markdown',
+            value: [
+                `Declare a dependency on project \`${project.name}\`.`,
+                '',
+                'Its visible modeling documents become available transitively for linking and validation.',
+                '',
+                'This does not inherit the dependency project\'s `profile` or `tool` declarations.',
+            ].join('\n'),
+        };
     }
 }
