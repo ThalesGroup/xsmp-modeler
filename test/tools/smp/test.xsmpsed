@@ -1,10 +1,10 @@
 schedule TestSchedule
 
-task Main
+task Main: demo.Root
 {
-    call /Sim/Comp.op(value=1i32)
+    call unsafe /Sim/Comp.op(value=1i32)
     async emit "Tick"
-    execute Main at /AssemblyRoot
+    execute Main at unsafe /AssemblyRoot
     property /Sim/Comp.flag = true
     transfer /Sim/Comp.out -> /Sim/Comp.in
     trig /Sim/Comp.ep

@@ -7,22 +7,17 @@ import {
     isAstNodeDescription
 } from 'langium';
 import * as ast from '../generated/ast.js';
-import type { XsmpcfgServices } from '../xsmpcfg-module.js';
 
-const cfg_path_ref_resolving = Symbol('cfg_path_ref_resolving');
+const path_ref_resolving = Symbol('path_ref_resolving');
 
 interface OptionalReference extends Reference {
-    _ref?: AstNode | typeof cfg_path_ref_resolving;
+    _ref?: AstNode | typeof path_ref_resolving;
     _nodeDescription?: AstNodeDescription;
 }
 
-export class XsmpcfgLinker extends DefaultLinker {
-    constructor(services: XsmpcfgServices) {
-        super(services);
-    }
-
+export class XsmpPathLinker extends DefaultLinker {
     protected override doLink(refInfo: ReferenceInfo, document: LangiumDocument): void {
-        if (!this.isCfgPathReference(refInfo)) {
+        if (!this.isPathReference(refInfo)) {
             super.doLink(refInfo, document);
             return;
         }
@@ -32,7 +27,7 @@ export class XsmpcfgLinker extends DefaultLinker {
             return;
         }
 
-        ref._ref = cfg_path_ref_resolving;
+        ref._ref = path_ref_resolving;
         try {
             const description = this.scopeProvider.getScope(refInfo).getElement(ref.$refText);
             if (description) {
@@ -54,7 +49,7 @@ export class XsmpcfgLinker extends DefaultLinker {
     }
 
     override buildReference(node: AstNode, property: string, refNode: CstNode | undefined, refText: string): Reference {
-        if (!(ast.isCfgNamedSegment(node) && property === 'reference')) {
+        if (!(ast.isPathNamedSegment(node) && property === 'reference')) {
             return super.buildReference(node, property, refNode, refText);
         }
 
@@ -74,7 +69,7 @@ export class XsmpcfgLinker extends DefaultLinker {
                     return linkedNode;
                 }
                 if (this._ref === undefined) {
-                    this._ref = cfg_path_ref_resolving;
+                    this._ref = path_ref_resolving;
                     const document = AstUtils.findRootNode(node).$document;
                     const description = getScope({ reference, container: node, property }).getElement(reference.$refText);
                     if (!description && document && document.state < DocumentState.ComputedScopes) {
@@ -97,7 +92,7 @@ export class XsmpcfgLinker extends DefaultLinker {
                     }
                     return isAstNode(this._ref) ? this._ref : undefined;
                 }
-                if (this._ref === cfg_path_ref_resolving) {
+                if (this._ref === path_ref_resolving) {
                     return undefined;
                 }
                 return undefined;
@@ -112,7 +107,7 @@ export class XsmpcfgLinker extends DefaultLinker {
         return reference;
     }
 
-    protected isCfgPathReference(refInfo: ReferenceInfo): boolean {
-        return ast.isCfgNamedSegment(refInfo.container) && refInfo.property === 'reference';
+    protected isPathReference(refInfo: ReferenceInfo): boolean {
+        return ast.isPathNamedSegment(refInfo.container) && refInfo.property === 'reference';
     }
 }

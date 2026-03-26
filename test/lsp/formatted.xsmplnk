@@ -1,11 +1,11 @@
 link Demo
-/Root
+Root: demo.Root
 {
-    event link a -> b
-    field link out -> in
-    interface link svc: ref -> client: back
-    child
+    event link unsafe a -> b
+    field link out -> child.in
+    interface link child: ref -> child: back
+    child: demo.Child
     {
-        field link local.out -> local.in
+        field link unsafe local.out -> local.in
     }
 }

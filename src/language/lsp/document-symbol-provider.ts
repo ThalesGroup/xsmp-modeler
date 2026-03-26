@@ -2,7 +2,7 @@ import { interruptAndCheck, type AstNode, Cancellation, type LangiumDocument, ty
 import type { DocumentSymbolProvider, NodeKindProvider } from 'langium/lsp';
 import type { DocumentSymbol, DocumentSymbolParams } from 'vscode-languageserver';
 import * as ast from '../generated/ast.js';
-import type { XsmpcfgPathResolver } from '../references/xsmpcfg-path-resolver.js';
+import type { XsmpPathService } from '../references/xsmp-path-service.js';
 import type { XsmpNodeInfoProvider } from './node-info-provider.js';
 import { type AttributeHelper } from '../utils/attribute-helper.js';
 import type { XsmpServices } from '../xsmp-module.js';
@@ -13,14 +13,14 @@ export class XsmpDocumentSymbolProvider implements DocumentSymbolProvider {
     protected readonly nodeInfoProvider: XsmpNodeInfoProvider;
     protected readonly workspaceManager: WorkspaceLock;
     protected readonly attrHelper: AttributeHelper;
-    protected readonly pathResolver: XsmpcfgPathResolver;
+    protected readonly pathService: XsmpPathService;
 
     constructor(services: XsmpServices) {
         this.nodeKindProvider = services.shared.lsp.NodeKindProvider;
         this.nodeInfoProvider = services.shared.lsp.NodeInfoProvider;
         this.workspaceManager = services.shared.workspace.WorkspaceLock;
         this.attrHelper = services.shared.AttributeHelper;
-        this.pathResolver = services.shared.CfgPathResolver;
+        this.pathService = services.shared.PathService;
     }
 
     getSymbols(document: LangiumDocument, _params: DocumentSymbolParams, cancelToken = Cancellation.CancellationToken.None): MaybePromise<DocumentSymbol[]> {
@@ -66,17 +66,17 @@ export class XsmpDocumentSymbolProvider implements DocumentSymbolProvider {
                 }
                 return (node as ast.ModelInstance | ast.AssemblyInstance).name;
             case ast.AssemblyComponentConfiguration:
-                return `configure ${(node as ast.AssemblyComponentConfiguration).name}`;
+                return `configure ${this.pathService.stringifyPath((node as ast.AssemblyComponentConfiguration).name)}`;
             case ast.ComponentConfiguration: {
                 const configuration = node as ast.ComponentConfiguration;
-                const path = this.pathResolver.stringifyCfgPath(configuration.name) ?? '';
+                const path = this.pathService.stringifyPath(configuration.name) ?? '';
                 return configuration.component?.$refText ? `${path}: ${configuration.component.$refText}` : path;
             }
             case ast.ComponentLinkBase:
-                return (node as ast.ComponentLinkBase).name;
+                return this.pathService.stringifyPath((node as ast.ComponentLinkBase).name);
             case ast.ConfigurationUsage: {
                 const usage = node as ast.ConfigurationUsage;
-                const includePath = this.pathResolver.stringifyCfgPath(usage.path);
+                const includePath = this.pathService.stringifyPath(usage.path);
                 return `include ${this.getReferenceText(usage.configuration)}${includePath ? ` at ${includePath}` : ''}`;
             }
             case ast.GlobalEventHandler: {
@@ -85,15 +85,15 @@ export class XsmpDocumentSymbolProvider implements DocumentSymbolProvider {
             }
             case ast.EventLink: {
                 const link = node as ast.EventLink;
-                return `event link ${link.ownerPath} -> ${link.clientPath}`;
+                return `event link ${this.pathService.stringifyPath(link.ownerPath)} -> ${this.pathService.stringifyPath(link.clientPath)}`;
             }
             case ast.FieldLink: {
                 const link = node as ast.FieldLink;
-                return `field link ${link.ownerPath} -> ${link.clientPath}`;
+                return `field link ${this.pathService.stringifyPath(link.ownerPath)} -> ${this.pathService.stringifyPath(link.clientPath)}`;
             }
             case ast.InterfaceLink: {
                 const link = node as ast.InterfaceLink;
-                return `interface link ${link.ownerPath}: ${link.reference} -> ${link.clientPath}${link.backReference ? `: ${link.backReference}` : ''}`;
+                return `interface link ${this.pathService.stringifyPath(link.ownerPath)}: ${link.reference} -> ${this.pathService.stringifyPath(link.clientPath)}${link.backReference ? `: ${link.backReference}` : ''}`;
             }
             case ast.OperationCall: {
                 const call = node as ast.OperationCall;
@@ -101,23 +101,23 @@ export class XsmpDocumentSymbolProvider implements DocumentSymbolProvider {
             }
             case ast.CallOperation: {
                 const call = node as ast.CallOperation;
-                return `call ${call.operationPath}${this.formatArgumentList(call.parameters.map(parameter => parameter.parameter))}`;
+                return `call ${this.pathService.stringifyPath(call.operationPath)}${this.formatArgumentList(call.parameters.map(parameter => parameter.parameter))}`;
             }
             case ast.PropertyValue:
                 return `property ${(node as ast.PropertyValue).property}`;
             case ast.SetProperty:
-                return `property ${(node as ast.SetProperty).propertyPath}`;
+                return `property ${this.pathService.stringifyPath((node as ast.SetProperty).propertyPath)}`;
             case ast.FieldValue:
-                return this.pathResolver.stringifyConfigurablePath((node as ast.FieldValue).field);
+                return this.pathService.stringifyPath((node as ast.FieldValue).field);
             case ast.Trigger:
-                return `trig ${(node as ast.Trigger).entryPoint}`;
+                return `trig ${this.pathService.stringifyPath((node as ast.Trigger).entryPoint)}`;
             case ast.Transfer: {
                 const transfer = node as ast.Transfer;
-                return `transfer ${transfer.outputFieldPath} -> ${transfer.inputFieldPath}`;
+                return `transfer ${this.pathService.stringifyPath(transfer.outputFieldPath)} -> ${this.pathService.stringifyPath(transfer.inputFieldPath)}`;
             }
             case ast.ExecuteTask: {
                 const execute = node as ast.ExecuteTask;
-                return `execute ${this.getReferenceText(execute.task)}${execute.root ? ` at ${execute.root}` : ''}`;
+                return `execute ${this.getReferenceText(execute.task)}${execute.root ? ` at ${this.pathService.stringifyPath(execute.root)}` : ''}`;
             }
             case ast.EmitGlobalEvent: {
                 const emit = node as ast.EmitGlobalEvent;

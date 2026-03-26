@@ -20,7 +20,7 @@ Int32Parameter returns Int32Parameter:
 
 
 Task returns Task:
-    'task' name=Name
+    'task' name=Name (':' component=[Component:QualifiedName])?
     '{'
     elements+=Activity*
     '}';
@@ -96,8 +96,35 @@ Name returns string:
 QualifiedName returns string:
     ValidID ('.' ValidID)*;
 
-Path returns string:
-    '/'? Name (('.'|'/') Name)*;
+Path returns Path:
+    {Path}
+    unsafe?='unsafe'?
+    (absolute?='/' (head=PathSegment elements+=PathElement*)?
+    | head=PathSegment elements+=PathElement*);
+
+PathElement returns PathElement:
+    PathMember | PathIndex;
+
+PathMember returns PathMember:
+    separator=PathSeparator segment=PathSegment;
+
+PathIndex returns PathIndex:
+    '[' index=INT ']';
+
+PathSegment returns PathSegment:
+    PathNamedSegment | PathParentSegment | PathSelfSegment;
+
+PathNamedSegment returns PathNamedSegment:
+    reference=[NamedElement:Name];
+
+PathParentSegment returns PathParentSegment:
+    {PathParentSegment} '..';
+
+PathSelfSegment returns PathSelfSegment:
+    {PathSelfSegment} '.';
+
+PathSeparator returns string:
+    '.' | '/';
 
 ParameterValue returns ParameterValue:
     parameter=ValidID '=' value=SimpleValue;

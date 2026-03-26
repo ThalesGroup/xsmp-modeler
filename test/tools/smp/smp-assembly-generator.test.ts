@@ -1,11 +1,14 @@
 import { afterEach, beforeAll, describe, expect, test } from 'vitest';
-import { clearDocuments, parseHelper, type ParseHelperOptions } from 'langium/test';
 import { EmptyFileSystem, type LangiumDocument, URI } from 'langium';
-import { createXsmpServices } from '../../src/language/xsmp-module.js';
-import { Assembly, Catalogue, Project, isAssembly } from '../../src/language/generated/ast.js';
+import { expandToString as s } from 'langium/generate';
+import { clearDocuments, parseHelper } from 'langium/test';
+import { createXsmpServices } from '../../../src/language/xsmp-module.js';
+import { Assembly, Catalogue, Project, isAssembly } from '../../../src/language/generated/ast.js';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { SmpGenerator } from '../../../src/language/tools/smp/generator.js';
+import { setGeneratedBy } from '../../../src/language/generator/generator.js';
 
 let services: ReturnType<typeof createXsmpServices>;
 let parseProject: ReturnType<typeof parseHelper<Project>>;
@@ -32,12 +35,8 @@ namespace demo
 
     public model Root
     {
-        field Smp.Bool enabledState
         output field Smp.Int32 outValue
-        input field Smp.Int32 inValue
         container Child child = demo.Child
-
-        public property Smp.Bool enabled -> enabledState
 
         eventsink demo.FlagEvent inbound
         eventsource demo.FlagEvent outbound
@@ -49,8 +48,7 @@ beforeAll(async () => {
     services = createXsmpServices(EmptyFileSystem);
     parseProject = parseHelper<Project>(services.xsmpproject);
     parseCatalogue = parseHelper<Catalogue>(services.xsmpcat);
-    const doParseAssembly = parseHelper<Assembly>(services.xsmpasb);
-    parseAssembly = (input: string, options?: ParseHelperOptions) => doParseAssembly(input, { validation: true, ...options });
+    parseAssembly = parseHelper<Assembly>(services.xsmpasb);
 
     await services.shared.workspace.WorkspaceManager.initializeWorkspace([]);
 });
@@ -64,45 +62,28 @@ afterEach(async () => {
     }
 });
 
-describe('Validating Xsmpasb', () => {
-    test('validates typed assembly configuration and link paths and honors unsafe', async () => {
-        const document = await parseInProject(`assembly Demo
+describe('SMP assembly generator tests', () => {
+    test('test assembly', async () => {
+        const generator = new SmpGenerator(services.shared);
+        const document = await parseFixture('test.xsmpasb');
+        setGeneratedBy(false);
 
-configure child
-{
-    count = true
-    missing = 1i32
-    unsafe missing = 1i32
-}
+        const actualXml = checkDocumentValid(document) ??
+            await generator.doGenerateAssembly(document.parseResult.value, undefined);
 
-configure enabled
-{
-}
+        expect(actualXml.includes('unsafe')).toBe(false);
 
-Root: demo.Root
-{
-    child += Child: demo.Child
-    field link outValue -> child.outValue
-    field link unsafe outValue -> unsafe child.outValue
-    event link outbound -> child.inbound
-    event link outbound -> child.missing
-}
-`);
+        const expectedPath = path.resolve(__dirname, 'test.smpasb');
+        if (process.env.UPDATE_EXPECTATIONS === '1') {
+            fs.writeFileSync(expectedPath, actualXml);
+        }
 
-        const messages = getMessages(document);
-        expect(messages).toEqual(expect.arrayContaining([
-            'The value shall be compatible with type Smp.Int32.',
-            "The path segment 'missing' shall resolve to a Field of the configured Component.",
-            "The path segment 'enabled' shall resolve to a child Model Instance or Assembly Instance.",
-            "The path segment 'outValue' shall resolve to a Field marked as Input of the current Component.",
-            "The path segment 'missing' shall resolve to a supported member of the current Component.",
-        ]));
-        expect(messages.some(message => message.includes('unsafe'))).toBe(false);
+        expect(actualXml).toBe(fs.readFileSync(expectedPath).toString());
     });
 });
 
-async function parseInProject(source: string): Promise<LangiumDocument<Assembly>> {
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmpasb-validating-'));
+async function parseFixture(fileName: string): Promise<LangiumDocument<Assembly>> {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-smp-assembly-fixture-'));
     tempDirs.push(tempDir);
 
     const projectDocument = await parseProject(
@@ -114,8 +95,8 @@ source "src"
     const catalogueDocument = await parseCatalogue(catalogueSource, {
         documentUri: URI.file(path.join(tempDir, 'src', 'demo.xsmpcat')).toString(),
     });
-    const assemblyDocument = await parseAssembly(source, {
-        documentUri: URI.file(path.join(tempDir, 'src', 'demo.xsmpasb')).toString(),
+    const assemblyDocument = await parseAssembly(fs.readFileSync(path.resolve(__dirname, fileName)).toString(), {
+        documentUri: URI.file(path.join(tempDir, 'src', fileName)).toString(),
     });
 
     documents.push(projectDocument, catalogueDocument, assemblyDocument);
@@ -126,7 +107,12 @@ source "src"
     return assemblyDocument;
 }
 
-function getMessages(document: LangiumDocument<Assembly>): string[] {
-    expect(isAssembly(document.parseResult.value)).toBe(true);
-    return document.diagnostics?.map(diagnostic => diagnostic.message) ?? [];
+function checkDocumentValid(document: LangiumDocument): string | undefined {
+    return document.parseResult.parserErrors.length && s`
+        Parser errors:
+          ${document.parseResult.parserErrors.map(error => error.message).join('\n  ')}
+    `
+        || document.parseResult.value === undefined && `ParseResult is 'undefined'.`
+        || !isAssembly(document.parseResult.value) && `Root AST object is a ${document.parseResult.value.$type}, expected a '${Assembly}'.`
+        || undefined;
 }

@@ -6,19 +6,21 @@ import { XsmpFormatterBase } from './xsmp-formatter-base.js';
 export class XsmpsedFormatter extends XsmpFormatterBase {
     protected override format(node: AstNode): void {
         switch (node.$type) {
+            case ast.Path: return this.formatPath(node as ast.Path, this.getNodeFormatter(node));
+            case ast.PathMember: return this.formatPathMember(node as ast.PathMember, this.getNodeFormatter(node));
             case ast.Schedule: return this.formatSchedule(node as ast.Schedule, this.getNodeFormatter(node));
-            case ast.StringParameter: return this.formatStringParameter(node as ast.StringParameter, this.getNodeFormatter(node));
-            case ast.Int32Parameter: return this.formatInt32Parameter(node as ast.Int32Parameter, this.getNodeFormatter(node));
+            case ast.StringParameter: return this.formatTypedAssignment(this.getNodeFormatter(node));
+            case ast.Int32Parameter: return this.formatTypedAssignment(this.getNodeFormatter(node));
             case ast.Task: return this.formatTask(node as ast.Task, this.getNodeFormatter(node));
             case ast.CallOperation: return this.formatCallOperation(node as ast.CallOperation, this.getNodeFormatter(node));
             case ast.SetProperty: return this.formatSetProperty(node as ast.SetProperty, this.getNodeFormatter(node));
             case ast.Transfer: return this.formatTransfer(node as ast.Transfer, this.getNodeFormatter(node));
             case ast.Trigger: return this.formatTrigger(node as ast.Trigger, this.getNodeFormatter(node));
             case ast.ExecuteTask: return this.formatExecuteTask(node as ast.ExecuteTask, this.getNodeFormatter(node));
-            case ast.StringArgument: return this.formatTemplateArgument(node as ast.StringArgument, this.getNodeFormatter(node));
-            case ast.Int32Argument: return this.formatTemplateArgument(node as ast.Int32Argument, this.getNodeFormatter(node));
+            case ast.StringArgument: return this.formatAssignment(this.getNodeFormatter(node));
+            case ast.Int32Argument: return this.formatAssignment(this.getNodeFormatter(node));
             case ast.EmitGlobalEvent: return this.formatEmitGlobalEvent(node as ast.EmitGlobalEvent, this.getNodeFormatter(node));
-            case ast.ParameterValue: return this.formatParameterValue(node as ast.ParameterValue, this.getNodeFormatter(node));
+            case ast.ParameterValue: return this.formatAssignment(this.getNodeFormatter(node));
             case ast.MissionEvent: return this.formatMissionEvent(node as ast.MissionEvent, this.getNodeFormatter(node));
             case ast.EpochEvent: return this.formatEpochEvent(node as ast.EpochEvent, this.getNodeFormatter(node));
             case ast.SimulationEvent: return this.formatSimulationEvent(node as ast.SimulationEvent, this.getNodeFormatter(node));
@@ -36,18 +38,9 @@ export class XsmpsedFormatter extends XsmpFormatterBase {
         formatter.nodes(...node.elements).prepend(Formatting.noIndent());
     }
 
-    protected formatStringParameter(node: ast.StringParameter, formatter: NodeFormatter<ast.StringParameter>): void {
-        formatter.keyword(':').prepend(Formatting.noSpace()).append(Formatting.oneSpace());
-        this.formatAssignment(formatter);
-    }
-
-    protected formatInt32Parameter(node: ast.Int32Parameter, formatter: NodeFormatter<ast.Int32Parameter>): void {
-        formatter.keyword(':').prepend(Formatting.noSpace()).append(Formatting.oneSpace());
-        this.formatAssignment(formatter);
-    }
-
     protected formatTask(node: ast.Task, formatter: NodeFormatter<ast.Task>): void {
         formatter.keyword('task').append(Formatting.oneSpace());
+        this.formatTypeAnnotation(formatter);
         this.formatBody(formatter);
     }
 
@@ -76,17 +69,9 @@ export class XsmpsedFormatter extends XsmpFormatterBase {
         formatter.keyword('at').surround(Formatting.oneSpace());
     }
 
-    protected formatTemplateArgument(node: ast.StringArgument | ast.Int32Argument, formatter: NodeFormatter<ast.StringArgument | ast.Int32Argument>): void {
-        this.formatAssignment(formatter);
-    }
-
     protected formatEmitGlobalEvent(node: ast.EmitGlobalEvent, formatter: NodeFormatter<ast.EmitGlobalEvent>): void {
         formatter.keyword('async').append(Formatting.oneSpace());
         formatter.keyword('emit').append(Formatting.oneSpace());
-    }
-
-    protected formatParameterValue(node: ast.ParameterValue, formatter: NodeFormatter<ast.ParameterValue>): void {
-        this.formatAssignment(formatter);
     }
 
     protected formatMissionEvent(node: ast.MissionEvent, formatter: NodeFormatter<ast.MissionEvent>): void {

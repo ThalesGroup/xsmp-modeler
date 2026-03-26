@@ -57,8 +57,35 @@ SubInstance returns SubInstance:
 Name returns string:
     ValidID;
 
-Path returns string:
-    '/'? ValidID (('.'|'/') ValidID | '[' INT ']')*;
+Path returns Path:
+    {Path}
+    unsafe?='unsafe'?
+    (absolute?='/' (head=PathSegment elements+=PathElement*)?
+    | head=PathSegment elements+=PathElement*);
+
+PathElement returns PathElement:
+    PathMember | PathIndex;
+
+PathMember returns PathMember:
+    separator=PathSeparator segment=PathSegment;
+
+PathIndex returns PathIndex:
+    '[' index=INT ']';
+
+PathSegment returns PathSegment:
+    PathNamedSegment | PathParentSegment | PathSelfSegment;
+
+PathNamedSegment returns PathNamedSegment:
+    reference=[NamedElement:ValidID];
+
+PathParentSegment returns PathParentSegment:
+    {PathParentSegment} '..';
+
+PathSelfSegment returns PathSelfSegment:
+    {PathSelfSegment} '.';
+
+PathSeparator returns string:
+    '.' | '/';
 
 
 Link returns Link:
@@ -151,8 +178,6 @@ terminal DATETIME_STRING: /"[^"]*"dt/;
 terminal DURATION_STRING: /"[^"]*"d/;
 terminal STRING: /"[^"]*"/;
 terminal CHAR: /'[^']*'/;
-
-terminal UUID: /[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i;
 terminal ID: /([_a-zA-Z]\w*|{[_a-zA-Z]\w*}\w*)+/;
 
 

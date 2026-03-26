@@ -1,0 +1,13 @@
+assembly Demo
+
+configure unsafe child
+{
+    count = 1i32
+}
+
+Root: demo.Root
+{
+    child += Child: demo.Child
+    field link unsafe outValue -> child.inValue
+    event link outbound -> unsafe child.inbound
+}

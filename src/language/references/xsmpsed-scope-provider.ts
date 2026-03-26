@@ -1,6 +1,7 @@
 import type { AstNode, AstNodeDescription, AstNodeDescriptionProvider, AstReflection, IndexManager, ReferenceInfo, Scope, ScopeOptions, ScopeProvider, Stream, URI } from 'langium';
 import * as ast from '../generated/ast.js';
 import { AstUtils, EMPTY_SCOPE, MapScope, StreamScope, WorkspaceCache, stream } from 'langium';
+import type { Xsmpl2PathResolver } from './xsmpl2-path-resolver.js';
 import type { ProjectManager } from '../workspace/project-manager.js';
 import type { XsmpServices } from '../xsmp-module.js';
 
@@ -10,6 +11,7 @@ export class XsmpsedScopeProvider implements ScopeProvider {
     protected readonly globalScopeCache: WorkspaceCache<URI, Map<string, Scope>>;
     protected readonly projectManager: ProjectManager;
     protected readonly descriptions: AstNodeDescriptionProvider;
+    protected readonly pathResolver: Xsmpl2PathResolver;
 
     constructor(services: XsmpServices) {
         this.reflection = services.shared.AstReflection;
@@ -17,6 +19,7 @@ export class XsmpsedScopeProvider implements ScopeProvider {
         this.globalScopeCache = new WorkspaceCache<URI, Map<string, Scope>>(services.shared);
         this.projectManager = services.shared.workspace.ProjectManager;
         this.descriptions = services.workspace.AstNodeDescriptionProvider;
+        this.pathResolver = services.shared.L2PathResolver;
     }
 
     protected createScopeForNodes(elements: Iterable<ast.TemplateParameter>, outerScope?: Scope, options?: ScopeOptions): Scope {
@@ -46,6 +49,9 @@ export class XsmpsedScopeProvider implements ScopeProvider {
     }
 
     getScope(context: ReferenceInfo): Scope {
+        if (ast.isPathNamedSegment(context.container) && context.property === 'reference') {
+            return this.getPathScope(context.container);
+        }
         const referenceType = this.reflection.getReferenceType(context);
         if (ast.isTemplateArgument(context.container) && context.property === 'parameter') {
             const task = (context.container.$container as ast.ExecuteTask).task;
@@ -61,11 +67,26 @@ export class XsmpsedScopeProvider implements ScopeProvider {
         return result;
     }
 
+    protected getPathScope(segment: ast.PathNamedSegment): Scope {
+        const candidates = this.pathResolver.getNamedSegmentCandidates(segment);
+        return candidates.length > 0 ? this.createScopeForNamedElements(candidates) : EMPTY_SCOPE;
+    }
+
     /**
      * Create a scope for the given collection of AST node descriptions.
      */
     protected createScope(elements: Iterable<AstNodeDescription>, outerScope?: Scope, options?: ScopeOptions): Scope {
         return new StreamScope(stream(elements), outerScope, options);
+    }
+
+    protected createScopeForNamedElements(elements: Iterable<ast.NamedElement>, outerScope?: Scope, options?: ScopeOptions): Scope {
+        return new StreamScope(
+            stream(elements)
+                .filter((element): element is ast.NamedElement => Boolean(element.name))
+                .map(element => this.descriptions.createDescription(element, element.name)),
+            outerScope,
+            options
+        );
     }
 
     /**

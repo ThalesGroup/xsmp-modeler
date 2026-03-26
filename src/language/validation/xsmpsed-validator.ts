@@ -1,13 +1,15 @@
-import { AstUtils, type ValidationAcceptor, type ValidationChecks } from 'langium';
-import * as ast from '../generated/ast-partial.js';
+import { AstUtils, type AstNode, type ValidationAcceptor, type ValidationChecks } from 'langium';
+import * as ast from '../generated/ast.js';
 import type { XsmpsedServices } from '../xsmpsed-module.js';
 import {
-    checkNoParentTraversal,
     checkNonNegativeBigInt,
+    isAbsolutePath,
     checkValidDateTime,
     checkValidDuration
 } from './l2-validator-utils.js';
 import { checkName } from './name-validator-utils.js';
+import type { Xsmpl2PathResolver } from '../references/xsmpl2-path-resolver.js';
+import * as XsmpUtils from '../utils/xsmp-utils.js';
 
 export function registerXsmpsedValidationChecks(services: XsmpsedServices) {
     const registry = services.validation.ValidationRegistry;
@@ -32,7 +34,11 @@ export function registerXsmpsedValidationChecks(services: XsmpsedServices) {
 }
 
 export class XsmpsedValidator {
-    constructor(_services: XsmpsedServices) { }
+    protected readonly pathResolver: Xsmpl2PathResolver;
+
+    constructor(services: XsmpsedServices) {
+        this.pathResolver = services.shared.L2PathResolver;
+    }
 
     checkSchedule(schedule: ast.Schedule, accept: ValidationAcceptor): void {
         checkName(accept, schedule, schedule.name, 'name');
@@ -85,20 +91,20 @@ export class XsmpsedValidator {
     }
 
     checkTrigger(trigger: ast.Trigger, accept: ValidationAcceptor): void {
-        checkNoParentTraversal(accept, trigger, trigger.entryPoint, 'entryPoint');
+        this.checkActivityPath(trigger.entryPoint, accept);
     }
 
     checkTransfer(transfer: ast.Transfer, accept: ValidationAcceptor): void {
-        checkNoParentTraversal(accept, transfer, transfer.outputFieldPath, 'outputFieldPath');
-        checkNoParentTraversal(accept, transfer, transfer.inputFieldPath, 'inputFieldPath');
+        this.checkActivityPath(transfer.outputFieldPath, accept);
+        this.checkActivityPath(transfer.inputFieldPath, accept);
     }
 
     checkSetProperty(property: ast.SetProperty, accept: ValidationAcceptor): void {
-        checkNoParentTraversal(accept, property, property.propertyPath, 'propertyPath');
+        this.checkActivityPath(property.propertyPath, accept);
     }
 
     checkCallOperation(call: ast.CallOperation, accept: ValidationAcceptor): void {
-        checkNoParentTraversal(accept, call, call.operationPath, 'operationPath');
+        this.checkActivityPath(call.operationPath, accept);
         const seen = new Set<string>();
         for (let index = 0; index < call.parameters.length; index++) {
             const parameter = call.parameters[index];
@@ -114,7 +120,21 @@ export class XsmpsedValidator {
     }
 
     checkExecuteTask(execute: ast.ExecuteTask, accept: ValidationAcceptor): void {
-        checkNoParentTraversal(accept, execute, execute.root, 'root');
+        if (!execute.root || execute.root.unsafe) {
+            return;
+        }
+        const resolution = this.pathResolver.getScheduleActivityPathResolution(execute.root);
+        this.acceptPathError(resolution.invalidMessage, resolution.invalidNode, accept);
+        const expectedComponent = execute.task.ref ? this.pathResolver.getEffectiveTaskComponent(execute.task.ref) : undefined;
+        if (!resolution.active || resolution.invalidMessage || !resolution.finalComponent || !expectedComponent) {
+            return;
+        }
+        if (resolution.finalComponent !== expectedComponent && !XsmpUtils.isBaseOfComponent(expectedComponent, resolution.finalComponent)) {
+            accept('error', `The root path shall resolve to a Component compatible with task ${execute.task.$refText}.`, {
+                node: execute,
+                property: 'root'
+            });
+        }
     }
 
     checkMissionEvent(event: ast.MissionEvent, accept: ValidationAcceptor): void {
@@ -144,7 +164,7 @@ export class XsmpsedValidator {
 
     private checkEventBase(event: ast.Event, accept: ValidationAcceptor): void {
         const schedule = AstUtils.getContainerOfType(event, ast.isSchedule);
-        const taskSchedule = event.task?.ref ? AstUtils.getContainerOfType(event.task.ref, ast.isSchedule) : undefined;
+        const taskSchedule = event.task.ref ? AstUtils.getContainerOfType(event.task.ref, ast.isSchedule) : undefined;
         if (schedule && taskSchedule && schedule !== taskSchedule) {
             accept('error', 'An Event shall be associated with a Task defined in the same Schedule.', {
                 node: event,
@@ -158,18 +178,32 @@ export class XsmpsedValidator {
     private activityUsesRelativePath(activity: ast.Activity): boolean {
         switch (activity.$type) {
             case ast.Trigger:
-                return !(activity as ast.Trigger).entryPoint?.startsWith('/');
+                return !isAbsolutePath((activity as ast.Trigger).entryPoint);
             case ast.Transfer:
-                return !((activity as ast.Transfer).outputFieldPath?.startsWith('/'))
-                    || !((activity as ast.Transfer).inputFieldPath?.startsWith('/'));
+                return !isAbsolutePath((activity as ast.Transfer).outputFieldPath)
+                    || !isAbsolutePath((activity as ast.Transfer).inputFieldPath);
             case ast.SetProperty:
-                return !((activity as ast.SetProperty).propertyPath?.startsWith('/'));
+                return !isAbsolutePath((activity as ast.SetProperty).propertyPath);
             case ast.CallOperation:
-                return !((activity as ast.CallOperation).operationPath?.startsWith('/'));
+                return !isAbsolutePath((activity as ast.CallOperation).operationPath);
             case ast.ExecuteTask:
-                return (activity as ast.ExecuteTask).root !== undefined && !((activity as ast.ExecuteTask).root?.startsWith('/'));
+                return (activity as ast.ExecuteTask).root !== undefined && !isAbsolutePath((activity as ast.ExecuteTask).root);
             default:
                 return false;
+        }
+    }
+
+    private checkActivityPath(path: ast.Path, accept: ValidationAcceptor): void {
+        if (path.unsafe) {
+            return;
+        }
+        const resolution = this.pathResolver.getScheduleActivityPathResolution(path);
+        this.acceptPathError(resolution.invalidMessage, resolution.invalidNode, accept);
+    }
+
+    private acceptPathError(message: string | undefined, node: AstNode | undefined, accept: ValidationAcceptor): void {
+        if (message && node) {
+            accept('error', message, { node });
         }
     }
 }

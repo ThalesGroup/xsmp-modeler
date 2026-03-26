@@ -17,7 +17,10 @@ import { XsmpNodeKindProvider } from './lsp/node-kind-provider.js';
 import { XsmpDocumentGenerator } from './workspace/document-generator.js';
 import { XsmpDocumentUpdateHandler } from './lsp/document-update-handler.js';
 import { XsmpTypeProvider } from './references/type-provider.js';
+import { XsmpPathService } from './references/xsmp-path-service.js';
+import { XsmpTypedPathResolver } from './references/xsmp-typed-path-resolver.js';
 import { XsmpcfgPathResolver } from './references/xsmpcfg-path-resolver.js';
+import { Xsmpl2PathResolver } from './references/xsmpl2-path-resolver.js';
 import { XsmpNodeInfoProvider } from './lsp/node-info-provider.js';
 import { DocumentationHelper } from './utils/documentation-helper.js';
 import { AttributeHelper } from './utils/attribute-helper.js';
@@ -131,7 +134,10 @@ export function createXsmpServices(context: DefaultSharedModuleContext): {
  * Declaration of custom shared services
  */
 export interface XsmpAddedSharedServices {
+    readonly PathService: XsmpPathService,
+    readonly TypedPathResolver: XsmpTypedPathResolver,
     readonly CfgPathResolver: XsmpcfgPathResolver,
+    readonly L2PathResolver: Xsmpl2PathResolver,
     readonly DocumentGenerator: XsmpDocumentGenerator,
     readonly TypeProvider: XsmpTypeProvider,
     readonly lsp: {
@@ -151,7 +157,10 @@ export type XsmpSharedServices = LangiumSharedServices & XsmpAddedSharedServices
 
 export const XsmpSharedModule: Module<XsmpSharedServices, DeepPartial<XsmpSharedServices>> = {
     AttributeHelper: (services) => new AttributeHelper(services),
+    PathService: (services) => new XsmpPathService(services),
+    TypedPathResolver: (services) => new XsmpTypedPathResolver(services),
     CfgPathResolver: (services) => new XsmpcfgPathResolver(services),
+    L2PathResolver: (services) => new Xsmpl2PathResolver(services),
     DocumentGenerator: (services) => new XsmpDocumentGenerator(services),
     DocumentationHelper: (services) => new DocumentationHelper(services),
     TypeProvider: (services) => new XsmpTypeProvider(services),

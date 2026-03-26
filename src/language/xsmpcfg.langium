@@ -10,14 +10,14 @@ entry Configuration returns Configuration:
 
 
 ComponentConfiguration returns ComponentConfiguration:
-    name=CfgPath (':' component=[Component:QualifiedName])?
+    name=Path (':' component=[Component:QualifiedName])?
     '{' 
     elements+=(ConfigurationUsage|ComponentConfiguration|FieldValue)*
     '}';
 
 ConfigurationUsage returns ConfigurationUsage:
     'include' configuration=[Configuration:ValidID]
-    ('at' path=CfgPath)?;
+    ('at' path=Path)?;
 
 
 ValidID returns string:
@@ -30,7 +30,7 @@ Value returns Value:
     SimpleValue | ArrayValue | StructureValue;
 
 FieldValue returns FieldValue:
-    field=CfgPath '=' value=Value;
+    field=Path '=' value=Value;
 
 CfgStructureValueElement returns Value:
     CfgStructureFieldValue | Value;
@@ -95,36 +95,36 @@ DurationValue returns DurationValue:
 DateTimeValue returns DateTimeValue:
     value=DATETIME_STRING;
 
-
-CfgPath returns CfgPath:
-    {CfgPath}
+Path returns Path:
+    {Path}
     unsafe?='unsafe'?
-    (absolute?='/' head=CfgPathSegment elements+=CfgPathElement*
-    | head=CfgPathSegment elements+=CfgPathElement*);
+    (absolute?='/' (head=PathSegment elements+=PathElement*)?
+    | head=PathSegment elements+=PathElement*);
 
-CfgPathElement returns CfgPathElement:
-    CfgPathMember | CfgPathIndex;
+PathElement returns PathElement:
+    PathMember | PathIndex;
 
-CfgPathMember returns CfgPathMember:
-    separator=CfgPathSeparator segment=CfgPathSegment;
+PathMember returns PathMember:
+    separator=PathSeparator segment=PathSegment;
 
-CfgPathIndex returns CfgPathIndex:
+PathIndex returns PathIndex:
     '[' index=INT ']';
 
-CfgPathSegment returns CfgPathSegment:
-    CfgNamedSegment | CfgParentSegment | CfgSelfSegment;
+PathSegment returns PathSegment:
+    PathNamedSegment | PathParentSegment | PathSelfSegment;
 
-CfgNamedSegment returns CfgNamedSegment:
+PathNamedSegment returns PathNamedSegment:
     reference=[NamedElement:ValidID];
 
-CfgParentSegment returns CfgParentSegment:
-    {CfgParentSegment} '..';
+PathParentSegment returns PathParentSegment:
+    {PathParentSegment} '..';
 
-CfgSelfSegment returns CfgSelfSegment:
-    {CfgSelfSegment} '.';
+PathSelfSegment returns PathSelfSegment:
+    {PathSelfSegment} '.';
 
-CfgPathSeparator returns string:
+PathSeparator returns string:
     '.' | '/';
+
 
 hidden terminal WS: /\s+/;
 terminal DATETIME_STRING: /"[^"]*"dt/;

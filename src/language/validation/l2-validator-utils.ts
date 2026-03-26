@@ -1,15 +1,35 @@
 import type { AstNode, Properties, ValidationAcceptor } from 'langium';
+import * as ast from '../generated/ast-partial.js';
 import * as Duration from '../utils/duration.js';
 const dateTimeRegex = /^\d{4}-\d{2}-\d{2}T.+$/;
 
-export function hasParentTraversal(path: string | undefined): boolean {
-    return path?.includes('..') ?? false;
+function isParentSegment(segment: ast.PathElement | ast.PathSegment): boolean {
+    return ast.isPathParentSegment(ast.isPathMember(segment) ? segment.segment : segment);
+}
+
+export function isAbsolutePath(path: string | ast.Path | undefined): boolean {
+    return typeof path === 'string' ? path.startsWith('/') : path?.absolute ?? false;
+}
+
+export function hasParentTraversal(path: string | ast.Path | undefined): boolean {
+    if (typeof path === 'string') {
+        return path.includes('..');
+    }
+    if (!path) {
+        return false;
+    }
+    const segments: Array<ast.PathElement | ast.PathSegment> = [];
+    if (path.head) {
+        segments.push(path.head);
+    }
+    segments.push(...path.elements);
+    return segments.some(isParentSegment);
 }
 
 export function checkNoParentTraversal<N extends AstNode>(
     accept: ValidationAcceptor,
     node: N,
-    path: string | undefined,
+    path: string | ast.Path | undefined,
     property: Properties<N>,
 ): void {
     if (hasParentTraversal(path)) {
@@ -20,11 +40,11 @@ export function checkNoParentTraversal<N extends AstNode>(
 export function checkRelativePath<N extends AstNode>(
     accept: ValidationAcceptor,
     node: N,
-    path: string | undefined,
+    path: string | ast.Path | undefined,
     property: Properties<N>,
     label: string,
 ): void {
-    if (path?.startsWith('/')) {
+    if (isAbsolutePath(path)) {
         accept('error', `${label} shall be relative.`, { node, property });
     }
 }

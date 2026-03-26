@@ -26,17 +26,20 @@ import { type AttributeHelper } from '../../utils/attribute-helper.js';
 import { getCopyrightNotice } from '../../generator/copyright-notice-provider.js';
 import { xsmpVersion } from '../../version.js';
 import type { ProjectManager } from '../../workspace/project-manager.js';
+import type { XsmpPathService } from '../../references/xsmp-path-service.js';
 import type { XsmpcfgPathResolver } from '../../references/xsmpcfg-path-resolver.js';
 
 export class SmpGenerator implements XsmpGenerator {
 
     protected readonly docHelper: DocumentationHelper;
     protected readonly attrHelper: AttributeHelper;
+    protected readonly pathService: XsmpPathService;
     protected readonly cfgPathResolver: XsmpcfgPathResolver;
     protected readonly projectManager: ProjectManager;
     protected readonly smdlGenFolder = 'smdl-gen';
 
     constructor(services: XsmpSharedServices) {
+        this.pathService = services.PathService;
         this.cfgPathResolver = services.CfgPathResolver;
         this.docHelper = services.DocumentationHelper;
         this.attrHelper = services.AttributeHelper;
@@ -683,7 +686,7 @@ export class SmpGenerator implements XsmpGenerator {
     }
     convertComponentConfiguration(component: ast.ComponentConfiguration): Configuration.ComponentConfiguration {
         return {
-            '@Path': this.cfgPathResolver.stringifyCfgPath(component.name),
+            '@Path': this.pathService.stringifyPath(component.name),
             Include: component.elements.filter(ast.isConfigurationUsage).map(this.convertConfigurationUsage, this),
             Component: component.elements.filter(ast.isComponentConfiguration).map(this.convertComponentConfiguration, this),
             FieldValue: component.elements.filter(ast.isFieldValue).map(value => this.convertValue(value)),
@@ -691,7 +694,7 @@ export class SmpGenerator implements XsmpGenerator {
     }
 
     protected getResolvedConfigurationFieldType(fieldValue: ast.FieldValue): ast.Type | undefined {
-        if (!ast.isCfgPath(fieldValue.field) || fieldValue.field.unsafe) {
+        if (!ast.isPath(fieldValue.field) || fieldValue.field.unsafe) {
             return undefined;
         }
         const resolution = this.cfgPathResolver.getFieldPathResolution(fieldValue.field);
@@ -814,7 +817,7 @@ export class SmpGenerator implements XsmpGenerator {
             }
             case ast.FieldValue: return {
                 ...this.convertValue((value as ast.FieldValue).value, this.getResolvedConfigurationFieldType(value as ast.FieldValue)),
-                '@Field': this.cfgPathResolver.stringifyConfigurablePath((value as ast.FieldValue).field)
+                '@Field': this.pathService.stringifyPath((value as ast.FieldValue).field)
             };
             default: return { '@xsi:type': 'Types:Value' } as Types.Value;
         }
@@ -822,7 +825,7 @@ export class SmpGenerator implements XsmpGenerator {
 
     convertConfigurationUsage(include: ast.ConfigurationUsage): Configuration.ConfigurationUsage {
         return {
-            '@Path': this.cfgPathResolver.stringifyCfgPath(include.path),
+            '@Path': this.pathService.stringifyPath(include.path),
             Configuration: this.convertXlink(include.configuration, include),
         };
     }
@@ -864,23 +867,25 @@ export class SmpGenerator implements XsmpGenerator {
 
     convertComponentLinkBase(linkBase: ast.ComponentLinkBase): LinkBase.ComponentLinkBase {
         return {
-            '@Path': linkBase.name,
+            '@Path': this.pathService.stringifyPath(linkBase.name)!,
             Link: linkBase.elements.filter(ast.isLink).map(this.convertLink, this),
             Component: linkBase.elements.filter(ast.isComponentLinkBase).map(this.convertComponentLinkBase, this),
         };
     }
     convertLink(link: ast.Link): LinkBase.Link {
+        const ownerPath = this.pathService.stringifyPath(link.ownerPath);
+        const clientPath = this.pathService.stringifyPath(link.clientPath);
         switch (link.$type) {
-            case ast.EventLink: return { '@xsi:type': 'LinkBase:EventLink', OwnerPath: link.ownerPath, ClientPath: link.clientPath } as LinkBase.EventLink;
-            case ast.FieldLink: return { '@xsi:type': 'LinkBase:FieldLink', OwnerPath: link.ownerPath, ClientPath: link.clientPath } as LinkBase.FieldLink;
+            case ast.EventLink: return { '@xsi:type': 'LinkBase:EventLink', OwnerPath: ownerPath, ClientPath: clientPath } as LinkBase.EventLink;
+            case ast.FieldLink: return { '@xsi:type': 'LinkBase:FieldLink', OwnerPath: ownerPath, ClientPath: clientPath } as LinkBase.FieldLink;
             case ast.InterfaceLink: return {
                 '@xsi:type': 'LinkBase:InterfaceLink',
-                OwnerPath: link.ownerPath,
-                ClientPath: link.clientPath,
+                OwnerPath: ownerPath,
+                ClientPath: clientPath,
                 Reference: (link as ast.InterfaceLink).reference,
                 BackReference: (link as ast.InterfaceLink).backReference
             } as LinkBase.InterfaceLink;
-            default: return { '@xsi:type': 'LinkBase:Link', OwnerPath: link.ownerPath, ClientPath: link.clientPath } as LinkBase.Link;
+            default: return { '@xsi:type': 'LinkBase:Link', OwnerPath: ownerPath, ClientPath: clientPath } as LinkBase.Link;
         }
     }
 
@@ -1000,7 +1005,7 @@ export class SmpGenerator implements XsmpGenerator {
 
     convertAssemblyComponentConfiguration(component: ast.AssemblyComponentConfiguration): Assembly.ComponentConfiguration {
         return {
-            '@InstancePath': component.name,
+            '@InstancePath': this.pathService.stringifyPath(component.name),
             Invocation: component.elements.filter(ast.isInvocation).map(this.convertInvocation, this),
             GlobalEventHandler: component.elements.filter(ast.isGlobalEventHandler).map(this.convertGlobalEventHandler, this),
             FieldValue: component.elements.filter(ast.isValue).map(v => this.convertValue(v as ast.Value), this),
@@ -1119,7 +1124,7 @@ export class SmpGenerator implements XsmpGenerator {
                 return {
                     ...this.convertGeneratedActivityElement(activity),
                     '@xsi:type': 'Schedule:CallOperation',
-                    OperationPath: (activity as ast.CallOperation).operationPath,
+                    OperationPath: this.pathService.stringifyPath((activity as ast.CallOperation).operationPath),
                     Parameter: (activity as ast.CallOperation).parameters.map(this.convertParameterValue, this)
                 } as Schedule.CallOperation;
             case ast.EmitGlobalEvent:
@@ -1133,7 +1138,7 @@ export class SmpGenerator implements XsmpGenerator {
                 return {
                     ...this.convertGeneratedActivityElement(activity),
                     '@xsi:type': 'Schedule:ExecuteTask',
-                    '@Root': (activity as ast.ExecuteTask).root,
+                    '@Root': this.pathService.stringifyPath((activity as ast.ExecuteTask).root),
                     Task: this.convertXlink((activity as ast.ExecuteTask).task, activity),
                     Argument: (activity as ast.ExecuteTask).parameter.map(this.convertTemplateArgument, this),
                 } as Schedule.ExecuteTask;
@@ -1141,21 +1146,21 @@ export class SmpGenerator implements XsmpGenerator {
                 return {
                     ...this.convertGeneratedActivityElement(activity),
                     '@xsi:type': 'Schedule:SetProperty',
-                    PropertyPath: (activity as ast.SetProperty).propertyPath,
+                    PropertyPath: this.pathService.stringifyPath((activity as ast.SetProperty).propertyPath),
                     Value: this.convertValue((activity as ast.SetProperty).value),
                 } as Schedule.SetProperty;
             case ast.Transfer:
                 return {
                     ...this.convertGeneratedActivityElement(activity),
                     '@xsi:type': 'Schedule:Transfer',
-                    OutputFieldPath: (activity as ast.Transfer).outputFieldPath,
-                    InputFieldPath: (activity as ast.Transfer).inputFieldPath,
+                    OutputFieldPath: this.pathService.stringifyPath((activity as ast.Transfer).outputFieldPath),
+                    InputFieldPath: this.pathService.stringifyPath((activity as ast.Transfer).inputFieldPath),
                 } as Schedule.Transfer;
             case ast.Trigger:
                 return {
                     ...this.convertGeneratedActivityElement(activity),
                     '@xsi:type': 'Schedule:Trigger',
-                    EntryPoint: (activity as ast.Trigger).entryPoint,
+                    EntryPoint: this.pathService.stringifyPath((activity as ast.Trigger).entryPoint),
                 } as Schedule.Trigger;
             default:
                 return {

@@ -2,6 +2,7 @@ import type { AstNode, ValidationAcceptor, ValidationChecks } from 'langium';
 import { diagnosticData } from 'langium';
 import * as ast from '../generated/ast.js';
 import type { XsmpcfgServices } from '../xsmpcfg-module.js';
+import type { XsmpPathService } from '../references/xsmp-path-service.js';
 import type { XsmpcfgPathResolver } from '../references/xsmpcfg-path-resolver.js';
 import { checkName } from './name-validator-utils.js';
 import * as Solver from '../utils/solver.js';
@@ -24,9 +25,11 @@ export function registerXsmpcfgValidationChecks(services: XsmpcfgServices) {
 
 export class XsmpcfgValidator {
     protected readonly pathResolver: XsmpcfgPathResolver;
+    protected readonly pathService: XsmpPathService;
 
     constructor(services: XsmpcfgServices) {
         this.pathResolver = services.shared.CfgPathResolver;
+        this.pathService = services.shared.PathService;
     }
 
     checkConfiguration(configuration: ast.Configuration, accept: ValidationAcceptor): void {
@@ -52,7 +55,7 @@ export class XsmpcfgValidator {
     }
 
     checkFieldValue(fieldValue: ast.FieldValue, accept: ValidationAcceptor): void {
-        if (!ast.isCfgPath(fieldValue.field)) {
+        if (!ast.isPath(fieldValue.field)) {
             return;
         }
         if (fieldValue.field.unsafe) {
@@ -414,7 +417,7 @@ export class XsmpcfgValidator {
     }
 
     protected getExpectedTypeForFieldValue(fieldValue: ast.FieldValue): ast.Type | undefined {
-        if (!ast.isCfgPath(fieldValue.field) || fieldValue.field.unsafe) {
+        if (!ast.isPath(fieldValue.field) || fieldValue.field.unsafe) {
             return undefined;
         }
         const resolution = this.pathResolver.getFieldPathResolution(fieldValue.field);

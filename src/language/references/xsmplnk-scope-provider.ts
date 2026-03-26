@@ -11,35 +11,35 @@ import type {
 } from 'langium';
 import { AstUtils, EMPTY_SCOPE, MapScope, StreamScope, WorkspaceCache, stream } from 'langium';
 import * as ast from '../generated/ast.js';
+import type { Xsmpl2PathResolver } from './xsmpl2-path-resolver.js';
 import type { ProjectManager } from '../workspace/project-manager.js';
-import type { XsmpcfgPathResolver } from './xsmpcfg-path-resolver.js';
-import type { XsmpcfgServices } from '../xsmpcfg-module.js';
+import type { XsmplnkServices } from '../xsmplnk-module.js';
 
-export class XsmpcfgScopeProvider implements ScopeProvider {
+export class XsmplnkScopeProvider implements ScopeProvider {
     protected readonly descriptions: AstNodeDescriptionProvider;
     protected readonly globalScopeCache: WorkspaceCache<URI, Map<string, Scope>>;
     protected readonly indexManager: IndexManager;
-    protected readonly pathResolver: XsmpcfgPathResolver;
+    protected readonly pathResolver: Xsmpl2PathResolver;
     protected readonly projectManager: ProjectManager;
     protected readonly reflection: AstReflection;
 
-    constructor(services: XsmpcfgServices) {
+    constructor(services: XsmplnkServices) {
         this.descriptions = services.workspace.AstNodeDescriptionProvider;
         this.globalScopeCache = new WorkspaceCache<URI, Map<string, Scope>>(services.shared);
         this.indexManager = services.shared.workspace.IndexManager;
-        this.pathResolver = services.shared.CfgPathResolver;
+        this.pathResolver = services.shared.L2PathResolver;
         this.projectManager = services.shared.workspace.ProjectManager;
         this.reflection = services.shared.AstReflection;
     }
 
     getScope(context: ReferenceInfo): Scope {
         if (ast.isPathNamedSegment(context.container) && context.property === 'reference') {
-            return this.getCfgPathScope(context.container);
+            return this.getPathScope(context.container);
         }
         return this.getGlobalScope(AstUtils.getDocument(context.container), this.reflection.getReferenceType(context));
     }
 
-    protected getCfgPathScope(segment: ast.PathNamedSegment): Scope {
+    protected getPathScope(segment: ast.PathNamedSegment): Scope {
         const candidates = this.pathResolver.getNamedSegmentCandidates(segment);
         return candidates.length > 0 ? this.createScope(candidates) : EMPTY_SCOPE;
     }

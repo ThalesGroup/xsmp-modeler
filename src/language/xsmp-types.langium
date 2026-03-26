@@ -1,6 +1,7 @@
 
 //import "./xsmpcat-types"
 //import "./xsmpsed-types"
+
 interface NamedElement {
     name: string
     attributes: Metadata[]
@@ -17,35 +18,33 @@ interface Metadata {
 interface Value {
 }
 
-type ConfigurablePath = string | CfgPath
-
-interface CfgPath {
+interface Path {
     unsafe: boolean
     absolute: boolean
-    head?: CfgPathSegment
-    elements: CfgPathElement[]
+    head?: PathSegment
+    elements: PathElement[]
 }
-type CfgPathSegment = CfgNamedSegment | CfgParentSegment | CfgSelfSegment
-type CfgPathElement = CfgPathMember | CfgPathIndex
+type PathSegment = PathNamedSegment | PathParentSegment | PathSelfSegment
+type PathElement = PathMember | PathIndex
 
-interface CfgNamedSegment {
+interface PathNamedSegment {
     reference?: @NamedElement
 }
-interface CfgParentSegment {
+interface PathParentSegment {
 }
-interface CfgSelfSegment {
+interface PathSelfSegment {
 }
-interface CfgPathMember {
+interface PathMember {
     separator: string
-    segment: CfgPathSegment
+    segment: PathSegment
 }
-interface CfgPathIndex {
+interface PathIndex {
     index: bigint
 }
 
 interface FieldValue extends Value {
     value:Value
-    field?: ConfigurablePath
+    field?: Path
 }
 interface CfgStructureFieldValue extends Value {
     unsafe: boolean
@@ -462,8 +461,6 @@ interface AssemblyInstance extends NamedElement {
 
 type Name = string;
 
-type Path = string;
-
 interface SubInstance {
     container: Name
     instance: ModelInstance|AssemblyInstance
@@ -490,13 +487,13 @@ interface Configuration extends Document {
 
 
 interface ComponentConfiguration {
-    name: CfgPath
+    name: Path
     elements: (ConfigurationUsage|ComponentConfiguration|Value)[]
     component?: @Component
 }
 
 interface ConfigurationUsage {
-    path?: CfgPath
+    path?: Path
     configuration: @Configuration
 }
 
@@ -509,13 +506,14 @@ interface LinkBase extends Document {
 
 
 interface ComponentLinkBase {
-    name: string
+    name: Path
+    component?: @Component
     elements: (ComponentLinkBase|Link)[]
 }
 
 interface Link {
-    ownerPath: string
-    clientPath: string
+    ownerPath: Path
+    clientPath: Path
 }
 interface EventLink extends Link {
 }
@@ -536,6 +534,7 @@ interface Schedule extends Document {
 }
 
 interface Task extends NamedElement {
+    component?: @Component
     elements: Activity[]
 }
 
@@ -580,7 +579,7 @@ interface Activity {
 interface ExecuteTask extends Activity {
     task:@Task
     parameter: TemplateArgument[]
-    root?:string
+    root?:Path
 }
 
 interface EmitGlobalEvent extends Activity {
@@ -592,19 +591,19 @@ interface ParameterValue {
     value: SimpleValue
 }
 interface CallOperation extends Activity {
-    operationPath:string
+    operationPath:Path
     parameters: ParameterValue[]
 }
 
 interface SetProperty extends Activity {
-    propertyPath:string
+    propertyPath:Path
     value: SimpleValue
 }
 
 interface Transfer extends Activity {
-    outputFieldPath:string
-    inputFieldPath: string
+    outputFieldPath:Path
+    inputFieldPath: Path
 }
 interface Trigger extends Activity {
-    entryPoint:string
+    entryPoint:Path
 }

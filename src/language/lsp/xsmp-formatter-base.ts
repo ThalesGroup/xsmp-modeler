@@ -1,7 +1,43 @@
 import type { AstNode } from 'langium';
 import { AbstractFormatter, Formatting, type NodeFormatter } from 'langium/lsp';
+import type * as ast from '../generated/ast.js';
 
 export abstract class XsmpFormatterBase extends AbstractFormatter {
+    protected formatTypeAnnotation<T extends AstNode>(formatter: NodeFormatter<T>): void {
+        formatter.keyword(':').prepend(Formatting.noSpace()).append(Formatting.oneSpace());
+    }
+
+    protected formatTypedAssignment<T extends AstNode>(formatter: NodeFormatter<T>): void {
+        this.formatTypeAnnotation(formatter);
+        this.formatAssignment(formatter);
+    }
+
+    protected formatDirectedLink<T extends AstNode>(formatter: NodeFormatter<T>, kind: 'event' | 'field' | 'interface'): void {
+        formatter.keyword(kind).append(Formatting.oneSpace());
+        formatter.keyword('link').append(Formatting.oneSpace());
+        if (kind === 'interface') {
+            formatter.keywords(':').prepend(Formatting.noSpace()).append(Formatting.oneSpace());
+        }
+        formatter.keyword('->').surround(Formatting.oneSpace());
+    }
+
+    protected formatPath(node: ast.Path, formatter: NodeFormatter<ast.Path>): void {
+        if (node.unsafe) {
+            formatter.keyword('unsafe').append(Formatting.oneSpace());
+        }
+        if (node.absolute) {
+            formatter.keyword('/').append(Formatting.noSpace());
+        }
+        formatter.keyword('..').surround(Formatting.noSpace());
+        formatter.keyword('.').surround(Formatting.noSpace());
+        formatter.keyword('[').append(Formatting.noSpace());
+        formatter.keyword(']').prepend(Formatting.noSpace());
+    }
+
+    protected formatPathMember(_node: ast.PathMember, formatter: NodeFormatter<ast.PathMember>): void {
+        formatter.property('separator').surround(Formatting.noSpace());
+    }
+
     protected formatCommaList<T extends AstNode>(formatter: NodeFormatter<T>): void {
         formatter.keywords(',').prepend(Formatting.noSpace()).append(Formatting.oneSpace());
     }

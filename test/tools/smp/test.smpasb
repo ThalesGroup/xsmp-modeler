@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Assembly:Assembly xmlns:Elements="http://www.ecss.nl/smp/2019/Core/Elements" xmlns:Types="http://www.ecss.nl/smp/2019/Core/Types" xmlns:LinkBase="http://www.ecss.nl/smp/2025/Smdl/LinkBase" xmlns:Assembly="http://www.ecss.nl/smp/2025/Smdl/Assembly" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" Id="Demo" Name="Demo">
+  <ComponentConfiguration InstancePath="child">
+    <FieldValue xsi:type="Types:Int32Value" Value="1" Field="count"/>
+  </ComponentConfiguration>
+  <Model Name="Root" Implementation="demo::Root">
+    <Model Container="child" Name="Child" Implementation="demo::Child"/>
+    <Link xsi:type="LinkBase:FieldLink">
+      <OwnerPath>outValue</OwnerPath>
+      <ClientPath>child.inValue</ClientPath>
+    </Link>
+    <Link xsi:type="LinkBase:EventLink">
+      <OwnerPath>outbound</OwnerPath>
+      <ClientPath>child.inbound</ClientPath>
+    </Link>
+  </Model>
+</Assembly:Assembly>

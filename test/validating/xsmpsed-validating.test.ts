@@ -1,54 +1,149 @@
-import { beforeAll, describe, expect, test } from 'vitest';
-import { EmptyFileSystem, type LangiumDocument } from 'langium';
-import { parseHelper, type ParseHelperOptions } from 'langium/test';
+import { afterEach, beforeAll, describe, expect, test } from 'vitest';
+import { clearDocuments, parseHelper, type ParseHelperOptions } from 'langium/test';
+import { EmptyFileSystem, type LangiumDocument, URI } from 'langium';
 import { createXsmpServices } from '../../src/language/xsmp-module.js';
-import { Schedule, isSchedule } from '../../src/language/generated/ast.js';
+import { Catalogue, Project, Schedule, isSchedule } from '../../src/language/generated/ast.js';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 
 let services: ReturnType<typeof createXsmpServices>;
-let parse: ReturnType<typeof parseHelper<Schedule>>;
-let document: LangiumDocument<Schedule> | undefined;
+let parseProject: ReturnType<typeof parseHelper<Project>>;
+let parseCatalogue: ReturnType<typeof parseHelper<Catalogue>>;
+let parseSchedule: ReturnType<typeof parseHelper<Schedule>>;
+const documents: LangiumDocument[] = [];
+const tempDirs: string[] = [];
+
+const catalogueSource = `catalogue Demo
+
+namespace demo
+{
+    public event FlagEvent extends Smp.Bool
+
+    public model Child
+    {
+        input field Smp.Int32 inValue
+        output field Smp.Int32 outValue
+
+        /** child reset */
+        public def void reset()
+
+        /** child trigger */
+        entrypoint step
+        {
+            in inValue
+            out outValue
+        }
+
+        eventsink demo.FlagEvent inbound
+        eventsource demo.FlagEvent outbound
+    }
+
+    public model Root
+    {
+        field Smp.Bool enabledState
+        output field Smp.Int32 outValue
+        input field Smp.Int32 inValue
+        container Child child = demo.Child
+
+        /** root enabled */
+        public property Smp.Bool enabled -> enabledState
+
+        /** root reset */
+        public def void reset()
+
+        /** root trigger */
+        entrypoint step
+        {
+            in inValue
+            out outValue
+        }
+
+        eventsink demo.FlagEvent inbound
+        eventsource demo.FlagEvent outbound
+    }
+}
+`;
 
 beforeAll(async () => {
     services = createXsmpServices(EmptyFileSystem);
-    const doParse = parseHelper<Schedule>(services.xsmpsed);
-    parse = (input: string, options?: ParseHelperOptions) => doParse(input, { validation: true, ...options });
+    parseProject = parseHelper<Project>(services.xsmpproject);
+    parseCatalogue = parseHelper<Catalogue>(services.xsmpcat);
+    const doParseSchedule = parseHelper<Schedule>(services.xsmpsed);
+    parseSchedule = (input: string, options?: ParseHelperOptions) => doParseSchedule(input, { validation: true, ...options });
 
     await services.shared.workspace.WorkspaceManager.initializeWorkspace([]);
 });
 
+afterEach(async () => {
+    if (documents.length > 0) {
+        await clearDocuments(services.shared, documents.splice(0));
+    }
+    while (tempDirs.length > 0) {
+        fs.rmSync(tempDirs.pop()!, { recursive: true, force: true });
+    }
+});
+
 describe('Validating Xsmpsed', () => {
+    test('validates typed schedule paths, execute compatibility and honors unsafe', async () => {
+        const document = await parseInProject(`schedule Demo
 
-    test('check validation issues', async () => {
-        document = await parse(`
-            schedule Test epoch "bad-date" mission "bad-start"
+task Main: demo.Root
+{
+    call enabled()
+    call unsafe enabled()
+    property child = true
+    transfer outValue -> child.outValue
+    trig missing
+    execute Worker at /
+}
 
-            task Main
-            {
-                trig local.ep
-                call rel.op(a=1i32, a=2i32)
-            }
+task Worker: demo.Child
+{
+    call reset()
+}
 
-            event Main mission "bad-duration" cycle "bad-cycle" repeat -1
-            event Main on "BootCompleted" delay "bad-delay"
-        `, { documentUri: 'test.xsmpsed' });
+event Main mission "PT1S"
+`);
 
         const messages = getMessages(document);
         expect(messages).toEqual(expect.arrayContaining([
-            'EpochTime shall be a valid DateTime (e.g: 1970-01-01T00:00:00Z).',
-            'MissionStart shall be a valid DateTime (e.g: 1970-01-01T00:00:00Z).',
-            'A Schedule using relative paths shall declare at least one String8 Template Argument for the root path.',
-            'Duplicated parameter name.',
-            'MissionTime shall be a valid Duration (e.g: PT1S).',
-            'CycleTime shall be a valid Duration (e.g: PT1S).',
-            'RepeatCount shall be a positive number or 0.',
-            'Delay shall be a valid Duration (e.g: PT1S).',
+            "The path segment 'enabled' shall resolve to a supported member of the current Component.",
+            "The path segment 'child' shall resolve to a supported member of the current Component.",
+            "The path segment 'outValue' shall resolve to a Field marked as Input of the current Component.",
+            "The path segment 'missing' shall resolve to a supported member of the current Component.",
+            'The root path shall resolve to a Component compatible with task Worker.',
         ]));
+        expect(messages.some(message => message.includes('unsafe'))).toBe(false);
     });
 });
 
+async function parseInProject(source: string): Promise<LangiumDocument<Schedule>> {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmpsed-validating-'));
+    tempDirs.push(tempDir);
+
+    const projectDocument = await parseProject(
+        `project "Demo" using "ECSS_SMP_2025"
+source "src"
+`,
+        { documentUri: URI.file(path.join(tempDir, 'xsmp.project')).toString() }
+    );
+    const catalogueDocument = await parseCatalogue(catalogueSource, {
+        documentUri: URI.file(path.join(tempDir, 'src', 'demo.xsmpcat')).toString(),
+    });
+    const scheduleDocument = await parseSchedule(source, {
+        documentUri: URI.file(path.join(tempDir, 'src', 'demo.xsmpsed')).toString(),
+    });
+
+    documents.push(projectDocument, catalogueDocument, scheduleDocument);
+    expect(projectDocument.parseResult.parserErrors).toHaveLength(0);
+    expect(catalogueDocument.parseResult.parserErrors).toHaveLength(0);
+    expect(scheduleDocument.parseResult.parserErrors).toHaveLength(0);
+
+    return scheduleDocument;
+}
+
 function getMessages(document: LangiumDocument<Schedule>): string[] {
-    expect(document.parseResult.parserErrors).toHaveLength(0);
-    expect(document.parseResult.value).toBeDefined();
     expect(isSchedule(document.parseResult.value)).toBe(true);
     return document.diagnostics?.map(diagnostic => diagnostic.message) ?? [];
 }

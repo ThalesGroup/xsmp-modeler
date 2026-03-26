@@ -6,11 +6,13 @@ import { XsmpFormatterBase } from './xsmp-formatter-base.js';
 export class XsmplnkFormatter extends XsmpFormatterBase {
     protected override format(node: AstNode): void {
         switch (node.$type) {
+            case ast.Path: return this.formatPath(node as ast.Path, this.getNodeFormatter(node));
+            case ast.PathMember: return this.formatPathMember(node as ast.PathMember, this.getNodeFormatter(node));
             case ast.LinkBase: return this.formatLinkBase(node as ast.LinkBase, this.getNodeFormatter(node));
             case ast.ComponentLinkBase: return this.formatComponentLinkBase(node as ast.ComponentLinkBase, this.getNodeFormatter(node));
-            case ast.EventLink: return this.formatEventLink(node as ast.EventLink, this.getNodeFormatter(node));
-            case ast.FieldLink: return this.formatFieldLink(node as ast.FieldLink, this.getNodeFormatter(node));
-            case ast.InterfaceLink: return this.formatInterfaceLink(node as ast.InterfaceLink, this.getNodeFormatter(node));
+            case ast.EventLink: return this.formatDirectedLink(this.getNodeFormatter(node), 'event');
+            case ast.FieldLink: return this.formatDirectedLink(this.getNodeFormatter(node), 'field');
+            case ast.InterfaceLink: return this.formatDirectedLink(this.getNodeFormatter(node), 'interface');
         }
     }
 
@@ -21,25 +23,7 @@ export class XsmplnkFormatter extends XsmpFormatterBase {
     }
 
     protected formatComponentLinkBase(node: ast.ComponentLinkBase, formatter: NodeFormatter<ast.ComponentLinkBase>): void {
+        this.formatTypeAnnotation(formatter);
         this.formatBody(formatter);
-    }
-
-    protected formatEventLink(node: ast.EventLink, formatter: NodeFormatter<ast.EventLink>): void {
-        formatter.keyword('event').append(Formatting.oneSpace());
-        formatter.keyword('link').append(Formatting.oneSpace());
-        formatter.keyword('->').surround(Formatting.oneSpace());
-    }
-
-    protected formatFieldLink(node: ast.FieldLink, formatter: NodeFormatter<ast.FieldLink>): void {
-        formatter.keyword('field').append(Formatting.oneSpace());
-        formatter.keyword('link').append(Formatting.oneSpace());
-        formatter.keyword('->').surround(Formatting.oneSpace());
-    }
-
-    protected formatInterfaceLink(node: ast.InterfaceLink, formatter: NodeFormatter<ast.InterfaceLink>): void {
-        formatter.keyword('interface').append(Formatting.oneSpace());
-        formatter.keyword('link').append(Formatting.oneSpace());
-        formatter.keywords(':').prepend(Formatting.noSpace()).append(Formatting.oneSpace());
-        formatter.keyword('->').surround(Formatting.oneSpace());
     }
 }

@@ -21,7 +21,7 @@ entry LinkBase returns LinkBase:
  * A Link has to reference Owner and Client via its Owner Path and Client Path elements which specify which objects are connected by the Link.
  */
 ComponentLinkBase returns ComponentLinkBase:
-    name=LnkPath 
+    name=Path (':' component=[Component:QualifiedName])?
     '{' 
     elements+=(Link|ComponentLinkBase)*
     '}';
@@ -30,31 +30,57 @@ Link returns Link:
     EventLink | FieldLink | InterfaceLink;
 
 EventLink returns EventLink:
-    'event' 'link' ownerPath=LnkPath '->' clientPath=LnkPath;
+    'event' 'link' ownerPath=Path '->' clientPath=Path;
 FieldLink returns FieldLink:
-    'field' 'link' ownerPath=LnkPath '->' clientPath=LnkPath;
+    'field' 'link' ownerPath=Path '->' clientPath=Path;
 
 InterfaceLink returns InterfaceLink:
-    'interface' 'link' ownerPath=LnkPath ':' reference=ValidID  '->' clientPath=LnkPath (':'backReference=ValidID)?;
+    'interface' 'link' ownerPath=Path ':' reference=ValidID  '->' clientPath=Path (':'backReference=ValidID)?;
 
 
 ValidID returns string:
     ID | 'event'|'field'|'interface'|'link';
 
+QualifiedName returns string:
+    ValidID ('.' ValidID)+;
 
-LnkPath returns string:
-    ('/'? ValidID (('.'|'/') ValidID | '[' INT ']')* | '/' );
+Path returns Path:
+    {Path}
+    unsafe?='unsafe'?
+    (absolute?='/' (head=PathSegment elements+=PathElement*)?
+    | head=PathSegment elements+=PathElement*);
+
+PathElement returns PathElement:
+    PathMember | PathIndex;
+
+PathMember returns PathMember:
+    separator=PathSeparator segment=PathSegment;
+
+PathIndex returns PathIndex:
+    '[' index=INT ']';
+
+PathSegment returns PathSegment:
+    PathNamedSegment | PathParentSegment | PathSelfSegment;
+
+PathNamedSegment returns PathNamedSegment:
+    reference=[NamedElement:ValidID];
+
+PathParentSegment returns PathParentSegment:
+    {PathParentSegment} '..';
+
+PathSelfSegment returns PathSelfSegment:
+    {PathSelfSegment} '.';
+
+PathSeparator returns string:
+    '.' | '/';
 
 hidden terminal WS: /\s+/;
 
 terminal ID: /([_a-zA-Z]\w*|{[_a-zA-Z]\w*}\w*)+/;
 
-
-
-terminal INT returns number: /[+-]?(0|[1-9]\d*)/;
+terminal INT returns bigint: /[+-]?(0|[1-9]\d*)/;
 
 
 
 hidden terminal ML_COMMENT: /\/\*[\s\S]*?\*\//;
 hidden terminal SL_COMMENT: /\/\/[^\n\r]*/;
-

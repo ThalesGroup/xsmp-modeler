@@ -1,5 +1,5 @@
 assembly<_root:string="root",count:int32=1>Demo
-configure child/path
+configure unsafe child/path
 {
 subscribe Start->"Boot"
 call init(a=1i32,b=2i32)

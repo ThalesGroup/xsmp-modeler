@@ -7,6 +7,7 @@ import type { XsmpServices } from './xsmp-module.js';
 import { XsmpDocumentationProvider } from './lsp/documentation-provider.js';
 import { XsmpRenameProvider } from './lsp/xsmp-rename-provider.js';
 import { XsmpsedFormatter } from './lsp/xsmpsed-formatter.js';
+import { XsmpPathLinker } from './references/xsmp-path-linker.js';
 import { XsmpsedScopeComputation } from './references/xsmpsed-scope-computation.js';
 import { XsmpsedScopeProvider } from './references/xsmpsed-scope-provider.js';
 import { XsmpsedValidator } from './validation/xsmpsed-validator.js';
@@ -32,6 +33,7 @@ export type XsmpsedServices = XsmpServices & XsmpsedAddedServices
  */
 export const XsmpsedModule: Module<XsmpsedServices, PartialLangiumServices & XsmpsedAddedServices> = {
     references: {
+        Linker: (services) => new XsmpPathLinker(services),
         ScopeProvider: (services) => new XsmpsedScopeProvider(services),
         ScopeComputation: (services) => new XsmpsedScopeComputation(services),
     },
