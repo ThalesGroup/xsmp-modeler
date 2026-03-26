@@ -85,6 +85,40 @@ describe('Linking tests', () => {
                 <unresolved>
         `);
     });
+
+    test('linking ignores files outside declared source folders even with a shared prefix', async () => {
+        tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-sed-prefix-linking-'));
+
+        documents.push(await parseProjectDocument(path.join(tmpDir, 'app'), 'app'));
+        documents.push(await parseDocument(path.join(tmpDir, 'app', 'src2', 'hidden.xsmpsed'), `
+            schedule Hidden
+
+            task Child
+            {
+            }
+        `));
+
+        const visibleDocument = await parseDocument(path.join(tmpDir, 'app', 'src', 'visible.xsmpsed'), `
+            schedule Visible
+
+            task Main
+            {
+                execute Hidden.Child
+            }
+        `);
+        documents.push(visibleDocument);
+
+        expect(
+            checkScheduleDocumentValid(visibleDocument)
+            ?? s`
+            Visible:
+                ${getExecuteTask(visibleDocument).task.ref?.name ?? '<unresolved>'}
+        `
+        ).toBe(s`
+            Visible:
+                <unresolved>
+        `);
+    });
 });
 
 async function parseProjectDocument(projectDir: string, name: string, dependency?: string): Promise<LangiumDocument<Project>> {

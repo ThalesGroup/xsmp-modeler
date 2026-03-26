@@ -3,6 +3,7 @@ import type { LangiumDocument, LangiumDocuments, LangiumSharedCoreServices, Stre
 import * as ast from '../generated/ast-partial.js';
 import { isBuiltinLibrary } from '../builtins.js';
 import { isSource } from '../generated/ast.js';
+import { isSameOrContainedPath } from '../utils/path-utils.js';
 
 export const SmpStandards: string[] = ['ECSS_SMP_2020', 'ECSS_SMP_2025'];
 
@@ -40,9 +41,9 @@ export class ProjectManager {
             if (ast.isProject(project)) {
                 const projectUri = UriUtils.dirname(doc.uri);
 
-                if (document.uri.path.startsWith(projectUri.path)) {
+                if (isSameOrContainedPath(projectUri.path, document.uri.path)) {
                     for (const source of project.elements.filter(ast.isSource)) {
-                        if (source.path && document.uri.path.startsWith(UriUtils.joinPath(projectUri, source.path).path)) {
+                        if (source.path && isSameOrContainedPath(UriUtils.joinPath(projectUri, source.path).path, document.uri.path)) {
                             return project;
                         }
                     }
@@ -118,7 +119,7 @@ export class ProjectManager {
 
     protected isUriInFolders(uri: URI, folders: Set<string>): boolean {
         for (const folder of folders) {
-            if (uri.path.startsWith(folder)) {
+            if (isSameOrContainedPath(folder, uri.path)) {
                 return true;
             }
         }

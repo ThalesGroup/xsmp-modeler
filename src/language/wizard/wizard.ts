@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
+import { isSameOrContainedPath, toXsmpIdentifier } from '../utils/path-utils.js';
 
 const adocToolId = 'adoc',
     esaCdkLegacyProfileId = 'esa-cdk-legacy',
@@ -69,7 +70,7 @@ export async function createProjectWizard() {
     // Create specific files
     const projectFolderPath = path.join(destinationFolder, projectName);
 
-    createTemplateProject(projectName, projectFolderPath, profile, selectedTools);
+    await createTemplateProject(projectName, projectFolderPath, profile, selectedTools);
 
     // Add project to workspace
     const addToWorkspace = await vscode.window.showQuickPick(
@@ -83,7 +84,7 @@ export async function createProjectWizard() {
     ),
 
         uri = vscode.Uri.file(projectFolderPath);
-    if (!vscode.workspace.workspaceFolders?.some(folder => uri.fsPath.startsWith(folder.uri.fsPath))) {
+    if (!vscode.workspace.workspaceFolders?.some(folder => isSameOrContainedPath(folder.uri.fsPath, uri.fsPath, path))) {
         if (addToWorkspace?.addToWorkspace) {
             vscode.workspace.updateWorkspaceFolders(vscode.workspace.workspaceFolders ? vscode.workspace.workspaceFolders.length : 0, null, { uri });
         }
@@ -279,7 +280,7 @@ class MyModelTestCase(GramTestCase):
     }
 
     // Create the catalog file
-    const catalogueName = projectName.replace(/[.-]/, '_');
+    const catalogueName = toXsmpIdentifier(projectName);
 
     await fs.promises.writeFile(path.join(smdlPath, `${projectName}.xsmpcat`), `${copyright}
                 

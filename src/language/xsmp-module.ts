@@ -24,10 +24,14 @@ import { ProjectManager } from './workspace/project-manager.js';
 import { XsmpLanguageServer } from './lsp/language-server.js';
 import { registerTasMdkValidationChecks } from './profiles/tas-mdk/validator.js';
 import { XsmpDocumentBuilder } from './workspace/document-builder.js';
-import { XsmpasbModule, XsmpasbServices } from './xsmpasb-module.js';
-import { XsmpcfgModule, XsmpcfgServices } from './xsmpcfg-module.js';
-import { XsmplnkModule, XsmplnkServices } from './xsmplnk-module.js';
-import { XsmpsedModule, XsmpsedServices } from './xsmpsed-module.js';
+import type { XsmpasbServices } from './xsmpasb-module.js';
+import { XsmpasbModule } from './xsmpasb-module.js';
+import type { XsmpcfgServices } from './xsmpcfg-module.js';
+import { XsmpcfgModule } from './xsmpcfg-module.js';
+import type { XsmplnkServices } from './xsmplnk-module.js';
+import { XsmplnkModule } from './xsmplnk-module.js';
+import type { XsmpsedServices } from './xsmpsed-module.js';
+import { XsmpsedModule } from './xsmpsed-module.js';
 
 export type XsmpServices = LangiumServices & { shared: XsmpSharedServices; }
 /**
@@ -95,7 +99,6 @@ export function createXsmpServices(context: DefaultSharedModuleContext): {
     );
     shared.ServiceRegistry.register(xsmpcfg);
 
-
     // XSMP LinkBase
     const xsmplnk = inject(
         createDefaultModule({ shared }),
@@ -105,7 +108,6 @@ export function createXsmpServices(context: DefaultSharedModuleContext): {
     shared.ServiceRegistry.register(xsmplnk);
     registerXsmplnkValidationChecks(xsmplnk);
 
-
     // XSMP Schedule
     const xsmpsed = inject(
         createDefaultModule({ shared }),
@@ -114,7 +116,6 @@ export function createXsmpServices(context: DefaultSharedModuleContext): {
     );
     shared.ServiceRegistry.register(xsmpsed);
     registerXsmpsedValidationChecks(xsmpsed);
-
 
     if (!context.connection) {
         // We don't run inside a language server

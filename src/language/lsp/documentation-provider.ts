@@ -1,7 +1,7 @@
 import { type AstNode, JSDocDocumentationProvider } from 'langium';
 import * as ast from '../generated/ast.js';
 import { type DocumentationHelper } from '../utils/documentation-helper.js';
-import { XsmpServices } from '../xsmp-module.js';
+import type { XsmpServices } from '../xsmp-module.js';
 
 export class XsmpDocumentationProvider extends JSDocDocumentationProvider {
 

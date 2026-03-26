@@ -102,7 +102,7 @@ export class ADocGenerator implements XsmpGenerator {
         if (!str) {
             return '';
         }
-        return str.replaceAll('\|', '\\|');
+        return str.replaceAll('|', '\\|');
     }
 
     /**
@@ -161,7 +161,7 @@ export class ADocGenerator implements XsmpGenerator {
     private crossReference(ref: Reference<ast.NamedElement> | string[], context: ast.NamedElement | ast.ReturnParameter): string {
         if (isReference(ref)) {
             if (ref.ref === undefined) {
-                return `<<?,??>>`;
+                return '<<?,??>>';
             }
             if (AstUtils.getDocument(ref.ref) === AstUtils.getDocument(context)) {
                 return `<<${fqn(ref.ref, '-')},${ref.ref.name}>>`;
@@ -228,7 +228,6 @@ export class ADocGenerator implements XsmpGenerator {
             ${this.generateContent(type)}
             `;
     }
-
 
     protected generateTypeInfoDetails(type: ast.Type): string | undefined {
         const typeInfo = s`
@@ -373,15 +372,15 @@ export class ADocGenerator implements XsmpGenerator {
             classDiagram
                 ${base?.ref !== undefined ? `class ${base.ref.name} { <<${getNodeType(base.ref)}>> }` : ''}
                 ${interfaces.map(interf => `class ${interf.ref?.name} { <<${getNodeType(interf.ref!)}>> }`).join('\n')}
-                ${references.map(ref => `class ${ref.interface?.ref?.name} { <<${getNodeType(ref)}>> }`).join('\n')}
-                ${containers.map(container => `class ${container.type.ref?.name} { <<${getNodeType(container)}>> }`).join('\n')}
+                ${references.map(ref => ref.interface.ref ? `class ${ref.interface.ref.name} { <<${getNodeType(ref.interface.ref)}>> }` : '').join('\n')}
+                ${containers.map(container => container.type.ref ? `class ${container.type.ref.name} { <<${getNodeType(container.type.ref)}>> }` : '').join('\n')}
                 class ${component.name} {
                     ${this.mermaidClassAttributes(component)}
                 }
                 ${base?.ref !== undefined ? `${base.ref.name} <|-- ${component.name} : extends` : undefined}
                 ${interfaces.map(interf => `${interf.ref?.name} <|.. ${component.name} : implements`).join('\n')}
-                ${references.map(ref => `${component.name} "${this.multiplicity(ref as unknown as ast.NamedElementWithMultiplicity)}" o-- ${ref.interface?.ref?.name} : ${ref.name}`, this).join('\n')}
-                ${containers.map(container => `${component.name} "${this.multiplicity(container as unknown as ast.NamedElementWithMultiplicity)}" *-- ${container.type.ref?.name} : ${container.name}`, this).join('\n')}
+                ${references.map(ref => ref.interface.ref ? `${component.name} "${this.multiplicity(ref as unknown as ast.NamedElementWithMultiplicity)}" o-- ${ref.interface.ref.name} : ${ref.name}` : '', this).join('\n')}
+                ${containers.map(container => container.type.ref ? `${component.name} "${this.multiplicity(container as unknown as ast.NamedElementWithMultiplicity)}" *-- ${container.type.ref.name} : ${container.name}` : '', this).join('\n')}
             ....
         `;
     }
@@ -624,7 +623,6 @@ export class ADocGenerator implements XsmpGenerator {
             ` : undefined;
     }
 
-
     private generateReferences(element: ast.WithBody): string | undefined {
         const references = element.elements.filter(ast.isReference);
         const hasDescription = references.some(e => this.docHelper.getDescription(e) !== undefined, this);
@@ -642,7 +640,7 @@ export class ADocGenerator implements XsmpGenerator {
             const upper = getUpper(reference);
             return s`
                     |${reference.name}
-                    |${this.crossReference(reference.interface ?? ['?'], reference)}
+                    |${this.crossReference(reference.interface, reference)}
                     |${this.getMultiplicityValue(lower)}
                     |${this.getMultiplicityValue(upper)}
                     ${hasDescription ? `|${this.escapeDescription(this.docHelper.getDescription(reference))}` : undefined}
@@ -680,7 +678,7 @@ export class ADocGenerator implements XsmpGenerator {
             |${param.direction ?? 'in'} |${param.name} |${this.crossReference(param.type, param)}${hasDefaultValue ? ` |${this.getShortValue(param.default) ?? ''}` : undefined}${hasDescription ? ` |${this.escapeDescription(this.docHelper.getDescription(param))}` : undefined}
         `).join('\n')}
         ${element.returnParameter ? s`
-            |return |${element.returnParameter.name ?? 'return'} |${this.crossReference(element.returnParameter.type, element.returnParameter)}${hasDefaultValue ? ` |` : undefined}${hasDescription ? ` |${this.escapeDescription(this.docHelper.getDescription(element.returnParameter))}` : undefined}
+            |return |${element.returnParameter.name ?? 'return'} |${this.crossReference(element.returnParameter.type, element.returnParameter)}${hasDefaultValue ? ' |' : undefined}${hasDescription ? ` |${this.escapeDescription(this.docHelper.getDescription(element.returnParameter))}` : undefined}
         ` : ''}
         |===
         `: undefined}`;
@@ -727,7 +725,6 @@ export class ADocGenerator implements XsmpGenerator {
                 |===
             ` : undefined;
     }
-
 
     private generateEntryPoints(element: ast.WithBody): string | undefined {
         const entryPoints = element.elements.filter(ast.isEntryPoint);

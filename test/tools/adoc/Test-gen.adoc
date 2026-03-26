@@ -983,20 +983,20 @@ The AnAbstractModel model provides the following fields:
 classDiagram
     class AnAbstractModel { <<Model>> }
     class AnInterface { <<Interface>> }
-    class IComposite { <<Reference>> }
-    class IComposite { <<Reference>> }
-    class IComposite { <<Reference>> }
-    class IComposite { <<Reference>> }
-    class IComposite { <<Reference>> }
-    class IComposite { <<Reference>> }
-    class IComposite { <<Reference>> }
-    class IModel { <<Container>> }
-    class IModel { <<Container>> }
-    class IModel { <<Container>> }
-    class IModel { <<Container>> }
-    class IModel { <<Container>> }
-    class IModel { <<Container>> }
-    class IModel { <<Container>> }
+    class IComposite { <<Interface>> }
+    class IComposite { <<Interface>> }
+    class IComposite { <<Interface>> }
+    class IComposite { <<Interface>> }
+    class IComposite { <<Interface>> }
+    class IComposite { <<Interface>> }
+    class IComposite { <<Interface>> }
+    class IModel { <<Interface>> }
+    class IModel { <<Interface>> }
+    class IModel { <<Interface>> }
+    class IModel { <<Interface>> }
+    class IModel { <<Interface>> }
+    class IModel { <<Interface>> }
+    class IModel { <<Interface>> }
     class AModel {
 
                         -Char8 aChar

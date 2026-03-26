@@ -6,7 +6,7 @@ import { builtInScheme } from '../language/builtins.js';
 import { createProjectWizard } from '../language/wizard/wizard.js';
 import { GetServerFileContentRequest, RegisterContributor } from '../language/lsp/language-server.js';
 
-let client: LanguageClient;
+let client: LanguageClient | undefined;
 
 // This function is called when the extension is activated.
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
@@ -17,15 +17,24 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     context.subscriptions.push(
         vscode.commands.registerCommand('xsmp.wizard', createProjectWizard)
     );
-    vscode.commands.registerCommand('xsmp.registerContributor', async (modulePath: string) => {
-        client.sendRequest(RegisterContributor, modulePath);
-    });
+    context.subscriptions.push(
+        vscode.commands.registerCommand('xsmp.registerContributor', async (modulePath: string) => {
+            await getClient().sendRequest(RegisterContributor, modulePath);
+        })
+    );
 
 }
 
 // This function is called when the extension is deactivated.
 export function deactivate(): Thenable<void> | undefined {
-    return client ? client.stop() : undefined;
+    return client?.stop();
+}
+
+function getClient(): LanguageClient {
+    if (!client) {
+        throw new Error('XSMP language client is not initialized.');
+    }
+    return client;
 }
 
 async function startLanguageClient(context: vscode.ExtensionContext): Promise<LanguageClient> {
@@ -87,7 +96,7 @@ export class BuiltinLibraryFileSystemProvider implements vscode.FileSystemProvid
 
     async stat(uri: vscode.Uri): Promise<vscode.FileStat> {
         const date = Date.now();
-        const value = await client.sendRequest(GetServerFileContentRequest, uri.toString());
+        const value = await getClient().sendRequest(GetServerFileContentRequest, uri.toString());
         if (value) {
             return {
                 ctime: date,
@@ -106,7 +115,7 @@ export class BuiltinLibraryFileSystemProvider implements vscode.FileSystemProvid
     }
 
     async readFile(uri: vscode.Uri): Promise<Uint8Array> {
-        const value = await client.sendRequest(GetServerFileContentRequest, uri.toString());
+        const value = await getClient().sendRequest(GetServerFileContentRequest, uri.toString());
         if (value) { return new Uint8Array(Buffer.from(value)); }
 
         return new Uint8Array();

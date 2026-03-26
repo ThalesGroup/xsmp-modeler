@@ -1,8 +1,8 @@
 
-import { TemplateArgument } from './assembly.js';
+import type { TemplateArgument } from './assembly.js';
 import type { Document, NamedElement } from './elements.js';
-import { SimpleValue } from './types.js';
-import { Xlink } from './xlink.js';
+import type { SimpleValue } from './types.js';
+import type { Xlink } from './xlink.js';
 
 export interface Schedule extends Document {
   '@xmlns:Elements': string;
@@ -19,8 +19,6 @@ export interface Schedule extends Document {
   Task?: Task[];
   Event?: Event[];
 }
-
-
 
 export interface Task extends NamedElement {
   Activity?: Activity[];

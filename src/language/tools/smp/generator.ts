@@ -54,13 +54,13 @@ export class SmpGenerator implements XsmpGenerator {
                 break;
             case ast.LinkBase:
                 acceptTask(() => this.generateLinkBase(node as ast.LinkBase, projectUri, notice));
-                break
+                break;
             case ast.Assembly:
                 acceptTask(() => this.generateAssembly(node as ast.Assembly, projectUri, notice));
-                break
+                break;
             case ast.Schedule:
                 acceptTask(() => this.generateSchedule(node as ast.Schedule, projectUri, notice));
-                break
+                break;
         }
 
     }
@@ -656,7 +656,6 @@ export class SmpGenerator implements XsmpGenerator {
         return doc.end({ prettyPrint: true });
     }
 
-
     protected convertConfiguration(configuration: ast.Configuration): Configuration.Configuration {
         const id = this.docHelper.getId(configuration) ?? configuration.name;
         const namespaces = this.getL1Namespaces(configuration);
@@ -708,12 +707,16 @@ export class SmpGenerator implements XsmpGenerator {
                 const enumValue = value as ast.EnumerationValue;
                 if (enumValue.value)
                     return { '@xsi:type': 'Types:EnumerationValue', '@Value': enumValue.value } as Types.EnumerationValue;
-                return { '@xsi:type': 'Types:EnumerationValue', '@Value': this.toEnumerationValue(enumValue.reference?.ref?.value!), '@Literal': Solver.getValue(enumValue.reference?.ref?.value!)?.enumerationLiteral()?.getValue().name } as Types.EnumerationValue;
+                const literalValue = enumValue.reference?.ref?.value;
+                if (!literalValue) {
+                    return { '@xsi:type': 'Types:EnumerationValue' } as Types.EnumerationValue;
+                }
+                return { '@xsi:type': 'Types:EnumerationValue', '@Value': this.toEnumerationValue(literalValue), '@Literal': Solver.getValue(literalValue)?.enumerationLiteral()?.getValue().name } as Types.EnumerationValue;
             }
             case ast.String8Value: return { '@xsi:type': 'Types:String8Value', '@Value': (value as ast.String8Value).value } as Types.String8Value;
             case ast.ArrayValue: return { '@xsi:type': 'Types:ArrayValue', ItemValue: (value as ast.ArrayValue).elements.map(this.convertValue, this) } as Types.ArrayValue;
             case ast.StructureValue: return { '@xsi:type': 'Types:StructureValue', FieldValue: (value as ast.ArrayValue).elements.map(this.convertValue, this) } as Types.StructureValue;
-            case ast.FieldValue: return { ...this.convertValue((value as ast.FieldValue).value), '@Field': (value as ast.FieldValue).field }
+            case ast.FieldValue: return { ...this.convertValue((value as ast.FieldValue).value), '@Field': (value as ast.FieldValue).field };
             default: return { '@xsi:type': 'Types:Value' } as Types.Value;
         }
     }
@@ -724,7 +727,6 @@ export class SmpGenerator implements XsmpGenerator {
             Configuration: this.convertXlink(include.configuration, include),
         };
     }
-
 
     async generateLinkBase(linkBase: ast.LinkBase, projectUri: URI, notice: string | undefined): Promise<void> {
         const outputDir = await this.createOutputDir(projectUri);
@@ -783,8 +785,6 @@ export class SmpGenerator implements XsmpGenerator {
         }
     }
 
-
-
     async generateAssembly(assembly: ast.Assembly, projectUri: URI, notice: string | undefined): Promise<void> {
         const outputDir = await this.createOutputDir(projectUri);
         const smpasbFile = UriUtils.joinPath(outputDir, UriUtils.basename(assembly.$document?.uri as URI).replace(/\.xsmpasb$/, '.smpasb'));
@@ -828,7 +828,7 @@ export class SmpGenerator implements XsmpGenerator {
         return {
             '@Name': model.name,
             Description: this.docHelper.getDescription(model),
-            '@Implementation': model.implementation ? model.implementation.$refText.replace("\.", "::") : model.strImplementation!,
+            '@Implementation': model.implementation ? model.implementation.$refText.replace('.', '::') : model.strImplementation!,
             Assembly: model.elements.filter(ast.isSubInstance).filter(i => ast.isAssemblyInstance(i.instance)).map(this.convertAssemblyInstance, this),
             Model: model.elements.filter(ast.isSubInstance).filter(i => ast.isModelInstance(i.instance)).map(this.convertSubModelInstance, this),
             Link: model.elements.filter(ast.isLink).map(this.convertLink, this),
@@ -836,14 +836,13 @@ export class SmpGenerator implements XsmpGenerator {
             Invocation: model.elements.filter(ast.isInvocation).map(this.convertInvocation, this),
             GlobalEventHandler: model.elements.filter(ast.isGlobalEventHandler).map(this.convertGlobalEventHandler, this),
 
-
         };
     }
     convertAssemblyInstance(instance: ast.SubInstance): Assembly.AssemblyInstance {
         const assembly = instance.instance as ast.AssemblyInstance;
         return {
             '@Container': instance.container,
-            Assembly: this.filename(assembly.assembly?.ref)!,
+            Assembly: this.filename(assembly.assembly.ref)!,
             '@Name': assembly.name,
             Description: this.docHelper.getDescription(assembly),
             Argument: assembly.arguments.map(this.convertTemplateArgument, this),
@@ -851,13 +850,13 @@ export class SmpGenerator implements XsmpGenerator {
             Configuration: this.filename(assembly.configuration?.ref),
             LinkBase: this.filename(assembly.linkBase?.ref),
 
-        }
+        };
     }
     convertSubModelInstance(instance: ast.SubInstance): Assembly.SubModelInstance {
         return {
             '@Container': instance.container,
             ...this.convertModelInstance(instance.instance as ast.ModelInstance)
-        }
+        };
 
     }
     convertTemplateArgument(parameter: ast.TemplateArgument): Assembly.TemplateArgument {
@@ -871,7 +870,7 @@ export class SmpGenerator implements XsmpGenerator {
             case ast.StringArgument: return {
                 '@xsi:type': 'Assembly:StringArgument',
                 '@Name': parameter.parameter.ref?.name,
-                '@Value': (parameter as ast.StringArgument).value?.slice(1, -1)
+                '@Value': (parameter as ast.StringArgument).value.slice(1, -1)
             } as Assembly.StringArgument;
             default: return {
                 '@xsi:type': 'Assembly:TemplateArgument',
@@ -933,8 +932,6 @@ export class SmpGenerator implements XsmpGenerator {
             '@GlobalEventName': handler.globalEventName
         };
     }
-
-
 
     async generateSchedule(schedule: ast.Schedule, projectUri: URI, notice: string | undefined): Promise<void> {
         const outputDir = await this.createOutputDir(projectUri);
@@ -1074,8 +1071,8 @@ export class SmpGenerator implements XsmpGenerator {
             ...this.convertGeneratedEventElement(event),
             '@xsi:type': `Schedule:${event.$type}`,
             Task: this.convertXlink(event.task, event),
-            "@CycleTime": event.cycleTime,
-            "@RepeatCount": event.repeatCount,
+            '@CycleTime': event.cycleTime,
+            '@RepeatCount': event.repeatCount,
         };
     }
 

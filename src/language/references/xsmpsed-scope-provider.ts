@@ -1,75 +1,59 @@
-
-import type { AstNode, AstNodeDescription, AstNodeDescriptionProvider, AstReflection, IndexManager, Reference, ReferenceInfo, Scope, ScopeOptions, ScopeProvider, Stream, URI } from 'langium';
+import type { AstNode, AstNodeDescription, AstNodeDescriptionProvider, AstReflection, IndexManager, ReferenceInfo, Scope, ScopeOptions, ScopeProvider, Stream, URI } from 'langium';
 import * as ast from '../generated/ast.js';
-import { AstUtils, DocumentCache, EMPTY_SCOPE, MapScope, StreamScope, WorkspaceCache, stream } from 'langium';
-import type { XsmpTypeProvider } from './type-provider.js';
+import { AstUtils, EMPTY_SCOPE, MapScope, StreamScope, WorkspaceCache, stream } from 'langium';
 import type { ProjectManager } from '../workspace/project-manager.js';
-import { XsmpServices } from '../xsmp-module.js';
+import type { XsmpServices } from '../xsmp-module.js';
 
 export class XsmpsedScopeProvider implements ScopeProvider {
-    protected readonly visibleUris: WorkspaceCache<URI, Set<string>>;
     protected readonly reflection: AstReflection;
     protected readonly indexManager: IndexManager;
-    protected readonly typeProvider: XsmpTypeProvider;
     protected readonly globalScopeCache: WorkspaceCache<URI, Map<string, Scope>>;
-    protected readonly contexts: Set<Reference> = new Set<Reference>();
-    protected readonly precomputedCache: DocumentCache<AstNode, Map<string, AstNodeDescription>>;
     protected readonly projectManager: ProjectManager;
-
     protected readonly descriptions: AstNodeDescriptionProvider;
 
     constructor(services: XsmpServices) {
-        this.visibleUris = new WorkspaceCache<URI, Set<string>>(services.shared);
         this.reflection = services.shared.AstReflection;
         this.indexManager = services.shared.workspace.IndexManager;
-        this.typeProvider = services.shared.TypeProvider;
         this.globalScopeCache = new WorkspaceCache<URI, Map<string, Scope>>(services.shared);
-        this.precomputedCache = new DocumentCache<AstNode, Map<string, AstNodeDescription>>(services.shared);
         this.projectManager = services.shared.workspace.ProjectManager;
         this.descriptions = services.workspace.AstNodeDescriptionProvider;
     }
+
     protected createScopeForNodes(elements: Iterable<ast.TemplateParameter>, outerScope?: Scope, options?: ScopeOptions): Scope {
-        const s = stream(elements).map(e => {
-            const name = e.name;
-            if (name) {
-                return this.descriptions.createDescription(e, name);
+        return new StreamScope(
+            stream(elements).map(element => element.name ? this.descriptions.createDescription(element, element.name) : undefined).nonNullable(),
+            outerScope,
+            options
+        );
+    }
+
+    protected getLocalScopes(context: ReferenceInfo, referenceType: string): Array<Stream<AstNodeDescription>> {
+        const scopes: Array<Stream<AstNodeDescription>> = [];
+        const precomputed = AstUtils.getDocument(context.container).precomputedScopes;
+        if (!precomputed) {
+            return scopes;
+        }
+
+        let currentNode: AstNode | undefined = context.container;
+        do {
+            const allDescriptions = precomputed.get(currentNode);
+            if (allDescriptions.length > 0) {
+                scopes.push(stream(allDescriptions).filter(desc => this.reflection.isSubtype(desc.type, referenceType)));
             }
-            return undefined;
-        }).nonNullable();
-        return new StreamScope(s, outerScope, options);
+            currentNode = currentNode.$container;
+        } while (currentNode);
+        return scopes;
     }
 
     getScope(context: ReferenceInfo): Scope {
-        const scopes: Array<Stream<AstNodeDescription>> = [];
         const referenceType = this.reflection.getReferenceType(context);
         if (ast.isTemplateArgument(context.container) && context.property === 'parameter') {
             const task = (context.container.$container as ast.ExecuteTask).task;
-
             const schedule = AstUtils.getContainerOfType(task.ref, ast.isSchedule);
-            if (schedule) {
-
-                return this.createScopeForNodes(schedule.parameters, EMPTY_SCOPE);
-
-            }
-            else {
-                return EMPTY_SCOPE;
-            }
-
+            return schedule ? this.createScopeForNodes(schedule.parameters, EMPTY_SCOPE) : EMPTY_SCOPE;
         }
 
-        const precomputed = AstUtils.getDocument(context.container).precomputedScopes;
-        if (precomputed) {
-            let currentNode: AstNode | undefined = context.container;
-            do {
-                const allDescriptions = precomputed.get(currentNode);
-                if (allDescriptions.length > 0) {
-                    scopes.push(stream(allDescriptions).filter(
-                        desc => this.reflection.isSubtype(desc.type, referenceType)));
-                }
-                currentNode = currentNode.$container;
-            } while (currentNode);
-        }
-
+        const scopes = this.getLocalScopes(context, referenceType);
         let result: Scope = this.getGlobalScope(referenceType, context);
         for (let i = scopes.length - 1; i >= 0; i--) {
             result = this.createScope(scopes[i], result);
@@ -97,6 +81,5 @@ export class XsmpsedScopeProvider implements ScopeProvider {
         }
         return scope;
     }
-
 
 }

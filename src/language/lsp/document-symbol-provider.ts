@@ -4,7 +4,7 @@ import type { DocumentSymbol, DocumentSymbolParams } from 'vscode-languageserver
 import * as ast from '../generated/ast.js';
 import type { XsmpNodeInfoProvider } from './node-info-provider.js';
 import { type AttributeHelper } from '../utils/attribute-helper.js';
-import { XsmpServices } from '../xsmp-module.js';
+import type { XsmpServices } from '../xsmp-module.js';
 
 export class XsmpDocumentSymbolProvider implements DocumentSymbolProvider {
 

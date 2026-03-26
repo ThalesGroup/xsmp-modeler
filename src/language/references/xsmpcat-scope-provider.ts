@@ -1,13 +1,13 @@
 
-import type { AstNode, AstNodeDescription, AstReflection, IndexManager, LangiumDocument, Reference, ReferenceInfo, Scope, ScopeProvider, Stream, URI } from 'langium';
+import type { AstNode, AstNodeDescription, AstReflection, IndexManager, LangiumDocument, Reference, ReferenceInfo, Scope, ScopeProvider, URI } from 'langium';
 import * as ast from '../generated/ast.js';
-import { AstUtils, DocumentCache, EMPTY_SCOPE, WorkspaceCache, stream } from 'langium';
+import { AstUtils, DocumentCache, EMPTY_SCOPE, WorkspaceCache } from 'langium';
 import type { XsmpTypeProvider } from './type-provider.js';
 import type { ProjectManager } from '../workspace/project-manager.js';
-import { XsmpServices } from '../xsmp-module.js';
+import type { XsmpServices } from '../xsmp-module.js';
+import { XsmpGlobalScope, XsmpMapScope } from './xsmp-global-scope.js';
 
 export class XsmpcatScopeProvider implements ScopeProvider {
-    protected readonly visibleUris: WorkspaceCache<URI, Set<string>>;
     protected readonly reflection: AstReflection;
     protected readonly indexManager: IndexManager;
     protected readonly typeProvider: XsmpTypeProvider;
@@ -17,7 +17,6 @@ export class XsmpcatScopeProvider implements ScopeProvider {
     protected readonly projectManager: ProjectManager;
 
     constructor(services: XsmpServices) {
-        this.visibleUris = new WorkspaceCache<URI, Set<string>>(services.shared);
         this.reflection = services.shared.AstReflection;
         this.indexManager = services.shared.workspace.IndexManager;
         this.typeProvider = services.shared.TypeProvider;
@@ -115,7 +114,7 @@ export class XsmpcatScopeProvider implements ScopeProvider {
         }
 
         for (let i = scopes.length - 1; i >= 0; i--) {
-            parent = new MapScope(scopes[i], parent);
+            parent = new XsmpMapScope(scopes[i], parent);
         }
 
         return parent;
@@ -125,7 +124,7 @@ export class XsmpcatScopeProvider implements ScopeProvider {
      * Create a global scope filtered for the given referenceType and on visibles projects URIs
      */
     protected getGlobalScope(document: LangiumDocument): Scope {
-        return this.globalScopeCache.get(document.uri, () => new GlobalScope(this.indexManager.allElements(undefined, this.projectManager.getVisibleUris(document))));
+        return this.globalScopeCache.get(document.uri, () => new XsmpGlobalScope(this.indexManager.allElements(undefined, this.projectManager.getVisibleUris(document))));
     }
 
     protected getPrecomputedScope(node: AstNode, document: LangiumDocument): Map<string, AstNodeDescription> {
@@ -139,51 +138,4 @@ export class XsmpcatScopeProvider implements ScopeProvider {
             return precomputed;
         });
     }
-}
-
-export class GlobalScope implements Scope {
-    readonly elements: Map<string, AstNodeDescription>;
-    constructor(elements: Stream<AstNodeDescription>) {
-        this.elements = new Map();
-        for (const element of elements) {
-            this.elements.set(element.name, element);
-
-            // Import elements from Smp and Attributes namespaces in global namespace
-            if (element.name.startsWith('Smp.')) {
-                const name = element.name.substring(4);
-                this.elements.set(name, { ...element, name });
-            }
-            else if (element.name.startsWith('Attributes.')) {
-                const name = element.name.substring(11);
-                this.elements.set(name, { ...element, name });
-            }
-        }
-    }
-
-    getElement(name: string): AstNodeDescription | undefined {
-        return this.elements.get(name);
-    }
-
-    getAllElements(): Stream<AstNodeDescription> {
-        return stream(this.elements.values());
-    }
-}
-
-export class MapScope implements Scope {
-    readonly elements: Map<string, AstNodeDescription>;
-    readonly outerScope: Scope;
-
-    constructor(elements: Map<string, AstNodeDescription>, outerScope: Scope) {
-        this.elements = elements;
-        this.outerScope = outerScope;
-    }
-
-    getElement(name: string): AstNodeDescription | undefined {
-        return this.elements.get(name) ?? this.outerScope.getElement(name);
-    }
-
-    getAllElements(): Stream<AstNodeDescription> {
-        return stream(this.elements.values()).concat(this.outerScope.getAllElements());
-    }
-
 }

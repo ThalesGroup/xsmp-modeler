@@ -1,6 +1,6 @@
 
 import type { Document, Metadata } from './elements.js';
-import { Link } from './linkbase.js';
+import type { Link } from './linkbase.js';
 import type { SimpleValue, Value } from './types.js';
 
 export interface Assembly extends Document {
@@ -15,7 +15,6 @@ export interface Assembly extends Document {
   Parameter?: TemplateArgument[];
   Model?: ModelInstance;
 }
-
 
 export interface NamedElement {
   '@Name': string;
@@ -33,7 +32,6 @@ export interface Int32Argument extends TemplateArgument {
 export interface StringArgument extends TemplateArgument {
   '@Value'?: string
 }
-
 
 export interface ComponentConfiguration {
   '@InstancePath'?: string;
@@ -63,8 +61,6 @@ export interface GlobalEventHandler {
   '@GlobalEventName': string;
 }
 
-
-
 export interface ModelInstance extends NamedElement {
   '@Implementation': string;
   Assembly?: AssemblyInstance[];
@@ -77,7 +73,6 @@ export interface ModelInstance extends NamedElement {
 export interface SubModelInstance extends ModelInstance {
   '@Container': string;
 }
-
 
 export interface AssemblyInstance extends NamedElement {
   '@Container': string;

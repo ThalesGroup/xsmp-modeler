@@ -41,7 +41,7 @@ export const XsmpasbModule: Module<XsmpasbServices, PartialLangiumServices & Xsm
     lsp: {
         Formatter: () => new XsmpasbFormatter(),
         DocumentSymbolProvider: (services) => new XsmpDocumentSymbolProvider(services),
- 
+
         RenameProvider: (services) => new XsmpRenameProvider(services),
     },
     parser:

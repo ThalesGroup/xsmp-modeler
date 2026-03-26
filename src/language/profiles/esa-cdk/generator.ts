@@ -148,15 +148,16 @@ export class EsaCdkGenerator extends GapPatternCppGenerator {
     `;
     }
     override sourceIncludesEventSink(element: ast.EventSink): Include[] {
-        if (element.type)
+        if (this.eventType(element))
             return ['esa/ecss/smp/cdk/EventSinkArg.h', ...super.sourceIncludesEventSink(element)];
         return ['esa/ecss/smp/cdk/EventSinkVoid.h', ...super.sourceIncludesEventSink(element)];
     }
     protected override initializeEventSink(element: ast.EventSink, gen: boolean): string | undefined {
-        if (element.type)
+        const eventType = this.eventType(element);
+        if (eventType)
             return s`
             // Event Sink: ${element.name}
-            ${element.name}{ new ::esa::ecss::smp::cdk::EventSinkArg<${this.fqn(element.type.ref)}>(
+            ${element.name}{ new ::esa::ecss::smp::cdk::EventSinkArg<${this.fqn(eventType)}>(
                 "${element.name}", // Name
                 ${this.description(element)}, // Description
                 this,
@@ -183,9 +184,10 @@ export class EsaCdkGenerator extends GapPatternCppGenerator {
     }
 
     protected override declareEventSourceGen(element: ast.EventSource, _gen: boolean): string | undefined {
-        if (element.type)
+        const eventType = this.eventType(element);
+        if (eventType)
             return s`
-        ${this.comment(element)}::esa::ecss::smp::cdk::EventSourceArg<${this.fqn(element.type.ref)}> *${element.name};
+        ${this.comment(element)}::esa::ecss::smp::cdk::EventSourceArg<${this.fqn(eventType)}> *${element.name};
         `;
 
         return s`
@@ -193,14 +195,14 @@ export class EsaCdkGenerator extends GapPatternCppGenerator {
         `;
     }
     override headerIncludesEventSource(element: ast.EventSource): Include[] {
-        return [element.type ? 'esa/ecss/smp/cdk/EventSourceArg.h' : 'esa/ecss/smp/cdk/EventSourceVoid.h', ...super.headerIncludesEventSource(element)];
+        return [this.eventType(element) ? 'esa/ecss/smp/cdk/EventSourceArg.h' : 'esa/ecss/smp/cdk/EventSourceVoid.h', ...super.headerIncludesEventSource(element)];
     }
     protected override initializeEventSource(element: ast.EventSource, _gen: boolean): string | undefined {
-
-        if (element.type)
+        const eventType = this.eventType(element);
+        if (eventType)
             return s`
             // Event Source: ${element.name}
-            ${element.name}{ new ::esa::ecss::smp::cdk::EventSourceArg<${this.fqn(element.type.ref)}>(
+            ${element.name}{ new ::esa::ecss::smp::cdk::EventSourceArg<${this.fqn(eventType)}>(
                 "${element.name}", // Name
                 ${this.description(element)}, // Description
                 this,
@@ -286,7 +288,6 @@ export class EsaCdkGenerator extends GapPatternCppGenerator {
             };
             `;
     }
-
 
     protected override componentBase(type: ast.Component): string | undefined {
         return type.base ? this.fqn(type.base.ref) : `::esa::ecss::smp::cdk::${type.$type}`;

@@ -4,6 +4,7 @@ import * as fs from 'node:fs';
 import * as ast from '../generated/ast-partial.js';
 import { DiagnosticTag, Location } from 'vscode-languageserver';
 import { type DocumentationHelper } from '../utils/documentation-helper.js';
+import { isSameOrContainedPath } from '../utils/path-utils.js';
 import { SmpStandards, type ProjectManager } from '../workspace/project-manager.js';
 
 /**
@@ -145,7 +146,7 @@ export class XsmpprojectValidator {
                 case ast.Source: {
                     if (element.path) {
                         const { path } = UriUtils.joinPath(projectUri, element.path);
-                        if (!path.startsWith(projectUri.path)) {
+                        if (!isSameOrContainedPath(projectUri.path, path)) {
                             accept('error', `Source path '${element.path}' is not contained within the project directory.`, { node: element, property: 'path' });
                         }
                         else if (!fs.existsSync(path)) {

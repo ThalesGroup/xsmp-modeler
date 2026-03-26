@@ -1,10 +1,13 @@
 import { beforeAll, describe, expect, test } from "vitest";
-import { EmptyFileSystem, type LangiumDocument } from "langium";
+import { EmptyFileSystem, URI, type LangiumDocument } from "langium";
 import { expandToString as s } from "langium/generate";
 import { parseHelper, ParseHelperOptions } from "langium/test";
 import type { Diagnostic } from "vscode-languageserver-types";
 import { createXsmpServices } from "../../src/language/xsmp-module.js";
 import { Project, isProject, } from "../../src/language/generated/ast.js";
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 
 let services: ReturnType<typeof createXsmpServices>;
 let parse: ReturnType<typeof parseHelper<Project>>;
@@ -73,6 +76,29 @@ describe('Validating Xsmpproject', () => {
             [15:23..15:37]: Cyclic dependency detected 'project-name'.
             [15:23..15:37]: Duplicated dependency 'project-name'.
         `);
+    });
+
+    test('Source paths enforce directory boundaries', async () => {
+        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-project-validating-'));
+        try {
+            const projectDir = path.join(tmpDir, 'project');
+            fs.mkdirSync(path.join(projectDir, 'smdl'), { recursive: true });
+            fs.mkdirSync(path.join(tmpDir, 'project2', 'smdl'), { recursive: true });
+
+            document = await parse(`
+                project "project"
+
+                source "../project2/smdl"
+            `, {
+                documentUri: URI.file(path.join(projectDir, 'xsmp.project')).toString()
+            });
+
+            expect(
+                document.diagnostics?.map(diagnosticToString).join('\n')
+            ).toContain(`Source path '../project2/smdl' is not contained within the project directory.`);
+        } finally {
+            fs.rmSync(tmpDir, { recursive: true, force: true });
+        }
     });
 });
 

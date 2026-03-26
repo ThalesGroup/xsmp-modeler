@@ -3,8 +3,8 @@ import * as ast from '../generated/ast.js';
 import { Cancellation, MultiMap, interruptAndCheck } from 'langium';
 import * as XsmpUtils from '../utils/xsmp-utils.js';
 import { VisibilityKind } from '../utils/visibility-kind.js';
-import { DocumentationHelper } from '../utils/documentation-helper.js';
-import { XsmpServices } from '../xsmp-module.js';
+import type { DocumentationHelper } from '../utils/documentation-helper.js';
+import type { XsmpServices } from '../xsmp-module.js';
 
 export class XsmpcatScopeComputation implements ScopeComputation {
 

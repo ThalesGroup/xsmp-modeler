@@ -10,7 +10,6 @@ export interface LinkBase extends Document {
   Component?: ComponentLinkBase[];
 }
 
-
 export interface ComponentLinkBase {
   '@Path': string;
   Link?: Link[];

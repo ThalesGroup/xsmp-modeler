@@ -38,7 +38,7 @@ export const XsmpcfgModule: Module<XsmpcfgServices, PartialLangiumServices & Xsm
     lsp: {
         Formatter: () => new XsmpcfgFormatter(),
         DocumentSymbolProvider: (services) => new XsmpDocumentSymbolProvider(services),
- 
+
         RenameProvider: (services) => new XsmpRenameProvider(services),
     },
     parser:

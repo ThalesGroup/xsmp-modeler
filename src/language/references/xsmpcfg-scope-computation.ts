@@ -1,7 +1,7 @@
 import type { AstNode, AstNodeDescription, AstNodeDescriptionProvider, LangiumDocument, PrecomputedScopes, ScopeComputation } from 'langium';
-import * as ast from '../generated/ast.js';
+import type * as ast from '../generated/ast.js';
 import { Cancellation, MultiMap } from 'langium';
-import { XsmpServices } from '../xsmp-module.js';
+import type { XsmpServices } from '../xsmp-module.js';
 
 export class XsmpcfgScopeComputation implements ScopeComputation {
 
@@ -11,7 +11,7 @@ export class XsmpcfgScopeComputation implements ScopeComputation {
         this.descriptions = services.workspace.AstNodeDescriptionProvider;
     }
 
-    async computeExports(document: LangiumDocument, cancelToken = Cancellation.CancellationToken.None): Promise<AstNodeDescription[]> {
+    async computeExports(document: LangiumDocument, _cancelToken = Cancellation.CancellationToken.None): Promise<AstNodeDescription[]> {
         const configuration = document.parseResult.value as ast.Configuration;
         const exportedDescriptions: AstNodeDescription[] = [];
 
@@ -22,7 +22,7 @@ export class XsmpcfgScopeComputation implements ScopeComputation {
         return exportedDescriptions;
     }
 
-    async computeLocalScopes(document: LangiumDocument, cancelToken = Cancellation.CancellationToken.None): Promise<PrecomputedScopes> {
+    async computeLocalScopes(document: LangiumDocument, _cancelToken = Cancellation.CancellationToken.None): Promise<PrecomputedScopes> {
         const scopes = new MultiMap<AstNode, AstNodeDescription>();
 
         return scopes;

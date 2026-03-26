@@ -61,10 +61,9 @@ export class XsmpDocumentGenerator {
             return await this.generateProject(document.parseResult.value, cancelToken);
         }
 
-        const project = this.projectManager.getProject(document)
+        const project = this.projectManager.getProject(document);
         if (project && this.isValid(document))
             return await this.generateProject(project, cancelToken);
-
 
     }
 
