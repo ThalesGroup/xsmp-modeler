@@ -146,12 +146,12 @@ export class XsmpsedValidator {
         }
         const resolution = this.pathResolver.getScheduleActivityPathResolution(execute.root);
         this.acceptPathError(resolution.invalidMessage, resolution.invalidNode, accept);
-        const expectedComponent = execute.task.ref ? this.pathResolver.getEffectiveTaskComponent(execute.task.ref) : undefined;
+        const expectedComponent = execute.task.ref ? this.pathResolver.getEffectiveTaskExecutionContext(execute.task.ref) : undefined;
         if (!resolution.active || resolution.invalidMessage || !resolution.finalComponent || !expectedComponent) {
             return;
         }
         if (resolution.finalComponent !== expectedComponent && !XsmpUtils.isBaseOfComponent(expectedComponent, resolution.finalComponent)) {
-            accept('error', `The root path shall resolve to a Component compatible with task ${execute.task.$refText}.`, {
+            accept('error', `The root path shall resolve to a Component compatible with the execution context of task ${execute.task.$refText}.`, {
                 node: execute,
                 property: 'root'
             });

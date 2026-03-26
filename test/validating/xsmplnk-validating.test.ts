@@ -67,18 +67,24 @@ afterEach(async () => {
 
 describe('Validating Xsmplnk', () => {
     test('validates typed component link bases and link endpoints and honors unsafe', async () => {
-        const document = await parseInProject(`link Demo
+        const document = await parseInProject(`link Demo for DemoAsm
 
-/: demo.Root
+/
 {
     field link outValue -> child.outValue
     field link unsafe outValue -> unsafe child.outValue
     event link outbound -> child.inbound
 
-    enabled: demo.Child
+    enabled
     {
         event link outbound -> inbound
     }
+}
+`, `assembly DemoAsm
+
+Root: demo.Root
+{
+    child += Leaf: demo.Child
 }
 `);
 
@@ -105,7 +111,7 @@ Unanchored
     test('requires an assembly anchor for templated link base paths', async () => {
         const document = await parseInProject(`link Demo
 
-/: demo.Root
+/
 {
     field link outValue -> {Target}.inValue
 }
@@ -119,7 +125,7 @@ Unanchored
     test('resolves templated link paths with imported assembly defaults', async () => {
         const document = await parseInProject(`link Demo for DemoAsm
 
-/: demo.Root
+/
 {
     field link outValue -> {Target}.inValue
 }
@@ -137,7 +143,7 @@ Root: demo.Root
     test('reports unknown placeholders from the anchored assembly', async () => {
         const document = await parseInProject(`link Demo for DemoAsm
 
-/: demo.Root
+/
 {
     field link outValue -> {Missing}.inValue
 }

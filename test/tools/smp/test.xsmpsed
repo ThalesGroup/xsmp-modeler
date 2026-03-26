@@ -1,6 +1,6 @@
 schedule TestSchedule
 
-task Main: demo.Root
+task Main on demo.Root
 {
     call unsafe /Sim/Comp.op(value=1i32)
     async emit "Tick"

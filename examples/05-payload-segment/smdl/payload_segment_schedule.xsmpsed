@@ -2,7 +2,7 @@
 schedule <root: string = "/payloadSegment", PayloadMember: string = "payload", RouterMember: string = "router", LoggerMember: string = "logger", cycles: int32 = 2> PayloadSegmentSchedule epoch "2025-01-01T00:10:00Z" mission "2025-01-01T00:10:00Z"
 
 /** Prime task preparing the payload platform for acquisition. */
-task Prime: demo.payloadsegment.PayloadPlatform
+task Prime on demo.payloadsegment.PayloadPlatform
 {
     /** Logs the payload bootstrap phase. */
     call {LoggerMember}.log(message = "payload bootstrap")
@@ -17,7 +17,7 @@ task Prime: demo.payloadsegment.PayloadPlatform
 }
 
 /** Flush task executed on the payload unit itself. */
-task Flush: demo.payload.PayloadUnit
+task Flush on demo.payload.PayloadUnit
 {
     /** Flushes the payload mass memory. */
     trig memory.flush
@@ -26,7 +26,7 @@ task Flush: demo.payload.PayloadUnit
 }
 
 /** Downlink task routing frame data through the segment router. */
-task Downlink: demo.payloadsegment.PayloadPlatform
+task Downlink on demo.payloadsegment.PayloadPlatform
 {
     /** Copies camera frames to the downlink router input. */
     transfer {PayloadMember}.camera.frames -> {RouterMember}.sourceFrames

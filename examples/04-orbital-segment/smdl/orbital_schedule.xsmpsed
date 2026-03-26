@@ -2,7 +2,7 @@
 schedule <root: string = "/orbit", BusMember: string = "avionics", RouterMember: string = "router", LoggerMember: string = "logger", cycles: int32 = 3> OrbitalSchedule epoch "2025-01-01T00:00:00Z" mission "2025-01-01T00:00:00Z"
 
 /** Bootstrap task that initializes the orbital segment. */
-task Bootstrap: demo.orbit.OrbitalPlatform
+task Bootstrap on demo.orbit.OrbitalPlatform
 {
     /** Logs the bootstrap phase on the segment logger. */
     call {LoggerMember}.log(message = "orbital bootstrap")
@@ -17,7 +17,7 @@ task Bootstrap: demo.orbit.OrbitalPlatform
 }
 
 /** Cyclic observation task supervising routing and logging. */
-task Observe: demo.orbit.OrbitalPlatform
+task Observe on demo.orbit.OrbitalPlatform
 {
     /** Copies the power bus from avionics to the platform router. */
     transfer {BusMember}.power.lineVoltage -> {RouterMember}.incomingBus
@@ -30,7 +30,7 @@ task Observe: demo.orbit.OrbitalPlatform
 }
 
 /** Nested avionics task focused on power and control balancing. */
-task PowerBalance: demo.avionics.AvionicsUnit
+task PowerBalance on demo.avionics.AvionicsUnit
 {
     /** Rebalances the embedded battery pack. */
     trig power.balance

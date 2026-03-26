@@ -122,15 +122,21 @@ Root: demo.Root
 
     test('supports definition on typed link base paths and avoids false links without anchors', async () => {
         const catalogue = extractRange(linkBaseCatalogueSource);
-        const linkBasePath = extractCursor(`link Demo
+        const linkBasePath = extractCursor(`link Demo for DemoAsm
 
-/: demo.Root
+/
 {
     field link outValue -> child.in@@Value
 }
 `);
 
-        const { catalogueDocument, document } = await parseLinkBaseWorkspace(catalogue.text, linkBasePath.text);
+        const { catalogueDocument, document } = await parseLinkBaseWorkspace(catalogue.text, linkBasePath.text, `assembly DemoAsm
+
+Root: demo.Root
+{
+    child += Child: demo.Child
+}
+`);
         const locations = await getDefinitions(services.xsmplnk.lsp.DefinitionProvider, document, linkBasePath.cursor);
         expectLocation(locations, catalogueDocument, catalogue.range);
 
@@ -150,13 +156,13 @@ Loose
         const catalogue = extractRange(scheduleCatalogueSource);
         const schedulePath = extractCursor(`schedule Demo
 
-task Main: demo.Root
+task Main on demo.Root
 {
     call child.re@@set()
     execute Worker at child
 }
 
-task Worker: demo.Child
+task Worker on demo.Child
 {
 }
 `);
@@ -175,7 +181,7 @@ task Worker: demo.Child
         const catalogue = extractRange(scheduleCatalogueSource);
         const scheduleText = `schedule <Target = "child", Tail = "set"> Demo
 
-task Main: demo.Root
+task Main on demo.Root
 {
     call {Target}.re{Tail}()
 }
@@ -265,15 +271,21 @@ async function parseAssemblyWorkspace(catalogueText: string, assemblyText: strin
     return { catalogueDocument, document };
 }
 
-async function parseLinkBaseWorkspace(catalogueText: string, linkBaseText: string): Promise<{
+async function parseLinkBaseWorkspace(catalogueText: string, linkBaseText: string, assemblyText?: string): Promise<{
     catalogueDocument: LangiumDocument<Catalogue>;
     document: LangiumDocument<LinkBase>;
 }> {
     const { catalogueDocument, tempDir } = await parseProjectAndCatalogue(catalogueText);
+    const assemblyDocument = assemblyText
+        ? await parseAssembly(assemblyText, {
+            documentUri: URI.file(path.join(tempDir, 'src', 'demo.xsmpasb')).toString(),
+        })
+        : undefined;
     const document = await parseLinkBase(linkBaseText, {
         documentUri: URI.file(path.join(tempDir, 'src', 'demo.xsmplnk')).toString(),
     });
-    documents.push(document);
+    documents.push(...(assemblyDocument ? [assemblyDocument] : []), document);
+    expect(assemblyDocument?.parseResult.parserErrors ?? []).toHaveLength(0);
     expect(document.parseResult.parserErrors).toHaveLength(0);
     return { catalogueDocument, document };
 }

@@ -69,7 +69,7 @@ export class Xsmpl2PathResolver {
     protected readonly linkBaseEndpointPathCache: WorkspaceCache<ast.Path, L2PathResolution>;
     protected readonly scheduleActivityPathCache: WorkspaceCache<ast.Path, L2PathResolution>;
     protected readonly componentLinkBaseStackCache: WorkspaceCache<ast.ComponentLinkBase, readonly ast.Component[] | undefined>;
-    protected readonly taskStackCache: WorkspaceCache<ast.Task, readonly ast.Component[] | undefined>;
+    protected readonly taskExecutionContextStackCache: WorkspaceCache<ast.Task, readonly ast.Component[] | undefined>;
 
     constructor(services: XsmpSharedServices) {
         this.pathService = services.PathService;
@@ -83,7 +83,7 @@ export class Xsmpl2PathResolver {
         this.linkBaseEndpointPathCache = new WorkspaceCache<ast.Path, L2PathResolution>(services);
         this.scheduleActivityPathCache = new WorkspaceCache<ast.Path, L2PathResolution>(services);
         this.componentLinkBaseStackCache = new WorkspaceCache<ast.ComponentLinkBase, readonly ast.Component[] | undefined>(services);
-        this.taskStackCache = new WorkspaceCache<ast.Task, readonly ast.Component[] | undefined>(services);
+        this.taskExecutionContextStackCache = new WorkspaceCache<ast.Task, readonly ast.Component[] | undefined>(services);
     }
 
     getNamedSegmentCandidates(segment: ast.PathNamedSegment): readonly ast.NamedElement[] {
@@ -169,15 +169,15 @@ export class Xsmpl2PathResolver {
         return this.getComponentLinkBaseComponentStack(linkBase)?.at(-1);
     }
 
-    getTaskComponentStack(task: ast.Task): readonly ast.Component[] | undefined {
-        return this.taskStackCache.get(task, () => {
+    getTaskExecutionContextStack(task: ast.Task): readonly ast.Component[] | undefined {
+        return this.taskExecutionContextStackCache.get(task, () => {
             const component = ast.isComponent(task.component?.ref) ? task.component.ref : undefined;
             return component ? [component] : undefined;
         });
     }
 
-    getEffectiveTaskComponent(task: ast.Task): ast.Component | undefined {
-        return this.getTaskComponentStack(task)?.at(-1);
+    getEffectiveTaskExecutionContext(task: ast.Task): ast.Component | undefined {
+        return this.getTaskExecutionContextStack(task)?.at(-1);
     }
 
     getAssemblyComponentPathResolution(path: ast.Path): AsbInstancePathResolution {
@@ -207,20 +207,8 @@ export class Xsmpl2PathResolver {
     protected computeComponentLinkBaseComponentStack(linkBase: ast.ComponentLinkBase): readonly ast.Component[] | undefined {
         const parent = ast.isComponentLinkBase(linkBase.$container) ? linkBase.$container : undefined;
         const parentStack = parent ? this.getComponentLinkBaseComponentStack(parent) : this.getRootLinkBaseComponentStack(linkBase);
-        const explicitComponent = ast.isComponent(linkBase.component?.ref) ? linkBase.component.ref : undefined;
         const bindings = this.getLinkBaseTemplateBindings(linkBase);
         const resolution = parentStack ? this.typedPathResolver.resolveComponentPath(linkBase.name, parentStack, bindings) : undefined;
-
-        if (explicitComponent) {
-            if (resolution?.finalStack && resolution.finalStack.length > 0) {
-                return [...resolution.finalStack.slice(0, -1), explicitComponent];
-            }
-            if (resolution?.parentStackForUntypedTarget) {
-                return [...resolution.parentStackForUntypedTarget, explicitComponent];
-            }
-            return parentStack ? [...parentStack, explicitComponent] : [explicitComponent];
-        }
-
         return resolution?.finalStack;
     }
 
@@ -308,12 +296,12 @@ export class Xsmpl2PathResolver {
         const bindings = this.getScheduleTemplateBindings(path);
         if (ast.isExecuteTask(path.$container)) {
             const task = AstUtils.getContainerOfType(path.$container, ast.isTask);
-            const baseStack = task ? this.getTaskComponentStack(task) : undefined;
+            const baseStack = task ? this.getTaskExecutionContextStack(task) : undefined;
             return this.typedComponentResolutionToL2(baseStack ? this.typedPathResolver.resolveComponentPath(path, baseStack, bindings) : undefined, bindings);
         }
 
         const task = AstUtils.getContainerOfType(path.$container, ast.isTask);
-        const baseStack = task ? this.getTaskComponentStack(task) : undefined;
+        const baseStack = task ? this.getTaskExecutionContextStack(task) : undefined;
         if (!baseStack) {
             return this.inactiveResolution();
         }

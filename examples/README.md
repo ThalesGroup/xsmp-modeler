@@ -15,7 +15,7 @@ The examples intentionally exercise recent XSMP features as well:
 - safe numeric literals without suffixes when the target type is inferred
 - `unsafe` paths on configuration includes
 - typed `LinkBase` roots with `for <Assembly>`
-- typed `Schedule` tasks with `task Name: component`
+- typed `Schedule` tasks with `task Name on component` to declare their execution context
 - templated assembly identifiers such as `Avionics{Lane}` and `Ground{OrbitTag}`
 - templated L2 paths imported from assembly parameters in link bases and schedules
 

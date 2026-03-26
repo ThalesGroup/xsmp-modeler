@@ -1,9 +1,9 @@
 link Demo
 
-Root: demo.Root
+/
 {
     field link unsafe outValue -> child.inValue
-    child: demo.Child
+    child
     {
         event link unsafe outbound -> inbound
     }

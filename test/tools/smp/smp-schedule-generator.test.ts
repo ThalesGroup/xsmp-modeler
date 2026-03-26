@@ -68,7 +68,7 @@ describe('SMP schedule generator tests', () => {
     const generator = new SmpGenerator(services.shared);
     document = await parse(`schedule <Target = "child"> Demo
 
-task Main: demo.Root
+task Main on demo.Root
 {
     call {Target}.reset()
 }

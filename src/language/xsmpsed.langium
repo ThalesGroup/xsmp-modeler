@@ -12,7 +12,7 @@ entry Schedule returns Schedule:
      * **Example**
      * ```xsmp
      * schedule <Root = "platform"> MissionPlan epoch "2025-01-01T00:00:00Z"
-     * task Main: demo.Platform
+     * task Main on demo.Platform
      * {
      * }
      * ```
@@ -58,20 +58,20 @@ Int32Parameter returns Int32Parameter:
 
 Task returns Task:
     /**
-     * `task <name> [: <component>] { ... }`
+     * `task <name> [on <component>] { ... }`
      *
      * Declares a reusable schedule task.
-     * Attach a component type when the task should be validated against a specific component interface and when typed hover/navigation is desired on activity paths.
+     * Attach an execution context component when the task should be validated against a specific component interface and when typed hover/navigation is desired on activity paths.
      *
      * **Example**
      * ```xsmp
-     * task Bootstrap: demo.orbit.OrbitalPlatform
+     * task Bootstrap on demo.orbit.OrbitalPlatform
      * {
      *     trig run
      * }
      * ```
      */
-    'task' name=Name (':' component=[Component:QualifiedName])?
+    'task' name=Name ('on' component=[Component:QualifiedName])?
     '{'
     elements+=Activity*
     '}';
@@ -84,7 +84,7 @@ CallOperation returns CallOperation:
     /**
      * `call <operation-path>(<parameter = value, ...>)`
      *
-     * Calls one operation on the current task component or on a child component reached through a typed path.
+     * Calls one operation on the current task execution context or on a child component reached through a typed path.
      *
      * **Example**
      * ```xsmp
@@ -97,7 +97,7 @@ SetProperty returns SetProperty:
     /**
      * `property <property-path> = <value>`
      *
-     * Sets one writable property on the current task component or on a child component reached through a typed path.
+     * Sets one writable property on the current task execution context or on a child component reached through a typed path.
      *
      * **Example**
      * ```xsmp
@@ -123,7 +123,7 @@ Trigger returns Trigger:
     /**
      * `trig <entrypoint-path>`
      *
-     * Executes one entry point of the current task component or of a reachable child component.
+     * Executes one entry point of the current task execution context or of a reachable child component.
      *
      * **Example**
      * ```xsmp
@@ -137,7 +137,7 @@ ExecuteTask returns ExecuteTask:
     /**
      * `execute <task> [<argument, ...>] [at <root-path>]`
      *
-     * Executes another task, optionally with template arguments and with a different component root.
+     * Executes another task, optionally with template arguments and with a different execution root.
      *
      * **Example**
      * ```xsmp

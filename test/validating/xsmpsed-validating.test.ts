@@ -88,7 +88,7 @@ describe('Validating Xsmpsed', () => {
     test('validates typed schedule paths, execute compatibility and honors unsafe', async () => {
         const document = await parseInProject(`schedule Demo
 
-task Main: demo.Root
+task Main on demo.Root
 {
     call enabled()
     call unsafe enabled()
@@ -98,7 +98,7 @@ task Main: demo.Root
     execute Worker at /
 }
 
-task Worker: demo.Child
+task Worker on demo.Child
 {
     call reset()
 }
@@ -112,7 +112,7 @@ event Main mission "PT1S"
             "The path segment 'child' shall resolve to a supported member of the current Component.",
             "The path segment 'outValue' shall resolve to a Field marked as Input of the current Component.",
             "The path segment 'missing' shall resolve to a supported member of the current Component.",
-            'The root path shall resolve to a Component compatible with task Worker.',
+            'The root path shall resolve to a Component compatible with the execution context of task Worker.',
         ]));
         expect(messages.some(message => message.includes('unsafe'))).toBe(false);
     });
@@ -120,7 +120,7 @@ event Main mission "PT1S"
     test('resolves templated schedule paths with schedule defaults', async () => {
         const document = await parseInProject(`schedule <Target = "child"> Demo
 
-task Main: demo.Root
+task Main on demo.Root
 {
     call {Target}.reset()
 }
@@ -132,7 +132,7 @@ task Main: demo.Root
     test('reports unknown placeholders and invalid expanded schedule path segments', async () => {
         const unknownPlaceholder = await parseInProject(`schedule <Root = "child"> Demo
 
-task Main: demo.Root
+task Main on demo.Root
 {
     call {Missing}.reset()
 }
@@ -143,7 +143,7 @@ task Main: demo.Root
 
         const invalidExpansion = await parseInProject(`schedule <Target = "1bad"> Demo
 
-task Main: demo.Root
+task Main on demo.Root
 {
     call {Target}.reset()
 }
@@ -156,7 +156,7 @@ task Main: demo.Root
     test('warns when a schedule template parameter is not used', async () => {
         const document = await parseInProject(`schedule <Target = "child", Unused = 7> Demo
 
-task Main: demo.Root
+task Main on demo.Root
 {
     call {Target}.reset()
 }

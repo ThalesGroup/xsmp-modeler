@@ -83,7 +83,7 @@ describe('SMP link base generator tests', () => {
         const generator = new SmpGenerator(services.shared);
         const document = await parseSource(`link Demo for DemoAsm
 
-/: demo.Root
+/
 {
     field link outValue -> {Target}.inValue
 }

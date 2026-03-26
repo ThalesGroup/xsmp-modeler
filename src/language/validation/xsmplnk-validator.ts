@@ -52,7 +52,7 @@ export class XsmplnkValidator {
             if (this.checkPathTemplateParameters(linkBase.name, accept)) {
                 const resolution = this.pathResolver.getLinkBaseComponentPathResolution(linkBase.name);
                 this.acceptPathError(resolution.invalidMessage, resolution.invalidNode, accept);
-                if (resolution.active && !resolution.invalidMessage && !resolution.finalComponent && !this.pathResolver.getEffectiveComponentLinkBaseComponent(linkBase)) {
+                if (resolution.active && !resolution.invalidMessage && !resolution.finalComponent) {
                     accept('error', 'The Component Link Base path shall resolve to a typed Component.', {
                         node: linkBase,
                         property: 'name'

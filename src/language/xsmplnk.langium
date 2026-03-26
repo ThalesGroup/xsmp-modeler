@@ -36,7 +36,7 @@ entry LinkBase returns LinkBase:
  * A Link has to reference Owner and Client via its Owner Path and Client Path elements which specify which objects are connected by the Link.
  */
 ComponentLinkBase returns ComponentLinkBase:
-    name=Path (':' component=[Component:QualifiedName])?
+    name=Path
     '{' 
     elements+=(Link|ComponentLinkBase)*
     '}';
@@ -85,9 +85,6 @@ InterfaceLink returns InterfaceLink:
 
 ValidID returns string:
     ID | 'event'|'field'|'interface'|'link';
-
-QualifiedName returns string:
-    ValidID ('.' ValidID)+;
 
 Path returns Path:
     {Path}

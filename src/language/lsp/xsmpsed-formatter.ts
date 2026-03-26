@@ -40,7 +40,7 @@ export class XsmpsedFormatter extends XsmpFormatterBase {
 
     protected formatTask(node: ast.Task, formatter: NodeFormatter<ast.Task>): void {
         formatter.keyword('task').append(Formatting.oneSpace());
-        this.formatTypeAnnotation(formatter);
+        formatter.keyword('on').surround(Formatting.oneSpace());
         this.formatBody(formatter);
     }
 

@@ -24,7 +24,6 @@ export class XsmplnkFormatter extends XsmpFormatterBase {
     }
 
     protected formatComponentLinkBase(node: ast.ComponentLinkBase, formatter: NodeFormatter<ast.ComponentLinkBase>): void {
-        this.formatTypeAnnotation(formatter);
         this.formatBody(formatter);
     }
 }

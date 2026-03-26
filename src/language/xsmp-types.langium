@@ -523,7 +523,6 @@ interface LinkBase extends Document {
 
 interface ComponentLinkBase {
     name: Path
-    component?: @Component
     elements: (ComponentLinkBase|Link)[]
 }
 

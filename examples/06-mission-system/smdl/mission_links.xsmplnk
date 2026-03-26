@@ -2,7 +2,7 @@
 link MissionLinks for MissionDemo
 
 /** Links declared at the root of the mission system. */
-/: demo.mission.MissionSystemRoot
+/
 {
     /** Connects the orbital platform upstream logger to the ground console. */
     interface link {OrbitalMember}: upstreamLogger -> {ConsoleMember}
