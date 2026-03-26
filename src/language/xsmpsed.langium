@@ -3,6 +3,20 @@ grammar Xsmpsed
 import 'xsmp-types'
 
 entry Schedule returns Schedule:
+    /**
+     * `schedule [<parameter, ...>] <name> [epoch "..."] [mission "..."]`
+     *
+     * Declares an XSMP schedule document.
+     * A schedule contains tasks, events and optional template parameters used to specialize task roots and templated paths.
+     *
+     * **Example**
+     * ```xsmp
+     * schedule <Root = "platform"> MissionPlan epoch "2025-01-01T00:00:00Z"
+     * task Main: demo.Platform
+     * {
+     * }
+     * ```
+     */
     'schedule' ('<' parameters+=TemplateParameter (',' parameters+=TemplateParameter)*'>')? name=ValidID
 
     (('epoch' epochTime=STRING) ('mission' missionStart=STRING)? | ('mission' missionStart=STRING) ('epoch' epochTime=STRING)?)?
@@ -13,13 +27,50 @@ TemplateParameter returns TemplateParameter:
     StringParameter | Int32Parameter;
 
 StringParameter returns StringParameter:
-    name=ID (':' 'string' ('=' value=STRING)? | '=' value=STRING);
+    name=ID (':' 
+        /**
+         * `string`
+         *
+         * Declares a string template parameter for the schedule.
+         * String parameters are commonly used to specialize relative task roots or templated path segments.
+         *
+         * **Example**
+         * ```xsmp
+         * Root: string = "platform"
+         * ```
+         */
+        'string' ('=' value=STRING)? | '=' value=STRING);
 
 Int32Parameter returns Int32Parameter:
-    name=ID (':''int32'  ('=' value=INT)? | '=' value=INT);
+    name=ID (':' 
+        /**
+         * `int32`
+         *
+         * Declares an `int32` template parameter for the schedule.
+         *
+         * **Example**
+         * ```xsmp
+         * Cycles: int32 = 3
+         * ```
+         */
+        'int32'  ('=' value=INT)? | '=' value=INT);
 
 
 Task returns Task:
+    /**
+     * `task <name> [: <component>] { ... }`
+     *
+     * Declares a reusable schedule task.
+     * Attach a component type when the task should be validated against a specific component interface and when typed hover/navigation is desired on activity paths.
+     *
+     * **Example**
+     * ```xsmp
+     * task Bootstrap: demo.orbit.OrbitalPlatform
+     * {
+     *     trig run
+     * }
+     * ```
+     */
     'task' name=Name (':' component=[Component:QualifiedName])?
     '{'
     elements+=Activity*
@@ -30,19 +81,69 @@ Activity returns Activity:
 
 
 CallOperation returns CallOperation:
+    /**
+     * `call <operation-path>(<parameter = value, ...>)`
+     *
+     * Calls one operation on the current task component or on a child component reached through a typed path.
+     *
+     * **Example**
+     * ```xsmp
+     * call avionics.apply(requestedMode = demo.foundation.Mode.Nominal)
+     * ```
+     */
     'call' operationPath=Path '(' (parameters+=ParameterValue (',' parameters+=ParameterValue)*)? ')';
 
 SetProperty returns SetProperty:
+    /**
+     * `property <property-path> = <value>`
+     *
+     * Sets one writable property on the current task component or on a child component reached through a typed path.
+     *
+     * **Example**
+     * ```xsmp
+     * property mode = demo.foundation.Mode.Nominal
+     * ```
+     */
     'property' propertyPath=Path '=' value=SimpleValue;
 
 Transfer returns Transfer:
+    /**
+     * `transfer <output-field> -> <input-field>`
+     *
+     * Copies data from one output field to one compatible input field.
+     *
+     * **Example**
+     * ```xsmp
+     * transfer bus.outValue -> router.incomingBus
+     * ```
+     */
     'transfer' outputFieldPath=Path '->' inputFieldPath=Path;
 
 Trigger returns Trigger:
+    /**
+     * `trig <entrypoint-path>`
+     *
+     * Executes one entry point of the current task component or of a reachable child component.
+     *
+     * **Example**
+     * ```xsmp
+     * trig avionics.step
+     * ```
+     */
     'trig' entryPoint=Path;
 
 
 ExecuteTask returns ExecuteTask:
+    /**
+     * `execute <task> [<argument, ...>] [at <root-path>]`
+     *
+     * Executes another task, optionally with template arguments and with a different component root.
+     *
+     * **Example**
+     * ```xsmp
+     * execute PowerBalance at avionics
+     * ```
+     */
     'execute' task=[Task:QualifiedName] ('<' parameter+=TemplateArgument (',' parameter+=TemplateArgument)*'>')? ('at' root=Path)?;
 
 TemplateArgument returns TemplateArgument:
@@ -55,7 +156,19 @@ Int32Argument returns Int32Argument:
     parameter=[TemplateParameter:ValidID] '=' value=INT;
 
 EmitGlobalEvent returns EmitGlobalEvent:
-    asynchronous?='async'? 'emit' eventName=STRING;
+    asynchronous?='async'?
+    /**
+     * `emit "<event-name>"`
+     *
+     * Emits a simulator-wide global event.
+     * Prefix the activity with `async` when the emission should be modeled as asynchronous with respect to the current activity flow.
+     *
+     * **Example**
+     * ```xsmp
+     * async emit "PlatformReady"
+     * ```
+     */
+    'emit' eventName=STRING;
 
 TimeKind returns string:
     'mission' | 'epoch' | 'simulation' | 'zulu';
@@ -65,6 +178,17 @@ Event returns Event:
 ;
 
 GlobalEventTriggeredEvent returns GlobalEventTriggeredEvent:
+    /**
+     * `event <task> on "<start>" [until "<stop>"] [using <time-kind>] [delay "..."] [cycle "..." [repeat <n>]]`
+     *
+     * Starts a task when a global event is emitted.
+     * Use `until` to stop listening, `delay` to offset execution and `cycle` / `repeat` to create repeated activations.
+     *
+     * **Example**
+     * ```xsmp
+     * event Observe on "PlatformReady" using mission delay "PT5S" cycle "PT30S" repeat 3
+     * ```
+     */
     'event'
     task=[Task:QualifiedName] 'on' startEvent=STRING
     ('until' stopEvent=STRING)?
@@ -73,19 +197,59 @@ GlobalEventTriggeredEvent returns GlobalEventTriggeredEvent:
     ('cycle' cycleTime=STRING ('repeat' repeatCount=INT)?)?;
 
 MissionEvent returns MissionEvent:
+    /**
+     * `event <task> mission "<time>" [cycle "..." [repeat <n>]]`
+     *
+     * Schedules a task at one mission-relative time.
+     *
+     * **Example**
+     * ```xsmp
+     * event Bootstrap mission "PT10S"
+     * ```
+     */
     'event'
     task=[Task:QualifiedName] 'mission' missionTime=STRING ('cycle' cycleTime=STRING ('repeat' repeatCount=INT)?)?;
 
 EpochEvent returns EpochEvent:
+    /**
+     * `event <task> epoch "<time>" [cycle "..." [repeat <n>]]`
+     *
+     * Schedules a task at one absolute epoch timestamp.
+     *
+     * **Example**
+     * ```xsmp
+     * event Bootstrap epoch "2025-01-01T00:00:10Z"
+     * ```
+     */
     'event'
     task=[Task:QualifiedName] 'epoch' epochTime=STRING ('cycle' cycleTime=STRING ('repeat' repeatCount=INT)?)?;
 
 
 SimulationEvent returns SimulationEvent:
+    /**
+     * `event <task> simulation "<time>" [cycle "..." [repeat <n>]]`
+     *
+     * Schedules a task at one simulation-relative time.
+     *
+     * **Example**
+     * ```xsmp
+     * event Worker simulation "PT45S"
+     * ```
+     */
     'event'
     task=[Task:QualifiedName] 'simulation' simulationTime=STRING ('cycle' cycleTime=STRING ('repeat' repeatCount=INT)?)?;
 
 ZuluEvent returns ZuluEvent:
+    /**
+     * `event <task> zulu "<time>" [cycle "..." [repeat <n>]]`
+     *
+     * Schedules a task at one UTC timestamp.
+     *
+     * **Example**
+     * ```xsmp
+     * event Bootstrap zulu "2025-01-01T00:00:10Z"
+     * ```
+     */
     'event'
     task=[Task:QualifiedName] 'zulu' zuluTime=STRING ('cycle' cycleTime=STRING ('repeat' repeatCount=INT)?)?;
 
@@ -98,7 +262,19 @@ QualifiedName returns string:
 
 Path returns Path:
     {Path}
-    unsafe?='unsafe'?
+    (
+        /**
+         * `unsafe`
+         *
+         * Marks a schedule path as intentionally unchecked while keeping resolution, hover and navigation.
+         *
+         * **Example**
+         * ```xsmp
+         * call unsafe legacy.reset()
+         * ```
+         */
+        unsafe?='unsafe'
+    )?
     (absolute?='/' (head=PathSegment elements+=PathElement*)?
     | head=PathSegment elements+=PathElement*);
 

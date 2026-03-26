@@ -1,57 +1,93 @@
+/** Payload catalogue used by the payload and payload-segment demos. */
 catalogue payload_catalogue
 
+/** Payload models centered on acquisition and storage. */
 namespace demo::payload
 {
-    /** @uuid 3f068555-7d34-421f-9d1c-e17719983782 */
+    /**
+     * Camera head producing calibrated frame samples.
+     * @uuid 3f068555-7d34-421f-9d1c-e17719983782
+     */
     public model CameraHead implements demo.foundation.ICommandable
     {
+        /** Current acquisition mode. */
         field demo.foundation.Mode modeState = demo.foundation.Mode.Standby
+        /** Detector temperature used as a tuning example. */
         field demo.foundation.TemperatureC detectorTemperature = -5.0f
+        /** Per-line calibration values. */
         field demo.foundation.FloatSamples lineCalibration
+        /** Published frame samples. */
         output field demo.foundation.FloatSamples frames
+        /** Optional logger used by the camera. */
         reference demo.foundation.ILogger? logger
 
+        /** ICommandable mode property. */
         public property demo.foundation.Mode mode -> modeState
+        /** Applies the requested camera mode. */
         public def void apply(in demo.foundation.Mode requestedMode)
 
+        /** Acquires one frame. */
         entrypoint acquire
         {
+            /** Declares the frame output produced by the acquisition. */
             out frames
         }
 
+        /** Signals that a frame is ready. */
         eventsource demo.foundation.ModeEvent frameReady
     }
 
-    /** @uuid e1620bc5-444a-4288-bf6b-ac77d593aad8 */
+    /**
+     * Simple mass memory used to buffer payload data.
+     * @uuid e1620bc5-444a-4288-bf6b-ac77d593aad8
+     */
     public model MassMemory
     {
+        /** Current memory fill level. */
         field demo.foundation.Percentage fillLevel = 25
+        /** Published write-rate samples. */
         output field demo.foundation.FloatSamples writeRates
 
+        /** Flushes the buffered payload data. */
         entrypoint flush
         {
+            /** Declares the write-rate output updated by the flush. */
             out writeRates
         }
     }
 
-    /** @uuid 5f882730-d96a-47ac-82fd-f70daf22496b */
+    /**
+     * Integrated payload unit combining camera and mass memory.
+     * @uuid 5f882730-d96a-47ac-82fd-f70daf22496b
+     */
     public model PayloadUnit implements demo.foundation.ICommandable
     {
+        /** Current payload acquisition mode. */
         field demo.foundation.Mode acquisitionMode = demo.foundation.Mode.Standby
+        /** Published downlink power profile. */
         output field demo.foundation.PowerProfile downlinkProfile
+        /** Embedded camera chain. */
         container demo.payload.CameraHead camera = demo.payload.CameraHead
+        /** Embedded storage chain. */
         container demo.payload.MassMemory memory = demo.payload.MassMemory
+        /** Optional external logger. */
         reference demo.foundation.ILogger? logger
 
+        /** ICommandable mode property. */
         public property demo.foundation.Mode mode -> acquisitionMode
+        /** Applies a new payload mode. */
         public def void apply(in demo.foundation.Mode requestedMode)
 
+        /** Triggers one payload capture cycle. */
         entrypoint capture
         {
+            /** Declares the generated downlink profile. */
             out downlinkProfile
         }
 
+        /** Receives mode updates from the surrounding platform. */
         eventsink demo.foundation.ModeEvent uplinkMode
+        /** Publishes the current payload mode. */
         eventsource demo.foundation.ModeEvent payloadMode
     }
 }

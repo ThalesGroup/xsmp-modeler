@@ -8,6 +8,20 @@ import 'xsmp-types'
  * A Link Base contains a tree of component link bases that define links of component instances (model or service instances).
 */
 entry LinkBase returns LinkBase:
+    /**
+     * `link <name> [for <assembly>]`
+     *
+     * Declares a standalone link base document.
+     * A link base groups reusable connection definitions between component instances and can optionally anchor itself on an assembly to type-check templated paths.
+     *
+     * **Example**
+     * ```xsmp
+     * link OrbitalLinks for OrbitalSegment
+     * /avionics
+     * {
+     * }
+     * ```
+     */
     'link' name=ValidID
     ('for' assembly=[Assembly:ValidID])?
     elements+=ComponentLinkBase*;
@@ -31,11 +45,41 @@ Link returns Link:
     EventLink | FieldLink | InterfaceLink;
 
 EventLink returns EventLink:
+    /**
+     * `event link <owner> -> <client>`
+     *
+     * Connects an event source to a compatible event sink.
+     *
+     * **Example**
+     * ```xsmp
+     * event link publishedMode -> child.commandedMode
+     * ```
+     */
     'event' 'link' ownerPath=Path '->' clientPath=Path;
 FieldLink returns FieldLink:
+    /**
+     * `field link <owner> -> <client>`
+     *
+     * Connects an output field to an input field.
+     *
+     * **Example**
+     * ```xsmp
+     * field link outValue -> child.inValue
+     * ```
+     */
     'field' 'link' ownerPath=Path '->' clientPath=Path;
 
 InterfaceLink returns InterfaceLink:
+    /**
+     * `interface link <owner> : <reference> -> <client> [: <backReference>]`
+     *
+     * Connects one published reference to a compatible client component.
+     *
+     * **Example**
+     * ```xsmp
+     * interface link . : logger -> payload
+     * ```
+     */
     'interface' 'link' ownerPath=Path ':' reference=ValidID  '->' clientPath=Path (':'backReference=ValidID)?;
 
 
@@ -47,7 +91,19 @@ QualifiedName returns string:
 
 Path returns Path:
     {Path}
-    unsafe?='unsafe'?
+    (
+        /**
+         * `unsafe`
+         *
+         * Marks a link path as intentionally unchecked while keeping completion and navigation.
+         *
+         * **Example**
+         * ```xsmp
+         * field link unsafe outValue -> unsafe child.inValue
+         * ```
+         */
+        unsafe?='unsafe'
+    )?
     (absolute?='/' (head=PathSegment elements+=PathElement*)?
     | head=PathSegment elements+=PathElement*);
 

@@ -1,49 +1,80 @@
+/** Orbital segment catalogue used by assembly, link and schedule examples. */
 catalogue orbital_catalogue
 
+/** Orbital platform models combining avionics, routing and logging. */
 namespace demo::orbit
 {
-    /** @uuid bca8388b-3f43-4ab6-ad7f-3b0ef3450f0c */
+    /**
+     * Segment-local logger implementation.
+     * @uuid bca8388b-3f43-4ab6-ad7f-3b0ef3450f0c
+     */
     public model SegmentLogger implements demo.foundation.ILogger
     {
+        /** Last emitted log message. */
         field Smp.String8 lastMessage = "idle"
 
+        /** Records one message in the logger. */
         public def void log(in Smp.String8 message)
 
+        /** Publishes log traffic as text events. */
         eventsource demo.foundation.TextEvent logEvent
     }
 
-    /** @uuid e580d5be-8352-4d8f-8c27-7eb90912d4a2 */
+    /**
+     * Router distributing platform power to local consumers.
+     * @uuid e580d5be-8352-4d8f-8c27-7eb90912d4a2
+     */
     public model PowerRouter
     {
+        /** Incoming power bus. */
         input field demo.foundation.Voltage incomingBus
+        /** Routed bus after distribution. */
         output field demo.foundation.Voltage distributedBus
 
+        /** Distributes the incoming power bus. */
         entrypoint distribute
         {
+            /** Declares the incoming voltage consumed by routing. */
             in incomingBus
+            /** Declares the distributed voltage produced by routing. */
             out distributedBus
         }
     }
 
-    /** @uuid f1e8b3ba-a82f-4552-896f-f3d361af8907 */
+    /**
+     * Orbital platform aggregating avionics, routing and logging.
+     * @uuid f1e8b3ba-a82f-4552-896f-f3d361af8907
+     */
     public model OrbitalPlatform implements demo.foundation.ICommandable
     {
+        /** Current platform mission mode. */
         field demo.foundation.Mode missionMode = demo.foundation.Mode.Standby
+        /** Published platform thermal status. */
         output field demo.foundation.ThermalLoop thermal
+        /** Embedded avionics chain. */
         container demo.avionics.AvionicsUnit avionics = demo.avionics.AvionicsUnit
+        /** Embedded power router. */
         container demo.orbit.PowerRouter router = demo.orbit.PowerRouter
+        /** Embedded segment logger. */
         container demo.orbit.SegmentLogger logger = demo.orbit.SegmentLogger
+        /** Optional logger provided by the parent system. */
         reference demo.foundation.ILogger? upstreamLogger
 
+        /** ICommandable mode property. */
         public property demo.foundation.Mode mode -> missionMode
+        /** Applies a new mission mode. */
         public def void apply(in demo.foundation.Mode requestedMode)
 
+        /** Runs one platform supervision cycle. */
         entrypoint run
         {
+            /** Declares the thermal status published by the run cycle. */
             out thermal
         }
 
+        /** Receives inbound mode commands. */
         eventsink demo.foundation.ModeEvent inboundMode
+        /** Publishes the current platform mode. */
         eventsource demo.foundation.ModeEvent publishedMode
     }
 }

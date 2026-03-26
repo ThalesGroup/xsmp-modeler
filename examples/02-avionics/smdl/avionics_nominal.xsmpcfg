@@ -1,24 +1,41 @@
+/** Nominal configuration applied to one avionics unit. */
 configuration AvionicsNominal
+/** Root avionics instance configured by this document. */
 /avionics: demo.avionics.AvionicsUnit
 {
+    /** Sets the integrated avionics to nominal mode. */
     modeState = demo.foundation.Mode.Nominal
+    /** Seeds a representative thermal state for the unit. */
     thermal = {
+        /** Initial thermal sensor reading. */
         sensor = 17.5,
+        /** Requested thermal target. */
         target = 20.0,
+        /** Initial heater command. */
         heater = 12,
+        /** Enables thermal regulation. */
         enabled = true
     }
+    /** Overrides the embedded battery pack. */
     power: demo.avionics.BatteryPack
     {
+        /** Aligns the battery pack mode with the platform mode. */
         commandedMode = demo.foundation.Mode.Nominal
+        /** Starts with a healthy state of charge. */
         stateOfCharge = 82
+        /** Publishes a nominal bus voltage. */
         lineVoltage = 28.2
+        /** Keeps some safety margin on the line. */
         safetyMargin = 15
     }
+    /** Overrides the embedded attitude computer. */
     computer: demo.avionics.AttitudeComputer
     {
+        /** Puts the computer in nominal mode. */
         modeState = demo.foundation.Mode.Nominal
+        /** Loads simple control tuning coefficients. */
         tuning = [1.0, 0.6, 0.3, 0.1]
     }
+    /** Reuses the standalone sensor calibration example on the sensor sub-instance. */
     include SensorCalibration at unsafe sensor
 }

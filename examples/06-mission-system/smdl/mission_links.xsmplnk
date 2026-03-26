@@ -1,9 +1,15 @@
+/** Reusable link base wiring the integrated mission system. */
 link MissionLinks for MissionDemo
 
+/** Links declared at the root of the mission system. */
 /: demo.mission.MissionSystemRoot
 {
+    /** Connects the orbital platform upstream logger to the ground console. */
     interface link {OrbitalMember}: upstreamLogger -> {ConsoleMember}
+    /** Connects the payload platform upstream logger to the ground console. */
     interface link {PayloadMember}: upstreamLogger -> {ConsoleMember}
+    /** Routes console uplink events to the orbital inbound mode sink. */
     event link {ConsoleMember}.uplinkEvent -> {OrbitalMember}.inboundMode
+    /** Routes console uplink events to the payload inbound mode sink. */
     event link {ConsoleMember}.uplinkEvent -> {PayloadMember}.inboundMode
 }

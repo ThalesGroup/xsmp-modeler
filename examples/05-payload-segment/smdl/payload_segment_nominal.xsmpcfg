@@ -1,20 +1,33 @@
+/** Nominal configuration applied to one payload platform. */
 configuration PayloadSegmentNominal
+/** Root payload-platform instance configured by this document. */
 /payloadSegment: demo.payloadsegment.PayloadPlatform
 {
+    /** Starts the platform in nominal mode. */
     platformMode = demo.foundation.Mode.Nominal
+    /** Seeds a representative downlink power profile. */
     downlinkProfile = {
+        /** Nominal bus voltage for the payload segment. */
         bus = 24.0,
+        /** Remaining power margin. */
         margin = 8,
+        /** Harmonic content used by the example. */
         harmonics = [0.0, 0.2, 0.1, 0.0]
     }
+    /** Reuses the payload nominal configuration on the embedded payload. */
     include PayloadNominal at unsafe payload
+    /** Overrides the embedded downlink router. */
     router: demo.payloadsegment.DownlinkRouter
     {
+        /** Seeds the router with a synthetic frame input. */
         sourceFrames = [1.0, 1.0, 1.0, 1.0]
+        /** Starts with no data downlinked yet. */
         downlinkedFrames = [0.0, 0.0, 0.0, 0.0]
     }
+    /** Overrides the embedded payload logger. */
     logger: demo.payloadsegment.PayloadLogger
     {
+        /** Seeds the logger with a readiness message. */
         lastMessage = "payload ready"
     }
 }

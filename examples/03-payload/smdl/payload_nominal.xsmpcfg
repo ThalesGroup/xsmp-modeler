@@ -1,16 +1,27 @@
+/** Nominal configuration applied to one payload unit. */
 configuration PayloadNominal
+/** Root payload instance configured by this document. */
 /payload: demo.payload.PayloadUnit
 {
+    /** Sets the payload to nominal acquisition mode. */
     acquisitionMode = demo.foundation.Mode.Nominal
+    /** Seeds a representative downlink power profile. */
     downlinkProfile = {
+        /** Nominal payload bus voltage. */
         bus = 24.0,
+        /** Safety margin kept for the downlink. */
         margin = 10,
+        /** Harmonic content used for the example. */
         harmonics = [0.0, 0.1, 0.0, 0.0]
     }
+    /** Reuses the dedicated camera tuning on the nested camera. */
     include CameraTuning at unsafe camera
+    /** Overrides the embedded mass memory. */
     memory: demo.payload.MassMemory
     {
+        /** Starts with a partially filled memory. */
         fillLevel = 30
+        /** Seeds representative write-rate samples. */
         writeRates = [1.5, 1.4, 1.3, 1.2]
     }
 }

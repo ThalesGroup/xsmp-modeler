@@ -27,9 +27,13 @@ entry Catalogue returns Catalogue:
     /**
      * `catalogue <name>`
      *
-     * A **Catalogue** is a document that defines types.
-     * It contains namespaces as a primary ordering mechanism.
-     * The names of these namespaces need to be unique within the catalogue.
+     * Declares a catalogue document.
+     * A catalogue is the root container for XSMP type definitions and usually starts with one or more namespaces.
+     *
+     * **Example**
+     * ```xsmp
+     * catalogue foundation_catalogue
+     * ```
      */
     'catalogue' name=ValidID
     elements+=Namespace*;
@@ -37,14 +41,18 @@ entry Catalogue returns Catalogue:
 Namespace returns Namespace:
     attributes+=Attribute*
     /**
-     * ```c++
-     * namespace <name> [::<nested-name>]* { }
-     * ```
+     * `namespace <name> [::<nested-name>]* { ... }`
      *
-     * A **Namespace** is a primary ordering mechanism.
-     * A **Namespace** may contain other namespaces (nested namespaces), and does typically contain types.
-     * In SMDL, namespaces are contained within a **Catalogue** (either directly, or within another namespace in a catalogue).
-     * All sub-elements of a namespace (namespaces and types) must have unique names.
+     * Groups related types under a qualified name.
+     * Namespaces may be nested and help keep large catalogues readable and collision-free.
+     *
+     * **Example**
+     * ```xsmp
+     * namespace demo::foundation
+     * {
+     *     public enum Mode { Standby = 0, Nominal = 1 }
+     * }
+     * ```
      */
     'namespace' name=ValidID
     (
@@ -108,14 +116,19 @@ Structure returns Structure:
     attributes+=Attribute*
     modifiers+=VisibilityModifiers*
     /**
-     * ```c++
-     * [public|protected|private] struct <name> { }
-     * ```
+     * `[visibility] struct <name> { ... }`
      *
-     * A **Structure** type collects an arbitrary number of **Fields** representing the state of the structure.
-     * Within a structure, each field needs to be given a unique name.
-     * In order to arrive at semantically correct (data) type definitions, a structure type may not be recursive, i.e. a structure may not have a field that is typed by the structure itself.
-     * A structure can also serve as a namespace to define an arbitrary number of **Constants**.
+     * Defines a structured value type composed of fields.
+     * Use a structure when several values belong together and need to be passed, stored or configured as one typed object.
+     *
+     * **Example**
+     * ```xsmp
+     * public struct ThermalLoop
+     * {
+     *     field Smp.Float64 temperature
+     *     field Smp.Float64 pressure
+     * }
+     * ```
      */
     'struct' name=ValidID
     '{'
@@ -126,14 +139,19 @@ Class returns Class:
     attributes+=Attribute*
     modifiers+=ClassModifiers*
     /**
-     * ```java
-     * [public|protected|private] [abstract] class <name> [extends <base>]{ }
-     * ```
+     * `[visibility] [abstract] class <name> [extends <base>] { ... }`
      *
-     * The **Class** metaclass is derived from **Structure**.
-     * A **class** may be abstract (attribute **Abstract**), and it may **extend** from a single base class (implementation inheritance), which is represented by the Base link.
-     * As the Class metaclass is derived from Structure it can contain constants and fields.
-     * Further, it can have arbitrary numbers of properties (Property elements), operations (**Operation** elements), and associations (**Association** elements).
+     * Defines a reusable implementation-oriented type with inheritance.
+     * Classes extend structures with properties, operations and associations and are useful for shared implementation patterns.
+     *
+     * **Example**
+     * ```xsmp
+     * public abstract class BaseAlarm
+     * {
+     *     field Smp.String8 message
+     *     def void acknowledge()
+     * }
+     * ```
      */
     'class' name=ValidID (/** A single base class to extends from */'extends' base=[Class:QualifiedName])?
     '{'
@@ -144,13 +162,18 @@ Exception returns Exception:
     attributes+=Attribute*
     modifiers+=ClassModifiers*
     /**
-     * ```java
-     * [public|protected|private] [abstract] exception <name> [extends <base>]{ }
-     * ```
+     * `[visibility] [abstract] exception <name> [extends <base>] { ... }`
      *
-     * Exception** represents a non-recoverable error that can occur when calling into an **Operation** or **Property** getter/setter (within an **Operation** this is represented by the **RaisedException** links and within a **Property** this is represented by the **GetRaises** and **SetRaises** links, respectively).
-     * An Exception can contain constants and fields (from **Structure**) as well as operations, properties and associations (from **Class**). The fields represent the state variables of the exception which carry additional information when the exception is raised.
-     * Furthermore, an **Exception** may be **Abstract** (from **Class**), and it may inherit from a single base exception (implementation inheritance), which is represented by the Base link (from **Class**).
+     * Defines an exception type that operations or properties may raise.
+     * Use exception fields to carry diagnostic data that callers can inspect.
+     *
+     * **Example**
+     * ```xsmp
+     * public exception InvalidMode
+     * {
+     *     field Smp.String8 reason
+     * }
+     * ```
      */
     'exception' name=ValidID (/** A single base exception to extends from */'extends' base=[Class:QualifiedName])?
     '{'
@@ -161,13 +184,19 @@ Interface returns Interface:
     attributes+=Attribute*
     modifiers+=VisibilityModifiers*
     /**
-     * ```java
-     * [public|protected|private] interface <name> [extends <base> [, <base2>]* ]{ }
-     * ```
+     * `[visibility] interface <name> [extends <base>, ...] { ... }`
      *
-     * An **Interface** is a reference type that serves as a contract in a loosely coupled architecture. It has the ability to contain constants, properties and operations (from ReferenceType).
-     * An **Interface** may inherit from other interfaces (interface inheritance), which is represented via the Base links.
-     * Remark : It is strongly recommended to only use value types, references and other interfaces in the properties and operations of an interface (i.e. not to use models). Otherwise, a dependency between a model implementing the interface, and other models referenced by this interface is introduced, which is against the idea of interface-based or component-based design.
+     * Defines a contract published or consumed by components.
+     * Interfaces are the preferred way to model stable interaction points between otherwise independent components.
+     *
+     * **Example**
+     * ```xsmp
+     * public interface ICommandable
+     * {
+     *     property Mode mode
+     *     def void apply(in Mode requestedMode)
+     * }
+     * ```
      */
     'interface' name=ValidID (/** Interface(s) to inherit from */'extends' base+=[Interface:QualifiedName] (',' base+=[Interface:QualifiedName])*)?
     '{'
@@ -178,20 +207,20 @@ Model returns Model:
     attributes+=Attribute*
     modifiers+=ClassModifiers*
     /**
-     * ```java
-     * [public|protected|private] [abstract] model <name> [extends <base>] [implements <interface> [, <interface2>]* ]{ }
-     * ```
+     * `[visibility] [abstract] model <name> [extends <base>] [implements <interface>, ...] { ... }`
      *
-     * The **Model** metaclass is a component and hence inherits all component mechanisms.
-     * These mechanisms allow using various different modelling approaches.
-     * For a class-based design, a **Model** may provide a collection of **Field** elements to define its internal state.
-     * For scheduling and global events, a **Model** may provide a collection of **EntryPoint** elements that can be registered with the **Scheduler** or **EventManager** services of a Simulation Environment.
-     * For an interface-based design, a **Model** may provide (i.e. implement) an arbitrary number of interfaces, which is represented via the **Interface** links.
-     * For a component-based design, a **Model** may provide **Container** elements to contain other models (composition), and **Reference** elements to reference other components (aggregation).
-     * These components can either be models or services.
-     * For an event-based design, a **Model** may support inter-model events via the **EventSink** and **EventSource** elements.
-     * For a dataflow-based design, the fields of a **Model** can be tagged as Input or Output fields.
-     * In addition, a **Model** may have **Association** elements to express associations to other models or fields of other models.
+     * Defines a simulation model.
+     * Models can expose state, behavior, entry points, event endpoints, child containers and references to other components.
+     *
+     * **Example**
+     * ```xsmp
+     * public model AvionicsUnit implements demo.foundation.ICommandable
+     * {
+     *     field demo.foundation.Mode modeState
+     *     public property demo.foundation.Mode mode -> modeState
+     *     entrypoint step
+     * }
+     * ```
      */
     'model' name=ValidID (/** A single base model to extends from */'extends' base=[Component:QualifiedName] )?
         (/** Interface(s) to inherit from */'implements' interface+=[Interface:QualifiedName] (',' interface+=[Interface:QualifiedName])*)?
@@ -204,12 +233,17 @@ Service returns Service:
     attributes+=Attribute*
     modifiers+=ClassModifiers*
     /**
-     * ```java
-     * [public|protected|private] [abstract] model <name> [extends <base>] [implements <interface> [, <interface2>]* ]{ }
-     * ```
+     * `[visibility] [abstract] service <name> [extends <base>] [implements <interface>, ...] { ... }`
      *
-     * The Service metaclass is a component and hence inherits all component mechanisms.
-     * A Service can reference one or more interfaces via the **Interface** links (inherited from Component), where at least one of them must be derived from Smp::IService, which qualifies it as a service interface.
+     * Defines a simulation service.
+     * Services share the same component mechanisms as models but typically represent environment capabilities or infrastructure provided to models.
+     *
+     * **Example**
+     * ```xsmp
+     * public service EventManager implements Smp.IService
+     * {
+     * }
+     * ```
      */
     'service' name=ValidID (/** A single base service to extends from */'extends' base=[Component:QualifiedName] )?
         (/** Interface(s) to inherit from */'implements' interface+=[Interface:QualifiedName] (',' interface+=[Interface:QualifiedName])*)?
@@ -221,14 +255,15 @@ ArrayType returns ArrayType:
     attributes+=Attribute*
     modifiers+=VisibilityModifiers*
     /**
-     * ```java
-     * [public|protected|private] array <name> = <item-type> [ <size> ]
-     * ```
+     * `[visibility] array <name> = <item-type>[<size>]`
      *
-     * An **Array** type defines a fixed-size array of identically typed elements, where ItemType defines the type of the array items, and Size defines the number of array items.
-     * Multi-dimensional arrays are defined when ItemType is an **Array** type as well.
-     * Dynamic arrays are not supported by SMDL, as they are not supported by some potential target platforms, and introduce various difficulties in memory management.
-     * Remarks : Nevertheless, specific mechanisms are available to allow dynamic collections of components, either for containment (composition) or references (aggregation).
+     * Defines a fixed-size array type.
+     * Arrays are value types, so they are useful for vectors, samples, lookup tables and other bounded collections.
+     *
+     * **Example**
+     * ```xsmp
+     * public array FloatSamples = Smp.Float32[16]
+     * ```
      */
     'array' name=ValidID '=' itemType=[ValueType:QualifiedName] '[' size=Expression? ']';
 
@@ -236,11 +271,15 @@ ValueReference returns ValueReference:
     attributes+=Attribute*
     modifiers+=VisibilityModifiers*
     /**
-     * ```c++
-     * [public|protected|private] using <name> = <type>*
-     * ```
+     * `[visibility] using <name> = <value-type>*`
      *
-     * A **ValueReference** is a type that references a specific value type. It is the "missing link" between value types and reference types.
+     * Defines a reference type to a value type.
+     * Use it when a model API needs to point to a value object rather than contain it directly.
+     *
+     * **Example**
+     * ```xsmp
+     * public using VoltageRef = demo.foundation.Voltage*
+     * ```
      */
     'using' name=ValidID '=' type=[ValueType:QualifiedName] '*';
 
@@ -248,13 +287,15 @@ Integer returns Integer:
     attributes+=Attribute*
     modifiers+=VisibilityModifiers*
     /**
-     * ```java
-     * [public|protected|private] integer <name> [extends <integeral-type>] [in (*|<minimum>) ... (*|<maximum>)]
-     * ```
+     * `[visibility] integer <name> [extends <primitive>] [in <min> ... <max>]`
      *
-     * An **Integer** type represents integer values with a given range of valid values (via the Minimum and Maximum attributes).
-     * The Unit element can hold a physical unit that can be used by applications to ensure physical unit integrity across models.
-     * Optionally, the **PrimitiveType** used to encode the integer value may be specified (one of **Int8**, **Int16**, **Int32**, **Int64**, **UIn8**, **UInt16**, **UInt32**, **UInt64**, where the default is **Int32**).	
+     * Defines a constrained integer type.
+     * Use `extends` to choose the storage primitive and `in` to express the accepted value range.
+     *
+     * **Example**
+     * ```xsmp
+     * public integer Percentage extends Smp.UInt8 in 0 ... 100
+     * ```
      */
     'integer' name=ValidID (/** The Integral type to inherit from */'extends' primitiveType=[PrimitiveType:QualifiedName] )?
     (/** The integer range */'in' (minimum=Expression | '*' )'...' (maximum=Expression | '*' ))?;
@@ -263,14 +304,15 @@ Float returns Float:
     attributes+=Attribute*
     modifiers+=VisibilityModifiers*
     /**
-     * ```java
-     * [public|protected|private] float <name> [extends <floating-type>] [in (*|<minimum>) (...|..<|<..|<.<) (*|<maximum>)]
-     * ```
+     * `[visibility] float <name> [extends <primitive>] [in <min> <range-kind> <max>]`
      *
-     * A **Float** type represents floating-point values with a given range of valid values (via the Minimum and Maximum attributes).
-     * The MinInclusive and MaxInclusive attributes determine whether the boundaries are included in the range or not.
-     * The Unit element can hold a physical unit that can be used by applications to ensure physical unit integrity across models.
-     * Optionally, the **PrimitiveType** used to encode the floating-point value may be specified (one of **Float32** or **Float64**, where the default is **Float64**).
+     * Defines a constrained floating-point type.
+     * Use the range kind to choose whether the bounds are inclusive or exclusive.
+     *
+     * **Example**
+     * ```xsmp
+     * public float TemperatureC extends Smp.Float32 in -120.0 ... 180.0
+     * ```
      */
     'float' name=ValidID (/** The Floating type to inherit from */'extends' primitiveType=[PrimitiveType:QualifiedName] )?
     (/** The integer range */'in' (minimum=Expression | '*' ) range=RangeKind (maximum=Expression | '*' ))?;
@@ -290,12 +332,15 @@ EventType returns EventType:
     attributes+=Attribute*
     modifiers+=VisibilityModifiers*
     /**
-     * ```java
-     * [public|protected|private] event <name> [extends <simple-type>]
-     * ```
+     * `[visibility] event <name> [extends <simple-type>]`
      *
-     * An **Event** Type is used to specify the type of an event.
-     * This can be used not only to give a meaningful name to an event type, but also to link it to an existing simple type (via the EventArgs attribute) that is passed as an argument with every invocation of the event.
+     * Defines an event type.
+     * Extend a simple type when each emitted event carries one payload value of that type.
+     *
+     * **Example**
+     * ```xsmp
+     * public event ModeEvent extends demo.foundation.Mode
+     * ```
      */
     'event' name=ValidID (/** The event argument type */ 'extends' eventArgs=[SimpleType:QualifiedName])?;
 
@@ -303,13 +348,15 @@ StringType returns StringType:
     attributes+=Attribute*
     modifiers+=VisibilityModifiers*
     /**
-     * ```java
-     * [public|protected|private] string <name> [<length>]
-     * ```
+     * `[visibility] string <name>[<length>]`
      *
-     * A **String** type represents fixed Length string values base on **Char8**.
-     * The **String** language element defines an **Array** of **Char8** values, but allows a more natural handling of it, e.g. by storing a string value as one string, not as an array of individual characters.
-     * As with arrays, SMDL does not allow defining variable-sized strings, as these have the same problems as dynamic arrays (e.g. their size is not know up-front, and their use requires memory allocation).
+     * Defines a fixed-length string type based on `Char8`.
+     * Use string types when the model needs bounded textual data with explicit maximum storage.
+     *
+     * **Example**
+     * ```xsmp
+     * public string Label[32]
+     * ```
      */
     'string' name=ValidID '[' length=Expression? ']';
 
@@ -317,16 +364,15 @@ PrimitiveType returns PrimitiveType:
     attributes+=Attribute*
     modifiers+=VisibilityModifiers*
     /**
-     * ```java
-     * [public|protected|private] primitive <name>
+     * `[visibility] primitive <name>`
+     *
+     * Declares one primitive type entry.
+     * Primitive types exist mainly to bootstrap the XSMP type system and are typically not authored in user catalogues.
+     *
+     * **Example**
+     * ```xsmp
+     * primitive Float64
      * ```
-     *
-     * A pre-defined type needed in order to bootstrap the type system.
-     *
-     * These pre-defined value types are represented by instances of the metaclass **PrimitiveType**.
-     * This mechanism is only used in order to bootstrap the type system and may not be used to define new types for modelling.
-     * This is an important restriction, as all values of primitive types may be held in a **SimpleValue**.
-     * The metaclasses derived from **SimpleValue**, however, are pre-defined and cannot be extended.
      */
     'primitive' name=ValidID;
 
@@ -334,13 +380,14 @@ NativeType returns NativeType:
     attributes+=Attribute*
     modifiers+=VisibilityModifiers*
     /**
-     * ```java
-     * [public|protected|private] native <name>
-     * ```		
+     * `[visibility] native <name>`
      *
-     * A **Native** Type specifies a type with any number of platform mappings. It is used to anchor existing or user-defined types into different target platforms.
-     * This mechanism is used within the specification to define the SMDL primitive types with respect to the Metamodel, but it can also be used to define native types within an arbitrary SMDL catalogue for use by models.
-     * In the latter case, native types are typically used to bind a model to some external library or existing Application Programming **Interface** (API).	
+     * Declares a native type placeholder used to bind XSMP models to platform-specific or external types.
+     *
+     * **Example**
+     * ```xsmp
+     * public native FILE_HANDLE
+     * ```
      */
     'native' name=ValidID;
 
@@ -348,13 +395,15 @@ AttributeType returns AttributeType:
     attributes+=Attribute*
     modifiers+=VisibilityModifiers*
     /**
-     * ```java
-     * [public|protected|private] attribute <name> [= <default-value>]
-     * ```
+     * `[visibility] attribute <type> <name> [= <default-value>]`
      *
-     * An **Attribute** Type defines a new type available for adding attributes to elements.
-     * The AllowMultiple attribute specifies if a corresponding Attribute may be attached more than once to a language element, while the Usage element defines to which language elements attributes of this type can be attached.
-     * An attribute type always references a value type, and can optionally specify a Default value.
+     * Declares a user-defined attribute type.
+     * Attribute types let you attach structured metadata to XSMP elements in a controlled and typed way.
+     *
+     * **Example**
+     * ```xsmp
+     * public attribute Smp.String8 category = "telemetry"
+     * ```
      */
     'attribute' type=[ValueType:QualifiedName] name=ValidID ('=' default=Expression )?;
 
@@ -362,14 +411,14 @@ Enumeration returns Enumeration:
     attributes+=Attribute*
     modifiers+=VisibilityModifiers*
     /**
-     * ```java
-     * [public|protected|private] enum <name> { <literal-name> = <value> [, <literal-name2> = <value2>]* }
-     * ```
+     * `[visibility] enum <name> { <literal> = <value>, ... }`
      *
-     * An **Enumeration** type represents one of a number of pre-defined enumeration literals.
-     * The Enumeration language element can be used to create user-defined enumeration types.
-     * An enumeration must always contain at least one EnumerationLiteral, each having a name and an integer Value attached to it.
-     * All enumeration literals of an enumeration type must have unique names and values, respectively.
+     * Defines an enumeration type with named integer-backed literals.
+     *
+     * **Example**
+     * ```xsmp
+     * public enum Mode { Standby = 0, Nominal = 1, Safe = 2 }
+     * ```
      */
     'enum' name=ValidID '{' (literal+=EnumerationLiteral (',' literal+=EnumerationLiteral)* ','? )? '}';
 
@@ -381,11 +430,15 @@ Constant returns Constant:
     attributes+=Attribute*
     modifiers+=VisibilityModifiers*
     /**
-     * ```java
-     * [public|protected|private] constant <simple-type> <name> = <value>
-     * ```
+     * `[visibility] constant <simple-type> <name> = <value>`
      *
-     * A **Constant** is a feature that is typed by a simple type and that must have a Value.
+     * Declares a typed constant.
+     * Constants are useful for protocol values, engineering constants and reusable defaults.
+     *
+     * **Example**
+     * ```xsmp
+     * public constant Smp.Float64 StandardGravity = 9.80665
+     * ```
      */
     'constant' type=[SimpleType:QualifiedName] name=ValidID ('=' value=Expression )?;
 
@@ -393,17 +446,15 @@ Field returns Field:
     attributes+=Attribute*
     modifiers+=FieldModifiers*
     /**
-     * ```java
-     * [public|protected|private] [input|output|transient] field <type> <name> [= <default-value>]
-     * ```
+     * `[visibility] [input|output|transient] field <type> <name> [= <default-value>]`
      *
-     * A **Field** is a feature that is typed by any value type but String8, and that may have a Default value.
-     * The transient attribute defines how the field is published to the simulation environment.
-     * Only non transient fields are stored using external persistence.
-     * The visibility to the user within the simulation environment can be controlled via the standard SMP attribute "View".
-     * By default, a field is not transient and the View attribute defaults to "None" when not applied.
-     * The Input and Output attributes define whether the field value is an input for internal calculations (i.e. needed in order to perform these calculations), or an output of internal calculations (i.e. modified when performing these calculations).
-     * These flags default to false, but can be changed from their default value to support dataflow-based design.
+     * Declares state or data published by a type.
+     * Use `input` and `output` for dataflow contracts, and `transient` when the value shall not be persisted as state.
+     *
+     * **Example**
+     * ```xsmp
+     * output field demo.foundation.Vector3 estimatedRates
+     * ```
      */
     'field' type=[ValueType:QualifiedName] name=ValidID ('=' default=Expression)?;
 
@@ -411,18 +462,15 @@ Property returns Property:
     attributes+=Attribute*
     modifiers+=PropertyModifiers*
     /**
-     * ```java
-     * [public|protected|private] [readOnly|writeOnly|readWrite] property <type> <name>
-     * [get throws <exception> [, <exception2>]* ]
-     * [set throws <exception> [, <exception2>]* ]
-     * [-> <attached-field>]
-     * ```
+     * `[visibility] [readOnly|writeOnly|readWrite] property <type> <name> ...`
      *
-     * A **Property** has a similar syntax as a Field: It is a feature that references a language type.
-     * However, the semantics is different in that a property does not represent a state and that it can be assigned an Access attribute to specify how the property can be accessed (either readWrite, readOnly, or writeOnly, see **AccessKind**).
-     * Furthermore, a property can be assigned a **Category** attribute to help grouping the properties within its owning type, and a property may specify an arbitrary number of exceptions that it can raise in its getter (**GetRaises**) and/or setter (**SetRaises**).
-     * Remark : The category can be used in applications as ordering or filtering criterion, for example in a property grid. The term "property" used here closely corresponds in its semantics to the same term in the Java Beans specification and in the Microsoft .NET framework.
-     * That is, a property formally represents a "getter" or a "setter" operation or both which allow accessing state or configuration information (or derived information thereof) in a controlled way and which can also be exposed via interfaces (in contrast to fields).
+     * Declares a property exposed through getter/setter semantics instead of direct state access.
+     * Use properties when access must be validated, transformed or published through interfaces.
+     *
+     * **Example**
+     * ```xsmp
+     * public property demo.foundation.Mode mode -> modeState
+     * ```
      */
     'property' type=[ValueType:QualifiedName] name=ValidID
     ('get' 'throws' getRaises+=[Exception:QualifiedName] (',' getRaises+=[Exception:QualifiedName] )*)?
@@ -433,14 +481,15 @@ Operation returns Operation:
     attributes+=Attribute*
     modifiers+=VisibilityModifiers*
     /**
-     * ```java
-     * [public|protected|private] def (<return-type> [<return-type-name>] | void) <name> (...)
-     * [throws <exception> [, <exception2>]* ]
-     * ```
+     * `[visibility] def (<return-type>|void) <name>(...) [throws <exception>, ...]`
      *
-     * An **Operation** may have an arbitrary number of parameters, where at most one return parameter.
-     * If such a parameter is absent, the operation is a void function (procedure) without return value.
-     * An **RaisedException** may specify an arbitrary number of exceptions that it can raise (**RaisedException**).
+     * Declares an operation callable through publication and dynamic invocation.
+     * Operations may define ordered parameters, an optional return value and raised exceptions.
+     *
+     * **Example**
+     * ```xsmp
+     * public def void apply(in demo.foundation.Mode requestedMode)
+     * ```
      */
     'def' (returnParameter=(ReturnParameter|ReturnParameterWithName) | 'void') name=ValidID '(' (parameter+=Parameter (',' parameter+=Parameter)*)? ')'
     ('throws' raisedException+=[Exception:QualifiedName] (',' raisedException+=[Exception:QualifiedName])*)?;
@@ -469,12 +518,15 @@ Association returns Association:
     attributes+=Attribute*
     modifiers+=VisibilityModifiers*
     /**
-     * ```java
-     * [public|protected|private] association <type> <name> [= <default-value>]
-     * ```
+     * `[visibility] association <type> <name>`
      *
-     * An **Association** is a feature that is typed by a language type (Type link). An association always expresses a reference to an instance of the referenced language type.
-     * This reference is either another model (if the Type link refers to a **Model** or **Interface**), or it is a field contained in another model (if the Type link refers to a ValueType).
+     * Declares a semantic association to another model element or value type.
+     * Associations are useful when you want to express a relation without using component containment or reference mechanics.
+     *
+     * **Example**
+     * ```xsmp
+     * public association demo.foundation.Mode requestedMode
+     * ```
      */
     'association' type=[LanguageType:QualifiedName] name=ValidID;
 
@@ -482,43 +534,30 @@ Association returns Association:
 Container returns Container:
     attributes+=Attribute*
     /**
-     * ```java
-     * container <type> [<multiplicity>] <name> [= <default-component>]
-     * ```
-     * ### multiplicity
-     *  - `?`: optional element (0 or 1)
-     *  - `[]`: 0 to infinitite
-     *  - `[<value>]`: exactly **value** element(s)
-     *  - `[<min> ... *]`: at least **min** element(s)
-     *  - `[<min> ... <max>]`: between **min** and **max** element(s)
+     * `container <type> [<multiplicity>] <name> [= <default-component>]`
      *
-     * A **Container** defines the rules of composition (containment of children) for a Component.
-     * The type of components that can be contained is specified via the Type link.
-     * The Lower and Upper attributes specify the multiplicity, i.e. the number of possibly stored components.
-     * Therein the upper bound may be unlimited, which is represented by Upper=-1.
-     * Furthermore, a container may specify a default implementation of the container type via the DefaultComponentl link.
-     * Remark : SMDL support tools may use this during instantiation (i.e. during model integration) to select an initial implementation for newly created contained components.
+     * Declares a containment slot for child components.
+     * Use multiplicity to constrain how many children may be placed in the container, and `= <default-component>` to suggest an initial implementation.
+     *
+     * **Example**
+     * ```xsmp
+     * container demo.avionics.SensorHead sensor = demo.avionics.SensorHead
+     * ```
      */
     'container' type=[ReferenceType:QualifiedName] MultiplicityDeclaration name=ValidID ('=' defaultComponent=[Component:QualifiedName])?;
 
 Reference returns Reference:
     attributes+=Attribute*
     /**
-     * ```java
-     * reference <type> [<multiplicity>] <name>
-     * ```
-     * ### multiplicity
-     *  - `?`: optional element (0 or 1)
-     *  - `[]`: any number of elements
-     *  - `[<number>]`: exactly **number** element(s)
-     *  - `[<lower> ... *]`: at least **lower** element(s)
-     *  - `[<lower> ... <upper>]`: between **lower** and **upper** element(s)
+     * `reference <interface> [<multiplicity>] <name>`
      *
-     * A **Reference** defines the rules of aggregation (links to components) for a **Component**.
-     * The type of components (models or services) that can be referenced is specified by the **Interface** link.
-     * Thereby, a service reference is characterized by an interface that is derived from `Smp::IService`.
-     * The Lower and Upper attributes specify the multiplicity, i.e. the number of possibly held references to components implementing this interface.
-     * Therein the upper bound may be unlimited, which is represented by Upper=-1.
+     * Declares an aggregation reference to external components.
+     * References are typed by interfaces, which keeps the component loosely coupled to its environment.
+     *
+     * **Example**
+     * ```xsmp
+     * reference demo.foundation.ILogger? logger
+     * ```
      */
     'reference' interface=[Interface:QualifiedName] MultiplicityDeclaration name=ValidID;
 
@@ -531,38 +570,46 @@ Multiplicity returns Multiplicity:
 EntryPoint returns EntryPoint:
     attributes+=Attribute*
     /**
-     * ```java
-     * entrypoint <name>
-     * ```
+     * `entrypoint <name> { in ... out ... }`
      *
-     * An **EntryPoint** is a named element of a **Component** (**Model** or **Service**).
-     * It corresponds to a void operation taking no parameters that can be called from an external client (e.g. the Scheduler or Event Manager services).
-     * An Entry Point can reference both Input fields (which must have their Input attribute set to true) and Output fields (which must have their Output attribute set to true).
-     * These links can be used to ensure that all component output fields are updated before the entry point is called, or that all input fields can be used after the entry point has been called.	
+     * Declares a scheduler- or event-triggerable entry point on a component.
+     * Use optional `in` and `out` sections to describe which published fields the entry point consumes or produces.
+     *
+     * **Example**
+     * ```xsmp
+     * entrypoint step
+     * {
+     *     out thermal
+     * }
+     * ```
      */
     'entrypoint' name=ValidID ('{' ('in' input+=[Field:QualifiedName] | 'out' output+=[Field:QualifiedName])*'}')?;
 
 EventSink returns EventSink:
     attributes+=Attribute*
     /**
-     * ```java
-     * eventsink <type> <name>
-     * ```
+     * `eventsink <event-type> <name>`
      *
-     * An **EventSink** is used to specify that a **Component** can receive a specific event using a given name. An **EventSink** can be connected to any number of **EventSource** instances.	
+     * Declares an event input published by a component.
+     *
+     * **Example**
+     * ```xsmp
+     * eventsink demo.foundation.ModeEvent commandedMode
+     * ```
      */
     'eventsink' type=[EventType:QualifiedName] name=ValidID;
 
 EventSource returns EventSource:
     attributes+=Attribute*
     /**
-     * ```java
-     * eventsource <type> <name>
-     * ```
+     * `eventsource <event-type> <name>`
      *
-     * An **EventSource** is used to specify that a **Component** publishes a specific event under a given name.
-     * The Multicast attribute can be used to specify whether any number of sinks can connect to the source (the default), or only a single sink can connect (**Multicast=false**).
-     * Remark: A tool for model integration can use the **Multicast** attribute to configure the user interface accordingly to ease the specification of event links.
+     * Declares an event output published by a component.
+     *
+     * **Example**
+     * ```xsmp
+     * eventsource demo.foundation.ModeEvent publishedMode
+     * ```
      */
     'eventsource' type=[EventType:QualifiedName] name=ValidID;
 
@@ -683,6 +730,3 @@ BooleanLiteral returns Expression:
 
 KeywordExpression returns Expression:
     {KeywordExpression} name='nullptr';
-
-
-

@@ -1,83 +1,137 @@
+/** Avionics catalogue used by the segment and mission examples. */
 catalogue avionics_catalogue
 
+/** Avionics models covering sensing, power balancing and control. */
 namespace demo::avionics
 {
-    /** @uuid adf4eb5e-f1bf-4145-9f0b-209d9d28d164 */
+    /**
+     * Sensor head producing calibrated sample vectors.
+     * @uuid adf4eb5e-f1bf-4145-9f0b-209d9d28d164
+     */
     public model SensorHead
     {
+        /** Last measured detector temperature. */
         field demo.foundation.TemperatureC sensorTemperature = 18.0f
+        /** Calibration bias applied to raw samples. */
         field demo.foundation.FloatSamples bias
+        /** Published sample vector. */
         output field demo.foundation.FloatSamples samples
 
+        /** Acquires one new sample vector. */
         entrypoint sample
         {
+            /** Declares that sampling produces fresh samples. */
             out samples
         }
 
+        /** Publishes textual status updates. */
         eventsource demo.foundation.TextEvent statusText
     }
 
-    /** @uuid 9b848d8e-1b90-438b-9738-dc0f95f924e1 */
+    /**
+     * Battery pack providing power and mode control.
+     * @uuid 9b848d8e-1b90-438b-9738-dc0f95f924e1
+     */
     public model BatteryPack implements demo.foundation.ICommandable, demo.foundation.IPowerBus
     {
+        /** Last requested operating mode. */
         field demo.foundation.Mode commandedMode = demo.foundation.Mode.Standby
+        /** Remaining state of charge. */
         field demo.foundation.Percentage stateOfCharge = 80
+        /** Delivered bus voltage. */
         output field demo.foundation.Voltage lineVoltage = 28.0f
+        /** Remaining power safety margin. */
         field demo.foundation.Percentage safetyMargin = 15
 
+        /** ICommandable view on the current mode. */
         public property demo.foundation.Mode mode -> commandedMode
+        /** IPowerBus voltage publication. */
         public readOnly property demo.foundation.Voltage busVoltage -> lineVoltage
+        /** IPowerBus margin publication. */
         public readOnly property demo.foundation.Percentage margin -> safetyMargin
+        /** Applies a requested power mode. */
         public def void apply(in demo.foundation.Mode requestedMode)
 
+        /** Rebalances the power output. */
         entrypoint balance
         {
+            /** Declares the updated output voltage. */
             out lineVoltage
         }
 
+        /** Publishes the effective power mode. */
         eventsource demo.foundation.ModeEvent modeChanged
     }
 
-    /** @uuid 662257d5-d498-4c3d-a5ff-e760e4af16fe */
+    /**
+     * Attitude control computer using tunings and publishing estimated rates.
+     * @uuid 662257d5-d498-4c3d-a5ff-e760e4af16fe
+     */
     public model AttitudeComputer implements demo.foundation.ICommandable
     {
+        /** Internal control mode. */
         field demo.foundation.Mode modeState = demo.foundation.Mode.Standby
+        /** Tuning coefficients injected by configuration or links. */
         input field demo.foundation.FloatSamples tuning
+        /** Estimated body rates. */
         output field demo.foundation.Vector3 estimatedRates
+        /** Optional logger used for diagnostics. */
         reference demo.foundation.ILogger? logger
 
+        /** ICommandable mode property. */
         public property demo.foundation.Mode mode -> modeState
+        /** Applies a new control mode. */
         public def void apply(in demo.foundation.Mode requestedMode)
 
+        /** Runs one control cycle. */
         entrypoint control
         {
+            /** Declares the tuning input consumed during control. */
             in tuning
+            /** Declares the estimated rates produced by control. */
             out estimatedRates
         }
 
+        /** Receives power-driven mode changes. */
         eventsink demo.foundation.ModeEvent powerMode
+        /** Publishes the current computed mode. */
         eventsource demo.foundation.ModeEvent statePublished
     }
 
-    /** @uuid 3cef77ec-6977-4b06-a456-a6b8c96f7068 */
+    /**
+     * Integrated avionics unit grouping power, control and sensing.
+     * @uuid 3cef77ec-6977-4b06-a456-a6b8c96f7068
+     */
     public model AvionicsUnit implements demo.foundation.ICommandable
     {
+        /** Mission mode currently applied to the unit. */
         field demo.foundation.Mode modeState = demo.foundation.Mode.Standby
+        /** Published thermal status for the platform. */
         output field demo.foundation.ThermalLoop thermal
+        /** Embedded battery pack. */
         container demo.avionics.BatteryPack power = demo.avionics.BatteryPack
+        /** Embedded control computer. */
         container demo.avionics.AttitudeComputer computer = demo.avionics.AttitudeComputer
+        /** Embedded sensor head. */
         container demo.avionics.SensorHead sensor = demo.avionics.SensorHead
+        /** Optional external logger. */
         reference demo.foundation.ILogger? logger
 
+        /** ICommandable mode publication. */
         public property demo.foundation.Mode mode -> modeState
+        /** Applies a new avionics mode. */
         public def void apply(in demo.foundation.Mode requestedMode)
 
+        /** Runs one integrated avionics step. */
         entrypoint step
         {
+            /** Declares the thermal status published by the step. */
             out thermal
         }
 
+        /** Receives commanded mode events from the platform. */
         eventsink demo.foundation.ModeEvent commandedMode
+        /** Publishes the current avionics mode. */
         eventsource demo.foundation.ModeEvent publishedMode
     }
 }

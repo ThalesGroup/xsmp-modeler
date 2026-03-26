@@ -3,28 +3,89 @@ grammar Xsmpasb
 import 'xsmp-types'
 
 entry Assembly returns Assembly:
+    /**
+     * `assembly [<parameter, ...>] <name>`
+     *
+     * Declares an XSMP assembly document.
+     * An assembly defines one root model instance, optional template parameters and optional component configurations that override state or behavior inside the assembly tree.
+     *
+     * **Example**
+     * ```xsmp
+     * assembly <Lane = "Ops"> OrbitalSegment
+     * Root: demo.orbit.Platform
+     * {
+     * }
+     * ```
+     */
     'assembly' ('<' parameters+=TemplateParameter (',' parameters+=TemplateParameter)*'>')? name=ValidID
     configurations+=ComponentConfiguration*
     model=ModelInstance
     configurations+=ComponentConfiguration*;
 
 ComponentConfiguration returns AssemblyComponentConfiguration:
+    /**
+     * `configure <instance-path> { ... }`
+     *
+     * Declares a configuration block for one model or service instance inside the assembly hierarchy.
+     * The path is relative to the containing assembly or sub-assembly instance and may use template placeholders.
+     *
+     * **Example**
+     * ```xsmp
+     * configure avionics
+     * {
+     *     modeState = demo.foundation.Mode.Nominal
+     * }
+     * ```
+     */
     'configure' name=Path 
     '{' 
     elements+=(GlobalEventHandler|Invocation|FieldValue)*
     '}';
 
 GlobalEventHandler returns GlobalEventHandler:
+    /**
+     * `subscribe <entrypoint> -> "<global-event>"`
+     *
+     * Subscribes one entry point of the configured or current model instance to a simulator-wide global event.
+     *
+     * **Example**
+     * ```xsmp
+     * subscribe step -> "PlatformReady"
+     * ```
+     */
     'subscribe' entryPointName=ValidID '->' globalEventName=STRING;
 
 TemplateParameter returns TemplateParameter:
     StringParameter | Int32Parameter;
 
 StringParameter returns StringParameter:
-    name=ID (':' 'string' ('=' value=STRING)? | '=' value=STRING);
+    name=ID (':' 
+        /**
+         * `string`
+         *
+         * Declares a string template parameter for the assembly.
+         * String parameters are typically used inside templated instance names or typed paths.
+         *
+         * **Example**
+         * ```xsmp
+         * Lane: string = "Ops"
+         * ```
+         */
+        'string' ('=' value=STRING)? | '=' value=STRING);
 
 Int32Parameter returns Int32Parameter:
-    name=ID (':''int32'  ('=' value=INT)? | '=' value=INT);
+    name=ID (':' 
+        /**
+         * `int32`
+         *
+         * Declares an `int32` template parameter for the assembly.
+         *
+         * **Example**
+         * ```xsmp
+         * Index: int32 = 1
+         * ```
+         */
+        'int32'  ('=' value=INT)? | '=' value=INT);
 
 
 TemplateArgument returns TemplateArgument:
@@ -59,7 +120,19 @@ InstanceName returns string:
 
 Path returns Path:
     {Path}
-    unsafe?='unsafe'?
+    (
+        /**
+         * `unsafe`
+         *
+         * Marks an assembly path as intentionally unchecked while keeping template resolution and navigation.
+         *
+         * **Example**
+         * ```xsmp
+         * field link unsafe outValue -> unsafe child.inValue
+         * ```
+         */
+        unsafe?='unsafe'
+    )?
     (absolute?='/' (head=PathSegment elements+=PathElement*)?
     | head=PathSegment elements+=PathElement*);
 
@@ -110,18 +183,59 @@ Link returns Link:
     EventLink | FieldLink | InterfaceLink;
 
 EventLink returns EventLink:
+    /**
+     * `event link <owner> -> <client>`
+     *
+     * Connects one event source to one compatible event sink in the assembly tree.
+     *
+     * **Example**
+     * ```xsmp
+     * event link outbound -> child.inbound
+     * ```
+     */
     'event' 'link' ownerPath=Path '->' clientPath=Path;
 FieldLink returns FieldLink:
+    /**
+     * `field link <owner> -> <client>`
+     *
+     * Connects one output field to one compatible input field.
+     *
+     * **Example**
+     * ```xsmp
+     * field link outValue -> child.inValue
+     * ```
+     */
     'field' 'link' ownerPath=Path '->' clientPath=Path;
 
 
 InterfaceLink returns InterfaceLink:
+    /**
+     * `interface link <owner> : <reference> -> <client> [: <backReference>]`
+     *
+     * Connects a reference of one component instance to another compatible component instance.
+     * Use `backReference` to create an additional reverse connection when the target publishes one.
+     *
+     * **Example**
+     * ```xsmp
+     * interface link . : logger -> child
+     * ```
+     */
     'interface' 'link' ownerPath=Path ':' reference=ValidID  '->' clientPath=Path (':'backReference=ValidID)?;
 
 Invocation returns Invocation:
     OperationCall | PropertyValue;
 
 OperationCall returns OperationCall:
+    /**
+     * `call <operation>(<parameter = value, ...>)`
+     *
+     * Invokes one published operation of the current configured or current model instance.
+     *
+     * **Example**
+     * ```xsmp
+     * call apply(requestedMode = demo.foundation.Mode.Nominal)
+     * ```
+     */
     'call' operation=ValidID '(' (parameters+=ParameterValue (',' parameters+=ParameterValue)*)? ')';
 
 
@@ -129,6 +243,16 @@ ParameterValue returns ParameterValue:
     parameter=ValidID '=' value=SimpleValue;
 
 PropertyValue returns PropertyValue:
+    /**
+     * `property <property> = <value>`
+     *
+     * Sets one writable property of the current configured or current model instance.
+     *
+     * **Example**
+     * ```xsmp
+     * property mode = demo.foundation.Mode.Nominal
+     * ```
+     */
     'property' property=ValidID '=' value=SimpleValue;
 
 

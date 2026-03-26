@@ -1,6 +1,10 @@
+/** Fine tuning values for one camera head. */
 configuration CameraTuning
+/** Root camera instance configured by this document. */
 /camera: demo.payload.CameraHead
 {
+    /** Sets the detector to a cold operating point. */
     detectorTemperature = 8.0
+    /** Provides a simple per-line calibration profile. */
     lineCalibration = [0.9, 1.0, 1.1, 1.0]
 }

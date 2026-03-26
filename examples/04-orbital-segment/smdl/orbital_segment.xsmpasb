@@ -1,13 +1,22 @@
+/** Templated orbital-segment assembly combining platform, avionics and routing. */
 assembly <Lane = "Ops", BusMember = "avionics", RouterMember = "router", LoggerMember = "logger"> OrbitalSegment
+/** Configures the templated avionics child after instantiation. */
 configure Avionics{Lane}
 {
+    /** Subscribes the avionics step entry point to the platform-ready event. */
     subscribe step -> "PlatformReady"
+    /** Forces the exposed avionics mode property to nominal. */
     property modeState = demo.foundation.Mode.Nominal
 }
+/** Root orbital platform instance used by the segment assembly. */
 Scenario{Lane}: demo.orbit.OrbitalPlatform
 {
+    /** Starts the platform in standby before schedules take over. */
     missionMode = demo.foundation.Mode.Standby
+    /** Instantiates the avionics child with a templated name. */
     avionics += Avionics{Lane}: demo.avionics.AvionicsUnit
+    /** Instantiates the power router child. */
     router += Router{Lane}: demo.orbit.PowerRouter
+    /** Instantiates the local logger child. */
     logger += Logger{Lane}: demo.orbit.SegmentLogger
 }

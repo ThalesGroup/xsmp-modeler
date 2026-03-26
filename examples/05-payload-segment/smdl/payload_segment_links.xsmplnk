@@ -1,13 +1,20 @@
+/** Reusable link base wiring the templated payload segment. */
 link PayloadSegmentLinks for PayloadSegment
 
+/** Links declared at the root of the payload platform. */
 /: demo.payloadsegment.PayloadPlatform
 {
+    /** Routes camera frames toward the downlink router. */
     field link {PayloadMember}.camera.frames -> {RouterMember}.sourceFrames
+    /** Injects the payload logger into the payload logger reference. */
     interface link {PayloadMember}: logger -> {LoggerMember}
+    /** Publishes payload mode changes to the platform inbound sink. */
     event link {PayloadMember}.payloadMode -> inboundMode
 
+    /** Additional links local to the nested payload subtree. */
     payload: demo.payload.PayloadUnit
     {
+        /** Maps camera frame events to the payload uplink sink. */
         event link camera.frameReady -> uplinkMode
     }
 }

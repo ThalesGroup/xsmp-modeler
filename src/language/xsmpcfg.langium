@@ -3,6 +3,21 @@ grammar Xsmpcfg
 import 'xsmp-types'
 
 entry Configuration returns Configuration:
+    /**
+     * `configuration <name>`
+     *
+     * Declares a reusable XSMP configuration document.
+     * A configuration groups field values, nested component configurations and includes that can be applied to matching component instances.
+     *
+     * **Example**
+     * ```xsmp
+     * configuration Nominal
+     * /platform: demo.Platform
+     * {
+     *     mode = demo.foundation.Mode.Nominal
+     * }
+     * ```
+     */
     'configuration' name=ValidID
     elements+=(ConfigurationUsage|ComponentConfiguration)*;
 
@@ -16,6 +31,17 @@ ComponentConfiguration returns ComponentConfiguration:
     '}';
 
 ConfigurationUsage returns ConfigurationUsage:
+    /**
+     * `include <configuration> [at <path>]`
+     *
+     * Includes another configuration document, optionally below a child component path.
+     * Use `at` to reuse a common configuration on a nested instance instead of at the current level.
+     *
+     * **Example**
+     * ```xsmp
+     * include PowerNominal at power
+     * ```
+     */
     'include' configuration=[Configuration:ValidID]
     ('at' path=Path)?;
 
@@ -36,7 +62,19 @@ CfgStructureValueElement returns Value:
     CfgStructureFieldValue | Value;
 
 CfgStructureFieldValue returns CfgStructureFieldValue:
-    unsafe?='unsafe'? field=ValidID '=' value=Value;
+    (
+        /**
+         * `unsafe`
+         *
+         * Marks one designated structure field assignment as intentionally unchecked.
+         *
+         * **Example**
+         * ```xsmp
+         * unsafe legacyField = 2
+         * ```
+         */
+        unsafe?='unsafe'
+    )? field=ValidID '=' value=Value;
 
 ArrayValue returns ArrayValue:
     '[' (elements+=Value (','elements+=Value)*)? ']';
@@ -97,7 +135,19 @@ DateTimeValue returns DateTimeValue:
 
 Path returns Path:
     {Path}
-    unsafe?='unsafe'?
+    (
+        /**
+         * `unsafe`
+         *
+         * Marks a configuration path as intentionally unchecked while keeping resolution, hover and navigation.
+         *
+         * **Example**
+         * ```xsmp
+         * include Legacy at unsafe child
+         * ```
+         */
+        unsafe?='unsafe'
+    )?
     (absolute?='/' (head=PathSegment elements+=PathElement*)?
     | head=PathSegment elements+=PathElement*);
 

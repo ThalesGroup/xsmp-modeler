@@ -1,10 +1,16 @@
+/** Integration-time configuration applied to the whole mission root. */
 configuration MissionIntegration
+/** Root mission-system instance configured by this document. */
 /system: demo.mission.MissionSystemRoot
 {
+    /** Marks the integrated system as ready. */
     integrated = true
+    /** Overrides the embedded ground console. */
     ground: demo.mission.GroundConsole
     {
+        /** Displays an integration readiness message. */
         consoleMessage = "integration ready"
+        /** Seeds a nominal uplink mode. */
         uplinkMode = demo.foundation.Mode.Nominal
     }
 }

@@ -1,30 +1,47 @@
+/** Mission-level schedule orchestrating orbital, payload and ground activities. */
 schedule <root: string = "/system", OrbitalMember: string = "orbital", PayloadMember: string = "payload", ConsoleMember: string = "ground", phases: int32 = 2> MissionSchedule epoch "2025-01-01T01:00:00Z" mission "2025-01-01T01:00:00Z"
 
+/** Dispatch task starting the mission and delegating work to subsystems. */
 task Dispatch: demo.mission.MissionSystemRoot
 {
+    /** Logs the mission dispatch on the ground console. */
     call {ConsoleMember}.log(message = "mission dispatch")
+    /** Sends the current ground uplink mode. */
     trig {ConsoleMember}.dispatch
+    /** Runs one orbital supervision cycle on the orbital subtree. */
     execute OrbitalTick at {OrbitalMember}
+    /** Runs one payload supervision cycle on the payload subtree. */
     execute PayloadTick at {PayloadMember}
+    /** Emits the mission-ready event for follow-up tasks. */
     async emit "MissionReady"
 }
 
+/** Simple orbital tick task executed on the orbital platform. */
 task OrbitalTick: demo.orbit.OrbitalPlatform
 {
+    /** Runs the orbital platform entry point. */
     trig run
 }
 
+/** Simple payload tick task executed on the payload platform. */
 task PayloadTick: demo.payloadsegment.PayloadPlatform
 {
+    /** Runs the payload platform entry point. */
     trig run
 }
 
+/** Monitoring task supervising the integrated mission root. */
 task Monitor: demo.mission.MissionSystemRoot
 {
+    /** Executes the root supervision entry point. */
     trig supervise
 }
 
+/** Starts the mission dispatch in mission-relative time. */
 event Dispatch mission "PT15S"
+/** Starts cyclic monitoring after the mission-ready event. */
 event Monitor on "MissionReady" using epoch delay "PT10S" cycle "PT1M" repeat 2
+/** Schedules one orbital tick in simulation time. */
 event OrbitalTick simulation "PT20S"
+/** Schedules one payload tick at a fixed UTC timestamp. */
 event PayloadTick zulu "2025-01-01T01:01:00Z"

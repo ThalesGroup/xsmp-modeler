@@ -1,27 +1,44 @@
+/** Operational schedule driving one payload segment over time. */
 schedule <root: string = "/payloadSegment", PayloadMember: string = "payload", RouterMember: string = "router", LoggerMember: string = "logger", cycles: int32 = 2> PayloadSegmentSchedule epoch "2025-01-01T00:10:00Z" mission "2025-01-01T00:10:00Z"
 
+/** Prime task preparing the payload platform for acquisition. */
 task Prime: demo.payloadsegment.PayloadPlatform
 {
+    /** Logs the payload bootstrap phase. */
     call {LoggerMember}.log(message = "payload bootstrap")
+    /** Forces the platform mode to nominal. */
     property mode = demo.foundation.Mode.Nominal
+    /** Runs one payload capture cycle. */
     trig {PayloadMember}.capture
+    /** Reuses the dedicated flush task on the payload root. */
     execute Flush at {PayloadMember}
+    /** Emits the event that starts the downlink cycle. */
     async emit "PayloadReady"
 }
 
+/** Flush task executed on the payload unit itself. */
 task Flush: demo.payload.PayloadUnit
 {
+    /** Flushes the payload mass memory. */
     trig memory.flush
+    /** Forces the camera into nominal mode. */
     call camera.apply(requestedMode = demo.foundation.Mode.Nominal)
 }
 
+/** Downlink task routing frame data through the segment router. */
 task Downlink: demo.payloadsegment.PayloadPlatform
 {
+    /** Copies camera frames to the downlink router input. */
     transfer {PayloadMember}.camera.frames -> {RouterMember}.sourceFrames
+    /** Runs one relay step on the router. */
     trig {RouterMember}.relay
+    /** Logs the relay activity. */
     call {LoggerMember}.log(message = "payload relay")
 }
 
+/** Starts the prime phase once at a UTC time. */
 event Prime zulu "2025-01-01T00:10:20Z"
+/** Starts cyclic downlink after the payload-ready event. */
 event Downlink on "PayloadReady" using epoch delay "PT10S" cycle "PT1M" repeat 2
+/** Schedules an extra flush in simulation time. */
 event Flush simulation "PT20S"

@@ -1,49 +1,80 @@
+/** Payload-segment catalogue combining payload and downlink support models. */
 catalogue payload_segment_catalogue
 
+/** Payload platform models used by the segment and mission demos. */
 namespace demo::payloadsegment
 {
-    /** @uuid b83109eb-46c9-4854-9285-62b12f97e545 */
+    /**
+     * Router forwarding payload frame samples to downlink.
+     * @uuid b83109eb-46c9-4854-9285-62b12f97e545
+     */
     public model DownlinkRouter
     {
+        /** Source frame samples coming from the payload. */
         input field demo.foundation.FloatSamples sourceFrames
+        /** Downlinked frame samples. */
         output field demo.foundation.FloatSamples downlinkedFrames
 
+        /** Relays one set of frame samples. */
         entrypoint relay
         {
+            /** Declares the frame input consumed by the relay. */
             in sourceFrames
+            /** Declares the frame output produced by the relay. */
             out downlinkedFrames
         }
     }
 
-    /** @uuid 015e89db-00aa-4712-932f-d606212a5d98 */
+    /**
+     * Logger dedicated to the payload segment.
+     * @uuid 015e89db-00aa-4712-932f-d606212a5d98
+     */
     public model PayloadLogger implements demo.foundation.ILogger
     {
+        /** Last payload log message. */
         field Smp.String8 lastMessage = "payload idle"
 
+        /** Records one payload log message. */
         public def void log(in Smp.String8 message)
 
+        /** Publishes payload log traffic as text events. */
         eventsource demo.foundation.TextEvent logEvent
     }
 
-    /** @uuid 64bba1f3-25dc-4cf4-83b3-986c60fd5a0b */
+    /**
+     * Payload platform aggregating payload, routing and logging.
+     * @uuid 64bba1f3-25dc-4cf4-83b3-986c60fd5a0b
+     */
     public model PayloadPlatform implements demo.foundation.ICommandable
     {
+        /** Current platform mode. */
         field demo.foundation.Mode platformMode = demo.foundation.Mode.Standby
+        /** Published downlink power profile. */
         output field demo.foundation.PowerProfile downlinkProfile
+        /** Embedded payload unit. */
         container demo.payload.PayloadUnit payload = demo.payload.PayloadUnit
+        /** Embedded downlink router. */
         container demo.payloadsegment.DownlinkRouter router = demo.payloadsegment.DownlinkRouter
+        /** Embedded payload logger. */
         container demo.payloadsegment.PayloadLogger logger = demo.payloadsegment.PayloadLogger
+        /** Optional upstream logger provided by the parent mission. */
         reference demo.foundation.ILogger? upstreamLogger
 
+        /** ICommandable mode property. */
         public property demo.foundation.Mode mode -> platformMode
+        /** Applies the requested platform mode. */
         public def void apply(in demo.foundation.Mode requestedMode)
 
+        /** Runs one payload-platform cycle. */
         entrypoint run
         {
+            /** Declares the downlink profile output of the cycle. */
             out downlinkProfile
         }
 
+        /** Receives inbound mode commands. */
         eventsink demo.foundation.ModeEvent inboundMode
+        /** Publishes the current payload-platform mode. */
         eventsource demo.foundation.ModeEvent publishedMode
     }
 }

@@ -1,6 +1,10 @@
+/** Calibration values dedicated to one sensor head. */
 configuration SensorCalibration
+/** Root sensor instance configured by this document. */
 /sensor: demo.avionics.SensorHead
 {
+    /** Sets the nominal detector temperature. */
     sensorTemperature = 18.5
+    /** Loads a small bias vector used by the sampling example. */
     bias = [0.01, 0.0, 0.01, 0.02]
 }
