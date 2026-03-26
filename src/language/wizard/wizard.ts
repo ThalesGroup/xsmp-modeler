@@ -30,16 +30,20 @@ export async function createProjectWizard() {
     // Project name input
     let projectName: string | undefined;
     while (projectName === undefined) {
-        projectName = await vscode.window.showInputBox({
+        const input = await vscode.window.showInputBox({
             prompt: 'Enter project name'
         });
 
-        if (projectName && /^[a-zA-Z][a-zA-Z0-9_.-]*$/.test(projectName)) {
-            break;
-        } else {
-            vscode.window.showErrorMessage('Project name must follow the format [a-zA-Z][a-zA-Z0-9_.-]\\w*');
-            projectName = undefined;
+        if (input === undefined) {
+            return;
         }
+
+        if (input && /^[a-zA-Z][a-zA-Z0-9_.-]*$/.test(input)) {
+            projectName = input;
+            break;
+        }
+
+        vscode.window.showErrorMessage('Project name must follow the format [a-zA-Z][a-zA-Z0-9_.-]\\w*');
     }
 
     // Select profile
@@ -70,7 +74,20 @@ export async function createProjectWizard() {
     // Create specific files
     const projectFolderPath = path.join(destinationFolder, projectName);
 
-    await createTemplateProject(projectName, projectFolderPath, profile, selectedTools);
+    if (fs.existsSync(projectFolderPath)) {
+        vscode.window.showErrorMessage(`Project folder '${projectFolderPath}' already exists.`);
+        return;
+    }
+
+    try {
+        await createTemplateProject(projectName, projectFolderPath, profile, selectedTools);
+    } catch (error) {
+        if (isNodeError(error) && error.code === 'EEXIST') {
+            vscode.window.showErrorMessage(`Project folder '${projectFolderPath}' already exists.`);
+            return;
+        }
+        throw error;
+    }
 
     // Add project to workspace
     const addToWorkspace = await vscode.window.showQuickPick(
@@ -436,4 +453,8 @@ dependency '${dependency}'
 `;
 
     await fs.promises.writeFile(path.join(dirPath, 'xsmp.project'), content);
+}
+
+function isNodeError(error: unknown): error is NodeJS.ErrnoException {
+    return error instanceof Error;
 }
