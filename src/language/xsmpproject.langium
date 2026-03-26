@@ -65,8 +65,8 @@ Dependency returns Dependency:
      *
      * Declares that the current project depends on another XSMP project.
      * Dependencies make the dependent project's visible modeling documents available for linking and validation,
-     * such as catalogues, configurations, assemblies, link bases, schedules and contribution payload documents.
-     * Profile and tool declarations are not inherited through dependencies.
+     * such as catalogues, configurations, assemblies, link bases and schedules.
+     * Profile/tool declarations and contribution payload documents are not inherited through dependencies.
      *
      * **Example**
      * ```xsmp

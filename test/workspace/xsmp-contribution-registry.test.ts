@@ -19,7 +19,7 @@ afterEach(() => {
 });
 
 describe('XSMP contribution registry', () => {
-    test('scopes builtins to active projects, propagates them transitively and activates generators/validators', async () => {
+    test('scopes builtins to active projects without propagating them to dependents, and activates generators/validators', async () => {
         const extensionRoot = path.join(tempDir, 'extension');
         const builtinsDir = path.join(extensionRoot, 'builtins');
         fs.mkdirSync(builtinsDir, { recursive: true });
@@ -138,12 +138,12 @@ namespace isolated
 
         expect(builtinUri).toBeDefined();
         expect(services.shared.workspace.ProjectManager.getVisibleUris(depDocument)?.has(builtinUri!)).toBe(true);
-        expect(services.shared.workspace.ProjectManager.getVisibleUris(appDocument)?.has(builtinUri!)).toBe(true);
+        expect(services.shared.workspace.ProjectManager.getVisibleUris(appDocument)?.has(builtinUri!)).toBe(false);
         expect(services.shared.workspace.ProjectManager.getVisibleUris(isolatedDocument)?.has(builtinUri!)).toBe(false);
 
         expect(diagnosticMessages(depDocument)).toContain('Fake contribution validation.');
         expect(diagnosticMessages(appDocument)).not.toContain('Fake contribution validation.');
-        expect(diagnosticMessages(appDocument).some(message => message.includes('Could not resolve reference'))).toBe(false);
+        expect(diagnosticMessages(appDocument).some(message => message.includes('Could not resolve reference'))).toBe(true);
         expect(diagnosticMessages(isolatedDocument).some(message => message.includes('Could not resolve reference'))).toBe(true);
 
         const depProject = services.shared.workspace.ProjectManager.getProject(depDocument);

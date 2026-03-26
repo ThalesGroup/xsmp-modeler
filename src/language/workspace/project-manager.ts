@@ -96,9 +96,9 @@ export class ProjectManager {
         const standard = project.standard;
         const dependencies = this.getDependencies(project);
         dependencies.forEach(dep => uris.add(AstUtils.getDocument(dep).uri.toString()));
-        // Contribution payload documents follow project visibility transitively through dependencies.
-        // This is distinct from `profile`/`tool` declarations, which remain local to each xsmp.project.
-        const activeContributionIds = this.getActiveContributionIds(dependencies);
+        // Contribution payload documents are only visible inside the project that activates the
+        // corresponding profile/tool. They are not inherited through project dependencies.
+        const activeContributionIds = this.getActiveContributionIds(new Set([project]));
         this.contributionRegistry.getPayloadBuiltinUrisForContributions(activeContributionIds).forEach(uri => uris.add(uri));
 
         const folders = this.getSourceFolders(dependencies);

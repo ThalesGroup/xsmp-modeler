@@ -331,7 +331,7 @@ export class XsmpprojectCompletionProvider extends XsmpCompletionProviderBase {
                 '',
                 'Its visible modeling documents become available transitively for linking and validation.',
                 '',
-                'This does not inherit the dependency project\'s `profile` or `tool` declarations.',
+                'This does not inherit the dependency project\'s `profile`/`tool` declarations or contribution payload documents.',
             ].join('\n'),
         };
     }
