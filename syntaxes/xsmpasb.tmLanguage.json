@@ -2,65 +2,64 @@
 	"scopeName": "source.xsmpasb",
 	"patterns": [
 		{
-			"match": "\\b(assembly|event|link|interface|field|import|int32|string|call|model|configure|subscribe|property|using|config)\\b",
-			"name": "keyword.control.xsmp.asb"
+			"include": "#assembly"
 		},
 		{
-			"match": "(?<!\\\\)(\"(?:[^\"\\\\]|\\\\.)*\")|(?<!\\\\)('(?:[^'\\\\]|\\\\.)*')",
-			"name": "string.quoted.double.xsmp.asb"
-		},
-		{
-			"include": "#annotations"
-		},
-		{
-			"include": "#comments"
-		},
-		{
-			"include": "#literals"
+			"include": "#commons"
 		}
 	],
 	"repository": {
-		"comments": {
+		"commons": {
 			"patterns": [
 				{
-					"name": "comment.line.double-dash.xsmp.asb",
-					"begin": "(^[ \\t]+)?(?=//)",
-					"end": "(?=$)"
+					"include": "#comments"
 				},
 				{
-					"name": "comment.block.documentation.xsmp.asb",
-					"match": "/\\*\\*\\*/"
+					"include": "#annotations"
 				},
 				{
-					"name": "comment.block.documentation.xsmp.asb",
-					"begin": "/\\*\\*[^\\*\\/]",
-					"end": "\\*/",
-					"patterns": [
-						{
-							"match": "@[^\\s]+",
-							"name": "comment.block.documentation.tag.xsmp.asb"
-						}
-					]
+					"include": "#literals"
 				},
 				{
-					"name": "comment.block.xsmp.asb",
-					"match": "/\\*(?:\\*\\*+)?\\*/"
+					"include": "#qualified-reference"
 				},
 				{
-					"name": "comment.block.xsmp.asb",
-					"begin": "/\\*(?:[^\\*]|\\*\\*)",
-					"end": "\\*/"
+					"include": "#template-placeholder"
+				},
+				{
+					"include": "#template-parameter-list"
+				},
+				{
+					"include": "#template-argument-list"
+				},
+				{
+					"include": "#path-contexts"
+				},
+				{
+					"include": "#operators"
 				}
 			]
 		},
-		"annotations": {
-			"name": "storage.type.annotation.xsmp.asb",
-			"match": "@\\s*(?:(?:[a-zA-Z_]\\w*\\s*\\.\\s*)*[a-zA-Z_]\\w*)?"
+		"line_continuation_character": {
+			"match": "\\\\\\n",
+			"name": "constant.character.escape.line-continuation.xsmp"
+		},
+		"string_escapes_context_c": {
+			"patterns": [
+				{
+					"match": "(?x)\\\\ (\n\\\\\t\t\t |\n[abefnprtv'\"?]   |\n[0-3][0-7]{,2}\t |\n[4-7]\\d?\t\t|\nx[a-fA-F0-9]{,2} |\nu[a-fA-F0-9]{,4} |\nU[a-fA-F0-9]{,8} )",
+					"name": "constant.character.escape"
+				},
+				{
+					"match": "\\\\.",
+					"name": "invalid.illegal.unknown-escape"
+				}
+			]
 		},
 		"literals": {
 			"patterns": [
 				{
-				"begin": "\"",
+					"begin": "\"",
 					"end": "(\")(?:((?:[a-zA-Z]|(?:\\\\u[0-9a-fA-F]{4}|\\\\U[0-9a-fA-F]{8}))(?:[a-zA-Z0-9_]|(?:\\\\u[0-9a-fA-F]{4}|\\\\U[0-9a-fA-F]{8}))*)|(_(?:[a-zA-Z0-9_]|(?:\\\\u[0-9a-fA-F]{4}|\\\\U[0-9a-fA-F]{8}))*))?",
 					"beginCaptures": {
 						"0": {
@@ -149,12 +148,523 @@
 					]
 				},
 				{
-					"match": "\\b(0b[01]+|0x[0-9A-Fa-f]+|[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?([fF](32|64)?|[iu](8|16|32|64))?)\\b",
-					"name": "constant.numeric.xsmp"
+					"match": "\\b(0b[01]+|0x[0-9A-Fa-f]+|[0-9]+(?:\\.[0-9]+)?(?:[eE][+-]?[0-9]+)?)([fF](?:32|64)?|[iu](?:8|16|32|64))?\\b",
+					"captures": {
+						"1": {
+							"name": "constant.numeric.xsmp"
+						},
+						"2": {
+							"name": "storage.type.numeric-suffix.xsmp"
+						}
+					}
 				},
 				{
 					"match": "\\b(true|false|nullptr)\\b",
 					"name": "constant.language.xsmp"
+				}
+			]
+		},
+		"comments": {
+			"patterns": [
+				{
+					"name": "comment.line.double-dash.xsmp",
+					"begin": "(^[ \\t]+)?(?=//)",
+					"end": "(?=$)"
+				},
+				{
+					"name": "comment.block.documentation.xsmp",
+					"match": "/\\*\\*\\*/"
+				},
+				{
+					"name": "comment.block.documentation.xsmp",
+					"begin": "/\\*\\*[^\\*\\/]",
+					"end": "\\*/",
+					"patterns": [
+						{
+							"match": "@[^\\s]+",
+							"name": "comment.block.documentation.tag.xsmp"
+						}
+					]
+				},
+				{
+					"name": "comment.block.xsmp",
+					"match": "/\\*(?:\\*\\*+)?\\*/"
+				},
+				{
+					"name": "comment.block.xsmp",
+					"begin": "/\\*(?:[^\\*]|\\*\\*)",
+					"end": "\\*/"
+				}
+			]
+		},
+		"annotations": {
+			"patterns": [
+				{
+					"begin": "((@)\\s*((?:[A-Za-z]\\w*\\s*(\\.)\\s*)*([A-Za-z]\\w*)))(\\()",
+					"beginCaptures": {
+						"2": {
+							"name": "punctuation.definition.annotation.xsmp"
+						},
+						"5": {
+							"name": "storage.type.annotation.xsmp"
+						},
+						"6": {
+							"name": "punctuation.definition.annotation-arguments.begin.bracket.round.xsmp"
+						}
+					},
+					"end": "\\)",
+					"endCaptures": {
+						"0": {
+							"name": "punctuation.definition.annotation-arguments.end.bracket.round.xsmp"
+						}
+					},
+					"name": "meta.declaration.annotation.xsmp",
+					"patterns": [
+						{
+							"include": "#literals"
+						},
+						{
+							"include": "#qualified-reference"
+						}
+					]
+				},
+				{
+					"match": "(@)\\s*((?:[A-Za-z]\\w*\\s*(\\.)\\s*)*([A-Za-z]\\w*))",
+					"name": "meta.declaration.annotation.xsmp",
+					"captures": {
+						"1": {
+							"name": "punctuation.definition.annotation.xsmp"
+						},
+						"4": {
+							"name": "storage.type.annotation.xsmp"
+						}
+					}
+				}
+			]
+		},
+		"qualified-reference": {
+			"match": "\\b((?:[A-Za-z]\\w*\\s*(\\.)\\s*)+)([A-Za-z]\\w*)\\b",
+			"name": "entity.other.type.reference.xsmp",
+			"captures": {
+				"1": {
+					"name": "entity.other.type.reference.xsmp"
+				},
+				"2": {
+					"name": "punctuation.separator.period.xsmp"
+				},
+				"3": {
+					"name": "entity.name.type.reference.xsmp"
+				}
+			}
+		},
+		"template-placeholder": {
+			"match": "(\\{)([_a-zA-Z]\\w*)(\\})(\\w*)?",
+			"captures": {
+				"1": {
+					"name": "punctuation.section.embedded.begin.xsmp"
+				},
+				"2": {
+					"name": "variable.parameter.xsmp"
+				},
+				"3": {
+					"name": "punctuation.section.embedded.end.xsmp"
+				},
+				"4": {
+					"name": "entity.name.type.reference.xsmp"
+				}
+			}
+		},
+		"path-body": {
+			"patterns": [
+				{
+					"match": "\\bunsafe\\b",
+					"name": "storage.modifier.xsmp"
+				},
+				{
+					"match": "\\.\\.",
+					"name": "keyword.operator.path.parent.xsmp"
+				},
+				{
+					"match": "/",
+					"name": "punctuation.separator.path.xsmp"
+				},
+				{
+					"match": "\\.",
+					"name": "punctuation.separator.period.xsmp"
+				},
+				{
+					"match": "(\\[)(\\d+)(\\])",
+					"captures": {
+						"1": {
+							"name": "punctuation.section.brackets.begin.xsmp"
+						},
+						"2": {
+							"name": "constant.numeric.xsmp"
+						},
+						"3": {
+							"name": "punctuation.section.brackets.end.xsmp"
+						}
+					}
+				},
+				{
+					"include": "#template-placeholder"
+				},
+				{
+					"match": "\\b[_a-zA-Z]\\w*\\b",
+					"name": "variable.other.path.segment.xsmp"
+				}
+			]
+		},
+		"local-entrypoint-body": {
+			"patterns": [
+				{
+					"match": "\\bunsafe\\b",
+					"name": "storage.modifier.xsmp"
+				},
+				{
+					"match": "\\b[_a-zA-Z]\\w*\\b",
+					"name": "entity.name.entrypoint.xsmp"
+				}
+			]
+		},
+		"local-operation-body": {
+			"patterns": [
+				{
+					"match": "\\bunsafe\\b",
+					"name": "storage.modifier.xsmp"
+				},
+				{
+					"match": "\\b[_a-zA-Z]\\w*\\b",
+					"name": "entity.name.function.xsmp"
+				}
+			]
+		},
+		"local-member-body": {
+			"patterns": [
+				{
+					"match": "\\bunsafe\\b",
+					"name": "storage.modifier.xsmp"
+				},
+				{
+					"match": "\\b[_a-zA-Z]\\w*\\b",
+					"name": "entity.name.field.xsmp"
+				}
+			]
+		},
+		"local-container-body": {
+			"patterns": [
+				{
+					"match": "\\bunsafe\\b",
+					"name": "storage.modifier.xsmp"
+				},
+				{
+					"match": "\\b[_a-zA-Z]\\w*\\b",
+					"name": "entity.name.xsmp"
+				}
+			]
+		},
+		"template-parameter-list": {
+			"name": "meta.template.parameters.xsmp",
+			"begin": "(?=<[^>]*:)<",
+			"beginCaptures": {
+				"0": {
+					"name": "punctuation.definition.template.begin.xsmp"
+				}
+			},
+			"end": ">",
+			"endCaptures": {
+				"0": {
+					"name": "punctuation.definition.template.end.xsmp"
+				}
+			},
+			"patterns": [
+				{
+					"include": "#comments"
+				},
+				{
+					"include": "#annotations"
+				},
+				{
+					"include": "#literals"
+				},
+				{
+					"include": "#qualified-reference"
+				},
+				{
+					"include": "#template-placeholder"
+				},
+				{
+					"match": "\\b([A-Za-z_]\\w*)\\b(?=\\s*[:=])",
+					"name": "variable.parameter.xsmp"
+				},
+				{
+					"match": "(?<=:)\\s*(string|int32)\\b",
+					"name": "storage.type.xsmp"
+				},
+				{
+					"match": "=",
+					"name": "keyword.operator.assignment.xsmp"
+				},
+				{
+					"match": ",",
+					"name": "punctuation.separator.delimiter.xsmp"
+				}
+			]
+		},
+		"template-argument-list": {
+			"name": "meta.template.arguments.xsmp",
+			"begin": "(?=<[^>]*=)(?!<[^>]*:)<",
+			"beginCaptures": {
+				"0": {
+					"name": "punctuation.definition.template.begin.xsmp"
+				}
+			},
+			"end": ">",
+			"endCaptures": {
+				"0": {
+					"name": "punctuation.definition.template.end.xsmp"
+				}
+			},
+			"patterns": [
+				{
+					"include": "#comments"
+				},
+				{
+					"include": "#annotations"
+				},
+				{
+					"include": "#literals"
+				},
+				{
+					"include": "#qualified-reference"
+				},
+				{
+					"include": "#template-placeholder"
+				},
+				{
+					"match": "\\b([A-Za-z_]\\w*)\\b(?=\\s*=)",
+					"name": "variable.parameter.xsmp"
+				},
+				{
+					"match": "=",
+					"name": "keyword.operator.assignment.xsmp"
+				},
+				{
+					"match": ",",
+					"name": "punctuation.separator.delimiter.xsmp"
+				}
+			]
+		},
+		"path-contexts": {
+			"patterns": [
+				{
+					"begin": "(\\bconfigure\\b)(\\s+)",
+					"beginCaptures": {
+						"1": {
+							"name": "storage.modifier.xsmp"
+						}
+					},
+					"end": "(?=\\s*\\{)",
+					"contentName": "meta.path.xsmp",
+					"patterns": [
+						{
+							"include": "#path-body"
+						}
+					]
+				},
+				{
+					"begin": "(\\bsubscribe\\b)(\\s+)",
+					"beginCaptures": {
+						"1": {
+							"name": "storage.modifier.xsmp"
+						}
+					},
+					"end": "(?=\\s*->)",
+					"contentName": "meta.local-reference.entrypoint.xsmp",
+					"patterns": [
+						{
+							"include": "#local-entrypoint-body"
+						}
+					]
+				},
+				{
+					"begin": "(\\bcall\\b)(\\s+)",
+					"beginCaptures": {
+						"1": {
+							"name": "storage.modifier.xsmp"
+						}
+					},
+					"end": "(?=\\s*\\()",
+					"contentName": "meta.local-reference.operation.xsmp",
+					"patterns": [
+						{
+							"include": "#local-operation-body"
+						}
+					]
+				},
+				{
+					"begin": "(\\bproperty\\b)(\\s+)",
+					"beginCaptures": {
+						"1": {
+							"name": "storage.modifier.xsmp"
+						}
+					},
+					"end": "(?=\\s*=)",
+					"contentName": "meta.local-reference.member.xsmp",
+					"patterns": [
+						{
+							"include": "#local-member-body"
+						}
+					]
+				},
+				{
+					"begin": "(\\b(?:event|field|interface)\\b\\s+\\blink\\b)(\\s+)",
+					"beginCaptures": {
+						"1": {
+							"name": "storage.modifier.xsmp"
+						}
+					},
+					"end": "(?=\\s*(?::|->))",
+					"contentName": "meta.path.xsmp",
+					"patterns": [
+						{
+							"include": "#path-body"
+						}
+					]
+				},
+				{
+					"begin": "(->)(\\s+)",
+					"beginCaptures": {
+						"1": {
+							"name": "keyword.operator.xsmp"
+						}
+					},
+					"end": "(?=\\s*(?::|\\n|\\r|$))",
+					"contentName": "meta.path.xsmp",
+					"patterns": [
+						{
+							"include": "#path-body"
+						}
+					]
+				},
+				{
+					"begin": "(?<=^|\\{|,)\\s*(?=(?:unsafe\\s+)?[_a-zA-Z]\\w*\\s*\\+=)",
+					"end": "(?=\\s*\\+=)",
+					"contentName": "meta.local-reference.container.xsmp",
+					"patterns": [
+						{
+							"include": "#local-container-body"
+						}
+					]
+				}
+			]
+		},
+		"operators": {
+			"patterns": [
+				{
+					"match": "\\.\\.",
+					"name": "keyword.operator.path.parent.xsmp"
+				},
+				{
+					"match": "(->|\\+=|=)",
+					"name": "keyword.operator.xsmp"
+				},
+				{
+					"match": "[\\[\\]{}()<>]",
+					"name": "punctuation.section.brackets.xsmp"
+				},
+				{
+					"match": "(?<!\\.)\\/(?!\\/)",
+					"name": "punctuation.separator.path.xsmp"
+				},
+				{
+					"match": "(?<!\\.)\\.(?!\\d)",
+					"name": "punctuation.separator.period.xsmp"
+				},
+				{
+					"match": ",",
+					"name": "punctuation.separator.delimiter.xsmp"
+				},
+				{
+					"match": ":",
+					"name": "punctuation.separator.colon.xsmp"
+				}
+			]
+		},
+		"assembly": {
+			"name": "meta.assembly.xsmp",
+			"begin": "\\b(assembly)\\b",
+			"beginCaptures": {
+				"1": {
+					"name": "keyword.other.catalogue.xsmp"
+				}
+			},
+			"end": "\\z",
+			"patterns": [
+				{
+					"include": "#commons"
+				},
+				{
+					"match": "(?<=\\bassembly\\b\\s)([A-Za-z]\\w*)\\b",
+					"name": "entity.name.type.class.xsmp"
+				},
+				{
+					"match": "(?<=\\>)\\s*([A-Za-z]\\w*)\\b(?=\\s*(?:configure\\b|[A-Za-z]\\w*\\s*:|$))",
+					"captures": {
+						"1": {
+							"name": "entity.name.type.class.xsmp"
+						}
+					}
+				},
+				{
+					"match": "\\b(configure|subscribe|call|property|using|config|link|event|field|interface)\\b",
+					"name": "storage.modifier.xsmp"
+				},
+				{
+					"match": "\\b(string|int32)\\b",
+					"name": "storage.type.xsmp"
+				},
+				{
+					"match": "\\bunsafe\\b",
+					"name": "storage.modifier.xsmp"
+				},
+				{
+					"match": "(\\busing\\b)\\s+(config|link)\\s+([A-Za-z]\\w*)",
+					"captures": {
+						"1": {
+							"name": "storage.modifier.xsmp"
+						},
+						"2": {
+							"name": "storage.modifier.xsmp"
+						},
+						"3": {
+							"name": "entity.name.type.reference.xsmp"
+						}
+					}
+				},
+				{
+					"match": "(:)\\s*(((?:[A-Za-z]\\w*\\s*(\\.)\\s*)*)([A-Za-z]\\w*))",
+					"captures": {
+						"1": {
+							"name": "punctuation.separator.colon.xsmp"
+						},
+						"2": {
+							"name": "entity.other.type.reference.xsmp"
+						},
+						"3": {
+							"name": "entity.other.type.reference.xsmp"
+						},
+						"4": {
+							"name": "punctuation.separator.period.xsmp"
+						},
+						"5": {
+							"name": "entity.name.type.reference.xsmp"
+						}
+					}
+				},
+				{
+					"match": "\\b([A-Za-z_]\\w*)\\b(?=\\s*=)",
+					"name": "variable.other.member.xsmp"
 				}
 			]
 		}
