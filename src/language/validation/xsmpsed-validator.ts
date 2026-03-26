@@ -6,14 +6,13 @@ import {
     isAbsolutePath,
     checkValidDateTime,
     checkValidDuration,
-    isValidExpandedL2Identifier,
 } from './l2-validator-utils.js';
 import { checkName } from './name-validator-utils.js';
 import type { Xsmpl2PathResolver } from '../references/xsmpl2-path-resolver.js';
 import type { IdentifierPatternService } from '../references/identifier-pattern-service.js';
-import type { XsmpPathService } from '../references/xsmp-path-service.js';
 import * as XsmpUtils from '../utils/xsmp-utils.js';
-import { collectUsedTemplateParameterNames, warnUnusedTemplateParameters } from './template-parameter-validator-utils.js';
+import { checkTemplatedL2PathSegments, collectUsedTemplateParameterNames, createTemplateBindings, warnUnusedTemplateParameters } from './template-parameter-validator-utils.js';
+import { XsmpcfgValidator } from './xsmpcfg-validator.js';
 
 export function registerXsmpsedValidationChecks(services: XsmpsedServices) {
     const registry = services.validation.ValidationRegistry;
@@ -23,6 +22,8 @@ export function registerXsmpsedValidationChecks(services: XsmpsedServices) {
         Task: validator.checkTask,
         StringParameter: validator.checkStringParameter,
         Int32Parameter: validator.checkInt32Parameter,
+        IntValue: validator.checkIntValue,
+        FloatValue: validator.checkFloatValue,
         Trigger: validator.checkTrigger,
         Transfer: validator.checkTransfer,
         SetProperty: validator.checkSetProperty,
@@ -37,15 +38,14 @@ export function registerXsmpsedValidationChecks(services: XsmpsedServices) {
     registry.register(checks, validator, 'fast');
 }
 
-export class XsmpsedValidator {
-    protected readonly pathResolver: Xsmpl2PathResolver;
+export class XsmpsedValidator extends XsmpcfgValidator {
+    protected readonly l2PathResolver: Xsmpl2PathResolver;
     protected readonly identifierPatternService: IdentifierPatternService;
-    protected readonly pathService: XsmpPathService;
 
     constructor(services: XsmpsedServices) {
-        this.pathResolver = services.shared.L2PathResolver;
+        super(services);
+        this.l2PathResolver = services.shared.L2PathResolver;
         this.identifierPatternService = services.shared.IdentifierPatternService;
-        this.pathService = services.shared.PathService;
     }
 
     checkSchedule(schedule: ast.Schedule, accept: ValidationAcceptor): void {
@@ -118,11 +118,26 @@ export class XsmpsedValidator {
     }
 
     checkSetProperty(property: ast.SetProperty, accept: ValidationAcceptor): void {
-        this.checkActivityPath(property.propertyPath, accept);
+        const propertyPath = property.propertyPath;
+        this.checkActivityPath(propertyPath, accept);
+        if (!propertyPath || propertyPath.unsafe || !property.value) {
+            return;
+        }
+        const resolution = this.l2PathResolver.getScheduleActivityPathResolution(propertyPath);
+        if (resolution.active && !resolution.invalidMessage && resolution.finalType) {
+            this.checkValueAgainstType(property.value, resolution.finalType, accept);
+        }
     }
 
     checkCallOperation(call: ast.CallOperation, accept: ValidationAcceptor): void {
-        this.checkActivityPath(call.operationPath, accept);
+        const operationPath = call.operationPath;
+        this.checkActivityPath(operationPath, accept);
+        const resolution = !operationPath || operationPath.unsafe
+            ? undefined
+            : this.l2PathResolver.getScheduleActivityPathResolution(operationPath);
+        if (resolution?.active && !resolution.invalidMessage && ast.isOperation(resolution.finalElement)) {
+            this.checkCallParameters(call, resolution.finalElement, accept);
+        }
         const seen = new Set<string>();
         for (let index = 0; index < call.parameters.length; index++) {
             const parameter = call.parameters[index];
@@ -144,10 +159,10 @@ export class XsmpsedValidator {
         if (!this.checkPathTemplateParameters(execute.root, accept)) {
             return;
         }
-        const resolution = this.pathResolver.getScheduleActivityPathResolution(execute.root);
+        const resolution = this.l2PathResolver.getScheduleActivityPathResolution(execute.root);
         this.acceptPathError(resolution.invalidMessage, resolution.invalidNode, accept);
         const expectedTask = execute.task?.ref;
-        const expectedComponent = expectedTask ? this.pathResolver.getEffectiveTaskExecutionContext(expectedTask) : undefined;
+        const expectedComponent = expectedTask ? this.l2PathResolver.getEffectiveTaskExecutionContext(expectedTask) : undefined;
         if (!resolution.active || resolution.invalidMessage || !resolution.finalComponent || !expectedComponent) {
             return;
         }
@@ -225,58 +240,80 @@ export class XsmpsedValidator {
         if (!this.checkPathTemplateParameters(path, accept)) {
             return;
         }
-        const resolution = this.pathResolver.getScheduleActivityPathResolution(path);
+        const resolution = this.l2PathResolver.getScheduleActivityPathResolution(path);
         this.acceptPathError(resolution.invalidMessage, resolution.invalidNode, accept);
+    }
+
+    private checkCallParameters(call: ast.CallOperation, operation: ast.Operation, accept: ValidationAcceptor): void {
+        const parameters = new Map(operation.parameter.filter((parameter): parameter is ast.Parameter & { name: string } => !!parameter.name).map(parameter => [parameter.name, parameter]));
+        for (let index = 0; index < call.parameters.length; index++) {
+            const parameter = call.parameters[index];
+            if (!parameter.parameter) {
+                continue;
+            }
+            const target = parameters.get(parameter.parameter);
+            if (!target) {
+                accept('error', `The parameter '${parameter.parameter}' shall resolve to a Parameter of operation ${operation.name}.`, {
+                    node: call,
+                    property: ast.CallOperation.parameters,
+                    index
+                });
+                continue;
+            }
+            if (target.type?.ref && parameter.value) {
+                this.checkValueAgainstType(parameter.value, target.type.ref, accept);
+            }
+        }
+    }
+
+    protected override getExpectedTypeForValue(value: ast.Value): ast.Type | undefined {
+        const container = value.$container;
+        if (!container) {
+            return undefined;
+        }
+        if (ast.isSetProperty(container) && container.value === value) {
+            if (!container.propertyPath || container.propertyPath.unsafe) {
+                return undefined;
+            }
+            const resolution = this.l2PathResolver.getScheduleActivityPathResolution(container.propertyPath);
+            return resolution.active && !resolution.invalidMessage ? resolution.finalType : undefined;
+        }
+        if (ast.isParameterValue(container) && container.value === value) {
+            if (!container.parameter) {
+                return undefined;
+            }
+            const call = AstUtils.getContainerOfType(container, ast.isCallOperation);
+            if (!call || !call.operationPath || call.operationPath.unsafe) {
+                return undefined;
+            }
+            const resolution = this.l2PathResolver.getScheduleActivityPathResolution(call.operationPath);
+            if (!resolution.active || resolution.invalidMessage || !ast.isOperation(resolution.finalElement)) {
+                return undefined;
+            }
+            return resolution.finalElement.parameter.find(parameter => parameter.name === container.parameter)?.type?.ref;
+        }
+        return super.getExpectedTypeForValue(value);
     }
 
     private checkPathTemplateParameters(path: ast.Path, accept: ValidationAcceptor): boolean {
         const schedule = AstUtils.getContainerOfType(path, ast.isSchedule);
         const available = new Set((schedule?.parameters ?? []).map(parameter => parameter.name));
-        const bindings = this.getScheduleTemplateBindings(schedule);
-        let valid = true;
-        for (const segment of this.pathService.getPathSegments(path)) {
-            const namedSegment = ast.isPathMember(segment) ? segment.segment : segment;
-            if (!ast.isPathNamedSegment(namedSegment)) {
-                continue;
-            }
-            for (const templateName of this.identifierPatternService.getSegmentTemplateNames(namedSegment)) {
-                if (!available.has(templateName)) {
-                    valid = false;
-                    accept('error', `The placeholder '{${templateName}}' shall resolve to a Template Argument of the enclosing Schedule.`, {
-                        node: namedSegment
-                    });
-                }
-            }
-            const pattern = this.identifierPatternService.getSegmentPattern(namedSegment);
-            const concreteText = this.identifierPatternService.substitute(pattern, bindings);
-            if (this.identifierPatternService.hasTemplate(pattern) && concreteText !== undefined && !isValidExpandedL2Identifier(concreteText)) {
-                valid = false;
-                accept('error', `The expanded path segment '${concreteText}' is not valid for SMP Level 2.`, {
-                    node: namedSegment
-                });
-            }
-        }
-        return valid;
+        return checkTemplatedL2PathSegments(
+            path,
+            available,
+            this.getScheduleTemplateBindings(schedule),
+            this.identifierPatternService,
+            this.pathService,
+            accept,
+            templateName => `The placeholder '{${templateName}}' shall resolve to a Template Argument of the enclosing Schedule.`,
+        );
     }
 
     private getScheduleTemplateBindings(schedule: ast.Schedule | undefined): Map<string, string> {
-        const bindings = new Map<string, string>();
-        for (const parameter of schedule?.parameters ?? []) {
-            if (!parameter.name) {
-                continue;
-            }
-            if (ast.isStringParameter(parameter) && parameter.value !== undefined) {
-                bindings.set(parameter.name, parameter.value.startsWith('"') && parameter.value.endsWith('"')
-                    ? parameter.value.slice(1, -1)
-                    : parameter.value);
-            } else if (ast.isInt32Parameter(parameter) && parameter.value !== undefined) {
-                bindings.set(parameter.name, parameter.value.toString());
-            }
-        }
-        return bindings;
+        return createTemplateBindings(schedule?.parameters ?? []);
     }
 
-    private acceptPathError(message: string | undefined, node: AstNode | undefined, accept: ValidationAcceptor): void {
+    protected override acceptPathError(message: string | undefined, node: AstNode | undefined, accept: ValidationAcceptor): void {
         if (message && node) {
             accept('error', message, { node });
         }

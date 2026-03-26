@@ -617,6 +617,46 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
         return basePath === '.' ? memberName : `${basePath}.${memberName}`;
     }
 
+    protected createOperationCallText(operation: ast.Operation, mode: CompletionValueMode = 'l2'): string {
+        if (operation.parameter.length === 0) {
+            return `${operation.name ?? 'operation'}()`;
+        }
+        const parameters = operation.parameter.map((parameter, index) => {
+            const defaultValue = this.getDefaultValueForType(parameter.type?.ref, mode, false) || 'value';
+            return `${parameter.name ?? `arg${index + 1}`} = ${this.createPlaceholder(index + 1, defaultValue)}`;
+        });
+        return `${operation.name ?? 'operation'}(${parameters.join(', ')})`;
+    }
+
+    protected createPropertyAssignmentText(
+        propertyName: string,
+        type: ast.Type | undefined,
+        mode: CompletionValueMode = 'l2',
+    ): string {
+        const defaultValue = this.getDefaultValueForType(type, mode, false) || 'value';
+        return `${propertyName} = ${this.createPlaceholder(1, defaultValue)}`;
+    }
+
+    protected createSubscriptionText(entryPointName: string): string {
+        return `${entryPointName} -> "${this.createPlaceholder(1, 'GlobalEvent')}"`;
+    }
+
+    protected createTriggerText(entryPointName: string): string {
+        return `${entryPointName}`;
+    }
+
+    protected getOperations(component: ast.Component | undefined): readonly ast.Operation[] {
+        return this.l2PathResolver.getComponentMembersByKind(component, ['operation']).filter(ast.isOperation);
+    }
+
+    protected getProperties(component: ast.Component | undefined): readonly ast.Property[] {
+        return this.l2PathResolver.getComponentMembersByKind(component, ['property']).filter(ast.isProperty);
+    }
+
+    protected getEntryPoints(component: ast.Component | undefined): readonly ast.EntryPoint[] {
+        return this.l2PathResolver.getComponentMembersByKind(component, ['entryPoint']).filter(ast.isEntryPoint);
+    }
+
     protected addContextualFieldLinkCompletions(
         context: CompletionContext,
         acceptor: CompletionAcceptor,
@@ -797,25 +837,25 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
             case PTK.Bool:
                 return 'false';
             case PTK.Float32:
-                return mode === 'cfg' ? '0.0' : '0.0f32';
+                return '0.0';
             case PTK.Float64:
-                return mode === 'cfg' ? '0.0' : '0.0f64';
+                return '0.0';
             case PTK.Int8:
-                return mode === 'cfg' ? '0' : '0i8';
+                return '0';
             case PTK.Int16:
-                return mode === 'cfg' ? '0' : '0i16';
+                return '0';
             case PTK.Int32:
-                return mode === 'cfg' ? '0' : '0i32';
+                return '0';
             case PTK.Int64:
-                return mode === 'cfg' ? '0' : '0i64';
+                return '0';
             case PTK.UInt8:
-                return mode === 'cfg' ? '0' : '0u8';
+                return '0';
             case PTK.UInt16:
-                return mode === 'cfg' ? '0' : '0u16';
+                return '0';
             case PTK.UInt32:
-                return mode === 'cfg' ? '0' : '0u32';
+                return '0';
             case PTK.UInt64:
-                return mode === 'cfg' ? '0' : '0u64';
+                return '0';
             case PTK.Char8:
                 return "'A'";
             case PTK.String8:

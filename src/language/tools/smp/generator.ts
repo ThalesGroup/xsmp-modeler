@@ -28,6 +28,7 @@ import { xsmpVersion } from '../../version.js';
 import type { ProjectManager } from '../../workspace/project-manager.js';
 import type { XsmpPathService } from '../../references/xsmp-path-service.js';
 import type { XsmpcfgPathResolver } from '../../references/xsmpcfg-path-resolver.js';
+import type { Xsmpl2PathResolver } from '../../references/xsmpl2-path-resolver.js';
 
 export class SmpGenerator implements XsmpGenerator {
 
@@ -35,12 +36,14 @@ export class SmpGenerator implements XsmpGenerator {
     protected readonly attrHelper: AttributeHelper;
     protected readonly pathService: XsmpPathService;
     protected readonly cfgPathResolver: XsmpcfgPathResolver;
+    protected readonly l2PathResolver: Xsmpl2PathResolver;
     protected readonly projectManager: ProjectManager;
     protected readonly smdlGenFolder = 'smdl-gen';
 
     constructor(services: XsmpSharedServices) {
         this.pathService = services.PathService;
         this.cfgPathResolver = services.CfgPathResolver;
+        this.l2PathResolver = services.L2PathResolver;
         this.docHelper = services.DocumentationHelper;
         this.attrHelper = services.AttributeHelper;
         this.projectManager = services.workspace.ProjectManager;
@@ -704,11 +707,246 @@ export class SmpGenerator implements XsmpGenerator {
         return resolution.finalType as ast.Type | undefined;
     }
 
+    protected getResolvedAssemblyFieldType(fieldValue: ast.FieldValue): ast.Type | undefined {
+        if (!ast.isPath(fieldValue.field) || fieldValue.field.unsafe) {
+            return undefined;
+        }
+        const resolution = this.l2PathResolver.getAssemblyFieldPathResolution(fieldValue.field);
+        if (!resolution.active || resolution.invalidMessage) {
+            return undefined;
+        }
+        return resolution.finalType as ast.Type | undefined;
+    }
+
+    protected getResolvedAssemblyPropertyType(propertyValue: ast.PropertyValue): ast.Type | undefined {
+        if (propertyValue.property.unsafe) {
+            return undefined;
+        }
+        const target = this.l2PathResolver.getLocalNamedReferenceTarget(propertyValue.property);
+        return ast.isProperty(target) ? target.type.ref : undefined;
+    }
+
+    protected getResolvedSchedulePropertyType(propertyValue: ast.SetProperty): ast.Type | undefined {
+        if (propertyValue.propertyPath.unsafe) {
+            return undefined;
+        }
+        const resolution = this.l2PathResolver.getScheduleActivityPathResolution(propertyValue.propertyPath);
+        if (!resolution.active || resolution.invalidMessage) {
+            return undefined;
+        }
+        return resolution.finalType as ast.Type | undefined;
+    }
+
+    protected getResolvedOperationParameterType(parameterValue: ast.ParameterValue): ast.Type | undefined {
+        if (!parameterValue.parameter) {
+            return undefined;
+        }
+
+        const scheduleCall = AstUtils.getContainerOfType(parameterValue, ast.isCallOperation);
+        if (scheduleCall) {
+            if (scheduleCall.operationPath.unsafe) {
+                return undefined;
+            }
+            const resolution = this.l2PathResolver.getScheduleActivityPathResolution(scheduleCall.operationPath);
+            const operation = ast.isOperation(resolution.finalElement) ? resolution.finalElement : undefined;
+            return operation?.parameter.find(parameter => parameter.name === parameterValue.parameter)?.type.ref;
+        }
+
+        const assemblyCall = AstUtils.getContainerOfType(parameterValue, ast.isOperationCall);
+        if (!assemblyCall || assemblyCall.operation.unsafe) {
+            return undefined;
+        }
+        const target = this.l2PathResolver.getLocalNamedReferenceTarget(assemblyCall.operation);
+        const operation = ast.isOperation(target) ? target : undefined;
+        return operation?.parameter.find(parameter => parameter.name === parameterValue.parameter)?.type.ref;
+    }
+
+    protected getResolvedFieldValueType(fieldValue: ast.FieldValue): ast.Type | undefined {
+        if (ast.isStructureValue(fieldValue.$container)) {
+            const structureType = this.getExpectedValueType(fieldValue.$container);
+            return this.getStructureFieldPathType(structureType, fieldValue.field);
+        }
+        if (AstUtils.getContainerOfType(fieldValue, ast.isAssemblyComponentConfiguration)
+            || AstUtils.getContainerOfType(fieldValue, ast.isModelInstance)) {
+            return this.getResolvedAssemblyFieldType(fieldValue);
+        }
+        return this.getResolvedConfigurationFieldType(fieldValue);
+    }
+
+    protected getExpectedValueType(value: ast.Value): ast.Type | undefined {
+        const container = value.$container;
+        if (!container) {
+            return undefined;
+        }
+        if (ast.isFieldValue(container) && container.value === value) {
+            return this.getResolvedFieldValueType(container);
+        }
+        if (ast.isCfgStructureFieldValue(container) && container.value === value) {
+            if (container.unsafe) {
+                return undefined;
+            }
+            const structureType = ast.isStructureValue(container.$container)
+                ? this.getExpectedValueType(container.$container)
+                : undefined;
+            return ast.isStructure(structureType)
+                ? this.getStructureFieldType(structureType, container.field)
+                : undefined;
+        }
+        if (ast.isPropertyValue(container) && container.value === value) {
+            return this.getResolvedAssemblyPropertyType(container);
+        }
+        if (ast.isSetProperty(container) && container.value === value) {
+            return this.getResolvedSchedulePropertyType(container);
+        }
+        if (ast.isParameterValue(container) && container.value === value) {
+            return this.getResolvedOperationParameterType(container);
+        }
+        if (ast.isArrayValue(container)) {
+            const arrayType = this.getExpectedValueType(container);
+            return ast.isArrayType(arrayType) ? arrayType.itemType.ref : undefined;
+        }
+        if (ast.isStructureValue(container)) {
+            const structureType = this.getExpectedValueType(container);
+            return ast.isStructure(structureType)
+                ? this.getPositionalStructureFieldType(container, value, structureType)
+                : undefined;
+        }
+        return undefined;
+    }
+
     protected getStructureFieldType(type: ast.Type | undefined, fieldName: string): ast.Type | undefined {
         if (!ast.isStructure(type)) {
             return undefined;
         }
-        return this.cfgPathResolver.getFieldCandidatesForType(type).find(field => field.name === fieldName)?.type?.ref as ast.Type | undefined;
+        const fields = this.cfgPathResolver.getFieldCandidatesForType(type) as ast.Field[];
+        return fields.find(field => field.name === fieldName)?.type.ref;
+    }
+
+    protected getStructureFieldPathType(type: ast.Type | undefined, path: ast.Path | undefined): ast.Type | undefined {
+        if (!ast.isStructure(type) || !path || path.unsafe || path.absolute) {
+            return undefined;
+        }
+
+        const segments: Array<ast.PathElement | ast.PathSegment> = [];
+        if (path.head) {
+            segments.push(path.head);
+        }
+        segments.push(...path.elements);
+        if (segments.length === 0) {
+            return undefined;
+        }
+
+        const first = segments[0];
+        if (ast.isPathIndex(first) || ast.isPathParentSegment(first) || ast.isPathSelfSegment(first) || (ast.isPathMember(first) && first.separator === '/')) {
+            return undefined;
+        }
+
+        const firstSegment = ast.isPathMember(first) ? first.segment : first;
+        if (!ast.isPathNamedSegment(firstSegment)) {
+            return undefined;
+        }
+
+        let field = this.getNamedStructureField(type, firstSegment);
+        if (!field) {
+            return undefined;
+        }
+
+        let currentType = field.type.ref;
+        for (let index = 1; index < segments.length; index++) {
+            const segment = segments[index];
+            if (ast.isPathIndex(segment)) {
+                if (!currentType || !ast.isArrayType(currentType)) {
+                    return undefined;
+                }
+                currentType = currentType.itemType.ref;
+                continue;
+            }
+            if (!ast.isPathMember(segment) || segment.separator !== '.' || ast.isPathParentSegment(segment.segment) || ast.isPathSelfSegment(segment.segment)) {
+                return undefined;
+            }
+            if (!ast.isStructure(currentType) || !ast.isPathNamedSegment(segment.segment)) {
+                return undefined;
+            }
+            field = this.getNamedStructureField(currentType, segment.segment);
+            if (!field) {
+                return undefined;
+            }
+            currentType = field.type.ref;
+        }
+
+        return currentType;
+    }
+
+    protected getNamedStructureField(type: ast.Structure, segment: ast.PathNamedSegment): ast.Field | undefined {
+        const candidates = this.cfgPathResolver.getFieldCandidatesForType(type) as ast.Field[];
+        if (ast.isConcretePathNamedSegment(segment)) {
+            const linked = segment.reference?.ref;
+            if (linked && candidates.includes(linked as ast.Field)) {
+                return linked as ast.Field;
+            }
+            const referenceText = segment.reference?.$refText;
+            return referenceText ? candidates.find(candidate => candidate.name === referenceText) : undefined;
+        }
+        const segmentText = this.pathService.getSegmentText(segment);
+        return segmentText ? candidates.find(candidate => candidate.name === segmentText) : undefined;
+    }
+
+    protected getPositionalStructureFieldType(structureValue: ast.StructureValue, target: ast.Value, type: ast.Structure): ast.Type | undefined {
+        const fields = this.cfgPathResolver.getFieldCandidatesForType(type) as ast.Field[];
+        const fieldsByName = new Map(fields.filter((field): field is ast.Field & { name: string } => !!field.name).map(field => [field.name, field] as const));
+        const usedFields = new Set<string>();
+        let positionalIndex = 0;
+
+        const nextPositionalField = (): ast.Field | undefined => {
+            while (positionalIndex < fields.length) {
+                const field = fields[positionalIndex++] as ast.Field;
+                if (field.name && !usedFields.has(field.name)) {
+                    return field;
+                }
+            }
+            return undefined;
+        };
+
+        for (const element of structureValue.elements) {
+            if (ast.isCfgStructureFieldValue(element)) {
+                const field = element.field ? fieldsByName.get(element.field) : undefined;
+                if (field?.name && !usedFields.has(field.name)) {
+                    usedFields.add(field.name);
+                }
+                continue;
+            }
+            if (ast.isFieldValue(element)) {
+                const field = this.getStructureFieldPathType(type, element.field);
+                if (element === target) {
+                    return field;
+                }
+                if (!element.field) {
+                    continue;
+                }
+                const firstSegment = this.pathService.getPathSegments(element.field)[0];
+                const actualFirstSegment = ast.isPathMember(firstSegment) ? firstSegment.segment : firstSegment;
+                const namedField = ast.isPathNamedSegment(actualFirstSegment)
+                    ? this.getNamedStructureField(type, actualFirstSegment)
+                    : undefined;
+                if (namedField?.name && !usedFields.has(namedField.name)) {
+                    usedFields.add(namedField.name);
+                }
+                continue;
+            }
+
+            const field = nextPositionalField();
+            if (!field) {
+                return undefined;
+            }
+            if (element === target) {
+                return field.type.ref;
+            }
+            if (field.name) {
+                usedFields.add(field.name);
+            }
+        }
+
+        return undefined;
     }
 
     protected convertUnsuffixedIntValue(value: ast.IntValue, expectedType: ast.Type | undefined): Types.Value {
@@ -738,7 +976,7 @@ export class SmpGenerator implements XsmpGenerator {
             return value.elements.map(element => this.convertValue(element));
         }
 
-        const fields = this.cfgPathResolver.getFieldCandidatesForType(expectedType);
+        const fields = this.cfgPathResolver.getFieldCandidatesForType(expectedType) as ast.Field[];
         const fieldsByName = new Map(fields.map(field => [field.name, field] as const));
         const usedFields = new Set<string>();
         let positionalIndex = 0;
@@ -762,6 +1000,25 @@ export class SmpGenerator implements XsmpGenerator {
                 return {
                     ...this.convertValue(element.value, element.unsafe ? undefined : field?.type.ref as ast.Type | undefined),
                     '@Field': element.field,
+                } as Types.Value;
+            }
+
+            if (ast.isFieldValue(element)) {
+                if (!element.field) {
+                    return this.convertValue(element.value);
+                }
+                const fieldType = this.getStructureFieldPathType(expectedType, element.field);
+                const firstSegment = this.pathService.getPathSegments(element.field)[0];
+                const actualFirstSegment = ast.isPathMember(firstSegment) ? firstSegment.segment : firstSegment;
+                const namedField = ast.isPathNamedSegment(actualFirstSegment)
+                    ? this.getNamedStructureField(expectedType, actualFirstSegment)
+                    : undefined;
+                if (namedField?.name && !usedFields.has(namedField.name)) {
+                    usedFields.add(namedField.name);
+                }
+                return {
+                    ...this.convertValue(element.value, element.field.unsafe ? undefined : fieldType),
+                    '@Field': this.pathService.stringifyPath(element.field),
                 } as Types.Value;
             }
 
@@ -816,7 +1073,7 @@ export class SmpGenerator implements XsmpGenerator {
                 };
             }
             case ast.FieldValue.$type: return {
-                ...this.convertValue((value as ast.FieldValue).value, this.getResolvedConfigurationFieldType(value as ast.FieldValue)),
+                ...this.convertValue((value as ast.FieldValue).value, this.getResolvedFieldValueType(value as ast.FieldValue)),
                 '@Field': this.pathService.stringifyPath((value as ast.FieldValue).field)
             };
             default: return { '@xsi:type': 'Types:Value' } as Types.Value;
@@ -1026,14 +1283,14 @@ export class SmpGenerator implements XsmpGenerator {
             case ast.PropertyValue.$type: return {
                 '@xsi:type': 'Assembly:PropertyValue',
                 '@Property': this.pathService.stringifyLocalNamedReference((invocation as ast.PropertyValue).property, false) ?? '',
-                Value: this.convertValue((invocation as ast.PropertyValue).value)
+                Value: this.convertValue((invocation as ast.PropertyValue).value, this.getResolvedAssemblyPropertyType(invocation as ast.PropertyValue))
             } as Assembly.PropertyValue;
             default: return { '@xsi:type': 'Assembly:Invocation' } as Assembly.Invocation;
         }
     }
 
     convertParameterValue(value: ast.ParameterValue): Assembly.ParameterValue | Schedule.ParameterValue {
-        return { Value: this.convertValue(value.value), '@Parameter': value.parameter };
+        return { Value: this.convertValue(value.value, this.getResolvedOperationParameterType(value)), '@Parameter': value.parameter };
     }
 
     convertGlobalEventHandler(handler: ast.GlobalEventHandler): Assembly.GlobalEventHandler {
@@ -1153,7 +1410,7 @@ export class SmpGenerator implements XsmpGenerator {
                     ...this.convertGeneratedActivityElement(activity),
                     '@xsi:type': 'Schedule:SetProperty',
                     PropertyPath: this.pathService.stringifyPath((activity as ast.SetProperty).propertyPath),
-                    Value: this.convertValue((activity as ast.SetProperty).value),
+                    Value: this.convertValue((activity as ast.SetProperty).value, this.getResolvedSchedulePropertyType(activity as ast.SetProperty)),
                 } as Schedule.SetProperty;
             case ast.Transfer.$type:
                 return {

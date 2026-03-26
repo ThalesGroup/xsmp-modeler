@@ -278,7 +278,7 @@ StructureValue returns StructureValue:
 
 SimpleValue returns SimpleValue:
     Int8Value | Int16Value | Int32Value | Int64Value | UInt8Value | UInt16Value | UInt32Value | UInt64Value | BoolValue 
-    | Float32Value | Float64Value | Char8Value | String8Value | EnumerationValue | DurationValue | DateTimeValue;
+    | Float32Value | Float64Value | FloatValue | IntValue | Char8Value | String8Value | EnumerationValue | DurationValue | DateTimeValue;
 
 Int8Value returns Int8Value:
     value=INT'i8';
@@ -306,6 +306,12 @@ Float32Value returns Float32Value:
 
 Float64Value returns Float64Value:
     value=FLOATING_LITERAL'f64';
+
+FloatValue returns FloatValue:
+    value=FLOATING_LITERAL;
+
+IntValue returns IntValue:
+    value=INT;
 
 Char8Value returns Char8Value:
     value=CHAR;

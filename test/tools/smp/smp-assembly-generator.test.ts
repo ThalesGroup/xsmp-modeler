@@ -26,6 +26,7 @@ namespace demo
     public model Child
     {
         field Smp.Int32 count
+        field Smp.Float64 ratio
         input field Smp.Int32 inValue
         output field Smp.Int32 outValue
 
@@ -35,8 +36,11 @@ namespace demo
 
     public model Root
     {
+        field Smp.Int32 countState
         output field Smp.Int32 outValue
         container Child child = demo.Child
+        public property Smp.Int32 count -> countState
+        public def void apply(in Smp.Int32 nextCount, in Smp.Float64 nextRatio)
 
         eventsink demo.FlagEvent inbound
         eventsource demo.FlagEvent outbound
@@ -103,6 +107,38 @@ Root: demo.Root
         expect(actualXml).toContain('InstancePath="Unit{Index}_{Suffix}"');
         expect(actualXml).toContain('Name="Unit{Index}_{Suffix}"');
         expect(actualXml.includes('unsafe')).toBe(false);
+    });
+
+    test('serializes unsuffixed numeric values using the resolved assembly types', async () => {
+        const generator = new SmpGenerator(services.shared);
+        const document = await parseSource(`assembly Demo
+
+configure child
+{
+    count = 2
+    ratio = 1.5
+}
+
+Root: demo.Root
+{
+    property count = 3
+    call apply(nextCount = 4, nextRatio = 2.5)
+    child += Child: demo.Child
+}
+`);
+        setGeneratedBy(false);
+
+        const actualXml = checkDocumentValid(document) ??
+            await generator.doGenerateAssembly(document.parseResult.value, undefined);
+
+        expect(actualXml).toContain('<FieldValue xsi:type="Types:Int32Value" Value="2" Field="count"/>');
+        expect(actualXml).toContain('<FieldValue xsi:type="Types:Float64Value" Value="1.5" Field="ratio"/>');
+        expect(actualXml).toContain('<Invocation xsi:type="Assembly:PropertyValue" Property="count">');
+        expect(actualXml).toContain('<Value xsi:type="Types:Int32Value" Value="3"/>');
+        expect(actualXml).toContain('<Parameter Parameter="nextCount">');
+        expect(actualXml).toContain('<Value xsi:type="Types:Int32Value" Value="4"/>');
+        expect(actualXml).toContain('<Parameter Parameter="nextRatio">');
+        expect(actualXml).toContain('<Value xsi:type="Types:Float64Value" Value="2.5"/>');
     });
 });
 

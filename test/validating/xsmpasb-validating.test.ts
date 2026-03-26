@@ -23,6 +23,7 @@ namespace demo
     public model Child
     {
         field Smp.Int32 count
+        field Smp.Float64 ratio
         input field Smp.Int32 inValue
         output field Smp.Int32 outValue
 
@@ -33,12 +34,15 @@ namespace demo
     public model Root
     {
         field Smp.Bool enabledState
+        field Smp.Int32 countState
         output field Smp.Int32 outValue
         input field Smp.Int32 inValue
         container Child child = demo.Child
         reference Smp.IComponent logger
 
         public property Smp.Bool enabled -> enabledState
+        public property Smp.Int32 count -> countState
+        public def void apply(in Smp.Int32 nextCount, in Smp.Float64 nextRatio)
 
         eventsink demo.FlagEvent inbound
         eventsource demo.FlagEvent outbound
@@ -117,6 +121,26 @@ configure {Side}Receiver
 Root: demo.Root
 {
     child += {Side}Receiver: demo.Child
+}
+`);
+
+        expect(getMessages(document)).toEqual([]);
+    });
+
+    test('allows unsuffixed numeric values when the safe resolved target type is known', async () => {
+        const document = await parseInProject(`assembly Demo
+
+configure child
+{
+    count = 2
+    ratio = 1.5
+}
+
+Root: demo.Root
+{
+    property count = 3
+    call apply(nextCount = 4, nextRatio = 2.5)
+    child += Child: demo.Child
 }
 `);
 

@@ -64,7 +64,7 @@ export class XsmpsedCompletionProvider extends XsmpCompletionProviderBase {
             if (ast.isCallOperation(path.$container) && ast.isOperation(nodeDescription.node)) {
                 return this.createReferenceLikeItem(
                     nodeDescription,
-                    this.createOperationCallText(nodeDescription.node),
+                    this.createOperationCallText(nodeDescription.node, 'l2'),
                     `Operation of ${nodeDescription.node.$container.name}.`
                 );
             }
@@ -73,10 +73,9 @@ export class XsmpsedCompletionProvider extends XsmpCompletionProviderBase {
                 if (!nodeDescription.name) {
                     return undefined;
                 }
-                const defaultValue = this.getDefaultValueForType(nodeDescription.node.type?.ref, 'l2', false) || 'value';
                 return this.createReferenceLikeItem(
                     nodeDescription,
-                    `${nodeDescription.name} = ${this.createPlaceholder(1, defaultValue)}`,
+                    this.createPropertyAssignmentText(nodeDescription.name, nodeDescription.node.type?.ref, 'l2'),
                     `Property of ${nodeDescription.node.$container.name}.`
                 );
             }
@@ -151,38 +150,40 @@ export class XsmpsedCompletionProvider extends XsmpCompletionProviderBase {
         }
 
         if (localComponent) {
-            for (const candidate of this.l2PathResolver.getComponentMembersByKind(localComponent, ['operation'])) {
-                if (ast.isOperation(candidate) && candidate.name) {
-                    acceptor(context, this.createContextualValueItem(
-                        context,
-                        `call ${candidate.name}`,
-                        `call ${this.createOperationCallText(candidate)}`,
-                        `Operation call for ${candidate.name}.`
-                    ));
+            for (const candidate of this.getOperations(localComponent)) {
+                if (!candidate.name) {
+                    continue;
                 }
+                acceptor(context, this.createContextualValueItem(
+                    context,
+                    `call ${candidate.name}`,
+                    `call ${this.createOperationCallText(candidate, 'l2')}`,
+                    `Operation call for ${candidate.name}.`
+                ));
             }
 
-            for (const candidate of this.l2PathResolver.getComponentMembersByKind(localComponent, ['property'])) {
-                if (ast.isProperty(candidate) && candidate.name) {
-                    const defaultValue = this.getDefaultValueForType(candidate.type?.ref, 'l2', false) || 'value';
-                    acceptor(context, this.createContextualValueItem(
-                        context,
-                        `property ${candidate.name}`,
-                        `property ${candidate.name} = ${this.createPlaceholder(1, defaultValue)}`,
-                        `Property value for ${candidate.name}.`
-                    ));
+            for (const candidate of this.getProperties(localComponent)) {
+                if (!candidate.name) {
+                    continue;
                 }
+                acceptor(context, this.createContextualValueItem(
+                    context,
+                    `property ${candidate.name}`,
+                    `property ${this.createPropertyAssignmentText(candidate.name, candidate.type?.ref, 'l2')}`,
+                    `Property value for ${candidate.name}.`
+                ));
             }
 
-            for (const candidate of this.l2PathResolver.getComponentMembersByKind(localComponent, ['entryPoint'])) {
-                if (ast.isEntryPoint(candidate) && candidate.name) {
-                    acceptor(context, this.createContextualValueItem(
-                        context,
-                        `trig ${candidate.name}`,
-                        `trig ${candidate.name}`,
-                        `Trigger entry point ${candidate.name}.`
-                    ));
+            for (const candidate of this.getEntryPoints(localComponent)) {
+                if (!candidate.name) {
+                    continue;
                 }
+                acceptor(context, this.createContextualValueItem(
+                    context,
+                    `trig ${candidate.name}`,
+                    `trig ${this.createTriggerText(candidate.name)}`,
+                    `Trigger entry point ${candidate.name}.`
+                ));
             }
 
             const outputFields = this.l2PathResolver.getComponentMembersByKind(localComponent, ['outputField']);
@@ -266,29 +267,30 @@ export class XsmpsedCompletionProvider extends XsmpCompletionProviderBase {
         const localComponent = ast.isComponent(executionContext) ? executionContext : undefined;
 
         if (localComponent && /^\s*call\s+[\w./{}]*$/.test(linePrefix)) {
-            for (const candidate of this.l2PathResolver.getComponentMembersByKind(localComponent, ['operation'])) {
-                if (ast.isOperation(candidate) && candidate.name) {
-                    acceptor(context, this.createContextualValueItem(
-                        context,
-                        candidate.name,
-                        this.createOperationCallText(candidate),
-                        `Operation of ${candidate.$container.name}.`
-                    ));
+            for (const candidate of this.getOperations(localComponent)) {
+                if (!candidate.name) {
+                    continue;
                 }
+                acceptor(context, this.createContextualValueItem(
+                    context,
+                    candidate.name,
+                    this.createOperationCallText(candidate, 'l2'),
+                    `Operation of ${candidate.$container.name}.`
+                ));
             }
         }
 
         if (localComponent && /^\s*property\s+[\w./{}]*$/.test(linePrefix)) {
-            for (const candidate of this.l2PathResolver.getComponentMembersByKind(localComponent, ['property'])) {
-                if (ast.isProperty(candidate) && candidate.name) {
-                    const defaultValue = this.getDefaultValueForType(candidate.type?.ref, 'l2', false) || 'value';
-                    acceptor(context, this.createContextualValueItem(
-                        context,
-                        candidate.name,
-                        `${candidate.name} = ${this.createPlaceholder(1, defaultValue)}`,
-                        `Property of ${candidate.$container.name}.`
-                    ));
+            for (const candidate of this.getProperties(localComponent)) {
+                if (!candidate.name) {
+                    continue;
                 }
+                acceptor(context, this.createContextualValueItem(
+                    context,
+                    candidate.name,
+                    this.createPropertyAssignmentText(candidate.name, candidate.type?.ref, 'l2'),
+                    `Property of ${candidate.$container.name}.`
+                ));
             }
         }
 
@@ -307,18 +309,6 @@ export class XsmpsedCompletionProvider extends XsmpCompletionProviderBase {
             }
         }
     }
-
-    protected createOperationCallText(operation: ast.Operation): string {
-        if (operation.parameter.length === 0) {
-            return `${operation.name}()`;
-        }
-        const parameters = operation.parameter.map((parameter, index) => {
-            const defaultValue = this.getDefaultValueForType(parameter.type?.ref, 'l2', false) || 'value';
-            return `${parameter.name ?? `arg${index + 1}`} = ${this.createPlaceholder(index + 1, defaultValue)}`;
-        });
-        return `${operation.name ?? 'operation'}(${parameters.join(', ')})`;
-    }
-
     protected createExecuteTaskText(task: ast.Task): string {
         const schedule = AstUtils.getContainerOfType(task, ast.isSchedule);
         const parameters = schedule?.parameters ?? [];

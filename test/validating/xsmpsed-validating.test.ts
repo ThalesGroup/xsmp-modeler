@@ -42,15 +42,20 @@ namespace demo
     public model Root
     {
         field Smp.Bool enabledState
+        field Smp.Int32 countState
         output field Smp.Int32 outValue
         input field Smp.Int32 inValue
         container Child child = demo.Child
 
         /** root enabled */
         public property Smp.Bool enabled -> enabledState
+        /** root count */
+        public property Smp.Int32 count -> countState
 
         /** root reset */
         public def void reset()
+        /** root apply */
+        public def void apply(in Smp.Int32 nextCount, in Smp.Float64 nextRatio)
 
         /** root trigger */
         entrypoint step
@@ -123,6 +128,19 @@ event Main mission "PT1S"
 task Main on demo.Root
 {
     call {Target}.reset()
+}
+`);
+
+        expect(getMessages(document)).toEqual([]);
+    });
+
+    test('allows unsuffixed numeric values when the safe resolved target type is known', async () => {
+        const document = await parseInProject(`schedule <Root = "root"> Demo
+
+task Main on demo.Root
+{
+    property count = 2
+    call apply(nextCount = 3, nextRatio = 1.5)
 }
 `);
 

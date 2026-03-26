@@ -9,7 +9,7 @@ import { PTK } from '../utils/primitive-type-kind.js';
 import * as Solver from '../utils/solver.js';
 import * as XsmpUtils from '../utils/xsmp-utils.js';
 import { XsmpcfgValidator } from './xsmpcfg-validator.js';
-import { collectUsedTemplateParameterNames, warnUnusedTemplateParameters } from './template-parameter-validator-utils.js';
+import { checkTemplatedL2PathSegments, collectUsedTemplateParameterNames, createTemplateBindings, warnUnusedTemplateParameters } from './template-parameter-validator-utils.js';
 
 export function registerXsmpasbValidationChecks(services: XsmpasbServices) {
     const registry = services.validation.ValidationRegistry;
@@ -29,6 +29,8 @@ export function registerXsmpasbValidationChecks(services: XsmpasbServices) {
         InterfaceLink: validator.checkInterfaceLink,
         OperationCall: validator.checkOperationCall,
         PropertyValue: validator.checkPropertyValue,
+        IntValue: validator.checkIntValue,
+        FloatValue: validator.checkFloatValue,
     };
     registry.register(checks, validator, 'fast');
 }
@@ -531,38 +533,38 @@ export class XsmpasbValidator extends XsmpcfgValidator {
                 this.expectValueKind(value, ast.isEnumerationValue(value), type, accept);
                 return;
             case PTK.Float32:
-                this.expectValueKind(value, ast.isFloat32Value(value), type, accept);
-                if (ast.isFloat32Value(value)) {
+                this.expectValueKind(value, ast.isFloat32Value(value) || ast.isFloatValue(value), type, accept);
+                if (ast.isFloat32Value(value) || ast.isFloatValue(value)) {
                     this.checkFloatingValueRange(value, type, PTK.Float32, accept);
                 }
                 return;
             case PTK.Float64:
-                this.expectValueKind(value, ast.isFloat64Value(value), type, accept);
-                if (ast.isFloat64Value(value)) {
+                this.expectValueKind(value, ast.isFloat64Value(value) || ast.isFloatValue(value), type, accept);
+                if (ast.isFloat64Value(value) || ast.isFloatValue(value)) {
                     this.checkFloatingValueRange(value, type, PTK.Float64, accept);
                 }
                 return;
             case PTK.Int8:
-                this.expectValueKind(value, ast.isInt8Value(value), type, accept);
-                if (ast.isInt8Value(value)) {
+                this.expectValueKind(value, ast.isInt8Value(value) || ast.isIntValue(value), type, accept);
+                if (ast.isInt8Value(value) || ast.isIntValue(value)) {
                     this.checkIntegralValueRange(value, type, PTK.Int8, accept);
                 }
                 return;
             case PTK.Int16:
-                this.expectValueKind(value, ast.isInt16Value(value), type, accept);
-                if (ast.isInt16Value(value)) {
+                this.expectValueKind(value, ast.isInt16Value(value) || ast.isIntValue(value), type, accept);
+                if (ast.isInt16Value(value) || ast.isIntValue(value)) {
                     this.checkIntegralValueRange(value, type, PTK.Int16, accept);
                 }
                 return;
             case PTK.Int32:
-                this.expectValueKind(value, ast.isInt32Value(value), type, accept);
-                if (ast.isInt32Value(value)) {
+                this.expectValueKind(value, ast.isInt32Value(value) || ast.isIntValue(value), type, accept);
+                if (ast.isInt32Value(value) || ast.isIntValue(value)) {
                     this.checkIntegralValueRange(value, type, PTK.Int32, accept);
                 }
                 return;
             case PTK.Int64:
-                this.expectValueKind(value, ast.isInt64Value(value), type, accept);
-                if (ast.isInt64Value(value)) {
+                this.expectValueKind(value, ast.isInt64Value(value) || ast.isIntValue(value), type, accept);
+                if (ast.isInt64Value(value) || ast.isIntValue(value)) {
                     this.checkIntegralValueRange(value, type, PTK.Int64, accept);
                 }
                 return;
@@ -570,26 +572,26 @@ export class XsmpasbValidator extends XsmpcfgValidator {
                 this.expectValueKind(value, ast.isString8Value(value), type, accept);
                 return;
             case PTK.UInt8:
-                this.expectValueKind(value, ast.isUInt8Value(value), type, accept);
-                if (ast.isUInt8Value(value)) {
+                this.expectValueKind(value, ast.isUInt8Value(value) || ast.isIntValue(value), type, accept);
+                if (ast.isUInt8Value(value) || ast.isIntValue(value)) {
                     this.checkIntegralValueRange(value, type, PTK.UInt8, accept);
                 }
                 return;
             case PTK.UInt16:
-                this.expectValueKind(value, ast.isUInt16Value(value), type, accept);
-                if (ast.isUInt16Value(value)) {
+                this.expectValueKind(value, ast.isUInt16Value(value) || ast.isIntValue(value), type, accept);
+                if (ast.isUInt16Value(value) || ast.isIntValue(value)) {
                     this.checkIntegralValueRange(value, type, PTK.UInt16, accept);
                 }
                 return;
             case PTK.UInt32:
-                this.expectValueKind(value, ast.isUInt32Value(value), type, accept);
-                if (ast.isUInt32Value(value)) {
+                this.expectValueKind(value, ast.isUInt32Value(value) || ast.isIntValue(value), type, accept);
+                if (ast.isUInt32Value(value) || ast.isIntValue(value)) {
                     this.checkIntegralValueRange(value, type, PTK.UInt32, accept);
                 }
                 return;
             case PTK.UInt64:
-                this.expectValueKind(value, ast.isUInt64Value(value), type, accept);
-                if (ast.isUInt64Value(value)) {
+                this.expectValueKind(value, ast.isUInt64Value(value) || ast.isIntValue(value), type, accept);
+                if (ast.isUInt64Value(value) || ast.isIntValue(value)) {
                     this.checkIntegralValueRange(value, type, PTK.UInt64, accept);
                 }
                 return;
@@ -740,6 +742,113 @@ export class XsmpasbValidator extends XsmpcfgValidator {
         return matches.length === 1 ? matches[0] : undefined;
     }
 
+    protected override getExpectedTypeForValue(value: ast.Value): ast.Type | undefined {
+        const container = value.$container;
+        if (!container) {
+            return undefined;
+        }
+        if (ast.isFieldValue(container) && container.value === value) {
+            return this.getExpectedTypeForAssemblyFieldValue(container);
+        }
+        if (ast.isPropertyValue(container) && container.value === value) {
+            if (container.property?.unsafe) {
+                return undefined;
+            }
+            const target = this.l2PathResolver.getLocalNamedReferenceTarget(container.property);
+            return ast.isProperty(target) ? target.type?.ref : undefined;
+        }
+        if (ast.isParameterValue(container) && container.value === value) {
+            return this.getExpectedTypeForOperationParameterValue(container);
+        }
+        if (ast.isArrayValue(container)) {
+            const arrayType = this.getExpectedTypeForValue(container);
+            return ast.isArrayType(arrayType) ? arrayType.itemType?.ref : undefined;
+        }
+        if (ast.isStructureValue(container)) {
+            const structureType = this.getExpectedTypeForValue(container);
+            return ast.isStructure(structureType)
+                ? this.getPositionalAssemblyStructureFieldType(container, value, structureType)
+                : undefined;
+        }
+        return undefined;
+    }
+
+    protected getExpectedTypeForAssemblyFieldValue(fieldValue: ast.FieldValue): ast.Type | undefined {
+        if (!ast.isPath(fieldValue.field) || fieldValue.field.unsafe) {
+            return undefined;
+        }
+        if (ast.isStructureValue(fieldValue.$container)) {
+            const structureType = this.getExpectedTypeForValue(fieldValue.$container);
+            const field = ast.isStructure(structureType)
+                ? this.resolveStructureFieldByPath(structureType, fieldValue.field)
+                : undefined;
+            return field?.type?.ref;
+        }
+        const resolution = this.l2PathResolver.getAssemblyFieldPathResolution(fieldValue.field);
+        if (!resolution.active || resolution.invalidMessage) {
+            return undefined;
+        }
+        return resolution.finalType;
+    }
+
+    protected getExpectedTypeForOperationParameterValue(parameterValue: ast.ParameterValue): ast.Type | undefined {
+        if (!parameterValue.parameter) {
+            return undefined;
+        }
+        const call = AstUtils.getContainerOfType(parameterValue, ast.isOperationCall);
+        if (!call || call.operation?.unsafe) {
+            return undefined;
+        }
+        const target = this.l2PathResolver.getLocalNamedReferenceTarget(call.operation);
+        if (!ast.isOperation(target)) {
+            return undefined;
+        }
+        return target.parameter.find(parameter => parameter.name === parameterValue.parameter)?.type?.ref;
+    }
+
+    protected getPositionalAssemblyStructureFieldType(
+        structureValue: ast.StructureValue,
+        target: ast.Value,
+        type: ast.Structure,
+    ): ast.Type | undefined {
+        const fields = this.pathResolver.getFieldCandidatesForType(type);
+        const usedFields = new Set<string>();
+        let positionalIndex = 0;
+
+        const nextPositionalField = (): ast.Field | undefined => {
+            while (positionalIndex < fields.length) {
+                const field = fields[positionalIndex++];
+                if (field.name && !usedFields.has(field.name)) {
+                    return field;
+                }
+            }
+            return undefined;
+        };
+
+        for (const element of structureValue.elements) {
+            if (ast.isFieldValue(element)) {
+                const field = element.field ? this.resolveStructureFieldByPath(type, element.field) : undefined;
+                if (field?.name && !usedFields.has(field.name)) {
+                    usedFields.add(field.name);
+                }
+                continue;
+            }
+
+            const field = nextPositionalField();
+            if (!field) {
+                return undefined;
+            }
+            if (element === target) {
+                return field.type?.ref;
+            }
+            if (field.name) {
+                usedFields.add(field.name);
+            }
+        }
+
+        return undefined;
+    }
+
     protected checkTemplatedInstanceName(
         name: string | undefined,
         node: ast.ModelInstance | ast.AssemblyInstance,
@@ -776,48 +885,19 @@ export class XsmpasbValidator extends XsmpcfgValidator {
     protected checkAssemblyPathTemplateParameters(path: ast.Path, accept: ValidationAcceptor): boolean {
         const assembly = AstUtils.getContainerOfType(path, ast.isAssembly);
         const available = new Set((assembly?.parameters ?? []).map(parameter => parameter.name));
-        const bindings = this.getAssemblyTemplateBindings(assembly);
-        let valid = true;
-        for (const segment of this.pathService.getPathSegments(path)) {
-            const namedSegment = ast.isPathMember(segment) ? segment.segment : segment;
-            if (!ast.isPathNamedSegment(namedSegment)) {
-                continue;
-            }
-            for (const templateName of this.identifierPatternService.getSegmentTemplateNames(namedSegment)) {
-                if (!available.has(templateName)) {
-                    valid = false;
-                    accept('error', `The placeholder '{${templateName}}' shall resolve to a Template Argument of the enclosing Assembly.`, {
-                        node: namedSegment
-                    });
-                }
-            }
-            const pattern = this.identifierPatternService.getSegmentPattern(namedSegment);
-            const concreteText = this.identifierPatternService.substitute(pattern, bindings);
-            if (this.identifierPatternService.hasTemplate(pattern) && concreteText !== undefined && !isValidExpandedL2Identifier(concreteText)) {
-                valid = false;
-                accept('error', `The expanded path segment '${concreteText}' is not valid for SMP Level 2.`, {
-                    node: namedSegment
-                });
-            }
-        }
-        return valid;
+        return checkTemplatedL2PathSegments(
+            path,
+            available,
+            this.getAssemblyTemplateBindings(assembly),
+            this.identifierPatternService,
+            this.pathService,
+            accept,
+            templateName => `The placeholder '{${templateName}}' shall resolve to a Template Argument of the enclosing Assembly.`,
+        );
     }
 
     protected getAssemblyTemplateBindings(assembly: ast.Assembly | undefined): Map<string, string> {
-        const bindings = new Map<string, string>();
-        for (const parameter of assembly?.parameters ?? []) {
-            if (!parameter.name) {
-                continue;
-            }
-            if (ast.isStringParameter(parameter) && parameter.value !== undefined) {
-                bindings.set(parameter.name, parameter.value.startsWith('"') && parameter.value.endsWith('"')
-                    ? parameter.value.slice(1, -1)
-                    : parameter.value);
-            } else if (ast.isInt32Parameter(parameter) && parameter.value !== undefined) {
-                bindings.set(parameter.name, parameter.value.toString());
-            }
-        }
-        return bindings;
+        return createTemplateBindings(assembly?.parameters ?? []);
     }
 
     private createAssemblyOccurrence(

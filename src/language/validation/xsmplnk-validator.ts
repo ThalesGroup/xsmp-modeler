@@ -5,7 +5,7 @@ import { checkName } from './name-validator-utils.js';
 import type { Xsmpl2PathResolver } from '../references/xsmpl2-path-resolver.js';
 import type { IdentifierPatternService, TemplateBindings } from '../references/identifier-pattern-service.js';
 import type { XsmpPathService } from '../references/xsmp-path-service.js';
-import { isValidExpandedL2Identifier } from './l2-validator-utils.js';
+import { checkTemplatedL2PathSegments, createTemplateBindings } from './template-parameter-validator-utils.js';
 import * as XsmpUtils from '../utils/xsmp-utils.js';
 
 export function registerXsmplnkValidationChecks(services: XsmplnkServices) {
@@ -295,48 +295,19 @@ export class XsmplnkValidator {
             return !this.pathHasTemplate(path);
         }
         const available = new Set(assembly.parameters.map(parameter => parameter.name));
-        const bindings = this.getAssemblyTemplateBindings(assembly);
-        let valid = true;
-        for (const segment of this.pathService.getPathSegments(path)) {
-            const namedSegment = ast.isPathMember(segment) ? segment.segment : segment;
-            if (!ast.isPathNamedSegment(namedSegment)) {
-                continue;
-            }
-            for (const templateName of this.identifierPatternService.getSegmentTemplateNames(namedSegment)) {
-                if (!available.has(templateName)) {
-                    valid = false;
-                    accept('error', `The placeholder '{${templateName}}' shall resolve to a Template Argument of the anchored Assembly.`, {
-                        node: namedSegment
-                    });
-                }
-            }
-            const pattern = this.identifierPatternService.getSegmentPattern(namedSegment);
-            const concreteText = this.identifierPatternService.substitute(pattern, bindings);
-            if (this.identifierPatternService.hasTemplate(pattern) && concreteText !== undefined && !isValidExpandedL2Identifier(concreteText)) {
-                valid = false;
-                accept('error', `The expanded path segment '${concreteText}' is not valid for SMP Level 2.`, {
-                    node: namedSegment
-                });
-            }
-        }
-        return valid;
+        return checkTemplatedL2PathSegments(
+            path,
+            available,
+            this.getAssemblyTemplateBindings(assembly),
+            this.identifierPatternService,
+            this.pathService,
+            accept,
+            templateName => `The placeholder '{${templateName}}' shall resolve to a Template Argument of the anchored Assembly.`,
+        );
     }
 
     private getAssemblyTemplateBindings(assembly: ast.Assembly): Map<string, string> {
-        const bindings = new Map<string, string>();
-        for (const parameter of assembly.parameters) {
-            if (!parameter.name) {
-                continue;
-            }
-            if (ast.isStringParameter(parameter) && parameter.value !== undefined) {
-                bindings.set(parameter.name, parameter.value.startsWith('"') && parameter.value.endsWith('"')
-                    ? parameter.value.slice(1, -1)
-                    : parameter.value);
-            } else if (ast.isInt32Parameter(parameter) && parameter.value !== undefined) {
-                bindings.set(parameter.name, parameter.value.toString());
-            }
-        }
-        return bindings;
+        return createTemplateBindings(assembly.parameters);
     }
 
     private acceptPathError(message: string | undefined, node: AstNode | undefined, accept: ValidationAcceptor): void {
