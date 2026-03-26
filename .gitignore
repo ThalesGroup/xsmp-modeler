@@ -5,6 +5,7 @@
 node_modules/
 out/
 lib/
+bin/
 src/language/generated/
 coverage/
 .tsbuildinfo/

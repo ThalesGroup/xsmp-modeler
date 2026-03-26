@@ -99,6 +99,7 @@ fs.rmSync(path.resolve('out/contributions'), { recursive: true, force: true });
 
 const mainBuildOptions = {
     entryPoints: [
+        'src/cli/main.ts',
         'src/extension/main.ts',
         'src/language/main.ts',
     ],
