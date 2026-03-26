@@ -4,7 +4,7 @@ import type { XsmpasbServices } from '../xsmpasb-module.js';
 import { checkNoParentTraversal, checkRelativePath, isAbsolutePath, isValidExpandedL2Identifier } from './l2-validator-utils.js';
 import { checkName } from './name-validator-utils.js';
 import type { Xsmpl2PathResolver } from '../references/xsmpl2-path-resolver.js';
-import type { IdentifierPatternService } from '../references/identifier-pattern-service.js';
+import type { IdentifierPatternService, TemplateBindings } from '../references/identifier-pattern-service.js';
 import { PTK } from '../utils/primitive-type-kind.js';
 import * as Solver from '../utils/solver.js';
 import * as XsmpUtils from '../utils/xsmp-utils.js';
@@ -62,6 +62,8 @@ export class XsmpasbValidator extends XsmpcfgValidator {
             collectUsedTemplateParameterNames(assembly, this.identifierPatternService),
             accept
         );
+
+        this.checkReferenceUpperBounds(assembly, accept);
     }
 
     checkModelInstance(model: ast.ModelInstance, accept: ValidationAcceptor): void {
@@ -89,6 +91,8 @@ export class XsmpasbValidator extends XsmpcfgValidator {
                 seen.add(instanceName);
             }
         }
+
+        this.checkContainerUpperBounds(model, accept);
     }
 
     checkAssemblyInstance(instance: ast.AssemblyInstance, accept: ValidationAcceptor): void {
@@ -281,6 +285,56 @@ export class XsmpasbValidator extends XsmpcfgValidator {
         this.checkLinkPath(link, link.clientPath, 'clientPath', 'The Client Path shall refer to the current Model Instance or one of its children.', accept);
     }
 
+    private checkContainerUpperBounds(model: ast.ModelInstance, accept: ValidationAcceptor): void {
+        const counts = new Map<ast.Container, number>();
+        for (const subInstance of model.elements.filter(ast.isSubInstance)) {
+            if (!subInstance.container || subInstance.container.unsafe) {
+                continue;
+            }
+            const container = this.l2PathResolver.getLocalNamedReferenceTarget(subInstance.container);
+            if (!ast.isContainer(container)) {
+                continue;
+            }
+            const count = (counts.get(container) ?? 0) + 1;
+            counts.set(container, count);
+            const upper = XsmpUtils.getUpper(container);
+            if (upper !== undefined && upper >= BigInt(0) && BigInt(count) > upper) {
+                accept('error', `The Container '${container.name ?? '<unknown>'}' shall not contain more than ${upper} sub-instance(s).`, {
+                    node: subInstance,
+                    property: 'container'
+                });
+            }
+        }
+    }
+
+    private checkReferenceUpperBounds(assembly: ast.Assembly, accept: ValidationAcceptor): void {
+        const rootBindings = this.createTemplateBindings(assembly.parameters);
+        const rootOccurrence = this.createAssemblyOccurrence(assembly, assembly.model, rootBindings, '/', new Set([assembly]));
+        if (!rootOccurrence) {
+            return;
+        }
+
+        const currentDocument = AstUtils.getDocument(assembly);
+        const usages = new Map<string, ReferenceUsageBucket>();
+        this.visitAssemblyOccurrences(rootOccurrence, rootOccurrence, occurrence => {
+            for (const link of occurrence.model.elements.filter(ast.isInterfaceLink)) {
+                this.collectReferenceUsage(link, 'reference', link.ownerPath, link.reference, occurrence, rootOccurrence, usages);
+                this.collectReferenceUsage(link, 'backReference', link.clientPath, link.backReference, occurrence, rootOccurrence, usages);
+            }
+        });
+        for (const usage of usages.values()) {
+            if (usage.upper < BigInt(0) || BigInt(usage.usages.length) <= usage.upper) {
+                continue;
+            }
+            for (const item of usage.usages.filter(candidate => AstUtils.getDocument(candidate.link) === currentDocument)) {
+                accept('error', `The Reference '${usage.referenceName}' of instance '${usage.instancePath}' shall not be connected more than ${usage.upper} time(s).`, {
+                    node: item.link,
+                    property: item.property
+                });
+            }
+        }
+    }
+
     private checkInterfaceReference(
         reference: ast.LocalNamedReference,
         property: 'reference' | 'backReference',
@@ -319,6 +373,41 @@ export class XsmpasbValidator extends XsmpcfgValidator {
         }
         const assembly = ast.isAssembly(instance.assembly?.ref) ? instance.assembly.ref : undefined;
         return assembly && ast.isComponent(assembly.model?.implementation?.ref) ? assembly.model.implementation.ref : undefined;
+    }
+
+    private collectReferenceUsage(
+        link: ast.InterfaceLink,
+        property: 'reference' | 'backReference',
+        path: ast.Path | undefined,
+        reference: ast.LocalNamedReference | undefined,
+        occurrence: AssemblyOccurrence,
+        rootOccurrence: AssemblyOccurrence,
+        usages: Map<string, ReferenceUsageBucket>,
+    ): void {
+        if (!path || !reference || reference.unsafe || path.unsafe) {
+            return;
+        }
+        const targetOccurrence = this.resolveOccurrencePath(path, occurrence, rootOccurrence);
+        if (!targetOccurrence?.component) {
+            return;
+        }
+        const targetReference = this.resolveReferenceForComponent(reference, targetOccurrence.component);
+        if (!targetReference) {
+            return;
+        }
+        const upper = XsmpUtils.getUpper(targetReference);
+        if (upper === undefined || upper < BigInt(0)) {
+            return;
+        }
+        const key = `${targetOccurrence.absolutePath}::${targetReference.name ?? '<unknown>'}`;
+        const usage = usages.get(key) ?? {
+            upper,
+            referenceName: targetReference.name ?? '<unknown>',
+            instancePath: this.displayOccurrencePath(targetOccurrence),
+            usages: [],
+        };
+        usage.usages.push({ link, property });
+        usages.set(key, usage);
     }
 
     private checkLinkPath(
@@ -660,4 +749,170 @@ export class XsmpasbValidator extends XsmpcfgValidator {
         }
         return bindings;
     }
+
+    private createAssemblyOccurrence(
+        assembly: ast.Assembly,
+        model: ast.ModelInstance | undefined,
+        bindings: TemplateBindings | undefined,
+        absolutePath: string,
+        stack: Set<ast.Assembly>,
+    ): AssemblyOccurrence | undefined {
+        if (!model) {
+            return undefined;
+        }
+        const component = ast.isComponent(model.implementation?.ref) ? model.implementation.ref : undefined;
+        const children: AssemblyOccurrenceChild[] = [];
+        for (const subInstance of model.elements.filter(ast.isSubInstance)) {
+            const instance = subInstance.instance;
+            if (!instance) {
+                continue;
+            }
+            const concreteName = this.resolveConcreteInstanceName(instance.name, bindings);
+            if (!concreteName) {
+                continue;
+            }
+            const childPath = this.joinOccurrencePath(absolutePath, concreteName);
+            if (ast.isModelInstance(instance)) {
+                const childOccurrence = this.createAssemblyOccurrence(assembly, instance, bindings, childPath, stack);
+                if (childOccurrence) {
+                    children.push({ name: concreteName, occurrence: childOccurrence });
+                }
+                continue;
+            }
+            if (ast.isAssemblyInstance(instance)) {
+                const childAssembly = ast.isAssembly(instance.assembly?.ref) ? instance.assembly.ref : undefined;
+                const childBindings = childAssembly ? this.createTemplateBindings(childAssembly.parameters, instance.arguments) : undefined;
+                const childOccurrence = childAssembly
+                    ? (stack.has(childAssembly)
+                        ? this.createAssemblyOccurrence(childAssembly, childAssembly.model, childBindings, childPath, stack)
+                        : this.createAssemblyOccurrence(childAssembly, childAssembly.model, childBindings, childPath, new Set([...stack, childAssembly])))
+                    : undefined;
+                if (childOccurrence) {
+                    children.push({ name: concreteName, occurrence: childOccurrence });
+                }
+            }
+        }
+        return { assembly, model, component, bindings, absolutePath, children };
+    }
+
+    private visitAssemblyOccurrences(
+        occurrence: AssemblyOccurrence,
+        rootOccurrence: AssemblyOccurrence,
+        visit: (occurrence: AssemblyOccurrence, rootOccurrence: AssemblyOccurrence) => void,
+    ): void {
+        visit(occurrence, rootOccurrence);
+        for (const child of occurrence.children) {
+            this.visitAssemblyOccurrences(child.occurrence, rootOccurrence, visit);
+        }
+    }
+
+    private resolveOccurrencePath(
+        path: ast.Path,
+        occurrence: AssemblyOccurrence,
+        rootOccurrence: AssemblyOccurrence,
+    ): AssemblyOccurrence | undefined {
+        let current = path.absolute ? rootOccurrence : occurrence;
+        const segments = this.pathService.getPathSegments(path);
+        if (segments.length === 0) {
+            return path.absolute ? current : undefined;
+        }
+        for (const segment of segments) {
+            if (ast.isPathIndex(segment)) {
+                return undefined;
+            }
+            const actualSegment = ast.isPathMember(segment) ? segment.segment : segment;
+            if (ast.isPathSelfSegment(actualSegment)) {
+                continue;
+            }
+            if (ast.isPathParentSegment(actualSegment) || !ast.isPathNamedSegment(actualSegment)) {
+                return undefined;
+            }
+            const matches = current.children.filter(child =>
+                this.identifierPatternService.matches(this.identifierPatternService.getSegmentPattern(actualSegment), child.name, current.bindings)
+            );
+            if (matches.length !== 1) {
+                return undefined;
+            }
+            current = matches[0].occurrence;
+        }
+        return current;
+    }
+
+    private resolveReferenceForComponent(reference: ast.LocalNamedReference, component: ast.Component): ast.Reference | undefined {
+        const referenceName = this.pathService.getLocalNamedReferenceText(reference);
+        if (!referenceName) {
+            return undefined;
+        }
+        return this.l2PathResolver.getComponentMembersByKind(component, ['reference'])
+            .find((candidate): candidate is ast.Reference => ast.isReference(candidate) && candidate.name === referenceName);
+    }
+
+    private createTemplateBindings(
+        parameters: readonly ast.TemplateParameter[],
+        argumentsList: readonly ast.TemplateArgument[] = [],
+    ): TemplateBindings | undefined {
+        const bindings = new Map<string, string>();
+        for (const parameter of parameters) {
+            if (!parameter.name) {
+                continue;
+            }
+            if (ast.isStringParameter(parameter) && parameter.value !== undefined) {
+                bindings.set(parameter.name, this.stripStringQuotes(parameter.value));
+            } else if (ast.isInt32Parameter(parameter) && parameter.value !== undefined) {
+                bindings.set(parameter.name, parameter.value.toString());
+            }
+        }
+        for (const argument of argumentsList) {
+            const parameterName = argument.parameter?.ref?.name;
+            if (!parameterName) {
+                continue;
+            }
+            if (ast.isStringArgument(argument) && argument.value !== undefined) {
+                bindings.set(parameterName, this.stripStringQuotes(argument.value));
+            } else if (ast.isInt32Argument(argument) && argument.value !== undefined) {
+                bindings.set(parameterName, argument.value.toString());
+            }
+        }
+        return bindings.size > 0 ? bindings : undefined;
+    }
+
+    private resolveConcreteInstanceName(name: string | undefined, bindings: TemplateBindings | undefined): string | undefined {
+        return this.identifierPatternService.substitute(name, bindings) ?? name;
+    }
+
+    private joinOccurrencePath(parentPath: string, childName: string): string {
+        return parentPath === '/' ? `/${childName}` : `${parentPath}/${childName}`;
+    }
+
+    private displayOccurrencePath(occurrence: AssemblyOccurrence): string {
+        return occurrence.absolutePath === '/' ? '/' : occurrence.absolutePath;
+    }
+
+    private stripStringQuotes(text: string): string {
+        return text.startsWith('"') && text.endsWith('"') ? text.slice(1, -1) : text;
+    }
+}
+
+interface AssemblyOccurrenceChild {
+    name: string;
+    occurrence: AssemblyOccurrence;
+}
+
+interface AssemblyOccurrence {
+    assembly: ast.Assembly;
+    model: ast.ModelInstance;
+    component?: ast.Component;
+    bindings?: TemplateBindings;
+    absolutePath: string;
+    children: AssemblyOccurrenceChild[];
+}
+
+interface ReferenceUsageBucket {
+    upper: bigint;
+    referenceName: string;
+    instancePath: string;
+    usages: Array<{
+        link: ast.InterfaceLink;
+        property: 'reference' | 'backReference';
+    }>;
 }

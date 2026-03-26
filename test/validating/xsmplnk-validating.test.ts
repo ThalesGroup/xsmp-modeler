@@ -28,6 +28,7 @@ namespace demo
 
         eventsink demo.FlagEvent inbound
         eventsource demo.FlagEvent outbound
+        reference Smp.IComponent backLogger
     }
 
     public model Root
@@ -36,6 +37,7 @@ namespace demo
         output field Smp.Int32 outValue
         input field Smp.Int32 inValue
         container Child child = demo.Child
+        reference Smp.IComponent logger
 
         public property Smp.Bool enabled -> enabledState
 
@@ -157,6 +159,28 @@ Root: demo.Root
 
         expect(getMessages(document)).toEqual([
             "The placeholder '{Missing}' shall resolve to a Template Argument of the anchored Assembly.",
+        ]);
+    });
+
+    test('reports when a reference upper bound is exceeded in a link base', async () => {
+        const document = await parseInProject(`link Demo for DemoAsm
+
+/
+{
+    interface link . : logger -> child : backLogger
+    interface link . : logger -> .
+}
+`, `assembly DemoAsm
+
+Root: demo.Root
+{
+    child += Leaf: demo.Child
+}
+`);
+
+        expect(getMessages(document)).toEqual([
+            "The Reference 'logger' of component path '/' shall not be connected more than 1 time(s).",
+            "The Reference 'logger' of component path '/' shall not be connected more than 1 time(s).",
         ]);
     });
 });

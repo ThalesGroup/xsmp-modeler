@@ -25,6 +25,7 @@ export class XsmplnkValidator {
     protected readonly pathResolver: Xsmpl2PathResolver;
     protected readonly identifierPatternService: IdentifierPatternService;
     protected readonly pathService: XsmpPathService;
+    protected readonly componentLinkBasePathCache = new WeakMap<ast.ComponentLinkBase, string[] | undefined>();
 
     constructor(services: XsmplnkServices) {
         this.pathResolver = services.shared.L2PathResolver;
@@ -46,6 +47,7 @@ export class XsmplnkValidator {
                 property: 'assembly'
             });
         }
+        this.checkReferenceUpperBounds(linkBase, accept);
     }
 
     checkComponentLinkBase(linkBase: ast.ComponentLinkBase, accept: ValidationAcceptor): void {
@@ -136,6 +138,62 @@ export class XsmplnkValidator {
         }
     }
 
+    private checkReferenceUpperBounds(linkBase: ast.LinkBase, accept: ValidationAcceptor): void {
+        const usages = new Map<string, LinkBaseReferenceUsageBucket>();
+        for (const link of AstUtils.streamAst(linkBase).filter(ast.isInterfaceLink)) {
+            this.collectReferenceUsage(link, 'reference', link.ownerPath, link.reference, usages);
+            this.collectReferenceUsage(link, 'backReference', link.clientPath, link.backReference, usages);
+        }
+        for (const usage of usages.values()) {
+            if (usage.upper < BigInt(0) || BigInt(usage.usages.length) <= usage.upper) {
+                continue;
+            }
+            for (const item of usage.usages) {
+                accept('error', `The Reference '${usage.referenceName}' of component path '${usage.componentPath}' shall not be connected more than ${usage.upper} time(s).`, {
+                    node: item.link,
+                    property: item.property
+                });
+            }
+        }
+    }
+
+    private collectReferenceUsage(
+        link: ast.InterfaceLink,
+        property: 'reference' | 'backReference',
+        path: ast.Path | undefined,
+        reference: ast.LocalNamedReference | undefined,
+        usages: Map<string, LinkBaseReferenceUsageBucket>,
+    ): void {
+        if (!path || !reference || path.unsafe || reference.unsafe) {
+            return;
+        }
+        const pathResolution = this.pathResolver.getLinkBaseEndpointPathResolution(path);
+        if (!pathResolution.active || pathResolution.invalidMessage || !pathResolution.finalComponent) {
+            return;
+        }
+        const targetReference = this.pathResolver.getLocalNamedReferenceTarget(reference);
+        if (!ast.isReference(targetReference)) {
+            return;
+        }
+        const upper = XsmpUtils.getUpper(targetReference);
+        if (upper === undefined || upper < BigInt(0)) {
+            return;
+        }
+        const componentPath = this.getAbsoluteComponentPath(link, path);
+        if (!componentPath) {
+            return;
+        }
+        const key = `${componentPath}::${targetReference.name ?? '<unknown>'}`;
+        const usage = usages.get(key) ?? {
+            upper,
+            referenceName: targetReference.name ?? '<unknown>',
+            componentPath,
+            usages: [],
+        };
+        usage.usages.push({ link, property });
+        usages.set(key, usage);
+    }
+
     private hasTemplatedPaths(linkBase: ast.LinkBase): boolean {
         return AstUtils.streamAst(linkBase)
             .filter(ast.isPath)
@@ -209,4 +267,74 @@ export class XsmplnkValidator {
     private isCompatibleReferenceTarget(expectedType: ast.ReferenceType, component: ast.Component): boolean {
         return XsmpUtils.isBaseOfReferenceType(expectedType, component);
     }
+
+    private getAbsoluteComponentPath(link: ast.InterfaceLink, path: ast.Path): string | undefined {
+        const componentLinkBase = AstUtils.getContainerOfType(link, ast.isComponentLinkBase);
+        if (!componentLinkBase) {
+            return undefined;
+        }
+        const baseSegments = this.getAbsoluteComponentLinkBaseSegments(componentLinkBase);
+        if (!baseSegments) {
+            return undefined;
+        }
+        const targetSegments = this.applyPathToSegments(baseSegments, path);
+        if (!targetSegments) {
+            return undefined;
+        }
+        return targetSegments.length === 0 ? '/' : `/${targetSegments.join('/')}`;
+    }
+
+    private getAbsoluteComponentLinkBaseSegments(linkBase: ast.ComponentLinkBase): string[] | undefined {
+        const cached = this.componentLinkBasePathCache.get(linkBase);
+        if (cached !== undefined) {
+            return cached;
+        }
+        const parent = ast.isComponentLinkBase(linkBase.$container) ? linkBase.$container : undefined;
+        const baseSegments = parent ? this.getAbsoluteComponentLinkBaseSegments(parent) : [];
+        const segments = baseSegments ? this.applyPathToSegments(baseSegments, linkBase.name) : undefined;
+        this.componentLinkBasePathCache.set(linkBase, segments);
+        return segments;
+    }
+
+    private applyPathToSegments(baseSegments: string[], path: ast.Path | undefined): string[] | undefined {
+        if (!path) {
+            return undefined;
+        }
+        const segments = path.absolute ? [] : [...baseSegments];
+        for (const segment of this.pathService.getPathSegments(path)) {
+            if (ast.isPathIndex(segment)) {
+                return undefined;
+            }
+            const actualSegment = ast.isPathMember(segment) ? segment.segment : segment;
+            if (ast.isPathSelfSegment(actualSegment)) {
+                continue;
+            }
+            if (ast.isPathParentSegment(actualSegment)) {
+                if (segments.length === 0) {
+                    return undefined;
+                }
+                segments.pop();
+                continue;
+            }
+            if (!ast.isPathNamedSegment(actualSegment)) {
+                return undefined;
+            }
+            const text = this.pathService.getSegmentText(actualSegment);
+            if (!text) {
+                return undefined;
+            }
+            segments.push(text);
+        }
+        return segments;
+    }
+}
+
+interface LinkBaseReferenceUsageBucket {
+    upper: bigint;
+    referenceName: string;
+    componentPath: string;
+    usages: Array<{
+        link: ast.InterfaceLink;
+        property: 'reference' | 'backReference';
+    }>;
 }

@@ -36,6 +36,7 @@ namespace demo
         output field Smp.Int32 outValue
         input field Smp.Int32 inValue
         container Child child = demo.Child
+        reference Smp.IComponent logger
 
         public property Smp.Bool enabled -> enabledState
 
@@ -201,6 +202,45 @@ NestedRoot: demo.System
 
         expect(getMessages(document)).toEqual([
             'The type of the sub-instance shall be compatible with the selected Container.',
+        ]);
+    });
+
+    test('reports when a container upper bound is exceeded', async () => {
+        const document = await parseInProject(`assembly Demo
+
+Root: demo.Root
+{
+    child += Left: demo.Child
+    child += Right: demo.Child
+}
+`);
+
+        expect(getMessages(document)).toEqual([
+            "The Container 'child' shall not contain more than 1 sub-instance(s).",
+        ]);
+    });
+
+    test('reports when a reference upper bound is exceeded across nested assembly occurrences', async () => {
+        const document = await parseInProject(`assembly Demo
+
+Root: demo.System
+{
+    bus += Bus: NestedAsm
+    interface link Bus : logger -> Bus.Child
+}
+`, [
+            ['nested.xsmpasb', `assembly NestedAsm
+
+NestedRoot: demo.Root
+{
+    child += Child: demo.Child
+    interface link . : logger -> Child
+}
+`]
+        ]);
+
+        expect(getMessages(document)).toEqual([
+            "The Reference 'logger' of instance '/Bus' shall not be connected more than 1 time(s).",
         ]);
     });
 
