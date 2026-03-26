@@ -34,6 +34,12 @@ export abstract class XsmpFormatterBase extends AbstractFormatter {
         formatter.keyword(']').prepend(Formatting.noSpace());
     }
 
+    protected formatLocalNamedReference(node: ast.LocalNamedReference, formatter: NodeFormatter<ast.LocalNamedReference>): void {
+        if (node.unsafe) {
+            formatter.keyword('unsafe').append(Formatting.oneSpace());
+        }
+    }
+
     protected formatPathMember(_node: ast.PathMember, formatter: NodeFormatter<ast.PathMember>): void {
         formatter.property('separator').surround(Formatting.noSpace());
     }

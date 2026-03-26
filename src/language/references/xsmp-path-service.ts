@@ -33,6 +33,17 @@ export class XsmpPathService {
         return text;
     }
 
+    stringifyLocalNamedReference(reference: ast.LocalNamedReference | undefined, includeUnsafe = true): string | undefined {
+        if (!reference) {
+            return undefined;
+        }
+        const text = this.getLocalNamedReferenceText(reference);
+        if (!text) {
+            return undefined;
+        }
+        return includeUnsafe && reference.unsafe ? `unsafe ${text}` : text;
+    }
+
     getPathSegments(path: ast.Path): Array<ast.PathElement | ast.PathSegment> {
         const segments: Array<ast.PathElement | ast.PathSegment> = [];
         if (path.head) {
@@ -52,7 +63,7 @@ export class XsmpPathService {
 
     getSegmentText(segment: ast.PathNamedSegment | ast.PathSegment): string {
         if (ast.isConcretePathNamedSegment(segment)) {
-            return segment.reference?.ref?.name ?? segment.reference?.$refText ?? '';
+            return this.getLocalNamedReferenceText(segment);
         }
         if (ast.isPatternPathNamedSegment(segment)) {
             return this.identifierPatternService.stringifyPattern(segment.pattern) ?? '';
@@ -71,5 +82,9 @@ export class XsmpPathService {
             return '..';
         }
         return '.';
+    }
+
+    getLocalNamedReferenceText(reference: ast.LocalNamedReference): string {
+        return reference.reference?.ref?.name ?? reference.reference?.$refText ?? reference.strReference ?? '';
     }
 }

@@ -6,6 +6,7 @@ import { XsmpFormatterBase } from './xsmp-formatter-base.js';
 export class XsmpasbFormatter extends XsmpFormatterBase {
     protected override format(node: AstNode): void {
         switch (node.$type) {
+            case ast.LocalNamedReference: return this.formatLocalNamedReference(node as ast.LocalNamedReference, this.getNodeFormatter(node));
             case ast.Path: return this.formatPath(node as ast.Path, this.getNodeFormatter(node));
             case ast.PathMember: return this.formatPathMember(node as ast.PathMember, this.getNodeFormatter(node));
             case ast.Assembly: return this.formatAssembly(node as ast.Assembly, this.getNodeFormatter(node));

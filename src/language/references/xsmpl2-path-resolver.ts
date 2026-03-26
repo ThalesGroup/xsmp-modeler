@@ -53,6 +53,7 @@ type MemberKind =
     | 'outputField'
     | 'property'
     | 'operation'
+    | 'reference'
     | 'entryPoint'
     | 'eventSink'
     | 'eventSource';
@@ -86,6 +87,14 @@ export class Xsmpl2PathResolver {
         this.taskExecutionContextStackCache = new WorkspaceCache<ast.Task, readonly ast.Component[] | undefined>(services);
     }
 
+    getFieldCandidatesForType(type: ast.Type | undefined): readonly ast.Field[] {
+        return this.typedPathResolver.getFieldCandidatesForType(type);
+    }
+
+    getComponentPathMembers(component: ast.Component | undefined): ReadonlyArray<ast.Container | ast.Reference> {
+        return this.typedPathResolver.getComponentPathMembers(component);
+    }
+
     getNamedSegmentCandidates(segment: ast.PathNamedSegment): readonly ast.NamedElement[] {
         return this.getNamedSegmentContext(segment).candidates;
     }
@@ -93,6 +102,37 @@ export class Xsmpl2PathResolver {
     getNamedSegmentTarget(segment: ast.PathNamedSegment): ast.NamedElement | undefined {
         const { candidates, bindings } = this.getNamedSegmentContext(segment);
         return this.resolveNamedSegmentTarget(segment, candidates, bindings);
+    }
+
+    getAssemblyLocalComponentContext(node: AstNode): {
+        component?: ast.Component;
+        bindings?: TemplateBindings;
+    } {
+        return this.getAssemblyLocalContext(node);
+    }
+
+    getInterfaceLinkEndpointContext(
+        link: ast.InterfaceLink,
+        side: 'owner' | 'client',
+    ): {
+        component?: ast.Component;
+        bindings?: TemplateBindings;
+    } {
+        return this.getInterfaceLinkEndpointComponent(link, side);
+    }
+
+    getLocalNamedReferenceCandidates(reference: ast.LocalNamedReference): readonly ast.NamedElement[] {
+        return this.getLocalNamedReferenceContext(reference).candidates;
+    }
+
+    getLocalNamedReferenceTarget(reference: ast.LocalNamedReference): ast.NamedElement | undefined {
+        const { candidates } = this.getLocalNamedReferenceContext(reference);
+        const target = reference.reference?.ref;
+        if (target && candidates.includes(target)) {
+            return target;
+        }
+        const referenceText = this.pathService.getLocalNamedReferenceText(reference);
+        return referenceText ? candidates.find(candidate => candidate.name === referenceText) : undefined;
     }
 
     protected getNamedSegmentContext(segment: ast.PathNamedSegment): {
@@ -156,6 +196,72 @@ export class Xsmpl2PathResolver {
                 candidates: resolution.namedSegments.get(segment) ?? [],
                 bindings: resolution.segmentBindings?.get(segment),
             };
+        }
+
+        return { candidates: [] };
+    }
+
+    protected getLocalNamedReferenceContext(reference: ast.LocalNamedReference): {
+        candidates: readonly ast.NamedElement[];
+        component?: ast.Component;
+        bindings?: TemplateBindings;
+    } {
+        const container = reference.$container;
+
+        if (ast.isSubInstance(container) && container.container === reference) {
+            const parent = ast.isModelInstance(container.$container) ? container.$container : undefined;
+            const component = parent && ast.isComponent(parent.implementation?.ref) ? parent.implementation.ref : undefined;
+            return {
+                candidates: this.getComponentPathMembers(component).filter(ast.isContainer),
+                component,
+            };
+        }
+
+        if (ast.isGlobalEventHandler(container) && container.entryPoint === reference) {
+            const context = this.getAssemblyLocalContext(container);
+            return {
+                candidates: this.getComponentMembers(context.component, ['entryPoint']),
+                component: context.component,
+                bindings: context.bindings,
+            };
+        }
+
+        if (ast.isOperationCall(container) && container.operation === reference) {
+            const context = this.getAssemblyLocalContext(container);
+            return {
+                candidates: this.getComponentMembers(context.component, ['operation']),
+                component: context.component,
+                bindings: context.bindings,
+            };
+        }
+
+        if (ast.isPropertyValue(container) && container.property === reference) {
+            const context = this.getAssemblyLocalContext(container);
+            return {
+                candidates: this.getComponentMembers(context.component, ['property']),
+                component: context.component,
+                bindings: context.bindings,
+            };
+        }
+
+        if (ast.isInterfaceLink(container)) {
+            const property = (reference as AstNode & { $containerProperty?: string }).$containerProperty;
+            if (property === 'reference' || container.reference === reference) {
+                const resolution = this.getInterfaceLinkEndpointComponent(container, 'owner');
+                return {
+                    candidates: this.getComponentMembers(resolution.component, ['reference']),
+                    component: resolution.component,
+                    bindings: resolution.bindings,
+                };
+            }
+            if (property === 'backReference' || container.backReference === reference) {
+                const resolution = this.getInterfaceLinkEndpointComponent(container, 'client');
+                return {
+                    candidates: this.getComponentMembers(resolution.component, ['reference']),
+                    component: resolution.component,
+                    bindings: resolution.bindings,
+                };
+            }
         }
 
         return { candidates: [] };
@@ -239,6 +345,52 @@ export class Xsmpl2PathResolver {
             this.typedPathResolver.resolveFieldPath(path, assemblyNode?.component, componentModeFieldPathMessages, assemblyNode?.bindings),
             assemblyNode?.bindings
         );
+    }
+
+    protected getAssemblyLocalContext(node: AstNode): {
+        component?: ast.Component;
+        bindings?: TemplateBindings;
+    } {
+        const configuration = AstUtils.getContainerOfType(node, ast.isAssemblyComponentConfiguration);
+        if (configuration) {
+            const resolution = this.getAssemblyComponentPathResolution(configuration.name);
+            return {
+                component: resolution.finalComponent,
+                bindings: resolution.finalBindings,
+            };
+        }
+
+        const model = AstUtils.getContainerOfType(node, ast.isModelInstance);
+        const assemblyNode = model ? this.getAssemblyNode(model, this.getAssemblyTemplateBindings(node)) : undefined;
+        return {
+            component: assemblyNode?.component,
+            bindings: assemblyNode?.bindings,
+        };
+    }
+
+    protected getInterfaceLinkEndpointComponent(
+        link: ast.InterfaceLink,
+        side: 'owner' | 'client',
+    ): {
+        component?: ast.Component;
+        bindings?: TemplateBindings;
+    } {
+        const path = side === 'owner' ? link.ownerPath : link.clientPath;
+        if (AstUtils.getContainerOfType(link, ast.isModelInstance)) {
+            const resolution = this.getAssemblyLinkPathResolution(path);
+            return {
+                component: resolution.finalComponent,
+                bindings: resolution.finalBindings,
+            };
+        }
+        if (AstUtils.getContainerOfType(link, ast.isComponentLinkBase)) {
+            const resolution = this.getLinkBaseEndpointPathResolution(path);
+            return {
+                component: resolution.finalComponent,
+                bindings: resolution.finalBindings,
+            };
+        }
+        return {};
     }
 
     protected computeAssemblyLinkPathResolution(path: ast.Path): L2PathResolution {
@@ -772,7 +924,8 @@ export class Xsmpl2PathResolver {
         const component = this.getModelComponent(model);
         const children: AssemblyNodeChild[] = [];
         for (const subInstance of model.elements.filter(ast.isSubInstance)) {
-            if (!subInstance.container) {
+            const member = this.getSubInstanceContainer(subInstance, component);
+            if (!member) {
                 continue;
             }
             const childNode = ast.isModelInstance(subInstance.instance)
@@ -780,10 +933,7 @@ export class Xsmpl2PathResolver {
                 : ast.isAssemblyInstance(subInstance.instance)
                     ? this.getAssemblyNodeForAssemblyInstance(subInstance.instance)
                     : undefined;
-            const member = this.typedPathResolver
-                .getComponentPathMembers(component)
-                .find((candidate): candidate is ast.Container => ast.isContainer(candidate) && candidate.name === subInstance.container);
-            if (member && childNode) {
+            if (childNode) {
                 children.push({ member, instance: subInstance.instance, node: childNode });
             }
         }
@@ -792,6 +942,19 @@ export class Xsmpl2PathResolver {
 
     protected getModelComponent(model: ast.ModelInstance | undefined): ast.Component | undefined {
         return model && ast.isComponent(model.implementation?.ref) ? model.implementation.ref : undefined;
+    }
+
+    protected getSubInstanceContainer(subInstance: ast.SubInstance, component: ast.Component | undefined): ast.Container | undefined {
+        const target = this.getLocalNamedReferenceTarget(subInstance.container);
+        if (ast.isContainer(target)) {
+            return target;
+        }
+        const containerName = this.pathService.getLocalNamedReferenceText(subInstance.container);
+        if (!containerName) {
+            return undefined;
+        }
+        return this.getComponentPathMembers(component)
+            .find((candidate): candidate is ast.Container => ast.isContainer(candidate) && candidate.name === containerName);
     }
 
     protected getComponentMembers(component: ast.Component | undefined, kinds: readonly MemberKind[]): readonly ast.NamedElement[] {
@@ -844,6 +1007,8 @@ export class Xsmpl2PathResolver {
                     return ast.isProperty(element);
                 case 'operation':
                     return ast.isOperation(element);
+                case 'reference':
+                    return ast.isReference(element);
                 case 'entryPoint':
                     return ast.isEntryPoint(element);
                 case 'eventSink':

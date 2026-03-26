@@ -62,7 +62,8 @@ export class XsmpDocumentSymbolProvider implements DocumentSymbolProvider {
             case ast.ModelInstance:
             case ast.AssemblyInstance:
                 if (ast.isSubInstance(node.$container)) {
-                    return `${node.$container.container} += ${(node as ast.ModelInstance | ast.AssemblyInstance).name}`;
+                    const containerName = this.pathService.stringifyLocalNamedReference(node.$container.container) ?? '<unknown>';
+                    return `${containerName} += ${(node as ast.ModelInstance | ast.AssemblyInstance).name}`;
                 }
                 return (node as ast.ModelInstance | ast.AssemblyInstance).name;
             case ast.AssemblyComponentConfiguration:
@@ -81,7 +82,7 @@ export class XsmpDocumentSymbolProvider implements DocumentSymbolProvider {
             }
             case ast.GlobalEventHandler: {
                 const handler = node as ast.GlobalEventHandler;
-                return `subscribe ${handler.entryPointName} -> ${this.quote(handler.globalEventName)}`;
+                return `subscribe ${this.pathService.stringifyLocalNamedReference(handler.entryPoint) ?? '<unknown>'} -> ${this.quote(handler.globalEventName)}`;
             }
             case ast.EventLink: {
                 const link = node as ast.EventLink;
@@ -93,18 +94,20 @@ export class XsmpDocumentSymbolProvider implements DocumentSymbolProvider {
             }
             case ast.InterfaceLink: {
                 const link = node as ast.InterfaceLink;
-                return `interface link ${this.pathService.stringifyPath(link.ownerPath)}: ${link.reference} -> ${this.pathService.stringifyPath(link.clientPath)}${link.backReference ? `: ${link.backReference}` : ''}`;
+                const reference = this.pathService.stringifyLocalNamedReference(link.reference) ?? '<unknown>';
+                const backReference = this.pathService.stringifyLocalNamedReference(link.backReference);
+                return `interface link ${this.pathService.stringifyPath(link.ownerPath)}: ${reference} -> ${this.pathService.stringifyPath(link.clientPath)}${backReference ? `: ${backReference}` : ''}`;
             }
             case ast.OperationCall: {
                 const call = node as ast.OperationCall;
-                return `call ${call.operation}${this.formatArgumentList(call.parameters.map(parameter => parameter.parameter))}`;
+                return `call ${this.pathService.stringifyLocalNamedReference(call.operation) ?? '<unknown>'}${this.formatArgumentList(call.parameters.map(parameter => parameter.parameter))}`;
             }
             case ast.CallOperation: {
                 const call = node as ast.CallOperation;
                 return `call ${this.pathService.stringifyPath(call.operationPath)}${this.formatArgumentList(call.parameters.map(parameter => parameter.parameter))}`;
             }
             case ast.PropertyValue:
-                return `property ${(node as ast.PropertyValue).property}`;
+                return `property ${this.pathService.stringifyLocalNamedReference((node as ast.PropertyValue).property) ?? '<unknown>'}`;
             case ast.SetProperty:
                 return `property ${this.pathService.stringifyPath((node as ast.SetProperty).propertyPath)}`;
             case ast.FieldValue:

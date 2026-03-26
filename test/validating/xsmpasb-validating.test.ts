@@ -183,6 +183,27 @@ Root: demo.Root
         expect(getMessages(document)).toEqual([]);
     });
 
+    test('validates that a sub-instance type matches the selected container', async () => {
+        const document = await parseInProject(`assembly Demo
+
+Root: demo.Root
+{
+    child += Nested: NestedAsm
+}
+`, [
+            ['nested.xsmpasb', `assembly NestedAsm
+
+NestedRoot: demo.System
+{
+}
+`]
+        ]);
+
+        expect(getMessages(document)).toEqual([
+            'The type of the sub-instance shall be compatible with the selected Container.',
+        ]);
+    });
+
     test('warns when an assembly template parameter is not used', async () => {
         const document = await parseInProject(`assembly <Used = "Left", Unused = "Right"> Demo
 

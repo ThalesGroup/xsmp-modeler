@@ -53,7 +53,7 @@ GlobalEventHandler returns GlobalEventHandler:
      * subscribe step -> "PlatformReady"
      * ```
      */
-    'subscribe' entryPointName=ValidID '->' globalEventName=STRING;
+    'subscribe' entryPoint=LocalNamedReference '->' globalEventName=STRING;
 
 TemplateParameter returns TemplateParameter:
     StringParameter | Int32Parameter;
@@ -113,7 +113,10 @@ AssemblyInstance returns AssemblyInstance:
     '}')?;
 
 SubInstance returns SubInstance:
-    container=ValidID '+=' instance=(ModelInstance|AssemblyInstance);
+    container=LocalNamedReference '+=' instance=(ModelInstance|AssemblyInstance);
+
+LocalNamedReference returns LocalNamedReference:
+    (unsafe?='unsafe' strReference=ValidID | reference=[NamedElement:ValidID]);
 
 InstanceName returns string:
     (ID | TEMPLATE_ID)+;
@@ -220,7 +223,7 @@ InterfaceLink returns InterfaceLink:
      * interface link . : logger -> child
      * ```
      */
-    'interface' 'link' ownerPath=Path ':' reference=ValidID  '->' clientPath=Path (':'backReference=ValidID)?;
+    'interface' 'link' ownerPath=Path ':' reference=LocalNamedReference  '->' clientPath=Path (':'backReference=LocalNamedReference)?;
 
 Invocation returns Invocation:
     OperationCall | PropertyValue;
@@ -236,7 +239,7 @@ OperationCall returns OperationCall:
      * call apply(requestedMode = demo.foundation.Mode.Nominal)
      * ```
      */
-    'call' operation=ValidID '(' (parameters+=ParameterValue (',' parameters+=ParameterValue)*)? ')';
+    'call' operation=LocalNamedReference '(' (parameters+=ParameterValue (',' parameters+=ParameterValue)*)? ')';
 
 
 ParameterValue returns ParameterValue:
@@ -253,7 +256,7 @@ PropertyValue returns PropertyValue:
      * property mode = demo.foundation.Mode.Nominal
      * ```
      */
-    'property' property=ValidID '=' value=SimpleValue;
+    'property' property=LocalNamedReference '=' value=SimpleValue;
 
 
 Value returns Value:

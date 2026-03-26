@@ -80,7 +80,10 @@ InterfaceLink returns InterfaceLink:
      * interface link . : logger -> payload
      * ```
      */
-    'interface' 'link' ownerPath=Path ':' reference=ValidID  '->' clientPath=Path (':'backReference=ValidID)?;
+    'interface' 'link' ownerPath=Path ':' reference=LocalNamedReference  '->' clientPath=Path (':'backReference=LocalNamedReference)?;
+
+LocalNamedReference returns LocalNamedReference:
+    (unsafe?='unsafe' strReference=ValidID | reference=[NamedElement:ValidID]);
 
 
 ValidID returns string:

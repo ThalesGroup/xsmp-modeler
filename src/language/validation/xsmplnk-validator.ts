@@ -6,6 +6,7 @@ import type { Xsmpl2PathResolver } from '../references/xsmpl2-path-resolver.js';
 import type { IdentifierPatternService } from '../references/identifier-pattern-service.js';
 import type { XsmpPathService } from '../references/xsmp-path-service.js';
 import { isValidExpandedL2Identifier } from './l2-validator-utils.js';
+import * as XsmpUtils from '../utils/xsmp-utils.js';
 
 export function registerXsmplnkValidationChecks(services: XsmplnkServices) {
     const registry = services.validation.ValidationRegistry;
@@ -78,6 +79,10 @@ export class XsmplnkValidator {
 
     checkInterfaceLink(link: ast.InterfaceLink, accept: ValidationAcceptor): void {
         this.checkLinkPaths(link, accept);
+        this.checkInterfaceReference(link, link.reference, 'reference', 'Owner', 'Client', accept);
+        if (link.backReference) {
+            this.checkInterfaceReference(link, link.backReference, 'backReference', 'Client', 'Owner', accept);
+        }
     }
 
     private checkLinkPaths(link: ast.Link, accept: ValidationAcceptor): void {
@@ -94,6 +99,35 @@ export class XsmplnkValidator {
         }
         const resolution = this.pathResolver.getLinkBaseEndpointPathResolution(path);
         this.acceptPathError(resolution.invalidMessage, resolution.invalidNode, accept);
+    }
+
+    private checkInterfaceReference(
+        link: ast.InterfaceLink,
+        reference: ast.LocalNamedReference,
+        property: 'reference' | 'backReference',
+        sourceSide: 'Owner' | 'Client',
+        targetSide: 'Owner' | 'Client',
+        accept: ValidationAcceptor,
+    ): void {
+        if (reference.unsafe) {
+            return;
+        }
+        const target = this.pathResolver.getLocalNamedReferenceTarget(reference);
+        if (!ast.isReference(target)) {
+            accept('error', `The selected reference shall resolve to a Reference of the ${sourceSide} Component.`, {
+                node: link,
+                property
+            });
+            return;
+        }
+        const expectedType = ast.isReferenceType(target.interface.ref) ? target.interface.ref : undefined;
+        const oppositeContext = this.pathResolver.getInterfaceLinkEndpointContext(link, property === 'reference' ? 'client' : 'owner');
+        if (expectedType && oppositeContext.component && !this.isCompatibleReferenceTarget(expectedType, oppositeContext.component)) {
+            accept('error', `The selected reference shall be compatible with the ${targetSide} Component.`, {
+                node: link,
+                property
+            });
+        }
     }
 
     private hasTemplatedPaths(linkBase: ast.LinkBase): boolean {
@@ -161,5 +195,9 @@ export class XsmplnkValidator {
         if (message && node) {
             accept('error', message, { node });
         }
+    }
+
+    private isCompatibleReferenceTarget(expectedType: ast.ReferenceType, component: ast.Component): boolean {
+        return XsmpUtils.isBaseOfReferenceType(expectedType, component);
     }
 }

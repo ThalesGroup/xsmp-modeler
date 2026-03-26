@@ -29,8 +29,12 @@ type PathElement = PathMember | PathIndex
 
 interface PathNamedSegment {
 }
-interface ConcretePathNamedSegment extends PathNamedSegment {
+interface LocalNamedReference {
+    unsafe: boolean
     reference?: @NamedElement
+    strReference?: string
+}
+interface ConcretePathNamedSegment extends PathNamedSegment, LocalNamedReference {
 }
 interface PatternPathNamedSegment extends PathNamedSegment {
     pattern: IdentifierPattern
@@ -456,7 +460,7 @@ interface AssemblyComponentConfiguration {
 }
 
 interface GlobalEventHandler {
-    entryPointName: Name
+    entryPoint: LocalNamedReference
     globalEventName: string
 }
 
@@ -477,7 +481,7 @@ interface AssemblyInstance extends NamedElement {
 type Name = string;
 
 interface SubInstance {
-    container: Name
+    container: LocalNamedReference
     instance: ModelInstance|AssemblyInstance
 }
 
@@ -486,11 +490,11 @@ interface Invocation {
 }
 
 interface OperationCall extends Invocation {
-    operation: Name
+    operation: LocalNamedReference
     parameters: ParameterValue[]
 }
 interface PropertyValue extends Invocation {
-    property: Name
+    property: LocalNamedReference
     value: SimpleValue
 }
 
@@ -535,8 +539,8 @@ interface EventLink extends Link {
 interface FieldLink extends Link {
 }
 interface InterfaceLink extends Link {
-    reference:string
-    backReference?:string
+    reference: LocalNamedReference
+    backReference?: LocalNamedReference
 }
 
 

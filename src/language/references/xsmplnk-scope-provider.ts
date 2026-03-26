@@ -36,11 +36,19 @@ export class XsmplnkScopeProvider implements ScopeProvider {
         if (ast.isConcretePathNamedSegment(context.container) && context.property === 'reference') {
             return this.getPathScope(context.container);
         }
+        if (ast.isLocalNamedReference(context.container) && context.property === 'reference') {
+            return this.getLocalNamedReferenceScope(context.container);
+        }
         return this.getGlobalScope(AstUtils.getDocument(context.container), this.reflection.getReferenceType(context));
     }
 
     protected getPathScope(segment: ast.ConcretePathNamedSegment): Scope {
         const candidates = this.pathResolver.getNamedSegmentCandidates(segment);
+        return candidates.length > 0 ? this.createScope(candidates) : EMPTY_SCOPE;
+    }
+
+    protected getLocalNamedReferenceScope(reference: ast.LocalNamedReference): Scope {
+        const candidates = this.pathResolver.getLocalNamedReferenceCandidates(reference);
         return candidates.length > 0 ? this.createScope(candidates) : EMPTY_SCOPE;
     }
 

@@ -19,14 +19,17 @@ export function registerXsmpasbValidationChecks(services: XsmpasbServices) {
         Assembly: validator.checkAssembly,
         ModelInstance: validator.checkModelInstance,
         AssemblyInstance: validator.checkAssemblyInstance,
+        SubInstance: validator.checkSubInstance,
         StringParameter: validator.checkStringParameter,
         Int32Parameter: validator.checkInt32Parameter,
         AssemblyComponentConfiguration: validator.checkAssemblyComponentConfiguration,
+        GlobalEventHandler: validator.checkGlobalEventHandler,
         FieldValue: validator.checkAssemblyFieldValue,
         EventLink: validator.checkEventLink,
         FieldLink: validator.checkFieldLink,
         InterfaceLink: validator.checkInterfaceLink,
         OperationCall: validator.checkOperationCall,
+        PropertyValue: validator.checkPropertyValue,
     };
     registry.register(checks, validator, 'fast');
 }
@@ -93,6 +96,28 @@ export class XsmpasbValidator extends XsmpcfgValidator {
         this.checkTemplatedInstanceName(instance.name, instance, accept);
     }
 
+    checkSubInstance(subInstance: ast.SubInstance, accept: ValidationAcceptor): void {
+        if (subInstance.container.unsafe) {
+            return;
+        }
+        const container = this.l2PathResolver.getLocalNamedReferenceTarget(subInstance.container);
+        if (!ast.isContainer(container)) {
+            accept('error', 'The selected container shall resolve to a Container of the current Component.', {
+                node: subInstance,
+                property: 'container'
+            });
+            return;
+        }
+        const expectedType = container.type.ref;
+        const instanceType = this.getSubInstanceComponent(subInstance.instance);
+        if (ast.isReferenceType(expectedType) && instanceType && !XsmpUtils.isBaseOfReferenceType(expectedType, instanceType)) {
+            accept('error', 'The type of the sub-instance shall be compatible with the selected Container.', {
+                node: subInstance,
+                property: 'container'
+            });
+        }
+    }
+
     checkStringParameter(parameter: ast.StringParameter, accept: ValidationAcceptor): void {
         checkName(accept, parameter, parameter.name, 'name');
         if (AstUtils.getContainerOfType(parameter, ast.isAssembly) && parameter.value === undefined) {
@@ -120,6 +145,19 @@ export class XsmpasbValidator extends XsmpcfgValidator {
         this.acceptPathError(resolution.invalidMessage, resolution.invalidNode, accept);
         if (resolution.active && !resolution.invalidMessage && !resolution.finalComponent) {
             accept('error', 'The configured instance shall resolve to a typed Component.', { node: configuration, property: 'name' });
+        }
+    }
+
+    checkGlobalEventHandler(handler: ast.GlobalEventHandler, accept: ValidationAcceptor): void {
+        if (handler.entryPoint.unsafe) {
+            return;
+        }
+        const entryPoint = this.l2PathResolver.getLocalNamedReferenceTarget(handler.entryPoint);
+        if (!ast.isEntryPoint(entryPoint)) {
+            accept('error', 'The selected entry point shall resolve to an EntryPoint of the current Component.', {
+                node: handler,
+                property: 'entryPoint'
+            });
         }
     }
 
@@ -154,9 +192,25 @@ export class XsmpasbValidator extends XsmpcfgValidator {
 
     checkInterfaceLink(link: ast.InterfaceLink, accept: ValidationAcceptor): void {
         this.checkLinkPaths(link, accept);
+        this.checkInterfaceReference(link.reference, 'reference', 'Owner', 'Client', accept);
+        if (link.backReference) {
+            this.checkInterfaceReference(link.backReference, 'backReference', 'Client', 'Owner', accept);
+        }
     }
 
     checkOperationCall(call: ast.OperationCall, accept: ValidationAcceptor): void {
+        if (!call.operation.unsafe) {
+            const operation = this.l2PathResolver.getLocalNamedReferenceTarget(call.operation);
+            if (!ast.isOperation(operation)) {
+                accept('error', 'The selected operation shall resolve to an Operation of the current Component.', {
+                    node: call,
+                    property: 'operation'
+                });
+                return;
+            }
+            this.checkOperationParameters(call, operation, accept);
+        }
+
         const seen = new Set<string>();
         for (let index = 0; index < call.parameters.length; index++) {
             const parameter = call.parameters[index];
@@ -171,9 +225,94 @@ export class XsmpasbValidator extends XsmpcfgValidator {
         }
     }
 
+    checkPropertyValue(property: ast.PropertyValue, accept: ValidationAcceptor): void {
+        if (property.property.unsafe) {
+            return;
+        }
+        const target = this.l2PathResolver.getLocalNamedReferenceTarget(property.property);
+        if (!ast.isProperty(target)) {
+            accept('error', 'The selected property shall resolve to a Property of the current Component.', {
+                node: property,
+                property: 'property'
+            });
+            return;
+        }
+        if (XsmpUtils.getAccessKind(target) === 'readOnly') {
+            accept('error', 'A PropertyValue shall target a writable Property.', {
+                node: property,
+                property: 'property'
+            });
+        }
+        if (target.type.ref) {
+            this.checkAssemblyValueAgainstType(property.value, target.type.ref, accept);
+        }
+    }
+
+    private checkOperationParameters(call: ast.OperationCall, operation: ast.Operation, accept: ValidationAcceptor): void {
+        const parameters = new Map(operation.parameter.map(parameter => [parameter.name, parameter]));
+        for (let index = 0; index < call.parameters.length; index++) {
+            const parameter = call.parameters[index];
+            if (!parameter.parameter) {
+                continue;
+            }
+            const target = parameters.get(parameter.parameter);
+            if (!target) {
+                accept('error', `The parameter '${parameter.parameter}' shall resolve to a Parameter of operation ${operation.name}.`, {
+                    node: call,
+                    property: 'parameters',
+                    index
+                });
+                continue;
+            }
+            if (target.type.ref) {
+                this.checkAssemblyValueAgainstType(parameter.value, target.type.ref, accept);
+            }
+        }
+    }
+
     private checkLinkPaths(link: ast.Link, accept: ValidationAcceptor): void {
         this.checkLinkPath(link, link.ownerPath, 'ownerPath', 'The Owner Path shall refer to the current Model Instance or one of its children.', accept);
         this.checkLinkPath(link, link.clientPath, 'clientPath', 'The Client Path shall refer to the current Model Instance or one of its children.', accept);
+    }
+
+    private checkInterfaceReference(
+        reference: ast.LocalNamedReference,
+        property: 'reference' | 'backReference',
+        sourceSide: 'Owner' | 'Client',
+        targetSide: 'Owner' | 'Client',
+        accept: ValidationAcceptor,
+    ): void {
+        if (reference.unsafe) {
+            return;
+        }
+        const link = AstUtils.getContainerOfType(reference, ast.isInterfaceLink);
+        if (!link) {
+            return;
+        }
+        const target = this.l2PathResolver.getLocalNamedReferenceTarget(reference);
+        if (!ast.isReference(target)) {
+            accept('error', `The selected reference shall resolve to a Reference of the ${sourceSide} Component.`, {
+                node: link,
+                property
+            });
+            return;
+        }
+        const expectedType = ast.isReferenceType(target.interface.ref) ? target.interface.ref : undefined;
+        const oppositeContext = this.l2PathResolver.getInterfaceLinkEndpointContext(link, property === 'reference' ? 'client' : 'owner');
+        if (expectedType && oppositeContext.component && !XsmpUtils.isBaseOfReferenceType(expectedType, oppositeContext.component)) {
+            accept('error', `The selected reference shall be compatible with the ${targetSide} Component.`, {
+                node: link,
+                property
+            });
+        }
+    }
+
+    private getSubInstanceComponent(instance: ast.ModelInstance | ast.AssemblyInstance): ast.Component | undefined {
+        if (ast.isModelInstance(instance)) {
+            return ast.isComponent(instance.implementation?.ref) ? instance.implementation.ref : undefined;
+        }
+        const assembly = ast.isAssembly(instance.assembly.ref) ? instance.assembly.ref : undefined;
+        return assembly && ast.isComponent(assembly.model.implementation?.ref) ? assembly.model.implementation.ref : undefined;
     }
 
     private checkLinkPath(

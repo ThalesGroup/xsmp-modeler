@@ -49,6 +49,9 @@ export class XsmpasbScopeProvider implements ScopeProvider {
         if (ast.isConcretePathNamedSegment(context.container) && context.property === 'reference') {
             return this.getPathScope(context.container);
         }
+        if (ast.isLocalNamedReference(context.container) && context.property === 'reference') {
+            return this.getLocalNamedReferenceScope(context.container);
+        }
         if (ast.isTemplateArgument(context.container) && context.property === 'parameter') {
             const assembly = ast.isAssemblyInstance(context.container.$container) && ast.isAssembly(context.container.$container.assembly.ref)
                 ? context.container.$container.assembly.ref
@@ -105,6 +108,11 @@ export class XsmpasbScopeProvider implements ScopeProvider {
 
     protected getPathScope(segment: ast.ConcretePathNamedSegment): Scope {
         const candidates = this.pathResolver.getNamedSegmentCandidates(segment);
+        return candidates.length > 0 ? this.createScope(candidates) : EMPTY_SCOPE;
+    }
+
+    protected getLocalNamedReferenceScope(reference: ast.LocalNamedReference): Scope {
+        const candidates = this.pathResolver.getLocalNamedReferenceCandidates(reference);
         return candidates.length > 0 ? this.createScope(candidates) : EMPTY_SCOPE;
     }
 

@@ -6,7 +6,7 @@ configure Avionics{Lane}
     /** Subscribes the avionics step entry point to the platform-ready event. */
     subscribe step -> "PlatformReady"
     /** Forces the exposed avionics mode property to nominal. */
-    property modeState = demo.foundation.Mode.Nominal
+    property mode = demo.foundation.Mode.Nominal
 }
 /** Root orbital platform instance used by the segment assembly. */
 Scenario{Lane}: demo.orbit.OrbitalPlatform

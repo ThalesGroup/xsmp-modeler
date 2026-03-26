@@ -882,8 +882,8 @@ export class SmpGenerator implements XsmpGenerator {
                 '@xsi:type': 'LinkBase:InterfaceLink',
                 OwnerPath: ownerPath,
                 ClientPath: clientPath,
-                Reference: (link as ast.InterfaceLink).reference,
-                BackReference: (link as ast.InterfaceLink).backReference
+                Reference: this.pathService.stringifyLocalNamedReference((link as ast.InterfaceLink).reference, false) ?? '',
+                BackReference: this.pathService.stringifyLocalNamedReference((link as ast.InterfaceLink).backReference, false)
             } as LinkBase.InterfaceLink;
             default: return { '@xsi:type': 'LinkBase:Link', OwnerPath: ownerPath, ClientPath: clientPath } as LinkBase.Link;
         }
@@ -945,7 +945,7 @@ export class SmpGenerator implements XsmpGenerator {
     convertAssemblyInstance(instance: ast.SubInstance): Assembly.AssemblyInstance {
         const assembly = instance.instance as ast.AssemblyInstance;
         return {
-            '@Container': instance.container,
+            '@Container': this.getSubInstanceContainerName(instance),
             Assembly: this.filename(assembly.assembly.ref)!,
             '@Name': assembly.name,
             Description: this.docHelper.getDescription(assembly),
@@ -958,10 +958,14 @@ export class SmpGenerator implements XsmpGenerator {
     }
     convertSubModelInstance(instance: ast.SubInstance): Assembly.SubModelInstance {
         return {
-            '@Container': instance.container,
+            '@Container': this.getSubInstanceContainerName(instance),
             ...this.convertModelInstance(instance.instance as ast.ModelInstance)
         };
 
+    }
+
+    protected getSubInstanceContainerName(instance: ast.SubInstance): string {
+        return this.pathService.stringifyLocalNamedReference(instance.container, false) ?? '';
     }
     convertTemplateArgument(parameter: ast.TemplateArgument): Assembly.TemplateArgument {
 
@@ -1015,11 +1019,13 @@ export class SmpGenerator implements XsmpGenerator {
     convertInvocation(invocation: ast.Invocation): Assembly.Invocation {
         switch (invocation.$type) {
             case ast.OperationCall: return {
-                '@xsi:type': 'Assembly:OperationCall', '@Operation': (invocation as ast.OperationCall).operation,
+                '@xsi:type': 'Assembly:OperationCall',
+                '@Operation': this.pathService.stringifyLocalNamedReference((invocation as ast.OperationCall).operation, false) ?? '',
                 Parameter: (invocation as ast.OperationCall).parameters.map(this.convertParameterValue, this)
             } as Assembly.OperationCall;
             case ast.PropertyValue: return {
-                '@xsi:type': 'Assembly:PropertyValue', '@Property': (invocation as ast.PropertyValue).property,
+                '@xsi:type': 'Assembly:PropertyValue',
+                '@Property': this.pathService.stringifyLocalNamedReference((invocation as ast.PropertyValue).property, false) ?? '',
                 Value: this.convertValue((invocation as ast.PropertyValue).value)
             } as Assembly.PropertyValue;
             default: return { '@xsi:type': 'Assembly:Invocation' } as Assembly.Invocation;
@@ -1032,7 +1038,7 @@ export class SmpGenerator implements XsmpGenerator {
 
     convertGlobalEventHandler(handler: ast.GlobalEventHandler): Assembly.GlobalEventHandler {
         return {
-            '@EntryPointName': handler.entryPointName,
+            '@EntryPointName': this.pathService.stringifyLocalNamedReference(handler.entryPoint, false) ?? '',
             '@GlobalEventName': handler.globalEventName
         };
     }

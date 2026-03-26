@@ -8,35 +8,43 @@ import * as ast from '../generated/ast.js';
 export class XsmpPathCodeActionProvider implements CodeActionProvider {
 
     getCodeActions(document: LangiumDocument, params: CodeActionParams, _cancelToken?: Cancellation.CancellationToken): MaybePromise<Array<Command | CodeAction>> {
-        const groups = new Map<string, { path: ast.Path; diagnostics: Diagnostic[] }>();
+        const groups = new Map<string, { node: ast.Path | ast.LocalNamedReference; diagnostics: Diagnostic[] }>();
         const paths = AstUtils.streamAst(document.parseResult.value).filter(ast.isPath).toArray();
+        const localReferences = AstUtils.streamAst(document.parseResult.value)
+            .filter((node): node is ast.LocalNamedReference => ast.isLocalNamedReference(node) && !ast.isPathNamedSegment(node))
+            .toArray();
 
         for (const diagnostic of params.context.diagnostics) {
-            const path = this.findDiagnosticPath(document, diagnostic.range, paths);
-            if (!path || path.unsafe || !path.$cstNode) {
+            const node = this.findDiagnosticNode(document, diagnostic.range, paths, localReferences);
+            if (!node || node.unsafe || !node.$cstNode) {
                 continue;
             }
 
-            const key = this.getPathKey(path);
+            const key = this.getNodeKey(node);
             const group = groups.get(key);
             if (group) {
                 group.diagnostics.push(diagnostic);
             } else {
-                groups.set(key, { path, diagnostics: [diagnostic] });
+                groups.set(key, { node, diagnostics: [diagnostic] });
             }
         }
 
-        return Array.from(groups.values(), group => this.createUnsafeCodeAction(document, group.path, group.diagnostics));
+        return Array.from(groups.values(), group => this.createUnsafeCodeAction(document, group.node, group.diagnostics));
     }
 
-    protected findDiagnosticPath(document: LangiumDocument, range: Range, paths: ast.Path[]): ast.Path | undefined {
+    protected findDiagnosticNode(
+        document: LangiumDocument,
+        range: Range,
+        paths: ast.Path[],
+        localReferences: ast.LocalNamedReference[],
+    ): ast.Path | ast.LocalNamedReference | undefined {
         const start = document.textDocument.offsetAt(range.start);
         const end = document.textDocument.offsetAt(range.end);
-        let candidate: ast.Path | undefined;
+        let candidate: ast.Path | ast.LocalNamedReference | undefined;
         let candidateSpan = Number.MAX_SAFE_INTEGER;
 
-        for (const path of paths) {
-            const pathRange = path.$cstNode?.range;
+        for (const node of [...paths, ...localReferences]) {
+            const pathRange = node.$cstNode?.range;
             if (!pathRange) {
                 continue;
             }
@@ -49,7 +57,7 @@ export class XsmpPathCodeActionProvider implements CodeActionProvider {
 
             const span = pathEnd - pathStart;
             if (span < candidateSpan) {
-                candidate = path;
+                candidate = node;
                 candidateSpan = span;
             }
         }
@@ -57,7 +65,7 @@ export class XsmpPathCodeActionProvider implements CodeActionProvider {
         return candidate;
     }
 
-    protected createUnsafeCodeAction(document: LangiumDocument, path: ast.Path, diagnostics: Diagnostic[]): CodeAction {
+    protected createUnsafeCodeAction(document: LangiumDocument, node: ast.Path | ast.LocalNamedReference, diagnostics: Diagnostic[]): CodeAction {
         return {
             title: 'Declare as `unsafe`.',
             kind: CodeActionKind.QuickFix,
@@ -65,14 +73,14 @@ export class XsmpPathCodeActionProvider implements CodeActionProvider {
             isPreferred: true,
             edit: {
                 changes: {
-                    [document.textDocument.uri]: [TextEdit.insert(path.$cstNode!.range.start, 'unsafe ')],
+                    [document.textDocument.uri]: [TextEdit.insert(node.$cstNode!.range.start, 'unsafe ')],
                 },
             },
         };
     }
 
-    protected getPathKey(path: ast.Path): string {
-        const range = path.$cstNode!.range;
+    protected getNodeKey(node: ast.Path | ast.LocalNamedReference): string {
+        const range = node.$cstNode!.range;
         return `${range.start.line}:${range.start.character}:${range.end.line}:${range.end.character}`;
     }
 }

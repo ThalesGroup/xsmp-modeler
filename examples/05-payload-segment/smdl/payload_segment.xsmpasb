@@ -6,7 +6,7 @@ configure Payload{Tag}
     /** Subscribes the payload capture entry point to the payload-ready event. */
     subscribe capture -> "PayloadReady"
     /** Forces the payload mode property to nominal. */
-    property acquisitionMode = demo.foundation.Mode.Nominal
+    property mode = demo.foundation.Mode.Nominal
 }
 /** Root payload platform instance used by the segment assembly. */
 Scenario{Tag}: demo.payloadsegment.PayloadPlatform

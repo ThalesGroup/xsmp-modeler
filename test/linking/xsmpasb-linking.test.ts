@@ -49,7 +49,7 @@ describe('Linking tests', () => {
             assembly Visible
             Root: "Impl"
             {
-                slot += Child: Hidden
+                unsafe slot += Child: Hidden
             }
         `);
         documents.push(dependentDocument);
@@ -59,7 +59,7 @@ describe('Linking tests', () => {
             assembly Visible
             Root: "Impl"
             {
-                slot += Child: Hidden
+                unsafe slot += Child: Hidden
             }
         `);
         documents.push(isolatedDocument);
