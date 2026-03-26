@@ -1,0 +1,8 @@
+link MissionLinks
+/system
+{
+    interface link Orbiter: upstreamLogger -> Ground
+    interface link Payload: upstreamLogger -> Ground
+    event link Ground.uplinkEvent -> Orbiter.inboundMode
+    event link Ground.uplinkEvent -> Payload.inboundMode
+}

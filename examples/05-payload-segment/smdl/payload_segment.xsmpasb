@@ -1,0 +1,13 @@
+assembly PayloadSegment
+configure payload
+{
+    subscribe capture -> "PayloadReady"
+    property acquisitionMode = demo.foundation.Mode.Nominal
+}
+Scenario: demo.payloadsegment.PayloadPlatform
+{
+    platformMode = demo.foundation.Mode.Standby
+    payload += Payload: demo.payload.PayloadUnit
+    router += Router: demo.payloadsegment.DownlinkRouter
+    logger += Logger: demo.payloadsegment.PayloadLogger
+}

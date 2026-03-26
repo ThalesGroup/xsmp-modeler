@@ -1,0 +1,83 @@
+catalogue avionics_catalogue
+
+namespace demo::avionics
+{
+    /** @uuid adf4eb5e-f1bf-4145-9f0b-209d9d28d164 */
+    public model SensorHead
+    {
+        field demo.foundation.TemperatureC sensorTemperature = 18.0f
+        field demo.foundation.FloatSamples bias
+        output field demo.foundation.FloatSamples samples
+
+        entrypoint sample
+        {
+            out samples
+        }
+
+        eventsource demo.foundation.TextEvent statusText
+    }
+
+    /** @uuid 9b848d8e-1b90-438b-9738-dc0f95f924e1 */
+    public model BatteryPack implements demo.foundation.ICommandable, demo.foundation.IPowerBus
+    {
+        field demo.foundation.Mode commandedMode = demo.foundation.Mode.Standby
+        field demo.foundation.Percentage stateOfCharge = 80
+        output field demo.foundation.Voltage lineVoltage = 28.0f
+        field demo.foundation.Percentage safetyMargin = 15
+
+        public property demo.foundation.Mode mode -> commandedMode
+        public readOnly property demo.foundation.Voltage busVoltage -> lineVoltage
+        public readOnly property demo.foundation.Percentage margin -> safetyMargin
+        public def void apply(in demo.foundation.Mode requestedMode)
+
+        entrypoint balance
+        {
+            out lineVoltage
+        }
+
+        eventsource demo.foundation.ModeEvent modeChanged
+    }
+
+    /** @uuid 662257d5-d498-4c3d-a5ff-e760e4af16fe */
+    public model AttitudeComputer implements demo.foundation.ICommandable
+    {
+        field demo.foundation.Mode modeState = demo.foundation.Mode.Standby
+        input field demo.foundation.FloatSamples tuning
+        output field demo.foundation.Vector3 estimatedRates
+        reference demo.foundation.ILogger? logger
+
+        public property demo.foundation.Mode mode -> modeState
+        public def void apply(in demo.foundation.Mode requestedMode)
+
+        entrypoint control
+        {
+            in tuning
+            out estimatedRates
+        }
+
+        eventsink demo.foundation.ModeEvent powerMode
+        eventsource demo.foundation.ModeEvent statePublished
+    }
+
+    /** @uuid 3cef77ec-6977-4b06-a456-a6b8c96f7068 */
+    public model AvionicsUnit implements demo.foundation.ICommandable
+    {
+        field demo.foundation.Mode modeState = demo.foundation.Mode.Standby
+        output field demo.foundation.ThermalLoop thermal
+        container demo.avionics.BatteryPack power = demo.avionics.BatteryPack
+        container demo.avionics.AttitudeComputer computer = demo.avionics.AttitudeComputer
+        container demo.avionics.SensorHead sensor = demo.avionics.SensorHead
+        reference demo.foundation.ILogger? logger
+
+        public property demo.foundation.Mode mode -> modeState
+        public def void apply(in demo.foundation.Mode requestedMode)
+
+        entrypoint step
+        {
+            out thermal
+        }
+
+        eventsink demo.foundation.ModeEvent commandedMode
+        eventsource demo.foundation.ModeEvent publishedMode
+    }
+}

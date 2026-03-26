@@ -1,0 +1,34 @@
+catalogue mission_catalogue
+
+namespace demo::mission
+{
+    /** @uuid 36bc5aa6-2356-4e04-addf-07c7fc35857d */
+    public model GroundConsole implements demo.foundation.ILogger
+    {
+        field Smp.String8 consoleMessage = "idle"
+        output field demo.foundation.Mode uplinkMode = demo.foundation.Mode.Standby
+
+        public def void log(in Smp.String8 message)
+
+        entrypoint dispatch
+        {
+            out uplinkMode
+        }
+
+        eventsource demo.foundation.ModeEvent uplinkEvent
+    }
+
+    /** @uuid 780306ed-c4d5-4947-97cb-a67381ef0801 */
+    public model MissionSystemRoot
+    {
+        output field Smp.Bool integrated = false
+        container demo.foundation.ICommandable[] orbitalSegment
+        container demo.foundation.ICommandable[] payloadSegment
+        container demo.mission.GroundConsole ground = demo.mission.GroundConsole
+
+        entrypoint supervise
+        {
+            out integrated
+        }
+    }
+}

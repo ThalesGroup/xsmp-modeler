@@ -1,0 +1,16 @@
+schedule <root: string = "/orbit", cycles: int32 = 3> OrbitalSchedule epoch "2025-01-01T00:00:00Z" mission "2025-01-01T00:00:00Z"
+task Bootstrap
+{
+    call logger.log(message = "orbital bootstrap")
+    property missionMode = demo.foundation.Mode.Nominal
+    trig avionics.step
+    async emit "PlatformReady"
+}
+task Observe
+{
+    transfer router.distributedBus -> avionics.power.lineVoltage
+    call logger.log(message = "orbital cycle")
+    trig run
+}
+event Bootstrap epoch "2025-01-01T00:00:10Z"
+event Observe on "PlatformReady" using mission delay "PT5S" cycle "PT30S" repeat 3

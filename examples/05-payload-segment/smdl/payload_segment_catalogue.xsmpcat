@@ -1,0 +1,49 @@
+catalogue payload_segment_catalogue
+
+namespace demo::payloadsegment
+{
+    /** @uuid b83109eb-46c9-4854-9285-62b12f97e545 */
+    public model DownlinkRouter
+    {
+        input field demo.foundation.FloatSamples sourceFrames
+        output field demo.foundation.FloatSamples downlinkedFrames
+
+        entrypoint relay
+        {
+            in sourceFrames
+            out downlinkedFrames
+        }
+    }
+
+    /** @uuid 015e89db-00aa-4712-932f-d606212a5d98 */
+    public model PayloadLogger implements demo.foundation.ILogger
+    {
+        field Smp.String8 lastMessage = "payload idle"
+
+        public def void log(in Smp.String8 message)
+
+        eventsource demo.foundation.TextEvent logEvent
+    }
+
+    /** @uuid 64bba1f3-25dc-4cf4-83b3-986c60fd5a0b */
+    public model PayloadPlatform implements demo.foundation.ICommandable
+    {
+        field demo.foundation.Mode platformMode = demo.foundation.Mode.Standby
+        output field demo.foundation.PowerProfile downlinkProfile
+        container demo.payload.PayloadUnit payload = demo.payload.PayloadUnit
+        container demo.payloadsegment.DownlinkRouter router = demo.payloadsegment.DownlinkRouter
+        container demo.payloadsegment.PayloadLogger logger = demo.payloadsegment.PayloadLogger
+        reference demo.foundation.ILogger? upstreamLogger
+
+        public property demo.foundation.Mode mode -> platformMode
+        public def void apply(in demo.foundation.Mode requestedMode)
+
+        entrypoint run
+        {
+            out downlinkProfile
+        }
+
+        eventsink demo.foundation.ModeEvent inboundMode
+        eventsource demo.foundation.ModeEvent publishedMode
+    }
+}

@@ -1,0 +1,13 @@
+schedule <root: string = "/system", phases: int32 = 2> MissionSchedule epoch "2025-01-01T01:00:00Z" mission "2025-01-01T01:00:00Z"
+task Dispatch
+{
+    call ground.log(message = "mission dispatch")
+    trig ground.dispatch
+    async emit "MissionReady"
+}
+task Monitor
+{
+    trig supervise
+}
+event Dispatch mission "PT15S"
+event Monitor on "MissionReady" using epoch delay "PT10S" cycle "PT1M" repeat 2

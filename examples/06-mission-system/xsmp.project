@@ -1,0 +1,7 @@
+project "missionsystem" using "ECSS_SMP_2025"
+source "smdl"
+dependency "foundation"
+dependency "avionics"
+dependency "payload"
+dependency "orbitalsegment"
+dependency "payloadsegment"

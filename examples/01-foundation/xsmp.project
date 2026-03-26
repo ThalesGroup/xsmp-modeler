@@ -1,0 +1,2 @@
+project "foundation" using "ECSS_SMP_2025"
+source "smdl"

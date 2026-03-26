@@ -1,0 +1,57 @@
+catalogue payload_catalogue
+
+namespace demo::payload
+{
+    /** @uuid 3f068555-7d34-421f-9d1c-e17719983782 */
+    public model CameraHead implements demo.foundation.ICommandable
+    {
+        field demo.foundation.Mode modeState = demo.foundation.Mode.Standby
+        field demo.foundation.TemperatureC detectorTemperature = -5.0f
+        field demo.foundation.FloatSamples lineCalibration
+        output field demo.foundation.FloatSamples frames
+        reference demo.foundation.ILogger? logger
+
+        public property demo.foundation.Mode mode -> modeState
+        public def void apply(in demo.foundation.Mode requestedMode)
+
+        entrypoint acquire
+        {
+            out frames
+        }
+
+        eventsource demo.foundation.ModeEvent frameReady
+    }
+
+    /** @uuid e1620bc5-444a-4288-bf6b-ac77d593aad8 */
+    public model MassMemory
+    {
+        field demo.foundation.Percentage fillLevel = 25
+        output field demo.foundation.FloatSamples writeRates
+
+        entrypoint flush
+        {
+            out writeRates
+        }
+    }
+
+    /** @uuid 5f882730-d96a-47ac-82fd-f70daf22496b */
+    public model PayloadUnit implements demo.foundation.ICommandable
+    {
+        field demo.foundation.Mode acquisitionMode = demo.foundation.Mode.Standby
+        output field demo.foundation.PowerProfile downlinkProfile
+        container demo.payload.CameraHead camera = demo.payload.CameraHead
+        container demo.payload.MassMemory memory = demo.payload.MassMemory
+        reference demo.foundation.ILogger? logger
+
+        public property demo.foundation.Mode mode -> acquisitionMode
+        public def void apply(in demo.foundation.Mode requestedMode)
+
+        entrypoint capture
+        {
+            out downlinkProfile
+        }
+
+        eventsink demo.foundation.ModeEvent uplinkMode
+        eventsource demo.foundation.ModeEvent payloadMode
+    }
+}

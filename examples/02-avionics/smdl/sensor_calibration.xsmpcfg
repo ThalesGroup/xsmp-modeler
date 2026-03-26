@@ -1,0 +1,6 @@
+configuration SensorCalibration
+/sensor: demo.avionics.SensorHead
+{
+    sensorTemperature = 18.5
+    bias = [0.01, 0.0, 0.01, 0.02]
+}

@@ -1,0 +1,4 @@
+project "orbitalsegment" using "ECSS_SMP_2025"
+source "smdl"
+dependency "foundation"
+dependency "avionics"

@@ -1,0 +1,21 @@
+configuration OrbitalNominal
+/orbit: demo.orbit.OrbitalPlatform
+{
+    missionMode = demo.foundation.Mode.Nominal
+    thermal = {
+        sensor = 15.0,
+        target = 18.0,
+        heater = 12,
+        enabled = true
+    }
+    include AvionicsNominal at avionics
+    router
+    {
+        incomingBus = 28.0
+        distributedBus = 28.0
+    }
+    logger
+    {
+        lastMessage = "orbital ready"
+    }
+}

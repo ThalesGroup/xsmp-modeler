@@ -1,0 +1,13 @@
+assembly OrbitalSegment
+configure avionics
+{
+    subscribe step -> "PlatformReady"
+    property modeState = demo.foundation.Mode.Nominal
+}
+Scenario: demo.orbit.OrbitalPlatform
+{
+    missionMode = demo.foundation.Mode.Standby
+    avionics += Avionics: demo.avionics.AvionicsUnit
+    router += Router: demo.orbit.PowerRouter
+    logger += Logger: demo.orbit.SegmentLogger
+}

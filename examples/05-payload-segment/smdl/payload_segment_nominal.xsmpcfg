@@ -1,0 +1,20 @@
+configuration PayloadSegmentNominal
+/payloadSegment: demo.payloadsegment.PayloadPlatform
+{
+    platformMode = demo.foundation.Mode.Nominal
+    downlinkProfile = {
+        bus = 24.0,
+        margin = 8,
+        harmonics = [0.0, 0.2, 0.1, 0.0]
+    }
+    include PayloadNominal at payload
+    router
+    {
+        sourceFrames = [1.0, 1.0, 1.0, 1.0]
+        downlinkedFrames = [0.0, 0.0, 0.0, 0.0]
+    }
+    logger
+    {
+        lastMessage = "payload ready"
+    }
+}

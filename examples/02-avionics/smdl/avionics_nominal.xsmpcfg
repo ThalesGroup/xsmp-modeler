@@ -1,0 +1,24 @@
+configuration AvionicsNominal
+/avionics: demo.avionics.AvionicsUnit
+{
+    modeState = demo.foundation.Mode.Nominal
+    thermal = {
+        sensor = 17.5,
+        target = 20.0,
+        heater = 12,
+        enabled = true
+    }
+    power
+    {
+        commandedMode = demo.foundation.Mode.Nominal
+        stateOfCharge = 82
+        lineVoltage = 28.2
+        safetyMargin = 15
+    }
+    computer
+    {
+        modeState = demo.foundation.Mode.Nominal
+        tuning = [1.0, 0.6, 0.3, 0.1]
+    }
+    include SensorCalibration at sensor
+}

@@ -1,0 +1,11 @@
+link OrbitalLinks
+/orbit
+{
+    field link router.distributedBus -> avionics.power.lineVoltage
+    interface link avionics: logger -> logger
+    event link avionics.publishedMode -> publishedMode
+    avionics
+    {
+        field link power.lineVoltage -> computer.tuning[0]
+    }
+}

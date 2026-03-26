@@ -1,0 +1,3 @@
+project "avionics" using "ECSS_SMP_2025"
+source "smdl"
+dependency "foundation"

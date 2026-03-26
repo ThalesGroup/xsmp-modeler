@@ -1,8 +1,0 @@
-/**
- * project 1 without dependency
- */
-project "project1"
-
-
-/// source folder containing xsmpcat files
-source "smdl"

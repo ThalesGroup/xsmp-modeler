@@ -1,0 +1,6 @@
+configuration CameraTuning
+/camera: demo.payload.CameraHead
+{
+    detectorTemperature = 8.0
+    lineCalibration = [0.9, 1.0, 1.1, 1.0]
+}

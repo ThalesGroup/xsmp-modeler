@@ -1,0 +1,11 @@
+link PayloadSegmentLinks
+/payloadSegment
+{
+    field link payload.camera.frames -> router.sourceFrames
+    interface link payload: logger -> logger
+    event link payload.payloadMode -> publishedMode
+    router
+    {
+        field link sourceFrames[0] -> downlinkedFrames[0]
+    }
+}

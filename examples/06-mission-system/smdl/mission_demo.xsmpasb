@@ -1,0 +1,12 @@
+assembly MissionDemo
+configure ground
+{
+    subscribe dispatch -> "MissionReady"
+}
+System: demo.mission.MissionSystemRoot
+{
+    integrated = false
+    orbitalSegment += Orbiter: OrbitalSegment using config OrbitalNominal using link OrbitalLinks
+    payloadSegment += Payload: PayloadSegment using config PayloadSegmentNominal using link PayloadSegmentLinks
+    ground += Ground: demo.mission.GroundConsole
+}

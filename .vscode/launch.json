@@ -18,6 +18,19 @@
             ]
         },
         {
+            "name": "Run Extension (Examples Workspace)",
+            "type": "extensionHost",
+            "request": "launch",
+            "args": [
+                "--extensionDevelopmentPath=${workspaceFolder}",
+                "${workspaceFolder}/examples/examples.code-workspace"
+            ],
+            "sourceMaps": true,
+            "outFiles": [
+                "${workspaceFolder}/out/**/*.js"
+            ]
+        },
+        {
             "name": "Attach to Language Server",
             "type": "node",
             "port": 6009,

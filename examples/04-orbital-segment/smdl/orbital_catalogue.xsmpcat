@@ -1,0 +1,49 @@
+catalogue orbital_catalogue
+
+namespace demo::orbit
+{
+    /** @uuid bca8388b-3f43-4ab6-ad7f-3b0ef3450f0c */
+    public model SegmentLogger implements demo.foundation.ILogger
+    {
+        field Smp.String8 lastMessage = "idle"
+
+        public def void log(in Smp.String8 message)
+
+        eventsource demo.foundation.TextEvent logEvent
+    }
+
+    /** @uuid e580d5be-8352-4d8f-8c27-7eb90912d4a2 */
+    public model PowerRouter
+    {
+        input field demo.foundation.Voltage incomingBus
+        output field demo.foundation.Voltage distributedBus
+
+        entrypoint distribute
+        {
+            in incomingBus
+            out distributedBus
+        }
+    }
+
+    /** @uuid f1e8b3ba-a82f-4552-896f-f3d361af8907 */
+    public model OrbitalPlatform implements demo.foundation.ICommandable
+    {
+        field demo.foundation.Mode missionMode = demo.foundation.Mode.Standby
+        output field demo.foundation.ThermalLoop thermal
+        container demo.avionics.AvionicsUnit avionics = demo.avionics.AvionicsUnit
+        container demo.orbit.PowerRouter router = demo.orbit.PowerRouter
+        container demo.orbit.SegmentLogger logger = demo.orbit.SegmentLogger
+        reference demo.foundation.ILogger? upstreamLogger
+
+        public property demo.foundation.Mode mode -> missionMode
+        public def void apply(in demo.foundation.Mode requestedMode)
+
+        entrypoint run
+        {
+            out thermal
+        }
+
+        eventsink demo.foundation.ModeEvent inboundMode
+        eventsource demo.foundation.ModeEvent publishedMode
+    }
+}
