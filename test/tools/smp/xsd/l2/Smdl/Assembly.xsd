@@ -1,0 +1,372 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<xsd:schema xmlns="http://www.ecss.nl/smp/2025/Smdl/Assembly" xmlns:Assembly="http://www.ecss.nl/smp/2025/Smdl/Assembly" xmlns:Elements="http://www.ecss.nl/smp/2019/Core/Elements" xmlns:LinkBase="http://www.ecss.nl/smp/2025/Smdl/LinkBase" xmlns:Types="http://www.ecss.nl/smp/2019/Core/Types" xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" xmlns:xhtml="http://www.w3.org/1999/xhtml" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xsd="http://www.w3.org/2001/XMLSchema" attributeFormDefault="unqualified" ecore:documentRoot="AssemblyDocumentRoot" ecore:nsPrefix="Assembly" ecore:package="Assembly" elementFormDefault="unqualified" targetNamespace="http://www.ecss.nl/smp/2025/Smdl/Assembly">
+  <xsd:annotation>
+    <xsd:documentation>This schema defines all metamodel elements that are needed in order to define an assembly of model instances. This includes mechanisms for creating links between model instances, namely between references and implemented interfaces, between event sources and event sinks, and between output and input fields.</xsd:documentation>
+  </xsd:annotation>
+  <xsd:import namespace="http://www.w3.org/1999/xlink" schemaLocation="xlink.xsd">
+    <xsd:annotation>
+      <xsd:documentation>Schema for the W3C XML Linking Language (XLink).</xsd:documentation>
+    </xsd:annotation>
+  </xsd:import>
+  <xsd:import namespace="http://www.ecss.nl/smp/2025/Smdl/LinkBase" schemaLocation="LinkBase.xsd">
+    <xsd:annotation>
+      <xsd:documentation>This schema defines all metamodel elements that are needed in order to define an SMDL configuration document. A configuration document allows specifying arbitrary field values of component instances in the simulation hierarchy. This can be used to initialise or reinitialise the simulation.</xsd:documentation>
+    </xsd:annotation>
+  </xsd:import>
+  <xsd:import namespace="http://www.ecss.nl/smp/2019/Core/Types" schemaLocation="Types.xsd">
+    <xsd:annotation>
+      <xsd:documentation>This schema provides basic types and typing mechanisms, together with appropriate value specification mechanisms.</xsd:documentation>
+    </xsd:annotation>
+  </xsd:import>
+  <xsd:import namespace="http://www.ecss.nl/smp/2019/Core/Elements" schemaLocation="Elements.xsd">
+    <xsd:annotation>
+      <xsd:documentation>This schema defines base metaclasses and annotation mechanisms used throughout the SMP Metamodel.</xsd:documentation>
+    </xsd:annotation>
+  </xsd:import>
+  <xsd:element name="Assembly" type="Assembly:Assembly">
+    <xsd:annotation>
+      <xsd:documentation>The Assembly element (of type Assembly) is the root element of an SMDL assembly.</xsd:documentation>
+    </xsd:annotation>
+  </xsd:element>
+  <xsd:simpleType name="Name">
+    <xsd:annotation>
+      <xsd:documentation>A Name is a user-readable name for model elements. This type is used in the Name attribute of the NamedElement metaclass (see below). A name must start with a character, and is limited to characters, digits, and the underscore ('_').
+For Assemblies, names are allowed to contain template arguments in {}.
+</xsd:documentation>
+    </xsd:annotation>
+    <xsd:restriction base="xsd:string">
+      <xsd:pattern value="(([a-zA-Z0-9_])|\{[a-zA-Z0-9_]*\})*"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="UuidOrTypeName">
+    <xsd:annotation>
+      <xsd:documentation>This type is specifically defined to identify an Implementation for a Model. It has to either hold a (valid) UUID of one of the model factories registered with the simulator, or a C++ type name of one of these factories.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:restriction base="xsd:string">
+      <xsd:pattern value="([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|(([a-zA-Z0-9_])|::)*)"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:complexType name="Assembly">
+    <xsd:annotation>
+      <xsd:documentation>An Assembly is a node that acts as the root element (top-level node) in an SMDL Assembly document.
+It contains a single Model Instance, namely the root of the Model Instance hierarchy defined by the Assembly. In addition, it can have Template Arguments as Parameters that can be modified when using the Assembly as a Sub-Assembly (Assembly Instance).
+Finally, it can define Component Configurations to override Field Values of Model Instances wthin the Assembly.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:complexContent>
+      <xsd:extension base="Elements:Document">
+        <xsd:sequence>
+          <xsd:element maxOccurs="unbounded" minOccurs="0" name="ComponentConfiguration" type="Assembly:ComponentConfiguration">
+            <xsd:annotation>
+              <xsd:documentation>A Component Configuration at top-level (i.e. under the Assembly) can not only be used to configure a Model Instance within the Assembly, but as well to define state and behaviour of a Service (which is a Component as well).</xsd:documentation>
+            </xsd:annotation>
+          </xsd:element>
+          <xsd:element maxOccurs="unbounded" minOccurs="0" name="Parameter" type="Assembly:TemplateArgument">
+            <xsd:annotation>
+              <xsd:documentation>An Assembly may specify any number of Template Arguments as Parameters (either of type String or Int32), each one with name and optional default value. Those Parameters can be used in names of Model Instances within the Assembly, to allow having unique names in multiple Instances of the same Assembly.</xsd:documentation>
+            </xsd:annotation>
+          </xsd:element>
+          <xsd:element name="Model" type="Assembly:ModelInstance">
+            <xsd:annotation>
+              <xsd:documentation>This is the unique top-level model instance that each Assembly needs to hold.</xsd:documentation>
+            </xsd:annotation>
+          </xsd:element>
+        </xsd:sequence>
+      </xsd:extension>
+    </xsd:complexContent>
+  </xsd:complexType>
+  <xsd:complexType name="SubModelInstance">
+    <xsd:annotation>
+      <xsd:documentation>A Sub-Model Instance represents an instance of a model as child of another Model Instance. It inherits all functionality of Model Instance. In addition, the Sub-Model Instance requires the selection of a Container of its parent Model Instance to which it shall be added.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:complexContent>
+      <xsd:extension base="Assembly:ModelInstance">
+        <xsd:attribute name="Container" type="Elements:Name" use="required">
+          <xsd:annotation>
+            <xsd:documentation>Container of the parent Model Instance in which the Sub-Model Instance shall be stored.</xsd:documentation>
+          </xsd:annotation>
+        </xsd:attribute>
+      </xsd:extension>
+    </xsd:complexContent>
+  </xsd:complexType>
+  <xsd:complexType name="AssemblyInstance">
+    <xsd:annotation>
+      <xsd:documentation>An Assembly Instance represents an assembly node that is specified by an Assembly in &lt;i&gt;another&lt;/i&gt; SMDL Assembly document (a sub-assembly).
+Semantics and constraints:
+&lt;ul&gt;
+&lt;li&gt;The Assembly element needs to reference &lt;i&gt;another&lt;/i&gt; SMDL Assembly document, without creating circular dependencies.&lt;/li&gt;
+&lt;li&gt;The type of the top-level Model Instance of the referenced Assembly must be valid for the selected Container.&lt;/li&gt;
+&lt;li&gt;The Component Configuration elements owned by the Assembly node override any Field Value elements specified in the referenced Assembly.&lt;/li&gt;</xsd:documentation>
+    </xsd:annotation>
+    <xsd:complexContent>
+      <xsd:extension base="Assembly:NamedElement">
+        <xsd:sequence>
+          <xsd:element name="Assembly" type="xsd:string">
+            <xsd:annotation>
+              <xsd:documentation>File name of an Assembly file that shall be loaded in place of the Assembly Instance, where the top-level node of the Assembly shall be stored in the selected Container.
+The type of the top-level node of the referenced Assembly must be valid for the selected Container.</xsd:documentation>
+            </xsd:annotation>
+          </xsd:element>
+          <xsd:element maxOccurs="unbounded" minOccurs="0" name="Argument" type="Assembly:TemplateArgument">
+            <xsd:annotation>
+              <xsd:documentation>Template argument providing a value for an existing template parameter of the selected Assembly.</xsd:documentation>
+            </xsd:annotation>
+          </xsd:element>
+          <xsd:element maxOccurs="unbounded" minOccurs="0" name="ModelConfiguration" type="Assembly:ComponentConfiguration">
+            <xsd:annotation>
+              <xsd:documentation>Collection of configurations for model instances within the Assembly, where each one combines the following parts:
+&lt;ul&gt;
+&lt;li&gt;A component that shall be addressed, via a ComponentPath relative to the AssemblyInstance node&lt;/li&gt;
+&lt;li&gt;A list of field values to set fields within the model (if any).&lt;/li&gt;
+&lt;li&gt;A list of global events to register for the model (if any).&lt;/li&gt;
+&lt;li&gt;A list of invocations (property setters or operation calls) for the model (if any).&lt;/li&gt;
+&lt;/ul&gt;
+Field values provided in the configuration part of an Assembly Instance override values in the Assembly file or in the Configuration file.</xsd:documentation>
+            </xsd:annotation>
+          </xsd:element>
+          <xsd:element minOccurs="0" name="Configuration" type="xsd:string">
+            <xsd:annotation>
+              <xsd:documentation>Optional file name of a Configuration file to be loaded to configure fields within the assembly.
+Field Values in such a Configuration file override values stored in the Assembly file.
+Field Configuration values provided in the Assembly Instance override values in the Assembly file or in the Configuration file.</xsd:documentation>
+            </xsd:annotation>
+          </xsd:element>
+          <xsd:element minOccurs="0" name="LinkBase" type="xsd:string">
+            <xsd:annotation>
+              <xsd:documentation>Optional file name of a LinkBase file to be loaded to create links within the assembly.
+Links in such a LinkBase file are created in addition to those stored in the Assembly file.</xsd:documentation>
+            </xsd:annotation>
+          </xsd:element>
+        </xsd:sequence>
+        <xsd:attribute name="Container" type="Elements:Name" use="required">
+          <xsd:annotation>
+            <xsd:documentation>Container of the parent Node in which the Instance Node shall be stored.</xsd:documentation>
+          </xsd:annotation>
+        </xsd:attribute>
+      </xsd:extension>
+    </xsd:complexContent>
+  </xsd:complexType>
+  <xsd:complexType name="ComponentConfiguration">
+    <xsd:annotation>
+      <xsd:documentation>A Component Configuration (of an Assembly or Assembly Instance) contains Field Values for fields of an Instance Node of the Assembly. It can be used to override the values that fields have within the Assembly (if specified), or within the Catalogue (if no value is specified within the Assembly).
+Furthermore, it contains Invocations, which are either calls to Property Setters, or Calls to Operations of the Instance Node.
+Finally, it contains Global Event Handlers, which register entry points of the Instance Node with events of the  Event Manager service.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:sequence>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="FieldValue" type="Types:Value">
+        <xsd:annotation>
+          <xsd:documentation>Field value to be set with the Field Configuration, within the model instance selected via the Instance Path.</xsd:documentation>
+        </xsd:annotation>
+      </xsd:element>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="Invocation" type="Assembly:Invocation">
+        <xsd:annotation>
+          <xsd:documentation>Container for the Invocation elements of the component configuration.</xsd:documentation>
+        </xsd:annotation>
+      </xsd:element>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="GlobalEventHandler" type="Assembly:GlobalEventHandler">
+        <xsd:annotation>
+          <xsd:documentation>Container for the global event hanlders of the component configuration.</xsd:documentation>
+        </xsd:annotation>
+      </xsd:element>
+    </xsd:sequence>
+    <xsd:attribute name="InstancePath" type="LinkBase:Path" use="required">
+      <xsd:annotation>
+        <xsd:documentation>This string is used to specify the full path to the instance (possibly within a hierarchy of sub-assemblies) in a format understood by the SMP Resolver Service.</xsd:documentation>
+      </xsd:annotation>
+    </xsd:attribute>
+  </xsd:complexType>
+  <xsd:complexType name="ParameterValue">
+    <xsd:annotation>
+      <xsd:documentation>Thie element defines a Parameter Value for an Operation Call.
+Parameter Values for in or in/out parameters will be stored in the Request object before calling the Operation.
+When providing a Parameter Value for the return Parameter, this represents the expected return value that shall be compared with the actual return value after the Operation Call.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:sequence>
+      <xsd:element name="Value" type="Types:SimpleValue">
+        <xsd:annotation>
+          <xsd:documentation>Value for the named Parameter.
+The type of the Parameter has to match the specific SimpleValue metaclass that has been used.</xsd:documentation>
+        </xsd:annotation>
+      </xsd:element>
+    </xsd:sequence>
+    <xsd:attribute name="Parameter" type="Elements:Name" use="required">
+      <xsd:annotation>
+        <xsd:documentation>Name of the parameter to set.
+This must be a valid name of a Parameter of the Operation.
+The type of the parameter has to match the specific SimpleValue metaclass that has been used for the corresponding Value.</xsd:documentation>
+      </xsd:annotation>
+    </xsd:attribute>
+  </xsd:complexType>
+  <xsd:complexType name="OperationCall">
+    <xsd:annotation>
+      <xsd:documentation>The element corresponds to a Call of an Operation that is published by the parent Model Instance. Parameter Values can be provided for in or in/out Parameters. When providing a Parameter Value for the return Parameter, this represents the expected return value that shall be compared with the actual return value after the Operation Call.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:complexContent>
+      <xsd:extension base="Assembly:Invocation">
+        <xsd:sequence>
+          <xsd:element maxOccurs="unbounded" minOccurs="0" name="Parameter" type="Assembly:ParameterValue">
+            <xsd:annotation>
+              <xsd:documentation>List of parameters to set in the request object before calling the Operation.</xsd:documentation>
+            </xsd:annotation>
+          </xsd:element>
+        </xsd:sequence>
+        <xsd:attribute name="Operation" type="Elements:Name" use="required">
+          <xsd:annotation>
+            <xsd:documentation>Name of Operation to call.
+This must be a valid name of an Operation that can be retrieved via the IDynamicInvocation interface.</xsd:documentation>
+          </xsd:annotation>
+        </xsd:attribute>
+      </xsd:extension>
+    </xsd:complexContent>
+  </xsd:complexType>
+  <xsd:complexType name="PropertyValue">
+    <xsd:annotation>
+      <xsd:documentation>The element corresponds to a call of a Property Setter for a Property that is published by the parent Model Instance.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:complexContent>
+      <xsd:extension base="Assembly:Invocation">
+        <xsd:sequence>
+          <xsd:element name="Value" type="Types:SimpleValue">
+            <xsd:annotation>
+              <xsd:documentation>Value for the named property.
+The type of the property has to match the specific SimpleValue metaclass that has been used.</xsd:documentation>
+            </xsd:annotation>
+          </xsd:element>
+        </xsd:sequence>
+        <xsd:attribute name="Property" type="Elements:Name" use="required">
+          <xsd:annotation>
+            <xsd:documentation>Name of property the value corresponds to.
+This must be a valid name of a Property that can be retrieved via the IDynamicInvocation interface. The Property must not be read-only.
+The type of the property has to match the specific SimpleValue metaclass that has been used.</xsd:documentation>
+          </xsd:annotation>
+        </xsd:attribute>
+      </xsd:extension>
+    </xsd:complexContent>
+  </xsd:complexType>
+  <xsd:complexType name="GlobalEventHandler">
+    <xsd:annotation>
+      <xsd:documentation>The element corresponds to a subscription of an Entry Point with one of the Events of the Global Event Manager service.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:attribute name="EntryPointName" type="xsd:string" use="required">
+      <xsd:annotation>
+        <xsd:documentation>Name of entry point to subscribe to event.
+This must be a valid name of an EntryPoint that can be retrieved via the IEntryPointPublisher interface.</xsd:documentation>
+      </xsd:annotation>
+    </xsd:attribute>
+    <xsd:attribute name="GlobalEventName" type="xsd:string" use="required">
+      <xsd:annotation>
+        <xsd:documentation>Name of global event to subscribe entry point to.
+Due to the design of the Event Manager, any non-empty event name will be accepted. In case the event has not been defined before, a new event identifier will be created.</xsd:documentation>
+      </xsd:annotation>
+    </xsd:attribute>
+  </xsd:complexType>
+  <xsd:complexType abstract="true" name="TemplateArgument">
+    <xsd:annotation>
+      <xsd:documentation>This defines a named Parameter of an Assembly that can be provided as an Argument in an Assembly Instance.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:complexContent>
+      <xsd:extension base="Assembly:NamedElement"/>
+    </xsd:complexContent>
+  </xsd:complexType>
+  <xsd:complexType name="Int32Argument">
+    <xsd:annotation>
+      <xsd:documentation>An Int32 Argument can be used in names of Model Instances to ensure unique Model Instance names in different Assembly Instances based on the same Assembly file.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:complexContent>
+      <xsd:extension base="Assembly:TemplateArgument">
+        <xsd:attribute name="Value" type="xsd:int" use="optional">
+          <xsd:annotation>
+            <xsd:documentation>Value of the Argument.</xsd:documentation>
+          </xsd:annotation>
+        </xsd:attribute>
+      </xsd:extension>
+    </xsd:complexContent>
+  </xsd:complexType>
+  <xsd:complexType name="StringArgument">
+    <xsd:annotation>
+      <xsd:documentation>A String Argument can be used in names of Model Instances to ensure unique Model Instance names in different Assembly Instances based on the same Assembly file.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:complexContent>
+      <xsd:extension base="Assembly:TemplateArgument">
+        <xsd:attribute name="Value" type="Assembly:Name" use="optional">
+          <xsd:annotation>
+            <xsd:documentation>Value of the argument. As this is used in the Name of Instance Nodes, it has to be compliant with the Name limitations of SMP Level 1, but may be anywhere in the Name (hence it may start with "_" or a digit).</xsd:documentation>
+          </xsd:annotation>
+        </xsd:attribute>
+      </xsd:extension>
+    </xsd:complexContent>
+  </xsd:complexType>
+  <xsd:complexType abstract="true" name="NamedElement">
+    <xsd:annotation>
+      <xsd:documentation>This is a Named Element witout an ID, to allow not using the ID in SMP Level 2 Files.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="Description" type="Elements:Description">
+        <xsd:annotation>
+          <xsd:documentation>The description of the Named Element.</xsd:documentation>
+        </xsd:annotation>
+      </xsd:element>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="Metadata" type="Elements:Metadata">
+        <xsd:annotation>
+          <xsd:documentation>Collection of optional metadata of the Named Element.</xsd:documentation>
+        </xsd:annotation>
+      </xsd:element>
+    </xsd:sequence>
+    <xsd:attribute name="Name" type="Assembly:Name" use="required">
+      <xsd:annotation>
+        <xsd:documentation>The name of the Named Element that is suitable for use in SMP Level 2.
+This is the Element's Name represented with only a limited character set specified by the Name type.</xsd:documentation>
+      </xsd:annotation>
+    </xsd:attribute>
+  </xsd:complexType>
+  <xsd:complexType abstract="true" name="Invocation">
+    <xsd:annotation>
+      <xsd:documentation>An Invocation is the abstract base class for Property Value and Operation Call.</xsd:documentation>
+    </xsd:annotation>
+  </xsd:complexType>
+  <xsd:complexType name="ModelInstance">
+    <xsd:annotation>
+      <xsd:documentation>A Model Instance represents an instanciation of a Model (typically defined in a Catalogue) from a Factory that has been registered with the Simulator.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:complexContent>
+      <xsd:extension base="Assembly:NamedElement">
+        <xsd:choice maxOccurs="unbounded" minOccurs="0">
+          <xsd:element maxOccurs="unbounded" minOccurs="0" name="Assembly" type="Assembly:AssemblyInstance">
+            <xsd:annotation>
+              <xsd:documentation>Collection of Assembly Instances contained in the Model Instance.</xsd:documentation>
+            </xsd:annotation>
+          </xsd:element>
+          <xsd:element maxOccurs="unbounded" minOccurs="0" name="Model" type="Assembly:SubModelInstance">
+            <xsd:annotation>
+              <xsd:documentation>Collection of Sub-Model Instances contained in the Model Instance.</xsd:documentation>
+            </xsd:annotation>
+          </xsd:element>
+          <xsd:element maxOccurs="unbounded" minOccurs="0" name="Link" type="LinkBase:Link">
+            <xsd:annotation>
+              <xsd:documentation>Collection of Links to other Components.</xsd:documentation>
+            </xsd:annotation>
+          </xsd:element>
+          <xsd:element maxOccurs="unbounded" minOccurs="0" name="FieldValue" type="Types:Value">
+            <xsd:annotation>
+              <xsd:documentation>Container for the Field Values of the Model Instance.</xsd:documentation>
+            </xsd:annotation>
+          </xsd:element>
+          <xsd:element maxOccurs="unbounded" minOccurs="0" name="Invocation" type="Assembly:Invocation">
+            <xsd:annotation>
+              <xsd:documentation>Container for the Invocation elements of the Model Instance.</xsd:documentation>
+            </xsd:annotation>
+          </xsd:element>
+          <xsd:element maxOccurs="unbounded" minOccurs="0" name="GlobalEventHandler" type="Assembly:GlobalEventHandler">
+            <xsd:annotation>
+              <xsd:documentation>Container for the Global Event Handlers of the Model Instance.</xsd:documentation>
+            </xsd:annotation>
+          </xsd:element>
+        </xsd:choice>
+        <xsd:attribute name="Implementation" type="Assembly:UuidOrTypeName" use="required">
+          <xsd:annotation>
+            <xsd:documentation>UUID or type name of the Model to use for the Model Instance.</xsd:documentation>
+          </xsd:annotation>
+        </xsd:attribute>
+      </xsd:extension>
+    </xsd:complexContent>
+  </xsd:complexType>
+</xsd:schema>

@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<xsd:schema xmlns="http://www.ecss.nl/smp/2025/Smdl/LinkBase" xmlns:Elements="http://www.ecss.nl/smp/2019/Core/Elements" xmlns:LinkBase="http://www.ecss.nl/smp/2025/Smdl/LinkBase" xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" xmlns:xhtml="http://www.w3.org/1999/xhtml" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xsd="http://www.w3.org/2001/XMLSchema" attributeFormDefault="unqualified" ecore:documentRoot="LinkBaseDocumentRoot" ecore:nsPrefix="LinkBase" ecore:package="LinkBase" elementFormDefault="unqualified" targetNamespace="http://www.ecss.nl/smp/2025/Smdl/LinkBase">
+  <xsd:annotation>
+    <xsd:documentation>This schema defines all metamodel elements that are needed in order to define an SMDL configuration document. A configuration document allows specifying arbitrary field values of component instances in the simulation hierarchy. This can be used to initialise or reinitialise the simulation.</xsd:documentation>
+  </xsd:annotation>
+  <xsd:import namespace="http://www.w3.org/1999/xlink" schemaLocation="xlink.xsd">
+    <xsd:annotation>
+      <xsd:documentation>Schema for the W3C XML Linking Language (XLink).</xsd:documentation>
+    </xsd:annotation>
+  </xsd:import>
+  <xsd:import namespace="http://www.ecss.nl/smp/2019/Core/Elements" schemaLocation="Elements.xsd">
+    <xsd:annotation>
+      <xsd:documentation>This schema defines base metaclasses and annotation mechanisms used throughout the SMP Metamodel.</xsd:documentation>
+    </xsd:annotation>
+  </xsd:import>
+  <xsd:element name="LinkBase" type="LinkBase:LinkBase">
+    <xsd:annotation>
+      <xsd:documentation>The LinkBase element (of type LinkBase) is the root element of an SMDL link base.</xsd:documentation>
+    </xsd:annotation>
+  </xsd:element>
+  <xsd:simpleType name="Path">
+    <xsd:annotation>
+      <xsd:documentation>An SMP Level 2 Path string shall be a representation of a valid route from an SMP object in the hierarchy to another SMP object. Both absolute and relative path strings shall be supported and distinguished as follows:
+a) Paths starting with a delimiter are absolute paths from the simulation root object.
+b) Paths not starting with a delimiter are relative paths from the current object.
+The delimiter between component names in the path string shall be ”/”.
+The delimiters between components and its children objects that are not components shall be either “/” or “.”. 
+Trailing delimiters shall be allowed in path strings.
+It shall be possible to reference the parent object by the “..” string.
+It shall be possible to reference the current object by either the “.” string, or by an empty string “”.
+The path string shall allow an element in an array to be identified by “[n]” trailing the array name where “n” is the zero based element index, with no delimiter.
+Examples of valid path strings:
+&lt;ul&gt;
+&lt;li&gt;/Satellite/Receivers/Receiver1&lt;/li&gt;
+&lt;li&gt;/Logger&lt;/li&gt;
+&lt;li&gt;/Logger/&lt;/li&gt;
+&lt;li&gt;../../Transmitters/Transmitter4&lt;/li&gt;
+&lt;li&gt;./Satellite/../Satellite//Receivers/&lt;/li&gt;
+&lt;li&gt;Component.Operation&lt;/li&gt;
+&lt;li&gt;MyModel.MyArray[2]&lt;/li&gt;
+&lt;li&gt;MyModel/MyArray[2]&lt;/li&gt;
+&lt;/ul&gt;
+Examples of invalid path strings:
+&lt;ul&gt;
+&lt;li&gt;“/..”, parent of root object does not exist&lt;/li&gt;
+&lt;li&gt;“…”, meaning of triple dots not defined&lt;/li&gt;
+&lt;/ul&gt;
+For SMP Level 2 (LinkBase, Assembly and Schedule), paths are allowed to contain placeholders for template arguments in {}.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:restriction base="xsd:string">
+      <xsd:pattern value="[a-zA-Z\./\{][a-zA-Z0-9_\./\[\]\{\}]*"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:complexType name="InterfaceLink">
+    <xsd:annotation>
+      <xsd:documentation>An Interface Link resolves a Reference of a Component Instance. Therefore, it connects a Reference of an Owner (that performs the call) to (an Interface of) a Client (i.e. to a Component Instance that implements the required Interface and is called via that Interface). That way, an Interface Link can both connect to a Model Instance or a Service Instance.
+With the optional BackReference attribute, a bi-directional Interface Link can be defined.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:complexContent>
+      <xsd:extension base="LinkBase:Link">
+        <xsd:sequence>
+          <xsd:element name="Reference" type="xsd:string">
+            <xsd:annotation>
+              <xsd:documentation>Reference of the Owner to connect to the Client instance.
+The Client needs to implement the Interface that defines the type of the Reference.</xsd:documentation>
+            </xsd:annotation>
+          </xsd:element>
+          <xsd:element minOccurs="0" name="BackReference" type="xsd:string">
+            <xsd:annotation>
+              <xsd:documentation>Optional reference of the Client to connect back to the Owner instance.
+The owner needs to implement the interface that defines the type of the client's BackReference.</xsd:documentation>
+            </xsd:annotation>
+          </xsd:element>
+        </xsd:sequence>
+      </xsd:extension>
+    </xsd:complexContent>
+  </xsd:complexType>
+  <xsd:complexType name="EventLink">
+    <xsd:annotation>
+      <xsd:documentation>An Event Link resolves an Event Sink of a Component Instance. Therefore, it links an Event Sink (the Client that is called) to an Event Source (the Owner that callsit).
+Event Source and Event Sink need to be of compatible Event Types.
+</xsd:documentation>
+    </xsd:annotation>
+    <xsd:complexContent>
+      <xsd:extension base="LinkBase:Link"/>
+    </xsd:complexContent>
+  </xsd:complexType>
+  <xsd:complexType abstract="true" name="Link">
+    <xsd:annotation>
+      <xsd:documentation>The Link metaclass serves as a base metaclass for all links.
+Within an Assembly or a Link Base, each Link connects an owner object to a client object. Both need to be identified via Path, in a format that the SMP Resolver can resolve. As the Resolver can resolve Models, Services and even Objects, links can be defined between any resolvable objects in the Simulation Tree.
+The specific meaning of Owner and Client within the different Link types derived from the abstract Link metaclass is explained in those derived metaclasses.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:sequence>
+      <xsd:element default="." name="OwnerPath" type="LinkBase:Path">
+        <xsd:annotation>
+          <xsd:documentation>This string can be used to specify the full path to the owner (possibly within a hierarchy of sub-assemblies) in a format understood by the SMP Resolver Service.</xsd:documentation>
+        </xsd:annotation>
+      </xsd:element>
+      <xsd:element default="." name="ClientPath" type="LinkBase:Path">
+        <xsd:annotation>
+          <xsd:documentation>This string can be used to specify the full path to the client (possibly within a hierarchy of sub-assemblies) in a format understood by the SMP Resolver Service.</xsd:documentation>
+        </xsd:annotation>
+      </xsd:element>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="FieldLink">
+    <xsd:annotation>
+      <xsd:documentation>A Field Link resolves an input field of a Component Instance. In other words, it links an Input Field (the Client) to an Output Field (the Owner) via Data Flow (i.e. the Owner has to implement IDataFlowField).
+Output Field and Input Field have to be of compatible types.
+To be semantically correct, the Input Field (the Client) needs to have its Input attribute set to true, and the Output Field (the Owner) needs to have its Output attribute set to true.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:complexContent>
+      <xsd:extension base="LinkBase:Link"/>
+    </xsd:complexContent>
+  </xsd:complexType>
+  <xsd:complexType name="LinkBase">
+    <xsd:annotation>
+      <xsd:documentation>This stand-alone file format allows collecting Links between objects in different Assemblies.
+A Link Base acts as the root element (top-level node) in an SMDL Link Base document. A Link Base contains a tree of component link bases that define links of component instances (model or service instances).</xsd:documentation>
+    </xsd:annotation>
+    <xsd:complexContent>
+      <xsd:extension base="Elements:Document">
+        <xsd:sequence>
+          <xsd:element maxOccurs="unbounded" minOccurs="0" name="Component" type="LinkBase:ComponentLinkBase">
+            <xsd:annotation>
+              <xsd:documentation>Collection of component link bases to support a hierarchy.</xsd:documentation>
+            </xsd:annotation>
+          </xsd:element>
+        </xsd:sequence>
+      </xsd:extension>
+    </xsd:complexContent>
+  </xsd:complexType>
+  <xsd:complexType name="ComponentLinkBase">
+    <xsd:annotation>
+      <xsd:documentation>A Component Link Base defines links of a Component Instance (Model or Service Instance). The Component Instance is specified via the Path attribute, which can be
+&lt;ul&gt;
+&lt;li&gt;absolute, i.e. the path starts with a slash "/", and at the root of the simulation tree (e.g. Path="/Spacecraft/AOCS" or Path="/Logger"), or&lt;/li&gt;
+&lt;li&gt;relative, i.e. the path does not start with a slash "/" and is appended to the path of the parent Component Link Base.&lt;/li&gt;
+&lt;/ul&gt;
+Each Link is an instance of one of the available Link metaclasses. A Link has to reference Owner and Client via its Owner Path and Client Path elements which specify which objects are connected by the Link.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:sequence>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="Link" type="LinkBase:Link">
+        <xsd:annotation>
+          <xsd:documentation>Collection of links which are relative to the component.</xsd:documentation>
+        </xsd:annotation>
+      </xsd:element>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="Component" type="LinkBase:ComponentLinkBase">
+        <xsd:annotation>
+          <xsd:documentation>Collection of component link bases to support a hierarchy.</xsd:documentation>
+        </xsd:annotation>
+      </xsd:element>
+    </xsd:sequence>
+    <xsd:attribute name="Path" type="LinkBase:Path" use="required">
+      <xsd:annotation>
+        <xsd:documentation>Path to the component to configure, in the format accepted by the Resolver service.</xsd:documentation>
+      </xsd:annotation>
+    </xsd:attribute>
+  </xsd:complexType>
+</xsd:schema>

@@ -18,8 +18,8 @@ export interface ComponentLinkBase {
 }
 
 export interface Link {
-  '@OwnerPath': string;
-  '@ClientPath': string;
+  OwnerPath: string;
+  ClientPath: string;
 }
 
 export interface EventLink extends Link {
@@ -29,6 +29,6 @@ export interface FieldLink extends Link {
 
 }
 export interface InterfaceLink extends Link {
-  '@Reference': string;
-  '@BackReference'?: string;
+  Reference: string;
+  BackReference?: string;
 }

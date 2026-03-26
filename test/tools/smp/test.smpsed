@@ -9,10 +9,9 @@
     </Activity>
     <Activity Id="Main.EmitGlobalEvent1" Name="EmitGlobalEvent1" xsi:type="Schedule:EmitGlobalEvent">
       <EventName>Tick</EventName>
-      <Synchronous>false</Synchronous>
+      <synchronous>false</synchronous>
     </Activity>
-    <Activity Id="Main.ExecuteTask1" Name="ExecuteTask1" xsi:type="Schedule:ExecuteTask">
-      <Root>/AssemblyRoot</Root>
+    <Activity Id="Main.ExecuteTask1" Name="ExecuteTask1" xsi:type="Schedule:ExecuteTask" Root="/AssemblyRoot">
       <Task xlink:title="Main" xlink:href="#Main"/>
     </Activity>
     <Activity Id="Main.SetProperty1" Name="SetProperty1" xsi:type="Schedule:SetProperty">
@@ -39,7 +38,7 @@
   <Event Id="TestSchedule.ZuluEvent1" Name="ZuluEvent1" xsi:type="Schedule:ZuluEvent" CycleTime="PT0S" ZuluTime="2025-01-01T01:00:00Z">
     <Task xlink:title="Main" xlink:href="#Main"/>
   </Event>
-  <Event Id="TestSchedule.GlobalEventTriggeredEvent1" Name="GlobalEventTriggeredEvent1" xsi:type="Schedule:GlobalEventTriggeredEvent" CycleTime="PT30S" RepeatCount="4" StartEvent="BootCompleted" StopEvent="ShutdownRequested" TimeKind="mission" Delay="PT5S">
+  <Event Id="TestSchedule.GlobalEventTriggeredEvent1" Name="GlobalEventTriggeredEvent1" xsi:type="Schedule:GlobalEventTriggeredEvent" CycleTime="PT30S" RepeatCount="4" StartEvent="BootCompleted" StopEvent="ShutdownRequested" TimeKind="MissionTime" Delay="PT5S">
     <Task xlink:title="Main" xlink:href="#Main"/>
   </Event>
 </Schedule:Schedule>

@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<xsd:schema xmlns="http://www.ecss.nl/smp/2025/Smdl/Configuration" xmlns:Configuration="http://www.ecss.nl/smp/2025/Smdl/Configuration" xmlns:Elements="http://www.ecss.nl/smp/2025/Core/Elements" xmlns:Types="http://www.ecss.nl/smp/2025/Core/Types" xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" xmlns:xhtml="http://www.w3.org/1999/xhtml" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xsd="http://www.w3.org/2001/XMLSchema" attributeFormDefault="unqualified" ecore:documentRoot="ConfigurationDocumentRoot" ecore:nsPrefix="Configuration" ecore:package="Configuration" elementFormDefault="unqualified" targetNamespace="http://www.ecss.nl/smp/2025/Smdl/Configuration">
+  <xsd:annotation>
+    <xsd:documentation>This schema defines all metamodel elements that are needed in order to define an SMDL configuration document. A configuration document allows specifying arbitrary field values of component instances in the simulation hierarchy. This can be used to initialise or reinitialise the simulation.</xsd:documentation>
+  </xsd:annotation>
+  <xsd:import namespace="http://www.w3.org/1999/xlink" schemaLocation="xlink.xsd">
+    <xsd:annotation>
+      <xsd:documentation>Schema for the W3C XML Linking Language (XLink).</xsd:documentation>
+    </xsd:annotation>
+  </xsd:import>
+  <xsd:import namespace="http://www.ecss.nl/smp/2025/Core/Elements" schemaLocation="Elements.xsd">
+    <xsd:annotation>
+      <xsd:documentation>This schema defines base metaclasses and annotation mechanisms used throughout the SMP Metamodel.</xsd:documentation>
+    </xsd:annotation>
+  </xsd:import>
+  <xsd:import namespace="http://www.ecss.nl/smp/2025/Core/Types" schemaLocation="Types.xsd">
+    <xsd:annotation>
+      <xsd:documentation>This schema provides basic types and typing mechanisms, together with appropriate value specification mechanisms.</xsd:documentation>
+    </xsd:annotation>
+  </xsd:import>
+  <xsd:element name="Configuration" type="Configuration:Configuration">
+    <xsd:annotation>
+      <xsd:documentation>The Configuration element (of type Configuration) is the root element of an SMDL configuration.</xsd:documentation>
+    </xsd:annotation>
+  </xsd:element>
+  <xsd:complexType name="ComponentConfiguration">
+    <xsd:annotation>
+      <xsd:documentation>A ComponentConfiguration defines field values of a component instance (model or service instance). The component instance is specified via the Path attribute, which can be
+&lt;ul&gt;
+&lt;li&gt;absolute, i.e. the path starts with a slash "/", and at the root of the simulation tree (e.g. Path="/Spacecraft/AOCS" or Path="/Logger"), or&lt;/li&gt;
+&lt;li&gt;relative, i.e. the path does not start with a slash "/" and is appended to the path of the parent component configuration.&lt;/li&gt;
+&lt;/ul&gt;
+Each FieldValue is an instance of one of the available Value metaclasses. A FieldValue has to reference the corresponding field of the component via its Field attribute which specifies the field's local name/path (e.g. Field="field1" or Field="struct1.structField2").
+In addition to the ability to define a hierarchy of component configurations via the Component element, the Include element enables to include another Configuration file using a relative or absolute Path for it.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:sequence>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="Include" type="Configuration:ConfigurationUsage">
+        <xsd:annotation>
+          <xsd:documentation>Collection of configuration usages from external files.</xsd:documentation>
+        </xsd:annotation>
+      </xsd:element>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="Component" type="Configuration:ComponentConfiguration">
+        <xsd:annotation>
+          <xsd:documentation>Collection of component configurations to support a hierarchy.</xsd:documentation>
+        </xsd:annotation>
+      </xsd:element>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="FieldValue" type="Types:Value">
+        <xsd:annotation>
+          <xsd:documentation>Collection of field values.</xsd:documentation>
+        </xsd:annotation>
+      </xsd:element>
+    </xsd:sequence>
+    <xsd:attribute name="Path" type="Elements:Path" use="required">
+      <xsd:annotation>
+        <xsd:documentation>Path to the component to configure, in the format accepted by the Resolver service.</xsd:documentation>
+      </xsd:annotation>
+    </xsd:attribute>
+  </xsd:complexType>
+  <xsd:complexType name="Configuration">
+    <xsd:annotation>
+      <xsd:documentation>A Configuration acts as the root element (top-level node) in an SMDL Configuration document. A configuration contains a tree of component configurations that define field values of component instances (model or service instances). Further, a configuration may include other configuration documents via the Include element.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:complexContent>
+      <xsd:extension base="Elements:Document">
+        <xsd:sequence>
+          <xsd:element maxOccurs="unbounded" minOccurs="0" name="Include" type="Configuration:ConfigurationUsage">
+            <xsd:annotation>
+              <xsd:documentation>Collection of configuration usages from external files.</xsd:documentation>
+            </xsd:annotation>
+          </xsd:element>
+          <xsd:element maxOccurs="unbounded" minOccurs="0" name="Component" type="Configuration:ComponentConfiguration">
+            <xsd:annotation>
+              <xsd:documentation>Collection of component configurations to support a hierarchy.</xsd:documentation>
+            </xsd:annotation>
+          </xsd:element>
+        </xsd:sequence>
+      </xsd:extension>
+    </xsd:complexContent>
+  </xsd:complexType>
+  <xsd:complexType name="ConfigurationUsage">
+    <xsd:annotation>
+      <xsd:documentation>A ConfigurationUsage allows to include another SMDL Configuration document. The external configuration document is referenced via the Configuration link. The Path specifies the (optional) prefix that shall be applied to all paths in the external configuration document. This allows pre-defined configuration documents to be re-used for the configuration of components in various places in the model hierarchy.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:sequence>
+      <xsd:element name="Configuration">
+        <xsd:annotation>
+          <xsd:documentation>Configuration that the usage points to.</xsd:documentation>
+          <xsd:documentation>Link destination type: Configuration:Configuration</xsd:documentation>
+          <xsd:appinfo source="http://www.w3.org/1999/xlink">Configuration:Configuration</xsd:appinfo>
+        </xsd:annotation>
+        <xsd:complexType ecore:name="ConfigurationOfConfigurationUsage">
+          <xsd:attribute fixed="simple" ref="xlink:type" use="prohibited"/>
+          <xsd:attribute ecore:name="Configuration" ecore:reference="Configuration:Configuration" ref="xlink:href" use="required"/>
+          <xsd:attribute ecore:name="ConfigurationName" ref="xlink:title" use="optional"/>
+        </xsd:complexType>
+      </xsd:element>
+    </xsd:sequence>
+    <xsd:attribute name="Path" type="Elements:Path" use="optional">
+      <xsd:annotation>
+        <xsd:documentation>Specifies the (optional) prefix that shall be applied to all paths in the external configuration document. This allows pre-defined configuration documents to be re-used for the configuration of components in various places in the model hierarchy.</xsd:documentation>
+      </xsd:annotation>
+    </xsd:attribute>
+  </xsd:complexType>
+</xsd:schema>

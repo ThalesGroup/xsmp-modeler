@@ -15,11 +15,11 @@ export interface Configuration extends Document {
 }
 
 export interface ConfigurationUsage {
-    Path?: string;
+    '@Path'?: string;
     Configuration: Xlink;
 }
 export interface ComponentConfiguration {
-    Path?: string;
+    '@Path'?: string;
     Include?: ConfigurationUsage[];
     Component?: ComponentConfiguration[];
     FieldValue?: Value[];

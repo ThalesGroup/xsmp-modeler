@@ -41,10 +41,10 @@ export interface ParameterValue {
 }
 export interface EmitGlobalEvent extends Activity {
   EventName: string;
-  Synchronous: boolean;
+  synchronous?: boolean;
 }
 export interface ExecuteTask extends Activity {
-  Root?: string;
+  '@Root'?: string;
   Task: Xlink;
   Argument?: TemplateArgument[];
 }

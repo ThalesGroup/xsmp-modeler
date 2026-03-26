@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<xsd:schema xmlns="http://www.ecss.nl/smp/2025/Smdl/Package" xmlns:Catalogue="http://www.ecss.nl/smp/2025/Smdl/Catalogue" xmlns:Elements="http://www.ecss.nl/smp/2025/Core/Elements" xmlns:Package="http://www.ecss.nl/smp/2025/Smdl/Package" xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" xmlns:xhtml="http://www.w3.org/1999/xhtml" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xsd="http://www.w3.org/2001/XMLSchema" attributeFormDefault="unqualified" ecore:documentRoot="PackageDocumentRoot" ecore:nsPrefix="Package" ecore:package="Package" elementFormDefault="unqualified" targetNamespace="http://www.ecss.nl/smp/2025/Smdl/Package">
+  <xsd:annotation>
+    <xsd:documentation>This schema defines all metamodel elements that are needed in order to define how implementations of types defined in catalogues are packaged. This includes not only models, which may have different implementations in different packages, but as well all other user-defined types.</xsd:documentation>
+  </xsd:annotation>
+  <xsd:import namespace="http://www.w3.org/1999/xlink" schemaLocation="xlink.xsd">
+    <xsd:annotation>
+      <xsd:documentation>Schema for the W3C XML Linking Language (XLink).</xsd:documentation>
+    </xsd:annotation>
+  </xsd:import>
+  <xsd:import namespace="http://www.ecss.nl/smp/2025/Smdl/Catalogue" schemaLocation="Catalogue.xsd">
+    <xsd:annotation>
+      <xsd:documentation>This schema defines all metamodel elements that are needed in order to define models in a catalogue. Catalogues make use of the mechanisms defined in Core Types, e.g. enumerations and structures, and they add reference types (interfaces and components), events and a hierarchical grouping mechanism (namespaces).</xsd:documentation>
+    </xsd:annotation>
+  </xsd:import>
+  <xsd:import namespace="http://www.ecss.nl/smp/2025/Core/Elements" schemaLocation="Elements.xsd">
+    <xsd:annotation>
+      <xsd:documentation>This schema defines base metaclasses and annotation mechanisms used throughout the SMP Metamodel.</xsd:documentation>
+    </xsd:annotation>
+  </xsd:import>
+  <xsd:element name="Package" type="Package:Package">
+    <xsd:annotation>
+      <xsd:documentation>The Package element (of type Package) is the root element of an SMDL package.</xsd:documentation>
+    </xsd:annotation>
+  </xsd:element>
+  <xsd:complexType name="Package">
+    <xsd:annotation>
+      <xsd:documentation>A Package is a Document that references an arbitrary number of types for Implementation. Each of these types (defined in a catalogue) shall be implemented by the package to make it available for use in a simulation.
+In addition, a package may reference other packages as a Dependency. This indicates that a type referenced from an implementation in the package requires a type implemented in the referenced package.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:complexContent>
+      <xsd:extension base="Elements:Document">
+        <xsd:sequence>
+          <xsd:element maxOccurs="unbounded" minOccurs="0" name="Implementation">
+            <xsd:annotation>
+              <xsd:documentation>Collection of types implemented by the package.</xsd:documentation>
+              <xsd:documentation>Link destination type: Types:Type</xsd:documentation>
+              <xsd:appinfo source="http://www.w3.org/1999/xlink">Types:Type</xsd:appinfo>
+            </xsd:annotation>
+            <xsd:complexType ecore:name="ImplementationOfPackage">
+              <xsd:attribute fixed="simple" ref="xlink:type" use="prohibited"/>
+              <xsd:attribute ecore:name="Implementation" ecore:reference="Types:Type" ref="xlink:href" use="required"/>
+              <xsd:attribute ecore:name="ImplementationName" ref="xlink:title" use="optional"/>
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element maxOccurs="unbounded" minOccurs="0" name="Dependency">
+            <xsd:annotation>
+              <xsd:documentation>Collection of dependencies to other packages.</xsd:documentation>
+              <xsd:documentation>Link destination type: Package:Package</xsd:documentation>
+              <xsd:appinfo source="http://www.w3.org/1999/xlink">Package:Package</xsd:appinfo>
+            </xsd:annotation>
+            <xsd:complexType ecore:name="DependencyOfPackage">
+              <xsd:attribute fixed="simple" ref="xlink:type" use="prohibited"/>
+              <xsd:attribute ecore:name="Dependency" ecore:reference="Package:Package" ref="xlink:href" use="required"/>
+              <xsd:attribute ecore:name="DependencyName" ref="xlink:title" use="optional"/>
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:sequence>
+      </xsd:extension>
+    </xsd:complexContent>
+  </xsd:complexType>
+</xsd:schema>

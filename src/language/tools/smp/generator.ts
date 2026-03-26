@@ -25,16 +25,19 @@ import { type DocumentationHelper } from '../../utils/documentation-helper.js';
 import { type AttributeHelper } from '../../utils/attribute-helper.js';
 import { getCopyrightNotice } from '../../generator/copyright-notice-provider.js';
 import { xsmpVersion } from '../../version.js';
+import type { ProjectManager } from '../../workspace/project-manager.js';
 
 export class SmpGenerator implements XsmpGenerator {
 
     protected readonly docHelper: DocumentationHelper;
     protected readonly attrHelper: AttributeHelper;
+    protected readonly projectManager: ProjectManager;
     protected readonly smdlGenFolder = 'smdl-gen';
 
     constructor(services: XsmpSharedServices) {
         this.docHelper = services.DocumentationHelper;
         this.attrHelper = services.AttributeHelper;
+        this.projectManager = services.workspace.ProjectManager;
     }
     clean(projectUri: URI) {
         fs.rmSync(UriUtils.joinPath(projectUri, this.smdlGenFolder).fsPath, { recursive: true, force: true });
@@ -531,13 +534,44 @@ export class SmpGenerator implements XsmpGenerator {
         return new Date(value).toISOString();
     }
 
+    protected getSmpStandard(node: AstNode): string {
+        const project = this.projectManager.getProject(AstUtils.getDocument(node));
+        return project?.standard ?? 'ECSS_SMP_2020';
+    }
+
+    protected getL1Namespaces(node: AstNode): {
+        elements: string;
+        types: string;
+        catalogue: string;
+        package: string;
+        configuration: string;
+    } {
+        if (this.getSmpStandard(node) === 'ECSS_SMP_2025') {
+            return {
+                elements: 'http://www.ecss.nl/smp/2025/Core/Elements',
+                types: 'http://www.ecss.nl/smp/2025/Core/Types',
+                catalogue: 'http://www.ecss.nl/smp/2025/Smdl/Catalogue',
+                package: 'http://www.ecss.nl/smp/2025/Smdl/Package',
+                configuration: 'http://www.ecss.nl/smp/2025/Smdl/Configuration',
+            };
+        }
+        return {
+            elements: 'http://www.ecss.nl/smp/2019/Core/Elements',
+            types: 'http://www.ecss.nl/smp/2019/Core/Types',
+            catalogue: 'http://www.ecss.nl/smp/2019/Smdl/Catalogue',
+            package: 'http://www.ecss.nl/smp/2019/Smdl/Package',
+            configuration: 'http://www.ecss.nl/smp/2019/Smdl/Configuration',
+        };
+    }
+
     protected async convertCatalogue(catalogue: ast.Catalogue): Promise<Catalogue.Catalogue> {
         const id = this.docHelper.getId(catalogue) ?? `_${XsmpUtils.fqn(catalogue)}`;
+        const namespaces = this.getL1Namespaces(catalogue);
 
         return {
-            '@xmlns:Elements': 'http://www.ecss.nl/smp/2019/Core/Elements',
-            '@xmlns:Types': 'http://www.ecss.nl/smp/2019/Core/Types',
-            '@xmlns:Catalogue': 'http://www.ecss.nl/smp/2019/Smdl/Catalogue',
+            '@xmlns:Elements': namespaces.elements,
+            '@xmlns:Types': namespaces.types,
+            '@xmlns:Catalogue': namespaces.catalogue,
             '@xmlns:xsd': 'http://www.w3.org/2001/XMLSchema',
             '@xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
             '@xmlns:xlink': 'http://www.w3.org/1999/xlink',
@@ -555,13 +589,14 @@ export class SmpGenerator implements XsmpGenerator {
     protected async convertPackage(catalogue: ast.Catalogue): Promise<Package.Package> {
         const id = this.docHelper.getId(catalogue) ?? `_${XsmpUtils.fqn(catalogue)}`,
             doc = AstUtils.getDocument(catalogue),
+            namespaces = this.getL1Namespaces(catalogue),
             dependencies = [...new Set(doc.references.filter(e => e.ref && !ast.isInterface(e.ref)).map(e => AstUtils.getDocument(e.ref!).parseResult.value).filter(ast.isCatalogue)
                 .filter(e => e !== catalogue && e.name !== 'ecss_smp_smp'))].sort((l, r) => l.name.localeCompare(r.name));
         return {
-            '@xmlns:Elements': 'http://www.ecss.nl/smp/2019/Core/Elements',
-            '@xmlns:Types': 'http://www.ecss.nl/smp/2019/Core/Types',
-            '@xmlns:Catalogue': 'http://www.ecss.nl/smp/2019/Smdl/Catalogue',
-            '@xmlns:Package': 'http://www.ecss.nl/smp/2019/Smdl/Package',
+            '@xmlns:Elements': namespaces.elements,
+            '@xmlns:Types': namespaces.types,
+            '@xmlns:Catalogue': namespaces.catalogue,
+            '@xmlns:Package': namespaces.package,
             '@xmlns:xsd': 'http://www.w3.org/2001/XMLSchema',
             '@xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
             '@xmlns:xlink': 'http://www.w3.org/1999/xlink',
@@ -624,10 +659,11 @@ export class SmpGenerator implements XsmpGenerator {
 
     protected convertConfiguration(configuration: ast.Configuration): Configuration.Configuration {
         const id = this.docHelper.getId(configuration) ?? configuration.name;
+        const namespaces = this.getL1Namespaces(configuration);
         return {
-            '@xmlns:Elements': 'http://www.ecss.nl/smp/2019/Core/Elements',
-            '@xmlns:Types': 'http://www.ecss.nl/smp/2019/Core/Types',
-            '@xmlns:Configuration': 'http://www.ecss.nl/smp/2019/Smdl/Configuration',
+            '@xmlns:Elements': namespaces.elements,
+            '@xmlns:Types': namespaces.types,
+            '@xmlns:Configuration': namespaces.configuration,
             '@xmlns:xsd': 'http://www.w3.org/2001/XMLSchema',
             '@xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
             '@xmlns:xlink': 'http://www.w3.org/1999/xlink',
@@ -645,7 +681,7 @@ export class SmpGenerator implements XsmpGenerator {
     }
     convertComponentConfiguration(component: ast.ComponentConfiguration): Configuration.ComponentConfiguration {
         return {
-            Path: component.name,
+            '@Path': component.name,
             Include: component.elements.filter(ast.isConfigurationUsage).map(this.convertConfigurationUsage, this),
             Component: component.elements.filter(ast.isComponentConfiguration).map(this.convertComponentConfiguration, this),
             FieldValue: component.elements.filter(ast.isValue).map(this.convertValue, this),
@@ -684,7 +720,7 @@ export class SmpGenerator implements XsmpGenerator {
 
     convertConfigurationUsage(include: ast.ConfigurationUsage): Configuration.ConfigurationUsage {
         return {
-            Path: include.path,
+            '@Path': include.path,
             Configuration: this.convertXlink(include.configuration, include),
         };
     }
@@ -734,13 +770,16 @@ export class SmpGenerator implements XsmpGenerator {
     }
     convertLink(link: ast.Link): LinkBase.Link {
         switch (link.$type) {
-            case ast.EventLink: return { '@xsi:type': 'LinkBase:EventLink', '@OwnerPath': link.ownerPath, '@ClientPath': link.clientPath } as LinkBase.EventLink;
-            case ast.FieldLink: return { '@xsi:type': 'LinkBase:FieldLink', '@OwnerPath': link.ownerPath, '@ClientPath': link.clientPath } as LinkBase.FieldLink;
+            case ast.EventLink: return { '@xsi:type': 'LinkBase:EventLink', OwnerPath: link.ownerPath, ClientPath: link.clientPath } as LinkBase.EventLink;
+            case ast.FieldLink: return { '@xsi:type': 'LinkBase:FieldLink', OwnerPath: link.ownerPath, ClientPath: link.clientPath } as LinkBase.FieldLink;
             case ast.InterfaceLink: return {
-                '@xsi:type': 'LinkBase:InterfaceLink', '@OwnerPath': link.ownerPath, '@ClientPath': link.clientPath,
-                "@Reference": (link as ast.InterfaceLink).reference, "@BackReference": (link as ast.InterfaceLink).backReference
+                '@xsi:type': 'LinkBase:InterfaceLink',
+                OwnerPath: link.ownerPath,
+                ClientPath: link.clientPath,
+                Reference: (link as ast.InterfaceLink).reference,
+                BackReference: (link as ast.InterfaceLink).backReference
             } as LinkBase.InterfaceLink;
-            default: return { '@xsi:type': 'LinkBase:Link', '@OwnerPath': link.ownerPath, '@ClientPath': link.clientPath } as LinkBase.Link;
+            default: return { '@xsi:type': 'LinkBase:Link', OwnerPath: link.ownerPath, ClientPath: link.clientPath } as LinkBase.Link;
         }
     }
 
@@ -804,13 +843,13 @@ export class SmpGenerator implements XsmpGenerator {
         const assembly = instance.instance as ast.AssemblyInstance;
         return {
             '@Container': instance.container,
-            '@Assembly': this.filename(assembly.assembly?.ref)!,
+            Assembly: this.filename(assembly.assembly?.ref)!,
             '@Name': assembly.name,
             Description: this.docHelper.getDescription(assembly),
             Argument: assembly.arguments.map(this.convertTemplateArgument, this),
             ModelConfiguration: assembly.elements.map(this.convertAssemblyComponentConfiguration, this),
-            '@Configuration': this.filename(assembly.configuration?.ref),
-            '@LinkBase': this.filename(assembly.linkBase?.ref),
+            Configuration: this.filename(assembly.configuration?.ref),
+            LinkBase: this.filename(assembly.linkBase?.ref),
 
         }
     }
@@ -827,12 +866,12 @@ export class SmpGenerator implements XsmpGenerator {
             case ast.Int32Argument: return {
                 '@xsi:type': 'Assembly:Int32Argument',
                 '@Name': parameter.parameter.ref?.name,
-                Value: (parameter as ast.Int32Argument).value
+                '@Value': (parameter as ast.Int32Argument).value
             } as Assembly.Int32Argument;
             case ast.StringArgument: return {
                 '@xsi:type': 'Assembly:StringArgument',
                 '@Name': parameter.parameter.ref?.name,
-                Value: (parameter as ast.StringArgument).value
+                '@Value': (parameter as ast.StringArgument).value?.slice(1, -1)
             } as Assembly.StringArgument;
             default: return {
                 '@xsi:type': 'Assembly:TemplateArgument',
@@ -847,12 +886,12 @@ export class SmpGenerator implements XsmpGenerator {
             case ast.Int32Parameter: return {
                 '@xsi:type': 'Assembly:Int32Argument',
                 '@Name': parameter.name,
-                Value: (parameter as ast.Int32Parameter).value
+                '@Value': (parameter as ast.Int32Parameter).value
             } as Assembly.Int32Argument;
             case ast.StringParameter: return {
                 '@xsi:type': 'Assembly:StringArgument',
                 '@Name': parameter.name,
-                Value: (parameter as ast.StringParameter).value
+                '@Value': (parameter as ast.StringParameter).value?.slice(1, -1)
             } as Assembly.StringArgument;
             default: return {
                 '@xsi:type': 'Assembly:TemplateArgument',
@@ -863,7 +902,7 @@ export class SmpGenerator implements XsmpGenerator {
 
     convertAssemblyComponentConfiguration(component: ast.AssemblyComponentConfiguration): Assembly.ComponentConfiguration {
         return {
-            InstancePath: component.name,
+            '@InstancePath': component.name,
             Invocation: component.elements.filter(ast.isInvocation).map(this.convertInvocation, this),
             GlobalEventHandler: component.elements.filter(ast.isGlobalEventHandler).map(this.convertGlobalEventHandler, this),
             FieldValue: component.elements.filter(ast.isValue).map(v => this.convertValue(v as ast.Value), this),
@@ -992,13 +1031,13 @@ export class SmpGenerator implements XsmpGenerator {
                     ...this.convertGeneratedActivityElement(activity),
                     '@xsi:type': 'Schedule:EmitGlobalEvent',
                     EventName: (activity as ast.EmitGlobalEvent).eventName,
-                    Synchronous: !(activity as ast.EmitGlobalEvent).asynchronous
+                    synchronous: !(activity as ast.EmitGlobalEvent).asynchronous
                 } as Schedule.EmitGlobalEvent;
             case ast.ExecuteTask:
                 return {
                     ...this.convertGeneratedActivityElement(activity),
                     '@xsi:type': 'Schedule:ExecuteTask',
-                    Root: (activity as ast.ExecuteTask).root,
+                    '@Root': (activity as ast.ExecuteTask).root,
                     Task: this.convertXlink((activity as ast.ExecuteTask).task, activity),
                     Argument: (activity as ast.ExecuteTask).parameter.map(this.convertTemplateArgument, this),
                 } as Schedule.ExecuteTask;
@@ -1040,6 +1079,21 @@ export class SmpGenerator implements XsmpGenerator {
         };
     }
 
+    private convertScheduleTimeKind(timeKind?: string): string | undefined {
+        switch (timeKind) {
+            case 'epoch':
+                return 'EpochTime';
+            case 'mission':
+                return 'MissionTime';
+            case 'simulation':
+                return 'SimulationTime';
+            case 'zulu':
+                return 'ZuluTime';
+            default:
+                return timeKind;
+        }
+    }
+
     convertEvent(event: ast.Event): Schedule.Event {
         switch (event.$type) {
             case ast.EpochEvent:
@@ -1067,7 +1121,7 @@ export class SmpGenerator implements XsmpGenerator {
                     ...this.convertEventBase(event),
                     '@StartEvent': (event as ast.GlobalEventTriggeredEvent).startEvent,
                     '@StopEvent': (event as ast.GlobalEventTriggeredEvent).stopEvent,
-                    '@TimeKind': (event as ast.GlobalEventTriggeredEvent).timeKind,
+                    '@TimeKind': this.convertScheduleTimeKind((event as ast.GlobalEventTriggeredEvent).timeKind),
                     '@Delay': (event as ast.GlobalEventTriggeredEvent).delay,
                 } as Schedule.GlobalEventTriggeredEvent;
             default:

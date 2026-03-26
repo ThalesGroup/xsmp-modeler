@@ -28,15 +28,15 @@ export interface TemplateArgument extends NamedElement {
 }
 
 export interface Int32Argument extends TemplateArgument {
-  value?: bigint
+  '@Value'?: bigint
 }
 export interface StringArgument extends TemplateArgument {
-  value?: string
+  '@Value'?: string
 }
 
 
 export interface ComponentConfiguration {
-  InstancePath?: string;
+  '@InstancePath'?: string;
   FieldValue?: Value[];
   Invocation?: Invocation[];
   GlobalEventHandler?: GlobalEventHandler[];
@@ -81,9 +81,9 @@ export interface SubModelInstance extends ModelInstance {
 
 export interface AssemblyInstance extends NamedElement {
   '@Container': string;
-  '@Assembly': string;
+  Assembly: string;
   Argument?: TemplateArgument[];
   ModelConfiguration?: ComponentConfiguration[];
-  '@Configuration'?: string;
-  '@LinkBase'?: string;
+  Configuration?: string;
+  LinkBase?: string;
 }

@@ -1,0 +1,409 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<xsd:schema xmlns="http://www.ecss.nl/smp/2025/Smdl/Schedule" xmlns:Assembly="http://www.ecss.nl/smp/2025/Smdl/Assembly" xmlns:Elements="http://www.ecss.nl/smp/2019/Core/Elements" xmlns:LinkBase="http://www.ecss.nl/smp/2025/Smdl/LinkBase" xmlns:Schedule="http://www.ecss.nl/smp/2025/Smdl/Schedule" xmlns:Types="http://www.ecss.nl/smp/2019/Core/Types" xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore" xmlns:xhtml="http://www.w3.org/1999/xhtml" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xsd="http://www.w3.org/2001/XMLSchema" attributeFormDefault="unqualified" ecore:documentRoot="ScheduleDocumentRoot" ecore:nsPrefix="Schedule" ecore:package="Schedule" elementFormDefault="unqualified" targetNamespace="http://www.ecss.nl/smp/2025/Smdl/Schedule">
+  <xsd:annotation>
+    <xsd:documentation>This schema defines all metamodel elements that are needed in order to define how the model instances in an assembly are to be scheduled. This includes mechanisms for tasks and events.</xsd:documentation>
+  </xsd:annotation>
+  <xsd:import namespace="http://www.w3.org/1999/xlink" schemaLocation="xlink.xsd">
+    <xsd:annotation>
+      <xsd:documentation>Schema for the W3C XML Linking Language (XLink).</xsd:documentation>
+    </xsd:annotation>
+  </xsd:import>
+  <xsd:import namespace="http://www.ecss.nl/smp/2025/Smdl/Assembly" schemaLocation="Assembly.xsd">
+    <xsd:annotation>
+      <xsd:documentation>This schema defines all metamodel elements that are needed in order to define an assembly of model instances. This includes mechanisms for creating links between model instances, namely between references and implemented interfaces, between event sources and event sinks, and between output and input fields.</xsd:documentation>
+    </xsd:annotation>
+  </xsd:import>
+  <xsd:import namespace="http://www.ecss.nl/smp/2019/Core/Elements" schemaLocation="Elements.xsd">
+    <xsd:annotation>
+      <xsd:documentation>This schema defines base metaclasses and annotation mechanisms used throughout the SMP Metamodel.</xsd:documentation>
+    </xsd:annotation>
+  </xsd:import>
+  <xsd:import namespace="http://www.ecss.nl/smp/2019/Core/Types" schemaLocation="Types.xsd">
+    <xsd:annotation>
+      <xsd:documentation>This schema provides basic types and typing mechanisms, together with appropriate value specification mechanisms.</xsd:documentation>
+    </xsd:annotation>
+  </xsd:import>
+  <xsd:import namespace="http://www.ecss.nl/smp/2025/Smdl/LinkBase" schemaLocation="LinkBase.xsd">
+    <xsd:annotation>
+      <xsd:documentation>This schema defines all metamodel elements that are needed in order to define an SMDL configuration document. A configuration document allows specifying arbitrary field values of component instances in the simulation hierarchy. This can be used to initialise or reinitialise the simulation.</xsd:documentation>
+    </xsd:annotation>
+  </xsd:import>
+  <xsd:element name="Schedule" type="Schedule:Schedule">
+    <xsd:annotation>
+      <xsd:documentation>The Schedule element (of type Schedule) is the root element of an SMDL schedule.</xsd:documentation>
+    </xsd:annotation>
+  </xsd:element>
+  <xsd:simpleType name="TimeKind">
+    <xsd:annotation>
+      <xsd:documentation>This enumeration defines the four SMP time formats.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:restriction base="xsd:string">
+      <xsd:enumeration value="SimulationTime">
+        <xsd:annotation>
+          <xsd:documentation>Simulation Time starts at 0 when the simulation is kicked off. It progresses while the simulation is in Executing state.</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="EpochTime">
+        <xsd:annotation>
+          <xsd:documentation>Epoch Time is an absolute time and typically progresses with simulation time. The offset between epoch time and simulation time may get changed during a simulation.</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="ZuluTime">
+        <xsd:annotation>
+          <xsd:documentation>Zulu Time is the computer clock time, also called wall clock time. It progresses whether the simulation is in Executing or Standby state, and is not necessarily related to simulation, epoch or mission time.</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="MissionTime">
+        <xsd:annotation>
+          <xsd:documentation>Mission Time is a relative time (duration from some start time) and progresses with epoch time.</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:complexType name="Schedule">
+    <xsd:annotation>
+      <xsd:documentation>A Schedule is a Document that holds an arbitrary number of tasks (Task elements) and events (Event elements) triggering these tasks. Additionally, it may specify the origins of epoch time and mission time via its EpochTime and MissionStart elements, respectively. These values are used to initialise epoch time and mission time via the SetEpochTime() and SetMissionStart() methods of the TimeKeeper service.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:complexContent>
+      <xsd:extension base="Elements:Document">
+        <xsd:sequence>
+          <xsd:element maxOccurs="unbounded" minOccurs="0" name="Parameter" type="Assembly:TemplateArgument"/>
+          <xsd:element minOccurs="0" name="EpochTime" type="xsd:dateTime">
+            <xsd:annotation>
+              <xsd:documentation>The origin of the schedule's EpochTime. This is typically used to initialise epoch time in the TimeKeeper via the SetEpochTime() operation.</xsd:documentation>
+            </xsd:annotation>
+          </xsd:element>
+          <xsd:element minOccurs="0" name="MissionStart" type="xsd:dateTime">
+            <xsd:annotation>
+              <xsd:documentation>The origin of the schedule's MissionTime. This is typically used to initialise mission time in the TimeKeeper via the SetMissionStart() operation.</xsd:documentation>
+            </xsd:annotation>
+          </xsd:element>
+          <xsd:element maxOccurs="unbounded" minOccurs="0" name="Task" type="Schedule:Task">
+            <xsd:annotation>
+              <xsd:documentation>Collection of tasks of the schedule.</xsd:documentation>
+            </xsd:annotation>
+          </xsd:element>
+          <xsd:element maxOccurs="unbounded" minOccurs="0" name="Event" type="Schedule:Event">
+            <xsd:annotation>
+              <xsd:documentation>Collection of events of the schedule.</xsd:documentation>
+            </xsd:annotation>
+          </xsd:element>
+        </xsd:sequence>
+      </xsd:extension>
+    </xsd:complexContent>
+  </xsd:complexType>
+  <xsd:complexType name="Task">
+    <xsd:annotation>
+      <xsd:documentation>A Task is a container of activities. The order of activities defines in which order the activity elements will be executed.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:complexContent>
+      <xsd:extension base="Elements:NamedElement">
+        <xsd:sequence>
+          <xsd:element maxOccurs="unbounded" minOccurs="0" name="Activity" type="Schedule:Activity">
+            <xsd:annotation>
+              <xsd:documentation>Collection of activities of the task.</xsd:documentation>
+            </xsd:annotation>
+          </xsd:element>
+        </xsd:sequence>
+      </xsd:extension>
+    </xsd:complexContent>
+  </xsd:complexType>
+  <xsd:complexType name="Trigger">
+    <xsd:annotation>
+      <xsd:documentation>This activity allows calling an entry point of a component in the simulation tree.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:complexContent>
+      <xsd:extension base="Schedule:Activity">
+        <xsd:sequence>
+          <xsd:element name="EntryPoint" type="LinkBase:Path">
+            <xsd:annotation>
+              <xsd:documentation>EntryPoint to be executed by the Trigger.</xsd:documentation>
+            </xsd:annotation>
+          </xsd:element>
+        </xsd:sequence>
+      </xsd:extension>
+    </xsd:complexContent>
+  </xsd:complexType>
+  <xsd:complexType name="ExecuteTask">
+    <xsd:annotation>
+      <xsd:documentation>This activity allows to include the execution of a Task (which is an ordered collection of activities).
+Circular references between tasks and activities are not allowed.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:complexContent>
+      <xsd:extension base="Schedule:Activity">
+        <xsd:sequence>
+          <xsd:element name="Task">
+            <xsd:annotation>
+              <xsd:documentation>Reference to the task.</xsd:documentation>
+              <xsd:documentation>Link destination type: Schedule:Task</xsd:documentation>
+              <xsd:appinfo source="http://www.w3.org/1999/xlink">Schedule:Task</xsd:appinfo>
+            </xsd:annotation>
+            <xsd:complexType ecore:name="TaskOfExecuteTask">
+              <xsd:attribute fixed="simple" ref="xlink:type" use="prohibited"/>
+              <xsd:attribute ecore:name="Task" ecore:reference="Schedule:Task" ref="xlink:href" use="required"/>
+              <xsd:attribute ecore:name="TaskName" ref="xlink:title" use="optional"/>
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element maxOccurs="unbounded" minOccurs="0" name="Argument" type="Assembly:TemplateArgument">
+            <xsd:annotation>
+              <xsd:documentation>Collection of Template Arguments to be used when expanding a Path in an Activity included in the referenced Task.
+This is essential to be able to work with (Sub-)Assemblies that make use of Template Arguments.</xsd:documentation>
+            </xsd:annotation>
+          </xsd:element>
+        </xsd:sequence>
+        <xsd:attribute name="Root" type="LinkBase:Path" use="optional">
+          <xsd:annotation>
+            <xsd:documentation>Optional path to use to replace the top-level component name in any Path contained in children of the referenced Task.
+This is essential to allow the use of Tasks in (Sub-)Schedules that are based on the structure of (Sub-)Assemblies that have been used in the Model Hierarchy.</xsd:documentation>
+          </xsd:annotation>
+        </xsd:attribute>
+      </xsd:extension>
+    </xsd:complexContent>
+  </xsd:complexType>
+  <xsd:complexType name="Transfer">
+    <xsd:annotation>
+      <xsd:documentation>This activity allows to trigger the transfer of a simple value from an Output field (of a component in the simulation tree) to an Input field (typically of another component in the simulation tree).</xsd:documentation>
+    </xsd:annotation>
+    <xsd:complexContent>
+      <xsd:extension base="Schedule:Activity">
+        <xsd:sequence>
+          <xsd:element default="." name="OutputFieldPath" type="LinkBase:Path">
+            <xsd:annotation>
+              <xsd:documentation>This string can be used to specify the full path to the output field providing the value to transfer, in a format understood by the SMP Resolver Service.
+The types of the output field and of the input field have to be compatible to allow for a data transfer using AnySimple.</xsd:documentation>
+            </xsd:annotation>
+          </xsd:element>
+          <xsd:element default="." name="InputFieldPath" type="LinkBase:Path">
+            <xsd:annotation>
+              <xsd:documentation>This string can be used to specify the full path to the input field to receive the value, in a format understood by the SMP Resolver Service.
+The types of the output field and of the input field have to be compatible to allow for a data transfer using AnySimple.</xsd:documentation>
+            </xsd:annotation>
+          </xsd:element>
+        </xsd:sequence>
+      </xsd:extension>
+    </xsd:complexContent>
+  </xsd:complexType>
+  <xsd:complexType abstract="true" name="Activity">
+    <xsd:annotation>
+      <xsd:documentation>An Activity is the abstract base class for the three different activities that can be contained in a Task.
+&lt;ul&gt;
+&lt;li&gt;A Trigger allows to execute an EntryPoint.&lt;/li&gt;
+&lt;li&gt;A Transfer allows to initiate a data transfer as defined in a FieldLink.&lt;/li&gt;
+&lt;li&gt;A SubTask allows to execute all activities defined in another Task.&lt;/li&gt;
+&lt;/ul&gt;</xsd:documentation>
+    </xsd:annotation>
+    <xsd:complexContent>
+      <xsd:extension base="Elements:NamedElement"/>
+    </xsd:complexContent>
+  </xsd:complexType>
+  <xsd:complexType name="SetProperty">
+    <xsd:annotation>
+      <xsd:documentation>This activity allows setting a property value of a component in the simulation tree.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:complexContent>
+      <xsd:extension base="Schedule:Activity">
+        <xsd:sequence>
+          <xsd:element default="." name="PropertyPath" type="LinkBase:Path">
+            <xsd:annotation>
+              <xsd:documentation>This string can be used to specify the full path to the property to set, in a format understood by the SMP Resolver Service. This property must not by read-only, and must be of the type of the provided value.</xsd:documentation>
+            </xsd:annotation>
+          </xsd:element>
+          <xsd:element name="Value" type="Types:SimpleValue">
+            <xsd:annotation>
+              <xsd:documentation>Value to use for the Property Setter.</xsd:documentation>
+            </xsd:annotation>
+          </xsd:element>
+        </xsd:sequence>
+      </xsd:extension>
+    </xsd:complexContent>
+  </xsd:complexType>
+  <xsd:complexType name="CallOperation">
+    <xsd:annotation>
+      <xsd:documentation>This activities allows calling an operation of a component in the simulation tree.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:complexContent>
+      <xsd:extension base="Schedule:Activity">
+        <xsd:sequence>
+          <xsd:element default="." name="OperationPath" type="LinkBase:Path">
+            <xsd:annotation>
+              <xsd:documentation>This string can be used to specify the full path to the output field providing the value to transfer, in a format understood by the SMP Resolver Service. This field has to implement the IDataFlowField interface providing the Push() operation.</xsd:documentation>
+            </xsd:annotation>
+          </xsd:element>
+          <xsd:element maxOccurs="unbounded" minOccurs="0" name="Parameter" type="Schedule:ParameterValue">
+            <xsd:annotation>
+              <xsd:documentation>Collection of named parameters of the Operation.</xsd:documentation>
+            </xsd:annotation>
+          </xsd:element>
+        </xsd:sequence>
+      </xsd:extension>
+    </xsd:complexContent>
+  </xsd:complexType>
+  <xsd:complexType name="EmitGlobalEvent">
+    <xsd:annotation>
+      <xsd:documentation>This activity allows emitting a global event of the Event Manager Service.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:complexContent>
+      <xsd:extension base="Schedule:Activity">
+        <xsd:sequence>
+          <xsd:element name="EventName" type="xsd:string">
+            <xsd:annotation>
+              <xsd:documentation>Name of the global event (of the Event Manager Service) to emit.</xsd:documentation>
+            </xsd:annotation>
+          </xsd:element>
+          <xsd:element default="true" minOccurs="0" name="synchronous" type="xsd:boolean">
+            <xsd:annotation>
+              <xsd:documentation>Flag whether the event shall be executed synchronously or not.</xsd:documentation>
+            </xsd:annotation>
+          </xsd:element>
+        </xsd:sequence>
+      </xsd:extension>
+    </xsd:complexContent>
+  </xsd:complexType>
+  <xsd:complexType name="ParameterValue">
+    <xsd:annotation>
+      <xsd:documentation>Parameter for an Operation Call.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:sequence>
+      <xsd:element name="Value" type="Types:SimpleValue">
+        <xsd:annotation>
+          <xsd:documentation>Value for the named parameter.
+The type of the parameter has to match the specific SimpleValue metaclass that has been used.</xsd:documentation>
+        </xsd:annotation>
+      </xsd:element>
+    </xsd:sequence>
+    <xsd:attribute name="Parameter" type="Elements:Name" use="required">
+      <xsd:annotation>
+        <xsd:documentation>Name of the parameter to set.
+This must be a valid name of a Parameter of the Operation.
+The type of the parameter has to match the specific SimpleValue metaclass that has been used.</xsd:documentation>
+      </xsd:annotation>
+    </xsd:attribute>
+  </xsd:complexType>
+  <xsd:complexType name="MissionEvent">
+    <xsd:annotation>
+      <xsd:documentation>A MissionEvent is derived from Event and adds a MissionTime attribute.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:complexContent>
+      <xsd:extension base="Schedule:Event">
+        <xsd:attribute name="MissionTime" type="Elements:DayTimeDuration" use="required">
+          <xsd:annotation>
+            <xsd:documentation>Mission time when to execute the event (for the first time).</xsd:documentation>
+          </xsd:annotation>
+        </xsd:attribute>
+      </xsd:extension>
+    </xsd:complexContent>
+  </xsd:complexType>
+  <xsd:complexType name="ZuluEvent">
+    <xsd:annotation>
+      <xsd:documentation>A ZuluEvent is derived from Event and adds a ZuluTime attribute.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:complexContent>
+      <xsd:extension base="Schedule:Event">
+        <xsd:attribute name="ZuluTime" type="xsd:dateTime" use="required">
+          <xsd:annotation>
+            <xsd:documentation>Zulu time when to execute the event (for the first time).</xsd:documentation>
+          </xsd:annotation>
+        </xsd:attribute>
+      </xsd:extension>
+    </xsd:complexContent>
+  </xsd:complexType>
+  <xsd:complexType name="EpochEvent">
+    <xsd:annotation>
+      <xsd:documentation>An EpochEvent is derived from Event and adds an EpochTime attribute.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:complexContent>
+      <xsd:extension base="Schedule:Event">
+        <xsd:attribute name="EpochTime" type="xsd:dateTime" use="required">
+          <xsd:annotation>
+            <xsd:documentation>Epoch time when to execute the event (for the first time).</xsd:documentation>
+          </xsd:annotation>
+        </xsd:attribute>
+      </xsd:extension>
+    </xsd:complexContent>
+  </xsd:complexType>
+  <xsd:complexType name="SimulationEvent">
+    <xsd:annotation>
+      <xsd:documentation>A SimulationEvent is derived from Event and adds a SimulationTime attribute.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:complexContent>
+      <xsd:extension base="Schedule:Event">
+        <xsd:attribute name="SimulationTime" type="Elements:DayTimeDuration" use="required">
+          <xsd:annotation>
+            <xsd:documentation>Simulation time when to execute the event (for the first time).</xsd:documentation>
+          </xsd:annotation>
+        </xsd:attribute>
+      </xsd:extension>
+    </xsd:complexContent>
+  </xsd:complexType>
+  <xsd:complexType abstract="true" name="Event">
+    <xsd:annotation>
+      <xsd:documentation>An Event defines a point in time when to execute a task. Such a scheduled event can either be called only once, or it may be repeated using a given cycle time. While the first type of event is called a single event or timed event, repeated events are called cyclic.
+The Repeat attribute defines how often an event shall be repeated.
+&lt;ul&gt;
+&lt;li&gt;An event with Repeat=0 will not be repeated, so it will be only called once. This is a single event.&lt;/li&gt;
+&lt;li&gt;An event with Repeat&gt;0 will be called Repeat+1 times, so it is cyclic.&lt;/li&gt;
+&lt;li&gt;Finally, a value of Repeat=-1 indicates that an event shall be called forever (unlimited number of repeats). For a cyclic event, the CycleTime needs to specify a positive Duration between two consecutive executions of the event.&lt;/li&gt;
+&lt;/ul&gt;
+Four different time formats are supported to define the time of the (first) execution of the event (see TimeKind). For each of these four time kinds, a dedicated metaclass derived from Event is defined. These are required because relative times (simulation and mission times) are specified using a Duration, while absolute times (epoch and Zulu times) are specified using a DateTime.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:complexContent>
+      <xsd:extension base="Elements:NamedElement">
+        <xsd:sequence>
+          <xsd:element name="Task">
+            <xsd:annotation>
+              <xsd:documentation>Task of the event that shall be executed with the Event.</xsd:documentation>
+              <xsd:documentation>Link destination type: Schedule:Task</xsd:documentation>
+              <xsd:appinfo source="http://www.w3.org/1999/xlink">Schedule:Task</xsd:appinfo>
+            </xsd:annotation>
+            <xsd:complexType ecore:name="TaskOfEvent">
+              <xsd:attribute fixed="simple" ref="xlink:type" use="prohibited"/>
+              <xsd:attribute ecore:name="Task" ecore:reference="Schedule:Task" ref="xlink:href" use="required"/>
+              <xsd:attribute ecore:name="TaskName" ref="xlink:title" use="optional"/>
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:sequence>
+        <xsd:attribute default="PT0S" name="CycleTime" type="Elements:DayTimeDuration" use="optional">
+          <xsd:annotation>
+            <xsd:documentation>Cycle time for the event.</xsd:documentation>
+          </xsd:annotation>
+        </xsd:attribute>
+        <xsd:attribute default="0" name="RepeatCount" type="xsd:long" use="optional">
+          <xsd:annotation>
+            <xsd:documentation>Number of repeats of the event, or -1 for infinity.</xsd:documentation>
+          </xsd:annotation>
+        </xsd:attribute>
+      </xsd:extension>
+    </xsd:complexContent>
+  </xsd:complexType>
+  <xsd:complexType name="GlobalEventTriggeredEvent">
+    <xsd:annotation>
+      <xsd:documentation>This class represents an Event (of any Time Kind) that is triggered by a global event of the Event Manager service. The event will only be scheduled (using the current time as starting time) when the StartEvent is emitted for the first time.
+With the optional StopEvent, it is as well possible to remove the event from the Scheduler again.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:complexContent>
+      <xsd:extension base="Schedule:Event">
+        <xsd:attribute name="StartEvent" type="xsd:string" use="required">
+          <xsd:annotation>
+            <xsd:documentation>This is the name of the global Event of the Event Manager Service that shall start this cyclic Simulation Time Event.
+Simulation Time is taken from the Time Keeper Service at the moment the Start Event is triggered.</xsd:documentation>
+          </xsd:annotation>
+        </xsd:attribute>
+        <xsd:attribute name="StopEvent" type="xsd:string" use="optional">
+          <xsd:annotation>
+            <xsd:documentation>The optional Stop Event is the name of a global Event of the Event Manager Service that will stop the cyclic event.</xsd:documentation>
+          </xsd:annotation>
+        </xsd:attribute>
+        <xsd:attribute default="SimulationTime" name="TimeKind" type="Schedule:TimeKind" use="optional">
+          <xsd:annotation>
+            <xsd:documentation>Time kind to use for the Event, which is one of the four available SMP Time Kinds.</xsd:documentation>
+          </xsd:annotation>
+        </xsd:attribute>
+        <xsd:attribute name="Delay" type="Elements:DayTimeDuration" use="optional">
+          <xsd:annotation>
+            <xsd:documentation>This optional value can be specified when the event shall not be executed immediately after the StartEvent, but with a delay.</xsd:documentation>
+          </xsd:annotation>
+        </xsd:attribute>
+      </xsd:extension>
+    </xsd:complexContent>
+  </xsd:complexType>
+</xsd:schema>
