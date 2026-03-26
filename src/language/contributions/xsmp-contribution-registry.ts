@@ -87,6 +87,10 @@ function shouldUseSourceContributionFallback(): boolean {
     return Boolean(process.env.VITEST || process.env.VITEST_WORKER_ID);
 }
 
+function toSourcePathCandidate(outPath: string): string {
+    return outPath.replace(/\.(?:c|m)?js$/, '.ts');
+}
+
 export function resolveContributionPackagePath(extensionRoot: string, relativePath: string): string {
     const normalized = normalizeBuiltinPath(relativePath);
     const directPath = path.resolve(extensionRoot, normalized);
@@ -95,10 +99,10 @@ export function resolveContributionPackagePath(extensionRoot: string, relativePa
         sourceCandidates.push(path.resolve(extensionRoot, normalized.replace(/^out\/lib\//, 'src/lib/')));
     }
     if (normalized.startsWith('out/language/')) {
-        sourceCandidates.push(path.resolve(extensionRoot, normalized.replace(/^out\/language\//, 'src/language/').replace(/\.cjs$/, '.ts')));
+        sourceCandidates.push(path.resolve(extensionRoot, toSourcePathCandidate(normalized.replace(/^out\/language\//, 'src/language/'))));
     }
     if (normalized.startsWith('out/')) {
-        sourceCandidates.push(path.resolve(extensionRoot, normalized.replace(/^out\//, 'src/').replace(/\.cjs$/, '.ts')));
+        sourceCandidates.push(path.resolve(extensionRoot, toSourcePathCandidate(normalized.replace(/^out\//, 'src/'))));
     }
 
     if (shouldUseSourceContributionFallback()) {

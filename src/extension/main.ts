@@ -3,15 +3,15 @@ import * as vscode from 'vscode';
 import * as path from 'node:path';
 import satisfies from 'semver/functions/satisfies.js';
 import { LanguageClient, TransportKind } from 'vscode-languageclient/node.js';
-import { builtInScheme } from '../language/builtins.js';
-import { createProjectWizard } from '../language/wizard/wizard.js';
-import { GetServerFileContentRequest, RegisterContributions } from '../language/lsp/language-server.js';
+import { builtInScheme } from 'xsmp';
+import { createProjectWizard } from 'xsmp/wizard';
+import { GetServerFileContentRequest, RegisterContributions } from 'xsmp/lsp';
 import type {
     XsmpContributionRegistrationReport,
     XsmpExtensionContributionManifestEntry,
     XsmpResolvedContributionManifestEntry,
-} from '../language/contributions/xsmp-extension-types.js';
-import { xsmpExtensionApiVersion } from '../language/version.js';
+} from 'xsmp/contributions';
+import { xsmpExtensionApiVersion } from 'xsmp';
 
 let client: LanguageClient | undefined;
 let contributionOutputChannel: vscode.OutputChannel | undefined;

@@ -2,8 +2,8 @@ import { TasMdkGenerator } from './generator.js';
 import { TasMdkPythonGenerator } from './python-generator.js';
 import { scaffoldTasMdkProject } from './scaffold.js';
 import { registerTasMdkValidationChecks } from './validator.js';
-import type { XsmpContributionRegistrationApi } from '../../../language/contributions/xsmp-extension-types.js';
-import type { XsmpGenerator } from '../../../language/generator/generator.js';
+import type { XsmpContributionRegistrationApi } from '../../../contributions/index.js';
+import type { XsmpGenerator } from '../../../generator/index.js';
 
 export function registerContribution(api: XsmpContributionRegistrationApi): void {
     api.setWizardMetadata({

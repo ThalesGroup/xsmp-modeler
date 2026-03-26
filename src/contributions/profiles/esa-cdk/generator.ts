@@ -1,10 +1,10 @@
-import { GapPatternCppGenerator } from '../../../language/generator/cpp/gap-pattern-generator.js';
-import type { XsmpSharedServices } from '../../../language/xsmp-module.js';
-import { CxxStandard, type Include } from '../../../language/generator/cpp/generator.js';
-import * as ast from '../../../language/generated/ast.js';
+import { GapPatternCppGenerator } from '../../../generator/cpp/index.js';
+import type { XsmpSharedServices } from '../../../index.js';
+import { CxxStandard, type Include } from '../../../generator/cpp/index.js';
+import * as ast from '../../../ast/index.js';
 import { expandToString as s } from 'langium/generate';
-import { VisibilityKind } from '../../../language/utils/visibility-kind.js';
-import { xsmpVersion } from '../../../language/version.js';
+import { VisibilityKind } from '../../../utils/index.js';
+import { xsmpVersion } from '../../../index.js';
 
 export class EsaCdkGenerator extends GapPatternCppGenerator {
     constructor(services: XsmpSharedServices) {

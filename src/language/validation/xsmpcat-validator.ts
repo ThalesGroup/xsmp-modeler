@@ -267,7 +267,11 @@ export class XsmpcatValidator {
         return true;
     }
 
-    checkExpression(type: ast.Type | PTK | undefined, expression: ast.Expression | undefined, accept: ValidationAcceptor) {
+    checkExpression(
+        type: ast.Type | PTK | undefined,
+        expression: ast.Expression | undefined,
+        accept: ValidationAcceptor,
+    ): boolean | bigint | number | string | ast.EnumerationLiteral | undefined {
 
         if (!expression || !type) { return; }
 

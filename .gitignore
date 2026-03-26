@@ -4,8 +4,10 @@
 !.vscode/tasks.json
 node_modules/
 out/
+lib/
 src/language/generated/
 coverage/
+.tsbuildinfo/
 .scannerwork
 sonar-report.xml
 *.vsix

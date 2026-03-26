@@ -25,7 +25,7 @@ export class XsmplnkValidator {
     protected readonly pathResolver: Xsmpl2PathResolver;
     protected readonly identifierPatternService: IdentifierPatternService;
     protected readonly pathService: XsmpPathService;
-    protected readonly componentLinkBasePathCache = new WeakMap<ast.ComponentLinkBase, string[] | undefined>();
+    protected readonly componentLinkBasePathCache: WeakMap<ast.ComponentLinkBase, string[] | undefined> = new WeakMap();
 
     constructor(services: XsmplnkServices) {
         this.pathResolver = services.shared.L2PathResolver;

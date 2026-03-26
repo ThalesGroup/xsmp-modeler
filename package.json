@@ -8,6 +8,60 @@
     "homepage": "https://github.com/thalesgroup/xsmp-modeler",
     "repository": "https://github.com/thalesgroup/xsmp-modeler.git",
     "type": "module",
+    "exports": {
+        ".": {
+            "types": "./lib/index.d.ts",
+            "import": "./lib/index.js"
+        },
+        "./ast": {
+            "types": "./lib/ast/index.d.ts",
+            "import": "./lib/ast/index.js"
+        },
+        "./ast-partial": {
+            "types": "./lib/ast-partial/index.d.ts",
+            "import": "./lib/ast-partial/index.js"
+        },
+        "./contributions": {
+            "types": "./lib/contributions/index.d.ts",
+            "import": "./lib/contributions/index.js"
+        },
+        "./grammar": {
+            "types": "./lib/grammar/index.d.ts",
+            "import": "./lib/grammar/index.js"
+        },
+        "./generator": {
+            "types": "./lib/generator/index.d.ts",
+            "import": "./lib/generator/index.js"
+        },
+        "./generator/cpp": {
+            "types": "./lib/generator/cpp/index.d.ts",
+            "import": "./lib/generator/cpp/index.js"
+        },
+        "./lsp": {
+            "types": "./lib/lsp/index.d.ts",
+            "import": "./lib/lsp/index.js"
+        },
+        "./references": {
+            "types": "./lib/references/index.d.ts",
+            "import": "./lib/references/index.js"
+        },
+        "./utils": {
+            "types": "./lib/utils/index.d.ts",
+            "import": "./lib/utils/index.js"
+        },
+        "./validation": {
+            "types": "./lib/validation/index.d.ts",
+            "import": "./lib/validation/index.js"
+        },
+        "./wizard": {
+            "types": "./lib/wizard/index.d.ts",
+            "import": "./lib/wizard/index.js"
+        },
+        "./workspace": {
+            "types": "./lib/workspace/index.d.ts",
+            "import": "./lib/workspace/index.js"
+        }
+    },
     "license": "MIT",
     "icon": "icons/logo.png",
     "bugs": "https://github.com/thalesgroup/xsmp-modeler/issues",
@@ -20,15 +74,16 @@
         "modeling"
     ],
     "scripts": {
-        "clean": "shx rm -rf out/",
-        "build": "tsc -b tsconfig.json && node esbuild.mjs",
+        "clean": "shx rm -rf out/ lib/",
+        "build": "tsc -b tsconfig.json && tsc -p tsconfig.lib.json --noEmit && node esbuild.mjs",
+        "build:api": "tsc -p tsconfig.lib.json",
         "build:clean": "npm run clean && npm run build",
         "watch": "concurrently -n tsc,esbuild -c blue,yellow \"tsc -b tsconfig.json --watch\" \"node esbuild.mjs --watch\"",
         "lint": "eslint src",
         "langium:generate": "shx rm -f src/language/generated/ast-partial.ts && langium generate && node src/generate-partial-ast.js",
         "langium:generate:production": "shx rm -f src/language/generated/ast-partial.ts && langium generate --mode=production && node src/generate-partial-ast.js",
         "langium:watch": "langium generate --watch",
-        "vscode:prepublish": "npm run clean && npm run langium:generate:production && npm run build -- --minify",
+        "vscode:prepublish": "npm run clean && npm run langium:generate:production && tsc -b tsconfig.json && node esbuild.mjs --minify",
         "test": "vitest run",
         "coverage": "vitest run --coverage",
         "package": "vsce package",
@@ -207,7 +262,7 @@
         "xsmp": [
             {
                 "descriptor": "out/contributions/tools/smp/smp.xsmptool",
-                "handler": "out/contributions/tools/smp/contributor.cjs",
+                "handler": "out/contributions/tools/smp/contributor.js",
                 "apiVersion": "^1.0.0",
                 "aliases": [
                     "org.eclipse.xsmp.tool.smp"
@@ -215,7 +270,7 @@
             },
             {
                 "descriptor": "out/contributions/tools/adoc/adoc.xsmptool",
-                "handler": "out/contributions/tools/adoc/contributor.cjs",
+                "handler": "out/contributions/tools/adoc/contributor.js",
                 "apiVersion": "^1.0.0",
                 "deprecatedAliases": [
                     "org.eclipse.xsmp.tool.adoc"
@@ -223,7 +278,7 @@
             },
             {
                 "descriptor": "out/contributions/tools/python/python.xsmptool",
-                "handler": "out/contributions/tools/python/contributor.cjs",
+                "handler": "out/contributions/tools/python/contributor.js",
                 "apiVersion": "^1.0.0",
                 "deprecatedAliases": [
                     "org.eclipse.xsmp.tool.python"
@@ -231,7 +286,7 @@
             },
             {
                 "descriptor": "out/contributions/profiles/xsmp-sdk/xsmp-sdk.xsmpprofile",
-                "handler": "out/contributions/profiles/xsmp-sdk/contributor.cjs",
+                "handler": "out/contributions/profiles/xsmp-sdk/contributor.js",
                 "apiVersion": "^1.0.0",
                 "deprecatedAliases": [
                     "org.eclipse.xsmp.profile.xsmp-sdk"
@@ -239,7 +294,7 @@
             },
             {
                 "descriptor": "out/contributions/profiles/esa-cdk/esa-cdk.xsmpprofile",
-                "handler": "out/contributions/profiles/esa-cdk/contributor.cjs",
+                "handler": "out/contributions/profiles/esa-cdk/contributor.js",
                 "apiVersion": "^1.0.0",
                 "aliases": [
                     "org.eclipse.xsmp.profile.esa-cdk"
@@ -247,7 +302,7 @@
             },
             {
                 "descriptor": "out/contributions/profiles/tas-mdk/tas-mdk.xsmpprofile",
-                "handler": "out/contributions/profiles/tas-mdk/contributor.cjs",
+                "handler": "out/contributions/profiles/tas-mdk/contributor.js",
                 "apiVersion": "^1.0.0"
             }
         ],

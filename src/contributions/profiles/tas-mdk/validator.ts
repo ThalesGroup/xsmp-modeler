@@ -5,13 +5,13 @@ import {
     type AstNodeDescription,
     UriUtils
 } from 'langium';
-import * as ast from '../../../language/generated/ast-partial.js';
-import type { XsmpcatServices } from '../../../language/xsmpcat-module.js';
-import * as XsmpUtils from '../../../language/utils/xsmp-utils.js';
-import { VisibilityKind } from '../../../language/utils/visibility-kind.js';
-import { type DocumentationHelper } from '../../../language/utils/documentation-helper.js';
-import { type AttributeHelper } from '../../../language/utils/attribute-helper.js';
-import type { ProjectManager } from '../../../language/workspace/project-manager.js';
+import * as ast from '../../../ast-partial/index.js';
+import type { XsmpcatServices } from '../../../index.js';
+import * as XsmpUtils from '../../../utils/index.js';
+import { VisibilityKind } from '../../../utils/index.js';
+import { type DocumentationHelper } from '../../../utils/index.js';
+import { type AttributeHelper } from '../../../utils/index.js';
+import type { ProjectManager } from '../../../workspace/index.js';
 
 let validator: TasMdkValidator;
 /**

@@ -1,15 +1,15 @@
 import * as fs from 'node:fs';
-import * as ast from '../../../language/generated/ast.js';
+import * as ast from '../../../ast/index.js';
 import { type URI, UriUtils, type AstNode, type Reference, AstUtils, isReference } from 'langium';
-import { type TaskAcceptor, type XsmpGenerator } from '../../../language/generator/generator.js';
-import { fqn, getLower, getNodeType, getRealVisibility, getUpper } from '../../../language/utils/xsmp-utils.js';
-import { VisibilityKind, VisibilityKinds } from '../../../language/utils/visibility-kind.js';
+import { type TaskAcceptor, type XsmpGenerator } from '../../../generator/index.js';
+import { fqn, getLower, getNodeType, getRealVisibility, getUpper } from '../../../utils/index.js';
+import { VisibilityKind, VisibilityKinds } from '../../../utils/index.js';
 import { expandToString as s } from 'langium/generate';
-import { type DocumentationHelper } from '../../../language/utils/documentation-helper.js';
-import { type AttributeHelper } from '../../../language/utils/attribute-helper.js';
-import { type XsmpSharedServices } from '../../../language/xsmp-module.js';
-import * as Solver from '../../../language/utils/solver.js';
-import { ViewKind } from '../../../language/utils/view_kind.js';
+import { type DocumentationHelper } from '../../../utils/index.js';
+import { type AttributeHelper } from '../../../utils/index.js';
+import { type XsmpSharedServices } from '../../../index.js';
+import * as Solver from '../../../utils/index.js';
+import { ViewKind } from '../../../utils/index.js';
 
 /**
  * AsciiDoc generator for XSMP Catalogues

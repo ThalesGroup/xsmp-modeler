@@ -1,5 +1,5 @@
 import * as path from 'node:path';
-import type { XsmpContributionScaffoldContext } from '../../../language/contributions/xsmp-extension-types.js';
+import type { XsmpContributionScaffoldContext } from '../../../contributions/index.js';
 
 export async function scaffoldEsaCdkProject(context: XsmpContributionScaffoldContext): Promise<void> {
     await context.writeFile(path.join(context.projectDir, 'CMakeLists.txt'), `
