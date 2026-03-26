@@ -11,7 +11,7 @@ export class XsmpasbScopeProvider implements ScopeProvider {
     protected readonly reflection: AstReflection;
     protected readonly indexManager: IndexManager;
     protected readonly typeProvider: XsmpTypeProvider;
-    protected readonly globalScopeCache: WorkspaceCache<URI, Scope>;
+    protected readonly globalScopeCache: WorkspaceCache<URI, Map<string, Scope>>;
     protected readonly contexts: Set<Reference> = new Set<Reference>();
     protected readonly precomputedCache: DocumentCache<AstNode, Map<string, AstNodeDescription>>;
     protected readonly projectManager: ProjectManager;
@@ -23,7 +23,7 @@ export class XsmpasbScopeProvider implements ScopeProvider {
         this.reflection = services.shared.AstReflection;
         this.indexManager = services.shared.workspace.IndexManager;
         this.typeProvider = services.shared.TypeProvider;
-        this.globalScopeCache = new WorkspaceCache<URI, Scope>(services.shared);
+        this.globalScopeCache = new WorkspaceCache<URI, Map<string, Scope>>(services.shared);
         this.precomputedCache = new DocumentCache<AstNode, Map<string, AstNodeDescription>>(services.shared);
         this.projectManager = services.shared.workspace.ProjectManager;
         this.descriptions = services.workspace.AstNodeDescriptionProvider;
@@ -133,7 +133,13 @@ export class XsmpasbScopeProvider implements ScopeProvider {
      * Create a global scope filtered for the given referenceType and on visibles projects URIs
      */
     protected getGlobalScope(document: LangiumDocument, type:string): Scope {
-        return this.globalScopeCache.get(document.uri, () => new GlobalScope(this.indexManager.allElements(type, this.projectManager.getVisibleUris(document))));
+        const globalScopes = this.globalScopeCache.get(document.uri, () => new Map<string, Scope>());
+        let scope = globalScopes.get(type);
+        if (!scope) {
+            scope = new GlobalScope(this.indexManager.allElements(type, this.projectManager.getVisibleUris(document)));
+            globalScopes.set(type, scope);
+        }
+        return scope;
     }
 
     protected getPrecomputedScope(node: AstNode, document: LangiumDocument): Map<string, AstNodeDescription> {

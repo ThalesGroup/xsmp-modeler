@@ -9,7 +9,7 @@ import { XsmpRenameProvider } from './lsp/xsmp-rename-provider.js';
 import { XsmpasbFormatter } from './lsp/xsmpasb-formatter.js';
 import { XsmpasbScopeComputation } from './references/xsmpasb-scope-computation.js';
 import { XsmpasbValidator } from './validation/xsmpasb-validator.js';
-//import { XsmpasbScopeProvider } from './references/xsmpasb-scope-provider.js';
+import { XsmpasbScopeProvider } from './references/xsmpasb-scope-provider.js';
 
 /**
  * Declaration of Xsmp services.
@@ -32,7 +32,7 @@ export type XsmpasbServices = XsmpServices & XsmpasbAddedServices
  */
 export const XsmpasbModule: Module<XsmpasbServices, PartialLangiumServices & XsmpasbAddedServices> = {
     references: {
-      //  ScopeProvider: (services) => new XsmpasbScopeProvider(services),
+        ScopeProvider: (services) => new XsmpasbScopeProvider(services),
         ScopeComputation: (services) => new XsmpasbScopeComputation(services),
     },
     validation: {

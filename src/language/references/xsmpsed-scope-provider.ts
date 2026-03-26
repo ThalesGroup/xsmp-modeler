@@ -11,7 +11,7 @@ export class XsmpsedScopeProvider implements ScopeProvider {
     protected readonly reflection: AstReflection;
     protected readonly indexManager: IndexManager;
     protected readonly typeProvider: XsmpTypeProvider;
-    protected readonly globalScopeCache: WorkspaceCache<string, Scope>;
+    protected readonly globalScopeCache: WorkspaceCache<URI, Map<string, Scope>>;
     protected readonly contexts: Set<Reference> = new Set<Reference>();
     protected readonly precomputedCache: DocumentCache<AstNode, Map<string, AstNodeDescription>>;
     protected readonly projectManager: ProjectManager;
@@ -23,7 +23,7 @@ export class XsmpsedScopeProvider implements ScopeProvider {
         this.reflection = services.shared.AstReflection;
         this.indexManager = services.shared.workspace.IndexManager;
         this.typeProvider = services.shared.TypeProvider;
-        this.globalScopeCache = new WorkspaceCache<string, Scope>(services.shared);
+        this.globalScopeCache = new WorkspaceCache<URI, Map<string, Scope>>(services.shared);
         this.precomputedCache = new DocumentCache<AstNode, Map<string, AstNodeDescription>>(services.shared);
         this.projectManager = services.shared.workspace.ProjectManager;
         this.descriptions = services.workspace.AstNodeDescriptionProvider;
@@ -87,8 +87,15 @@ export class XsmpsedScopeProvider implements ScopeProvider {
     /**
      * Create a global scope filtered for the given reference type.
      */
-    protected getGlobalScope(referenceType: string, _context: ReferenceInfo): Scope {
-        return this.globalScopeCache.get(referenceType, () => new MapScope(this.indexManager.allElements(referenceType)));
+    protected getGlobalScope(referenceType: string, context: ReferenceInfo): Scope {
+        const document = AstUtils.getDocument(context.container);
+        const globalScopes = this.globalScopeCache.get(document.uri, () => new Map<string, Scope>());
+        let scope = globalScopes.get(referenceType);
+        if (!scope) {
+            scope = new MapScope(this.indexManager.allElements(referenceType, this.projectManager.getVisibleUris(document)));
+            globalScopes.set(referenceType, scope);
+        }
+        return scope;
     }
 
 
