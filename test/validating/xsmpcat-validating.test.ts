@@ -30,8 +30,8 @@ describe('Validating Xsmpcat', () => {
             checkDocumentValid(document) ?? document.diagnostics?.map(diagnosticToString)?.join('\n')
             ).toBe(s`
 [105:127..105:134]: Could not resolve reference to Type named 'Invalid'.
-[9:10..9:15]: An Element Name shall not be an ISO/ANSI C++ keyword.
-[26:10..26:13]: An Element Name shall start with a letter.
+[9:10..9:15]: A name shall not be an ISO/ANSI C++ keyword.
+[26:10..26:13]: A name shall start with a letter.
 [52:1..52:19]: Duplicated annotation of a non-repeatable type. Only annotation types marked with '@allowMultiple' can be used multiple times on a single target.
 [53:1..53:19]: This annotation is disallowed for element of type PrimitiveType.
 [52:1..52:19]: A value is required.

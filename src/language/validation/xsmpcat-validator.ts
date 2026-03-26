@@ -15,6 +15,7 @@ import { VisibilityKind } from '../utils/visibility-kind.js';
 import { type DocumentationHelper } from '../utils/documentation-helper.js';
 import { type AttributeHelper } from '../utils/attribute-helper.js';
 import type { ProjectManager } from '../workspace/project-manager.js';
+import { checkName } from './name-validator-utils.js';
 
 /**
  * Register custom validation checks.
@@ -61,28 +62,12 @@ export function registerXsmpcatValidationChecks(services: XsmpcatServices) {
     registry.register(checks, validator, 'fast');
 }
 
-const reservedNames = new Set([
-    'alignas', 'alignof', 'and', 'and_eq', 'asm', 'auto', 'bitand', 'bitor', 'bool', 'break',
-    'case', 'catch', 'char', 'char8_t', 'char16_t', 'char32_t', 'class', 'compl', 'concept',
-    'const', 'consteval', 'constexpr', 'constinit', 'const_cast', 'continue', 'co_await',
-    'co_return', 'co_yield', 'decltype', 'default', 'delete', 'do', 'double', 'dynamic_cast',
-    'else', 'enum', 'explicit', 'export', 'extern', 'false', 'float', 'for', 'friend', 'goto',
-    'if', 'inline', 'int', 'long', 'mutable', 'namespace', 'new', 'noexcept', 'not', 'not_eq',
-    'nullptr', 'operator', 'or', 'or_eq', 'private', 'protected', 'public', 'register',
-    'reinterpret_cast', 'requires', 'return', 'short', 'signed', 'sizeof', 'static', 'static_assert',
-    'static_cast', 'struct', 'switch', 'template', 'this', 'thread_local', 'throw', 'true', 'try',
-    'typedef', 'typeid', 'typename', 'union', 'unsigned', 'using', 'virtual', 'void', 'volatile',
-    'wchar_t', 'while', 'xor', 'xor_eq'
-]),
-
-    validUsages = new Set(['NamedElement', 'Array', 'Association', 'AttributeType', 'Catalogue',
+const validUsages = new Set(['NamedElement', 'Array', 'Association', 'AttributeType', 'Catalogue',
         'Class', 'Component', 'Constant', 'Container', 'Document', 'EntryPoint', 'Enumeration',
         'EnumerationLiteral', 'EventSink', 'EventSource', 'EventType', 'Exception', 'Field', 'Float',
         'Integer', 'Interface', 'LanguageType', 'Model', 'Namespace', 'NativeType', 'Operation', 'Parameter',
         'PrimitiveType', 'Property', 'ReferenceType', 'Reference', 'Service', 'SimpleType', 'String',
-        'Structure', 'Type', 'ValueReference', 'ValueType', 'VisibilityElement']),
-
-    namedElementRegex = /^[a-zA-Z]\w*$/;
+        'Structure', 'Type', 'ValueReference', 'ValueType', 'VisibilityElement']);
 
 /**
  * Implementation of custom validations.
@@ -141,15 +126,7 @@ export class XsmpcatValidator {
     }
 
     checkNamedElement(element: ast.NamedElement, accept: ValidationAcceptor): void {
-
-        if (element.name && !namedElementRegex.test(element.name)) {
-            accept('error', 'An Element Name shall start with a letter.',
-                { node: element, property: 'name' });
-        }
-        if (element.name && reservedNames.has(element.name)) {
-            accept('error', 'An Element Name shall not be an ISO/ANSI C++ keyword.',
-                { node: element, property: 'name' });
-        }
+        checkName(accept, element, element.name, 'name', { allowCppKeywords: false, required: false });
         this.checkAttributes(element, accept);
     }
 

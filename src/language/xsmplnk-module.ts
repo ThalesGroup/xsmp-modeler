@@ -7,13 +7,14 @@ import type { XsmpServices } from './xsmp-module.js';
 import { XsmpDocumentationProvider } from './lsp/documentation-provider.js';
 import { XsmpRenameProvider } from './lsp/xsmp-rename-provider.js';
 import { XsmplnkScopeComputation } from './references/xsmplnk-scope-computation.js';
+import { XsmplnkValidator } from './validation/xsmplnk-validator.js';
 
 /**
  * Declaration of Xsmp services.
  */
 export interface XsmplnkAddedServices {
     readonly validation: {
-        // readonly XsmpcfgValidator: XsmpcfgValidator
+        readonly XsmplnkValidator: XsmplnkValidator
     },
 }
 
@@ -33,6 +34,7 @@ export const XsmplnkModule: Module<XsmplnkServices, PartialLangiumServices & Xsm
         ScopeComputation: (services) => new XsmplnkScopeComputation(services),
     },
     validation: {
+        XsmplnkValidator: (services) => new XsmplnkValidator(services),
     },
     lsp: {
         //  Formatter: () => new XsmpasbFormatter(),
@@ -49,4 +51,3 @@ export const XsmplnkModule: Module<XsmplnkServices, PartialLangiumServices & Xsm
         DocumentationProvider: (services) => new XsmpDocumentationProvider(services),
     },
 };
-

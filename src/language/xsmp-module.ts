@@ -8,6 +8,9 @@ import { registerXsmpcatValidationChecks } from './validation/xsmpcat-validator.
 import type { XsmpcatServices } from './xsmpcat-module.js';
 import { XsmpcatModule } from './xsmpcat-module.js';
 import { registerXsmpprojectValidationChecks } from './validation/xsmpproject-validator.js';
+import { registerXsmpasbValidationChecks } from './validation/xsmpasb-validator.js';
+import { registerXsmplnkValidationChecks } from './validation/xsmplnk-validator.js';
+import { registerXsmpsedValidationChecks } from './validation/xsmpsed-validator.js';
 import { XsmpWorkspaceManager } from './workspace/workspace-manager.js';
 import { XsmpIndexManager } from './workspace/index-manager.js';
 import { XsmpNodeKindProvider } from './lsp/node-kind-provider.js';
@@ -82,6 +85,7 @@ export function createXsmpServices(context: DefaultSharedModuleContext): {
         XsmpasbModule
     );
     shared.ServiceRegistry.register(xsmpasb);
+    registerXsmpasbValidationChecks(xsmpasb);
 
     // XSMP Configuration
     const xsmpcfg = inject(
@@ -99,6 +103,7 @@ export function createXsmpServices(context: DefaultSharedModuleContext): {
         XsmplnkModule
     );
     shared.ServiceRegistry.register(xsmplnk);
+    registerXsmplnkValidationChecks(xsmplnk);
 
 
     // XSMP Schedule
@@ -108,6 +113,7 @@ export function createXsmpServices(context: DefaultSharedModuleContext): {
         XsmpsedModule
     );
     shared.ServiceRegistry.register(xsmpsed);
+    registerXsmpsedValidationChecks(xsmpsed);
 
 
     if (!context.connection) {
