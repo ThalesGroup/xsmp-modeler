@@ -1,11 +1,12 @@
 import { beforeAll, describe, expect, test } from "vitest";
-import { EmptyFileSystem, type LangiumDocument } from "langium";
+import { EmptyFileSystem, type LangiumDocument, URI } from "langium";
 import { expandToString as s } from "langium/generate";
 import { parseHelper } from "langium/test";
 import { createXsmpServices } from "../../../src/language/xsmp-module.js";
 import { Catalogue, isCatalogue } from "../../../src/language/generated/ast.js";
 import * as path from 'path';
 import * as fs from 'fs';
+import * as os from 'os';
 import { SmpGenerator } from "../../../src/language/tools/smp/generator.js";
 import { setGeneratedBy } from "../../../src/language/generator/generator.js";
 
@@ -51,6 +52,35 @@ describe('SMP generator tests', () => {
       checkDocumentValid(document) ??
       await generator.doGeneratePackage(document.parseResult.value, undefined)
     ).toBe(fs.readFileSync(path.resolve(__dirname, 'test.smppkg')).toString());
+  });
+
+  test('writes catalogue and package files to disk before returning', async () => {
+    const generator = new SmpGenerator(services.shared);
+    document = await parse(fs.readFileSync(path.resolve(__dirname, 'test.xsmpcat')).toString(), { documentUri: 'write-test.xsmpcat' });
+    setGeneratedBy(false);
+
+    const parsed = checkDocumentValid(document);
+    expect(parsed).toBeUndefined();
+
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-smp-generator-'));
+    try {
+      const projectUri = URI.file(tmpDir);
+      const expectedCatalogue = await generator.doGenerateCatalogue(document!.parseResult.value, undefined);
+      const expectedPackage = await generator.doGeneratePackage(document!.parseResult.value, undefined);
+
+      await generator.generateCatalogue(document!.parseResult.value, projectUri, undefined);
+      await generator.generatePackage(document!.parseResult.value, projectUri, undefined);
+
+      const cataloguePath = path.join(tmpDir, 'smdl-gen', 'write-test.smpcat');
+      const packagePath = path.join(tmpDir, 'smdl-gen', 'write-test.smppkg');
+
+      expect(fs.existsSync(cataloguePath)).toBe(true);
+      expect(fs.existsSync(packagePath)).toBe(true);
+      expect(fs.readFileSync(cataloguePath).toString()).toBe(expectedCatalogue);
+      expect(fs.readFileSync(packagePath).toString()).toBe(expectedPackage);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 });
 

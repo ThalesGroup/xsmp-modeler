@@ -608,7 +608,7 @@ export class SmpGenerator implements XsmpGenerator {
     async generateConfiguration(configuration: ast.Configuration, projectUri: URI, notice: string | undefined): Promise<void> {
         const outputDir = await this.createOutputDir(projectUri);
         const smpcfgFile = UriUtils.joinPath(outputDir, UriUtils.basename(configuration.$document?.uri as URI).replace(/\.xsmpcfg$/, '.smpcfg'));
-        fs.promises.writeFile(smpcfgFile.fsPath, await this.doGenerateConfiguration(configuration, notice));
+        await fs.promises.writeFile(smpcfgFile.fsPath, await this.doGenerateConfiguration(configuration, notice));
 
     }
     async doGenerateConfiguration(configuration: ast.Configuration, notice: string | undefined): Promise<string> {
@@ -693,7 +693,7 @@ export class SmpGenerator implements XsmpGenerator {
     async generateLinkBase(linkBase: ast.LinkBase, projectUri: URI, notice: string | undefined): Promise<void> {
         const outputDir = await this.createOutputDir(projectUri);
         const smplnkFile = UriUtils.joinPath(outputDir, UriUtils.basename(linkBase.$document?.uri as URI).replace(/\.xsmplnk$/, '.smplnk'));
-        fs.promises.writeFile(smplnkFile.fsPath, await this.doGenerateLinkBase(linkBase, notice));
+        await fs.promises.writeFile(smplnkFile.fsPath, await this.doGenerateLinkBase(linkBase, notice));
     }
     async doGenerateLinkBase(linkBase: ast.LinkBase, notice: string | undefined): Promise<string> {
         const obj = {
@@ -749,7 +749,7 @@ export class SmpGenerator implements XsmpGenerator {
     async generateAssembly(assembly: ast.Assembly, projectUri: URI, notice: string | undefined): Promise<void> {
         const outputDir = await this.createOutputDir(projectUri);
         const smpasbFile = UriUtils.joinPath(outputDir, UriUtils.basename(assembly.$document?.uri as URI).replace(/\.xsmpasb$/, '.smpasb'));
-        fs.promises.writeFile(smpasbFile.fsPath, await this.doGenerateAssembly(assembly, notice));
+        await fs.promises.writeFile(smpasbFile.fsPath, await this.doGenerateAssembly(assembly, notice));
     }
     async doGenerateAssembly(assembly: ast.Assembly, notice: string | undefined): Promise<string> {
         const obj = {
@@ -900,7 +900,7 @@ export class SmpGenerator implements XsmpGenerator {
     async generateSchedule(schedule: ast.Schedule, projectUri: URI, notice: string | undefined): Promise<void> {
         const outputDir = await this.createOutputDir(projectUri);
         const smpsedFile = UriUtils.joinPath(outputDir, UriUtils.basename(schedule.$document?.uri as URI).replace(/\.xsmpsed$/, '.smpsed'));
-        fs.promises.writeFile(smpsedFile.fsPath, await this.doGenerateSchedule(schedule, notice));
+        await fs.promises.writeFile(smpsedFile.fsPath, await this.doGenerateSchedule(schedule, notice));
     }
     async doGenerateSchedule(schedule: ast.Schedule, notice: string | undefined): Promise<string> {
         const obj = {
@@ -1089,7 +1089,7 @@ export class SmpGenerator implements XsmpGenerator {
     private async createOutputDir(projectUri: URI): Promise<URI> {
         const outputDir = UriUtils.joinPath(projectUri, this.smdlGenFolder);
 
-        fs.promises.mkdir(outputDir.fsPath, { recursive: true });
+        await fs.promises.mkdir(outputDir.fsPath, { recursive: true });
         return outputDir;
     }
 
@@ -1097,14 +1097,14 @@ export class SmpGenerator implements XsmpGenerator {
 
         const outputDir = await this.createOutputDir(projectUri);
         const smpcatFile = UriUtils.joinPath(outputDir, UriUtils.basename(catalogue.$document?.uri as URI).replace(/\.xsmpcat$/, '.smpcat'));
-        fs.promises.writeFile(smpcatFile.fsPath, await this.doGenerateCatalogue(catalogue, notice));
+        await fs.promises.writeFile(smpcatFile.fsPath, await this.doGenerateCatalogue(catalogue, notice));
 
     }
 
     public async generatePackage(catalogue: ast.Catalogue, projectUri: URI, notice: string | undefined): Promise<void> {
         const outputDir = await this.createOutputDir(projectUri);
         const smppkgFile = UriUtils.joinPath(outputDir, UriUtils.basename(catalogue.$document?.uri as URI).replace(/\.xsmpcat$/, '.smppkg'));
-        fs.promises.writeFile(smppkgFile.fsPath, await this.doGeneratePackage(catalogue, notice));
+        await fs.promises.writeFile(smppkgFile.fsPath, await this.doGeneratePackage(catalogue, notice));
 
     }
 }
