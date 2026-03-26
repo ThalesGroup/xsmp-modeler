@@ -32,7 +32,6 @@ interface PathNamedSegment {
 interface LocalNamedReference {
     unsafe: boolean
     reference?: @NamedElement
-    strReference?: string
 }
 interface ConcretePathNamedSegment extends PathNamedSegment, LocalNamedReference {
 }

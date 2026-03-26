@@ -116,7 +116,7 @@ SubInstance returns SubInstance:
     container=LocalNamedReference '+=' instance=(ModelInstance|AssemblyInstance);
 
 LocalNamedReference returns LocalNamedReference:
-    (unsafe?='unsafe' strReference=ValidID | reference=[NamedElement:ValidID]);
+    (unsafe?='unsafe')? reference=[NamedElement:ValidID];
 
 InstanceName returns string:
     (ID | TEMPLATE_ID)+;

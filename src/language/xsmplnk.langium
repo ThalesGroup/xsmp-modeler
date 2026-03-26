@@ -85,7 +85,7 @@ InterfaceLink returns InterfaceLink:
     'interface' 'link' sourcePath=Path '->' clientPath=Path (':'backReference=LocalNamedReference)?;
 
 LocalNamedReference returns LocalNamedReference:
-    (unsafe?='unsafe' strReference=ValidID | reference=[NamedElement:ValidID]);
+    (unsafe?='unsafe')? reference=[NamedElement:ValidID];
 
 
 ValidID returns string:
