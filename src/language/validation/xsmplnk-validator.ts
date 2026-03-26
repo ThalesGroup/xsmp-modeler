@@ -34,17 +34,17 @@ export class XsmplnkValidator {
     }
 
     checkLinkBase(linkBase: ast.LinkBase, accept: ValidationAcceptor): void {
-        checkName(accept, linkBase, linkBase.name, 'name');
+        checkName(accept, linkBase, linkBase.name, ast.LinkBase.name);
         if (linkBase.elements.length === 0) {
             accept('error', 'A Link Base shall contain at least one Component Link Base.', {
                 node: linkBase,
-                property: 'elements'
+                property: ast.LinkBase.elements
             });
         }
         if (!linkBase.assembly?.ref && this.hasTemplatedPaths(linkBase)) {
             accept('error', 'A Link Base using templated paths shall declare an Assembly anchor with \'for <Assembly>\'.', {
                 node: linkBase,
-                property: 'assembly'
+                property: ast.LinkBase.assembly
             });
         }
         this.checkReferenceUpperBounds(linkBase, accept);
@@ -59,7 +59,7 @@ export class XsmplnkValidator {
                 if (resolution.active && !resolution.invalidMessage && !resolution.finalComponent) {
                     accept('error', 'The Component Link Base path shall resolve to a typed Component.', {
                         node: linkBase,
-                        property: 'name'
+                        property: ast.ComponentLinkBase.name
                     });
                 }
             }
@@ -67,7 +67,7 @@ export class XsmplnkValidator {
         if (!linkBase.elements.some(ast.isLink)) {
             accept('error', 'A Component Link Base shall contain at least one Link.', {
                 node: linkBase,
-                property: 'elements'
+                property: ast.ComponentLinkBase.elements
             });
         }
     }
@@ -81,11 +81,11 @@ export class XsmplnkValidator {
     }
 
     checkInterfaceLink(link: ast.InterfaceLink, accept: ValidationAcceptor): void {
-        this.checkLinkPath(link, link.sourcePath, 'sourcePath', accept);
-        this.checkLinkPath(link, link.clientPath, 'clientPath', accept);
+        this.checkLinkPath(link, link.sourcePath, ast.InterfaceLink.sourcePath, accept);
+        this.checkLinkPath(link, link.clientPath, ast.InterfaceLink.clientPath, accept);
         this.checkInterfaceSource(link, accept);
         if (link.backReference) {
-            this.checkInterfaceReference(link, link.backReference, 'backReference', 'Client', 'Owner', accept);
+            this.checkInterfaceReference(link, link.backReference, ast.InterfaceLink.backReference, 'Client', 'Owner', accept);
         }
     }
 
@@ -95,11 +95,11 @@ export class XsmplnkValidator {
     }
 
     private checkLinkPath(path: ast.Path | undefined, accept: ValidationAcceptor): void;
-    private checkLinkPath(link: ast.InterfaceLink, path: ast.Path | undefined, property: 'sourcePath' | 'clientPath', accept: ValidationAcceptor): void;
+    private checkLinkPath(link: ast.InterfaceLink, path: ast.Path | undefined, property: typeof ast.InterfaceLink.sourcePath | typeof ast.InterfaceLink.clientPath, accept: ValidationAcceptor): void;
     private checkLinkPath(
         linkOrPath: ast.InterfaceLink | ast.Path | undefined,
         pathOrAccept: ast.Path | ValidationAcceptor | undefined,
-        propertyOrAccept?: 'sourcePath' | 'clientPath' | ValidationAcceptor,
+        propertyOrAccept?: typeof ast.InterfaceLink.sourcePath | typeof ast.InterfaceLink.clientPath | ValidationAcceptor,
         acceptMaybe?: ValidationAcceptor,
     ): void {
         const link = ast.isInterfaceLink(linkOrPath) ? linkOrPath : undefined;
@@ -114,7 +114,7 @@ export class XsmplnkValidator {
         if (!this.checkPathTemplateParameters(path, accept)) {
             return;
         }
-        const resolution = link && propertyOrAccept === 'sourcePath'
+        const resolution = link && propertyOrAccept === ast.InterfaceLink.sourcePath
             ? this.pathResolver.getInterfaceLinkSourceResolution(link)
             : this.pathResolver.getLinkBaseEndpointPathResolution(path);
         this.acceptPathError(resolution.invalidMessage, resolution.invalidNode, accept);
@@ -123,7 +123,7 @@ export class XsmplnkValidator {
     private checkInterfaceReference(
         link: ast.InterfaceLink,
         reference: ast.LocalNamedReference,
-        property: 'backReference',
+        property: typeof ast.InterfaceLink.backReference,
         sourceSide: 'Owner' | 'Client',
         targetSide: 'Owner' | 'Client',
         accept: ValidationAcceptor,
@@ -163,7 +163,7 @@ export class XsmplnkValidator {
         if (expectedType && oppositeContext.component && !this.isCompatibleReferenceTarget(expectedType, oppositeContext.component)) {
             accept('error', 'The selected source reference shall be compatible with the Client Component.', {
                 node: link,
-                property: 'sourcePath'
+                property: ast.InterfaceLink.sourcePath
             });
         }
     }
@@ -172,7 +172,7 @@ export class XsmplnkValidator {
         const usages = new Map<string, LinkBaseReferenceUsageBucket>();
         for (const link of AstUtils.streamAst(linkBase).filter(ast.isInterfaceLink)) {
             this.collectSourceReferenceUsage(link, usages);
-            this.collectReferenceUsage(link, 'backReference', link.clientPath, link.backReference, usages);
+            this.collectReferenceUsage(link, ast.InterfaceLink.backReference, link.clientPath, link.backReference, usages);
         }
         for (const usage of usages.values()) {
             if (usage.upper < BigInt(0) || BigInt(usage.usages.length) <= usage.upper) {
@@ -189,7 +189,7 @@ export class XsmplnkValidator {
 
     private collectReferenceUsage(
         link: ast.InterfaceLink,
-        property: 'backReference',
+        property: typeof ast.InterfaceLink.backReference,
         path: ast.Path | undefined,
         reference: ast.LocalNamedReference | undefined,
         usages: Map<string, LinkBaseReferenceUsageBucket>,
@@ -271,7 +271,7 @@ export class XsmplnkValidator {
             componentPath,
             usages: [],
         };
-        usage.usages.push({ link, property: 'sourcePath' });
+        usage.usages.push({ link, property: ast.InterfaceLink.sourcePath });
         usages.set(key, usage);
     }
 
@@ -416,6 +416,6 @@ interface LinkBaseReferenceUsageBucket {
     componentPath: string;
     usages: Array<{
         link: ast.InterfaceLink;
-        property: 'sourcePath' | 'backReference';
+        property: typeof ast.InterfaceLink.sourcePath | typeof ast.InterfaceLink.backReference;
     }>;
 }

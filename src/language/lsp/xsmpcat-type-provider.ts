@@ -7,7 +7,7 @@ export class XsmpcatTypeDefinitionProvider extends AbstractTypeDefinitionProvide
 
     override collectGoToTypeLocationLinks(element: AstNode, _cancelToken: CancellationToken): MaybePromise<LocationLink[] | undefined> {
         if (ast.isType(element) && element.$cstNode) {
-            return [LocationLink.create(AstUtils.getDocument(element).uri.toString(), element.$cstNode.range, GrammarUtils.findNodeForProperty(element.$cstNode, 'name')!.range)];
+            return [LocationLink.create(AstUtils.getDocument(element).uri.toString(), element.$cstNode.range, GrammarUtils.findNodeForProperty(element.$cstNode, ast.NamedElement.name)!.range)];
         }
         return undefined;
     }

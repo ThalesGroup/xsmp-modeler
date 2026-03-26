@@ -39,11 +39,11 @@ export class TasMdkPythonGenerator implements XsmpGenerator {
 
         for (const elem of ns.elements) {
             switch (elem.$type) {
-                case ast.Namespace:
+                case ast.Namespace.$type:
                     this.generateNamespace(elem, projectUri, notice, libName, acceptTask);
                     break;
-                case ast.Service:
-                case ast.Model:
+                case ast.Service.$type:
+                case ast.Model.$type:
                     this.generateComponent(elem as ast.Component, projectUri, notice, libName, acceptTask);
                     break;
             }

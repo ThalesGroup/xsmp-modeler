@@ -13,7 +13,7 @@ import * as XsmpUtils from '../../utils/xsmp-utils.js';
 import * as Duration from '../../utils/duration.js';
 
 import type { AstNode, JSDocParagraph, Reference, URI } from 'langium';
-import { AstUtils, UriUtils } from 'langium';
+import { AstUtils, UriUtils, isReference } from 'langium';
 import * as fs from 'node:fs';
 import * as Solver from '../../utils/solver.js';
 import { isGeneratedBy, type TaskAcceptor, type XsmpGenerator } from '../../generator/generator.js';
@@ -51,20 +51,20 @@ export class SmpGenerator implements XsmpGenerator {
     generate(node: AstNode, projectUri: URI, acceptTask: TaskAcceptor) {
         const notice = this.safeXmlComment(getCopyrightNotice(node.$document));
         switch (node.$type) {
-            case ast.Catalogue:
+            case ast.Catalogue.$type:
                 acceptTask(() => this.generateCatalogue(node as ast.Catalogue, projectUri, notice));
                 acceptTask(() => this.generatePackage(node as ast.Catalogue, projectUri, notice));
                 break;
-            case ast.Configuration:
+            case ast.Configuration.$type:
                 acceptTask(() => this.generateConfiguration(node as ast.Configuration, projectUri, notice));
                 break;
-            case ast.LinkBase:
+            case ast.LinkBase.$type:
                 acceptTask(() => this.generateLinkBase(node as ast.LinkBase, projectUri, notice));
                 break;
-            case ast.Assembly:
+            case ast.Assembly.$type:
                 acceptTask(() => this.generateAssembly(node as ast.Assembly, projectUri, notice));
                 break;
-            case ast.Schedule:
+            case ast.Schedule.$type:
                 acceptTask(() => this.generateSchedule(node as ast.Schedule, projectUri, notice));
                 break;
         }
@@ -129,36 +129,36 @@ export class SmpGenerator implements XsmpGenerator {
     protected convertTypeDispatch(type: ast.Type): Types.Type {
 
         switch (type.$type) {
-            case ast.Structure:
+            case ast.Structure.$type:
                 return this.convertStructure(type as ast.Structure);
-            case ast.Class:
+            case ast.Class.$type:
                 return this.convertClass(type as ast.Class);
-            case ast.Exception:
+            case ast.Exception.$type:
                 return this.convertException(type as ast.Exception);
-            case ast.PrimitiveType:
+            case ast.PrimitiveType.$type:
                 return this.convertType(type, 'Types:PrimitiveType');
-            case ast.ArrayType:
+            case ast.ArrayType.$type:
                 return this.convertArrayType(type as ast.ArrayType);
-            case ast.AttributeType:
+            case ast.AttributeType.$type:
                 return this.convertAttributeType(type as ast.AttributeType);
-            case ast.Enumeration:
+            case ast.Enumeration.$type:
                 return this.convertEnumeration(type as ast.Enumeration);
-            case ast.EventType:
+            case ast.EventType.$type:
                 return this.convertEventType(type as ast.EventType);
-            case ast.Float:
+            case ast.Float.$type:
                 return this.convertFloat(type as ast.Float);
-            case ast.Integer:
+            case ast.Integer.$type:
                 return this.convertInteger(type as ast.Integer);
-            case ast.Service:
-            case ast.Model:
+            case ast.Service.$type:
+            case ast.Model.$type:
                 return this.convertComponent(type as ast.Component);
-            case ast.Interface:
+            case ast.Interface.$type:
                 return this.convertInterface(type as ast.Interface);
-            case ast.NativeType:
+            case ast.NativeType.$type:
                 return this.convertNativeType(type as ast.NativeType);
-            case ast.StringType:
+            case ast.StringType.$type:
                 return this.convertStringType(type as ast.StringType);
-            case ast.ValueReference:
+            case ast.ValueReference.$type:
                 return this.convertValueReference(type as ast.ValueReference);
         }
         throw Error(`Unsupported type ${type.$type}`);
@@ -596,7 +596,7 @@ export class SmpGenerator implements XsmpGenerator {
         const id = this.docHelper.getId(catalogue) ?? `_${XsmpUtils.fqn(catalogue)}`,
             doc = AstUtils.getDocument(catalogue),
             namespaces = this.getL1Namespaces(catalogue),
-            dependencies = [...new Set(doc.references.filter(e => e.ref && !ast.isInterface(e.ref)).map(e => AstUtils.getDocument(e.ref!).parseResult.value).filter(ast.isCatalogue)
+            dependencies = [...new Set(doc.references.filter((e): e is Reference => isReference(e) && !!e.ref && !ast.isInterface(e.ref)).map(e => AstUtils.getDocument(e.ref!).parseResult.value).filter(ast.isCatalogue)
                 .filter(e => e !== catalogue && e.name !== 'ecss_smp_smp'))].sort((l, r) => l.name.localeCompare(r.name));
         return {
             '@xmlns:Elements': namespaces.elements,
@@ -775,23 +775,23 @@ export class SmpGenerator implements XsmpGenerator {
 
     convertValue(value: ast.Value, expectedType?: ast.Type): Types.Value {
         switch (value.$type) {
-            case ast.BoolValue: return { '@xsi:type': 'Types:BoolValue', '@Value': (value as ast.BoolValue).value } as Types.BoolValue;
-            case ast.Char8Value: return { '@xsi:type': 'Types:Char8Value', '@Value': (value as ast.Char8Value).value } as Types.Char8Value;
-            case ast.DateTimeValue: return { '@xsi:type': 'Types:DateTimeValue', '@Value': (value as ast.DateTimeValue).value.slice(1, -3) } as Types.DateTimeValue;
-            case ast.DurationValue: return { '@xsi:type': 'Types:DurationValue', '@Value': (value as ast.DurationValue).value.slice(1, -2) } as Types.DurationValue;
-            case ast.FloatValue: return this.convertUnsuffixedFloatValue(value as ast.FloatValue, expectedType);
-            case ast.Float32Value: return { '@xsi:type': 'Types:Float32Value', '@Value': parseFloat((value as ast.Float32Value).value) } as Types.Float32Value;
-            case ast.Float64Value: return { '@xsi:type': 'Types:Float64Value', '@Value': parseFloat((value as ast.Float64Value).value) } as Types.Float64Value;
-            case ast.IntValue: return this.convertUnsuffixedIntValue(value as ast.IntValue, expectedType);
-            case ast.Int8Value: return { '@xsi:type': 'Types:Int8Value', '@Value': BigInt((value as ast.Int8Value).value) } as Types.Int8Value;
-            case ast.Int16Value: return { '@xsi:type': 'Types:Int16Value', '@Value': (value as ast.Int16Value).value } as Types.Int16Value;
-            case ast.Int32Value: return { '@xsi:type': 'Types:Int32Value', '@Value': (value as ast.Int32Value).value } as Types.Int32Value;
-            case ast.Int64Value: return { '@xsi:type': 'Types:Int64Value', '@Value': (value as ast.Int64Value).value } as Types.Int64Value;
-            case ast.UInt8Value: return { '@xsi:type': 'Types:UInt8Value', '@Value': (value as ast.UInt8Value).value } as Types.UInt8Value;
-            case ast.UInt16Value: return { '@xsi:type': 'Types:UInt16Value', '@Value': (value as ast.UInt16Value).value } as Types.UInt16Value;
-            case ast.UInt32Value: return { '@xsi:type': 'Types:UInt32Value', '@Value': (value as ast.UInt32Value).value } as Types.UInt32Value;
-            case ast.UInt64Value: return { '@xsi:type': 'Types:UInt64Value', '@Value': (value as ast.UInt64Value).value } as Types.UInt64Value;
-            case ast.EnumerationValue: {
+            case ast.BoolValue.$type: return { '@xsi:type': 'Types:BoolValue', '@Value': (value as ast.BoolValue).value } as Types.BoolValue;
+            case ast.Char8Value.$type: return { '@xsi:type': 'Types:Char8Value', '@Value': (value as ast.Char8Value).value } as Types.Char8Value;
+            case ast.DateTimeValue.$type: return { '@xsi:type': 'Types:DateTimeValue', '@Value': (value as ast.DateTimeValue).value.slice(1, -3) } as Types.DateTimeValue;
+            case ast.DurationValue.$type: return { '@xsi:type': 'Types:DurationValue', '@Value': (value as ast.DurationValue).value.slice(1, -2) } as Types.DurationValue;
+            case ast.FloatValue.$type: return this.convertUnsuffixedFloatValue(value as ast.FloatValue, expectedType);
+            case ast.Float32Value.$type: return { '@xsi:type': 'Types:Float32Value', '@Value': parseFloat((value as ast.Float32Value).value) } as Types.Float32Value;
+            case ast.Float64Value.$type: return { '@xsi:type': 'Types:Float64Value', '@Value': parseFloat((value as ast.Float64Value).value) } as Types.Float64Value;
+            case ast.IntValue.$type: return this.convertUnsuffixedIntValue(value as ast.IntValue, expectedType);
+            case ast.Int8Value.$type: return { '@xsi:type': 'Types:Int8Value', '@Value': BigInt((value as ast.Int8Value).value) } as Types.Int8Value;
+            case ast.Int16Value.$type: return { '@xsi:type': 'Types:Int16Value', '@Value': (value as ast.Int16Value).value } as Types.Int16Value;
+            case ast.Int32Value.$type: return { '@xsi:type': 'Types:Int32Value', '@Value': (value as ast.Int32Value).value } as Types.Int32Value;
+            case ast.Int64Value.$type: return { '@xsi:type': 'Types:Int64Value', '@Value': (value as ast.Int64Value).value } as Types.Int64Value;
+            case ast.UInt8Value.$type: return { '@xsi:type': 'Types:UInt8Value', '@Value': (value as ast.UInt8Value).value } as Types.UInt8Value;
+            case ast.UInt16Value.$type: return { '@xsi:type': 'Types:UInt16Value', '@Value': (value as ast.UInt16Value).value } as Types.UInt16Value;
+            case ast.UInt32Value.$type: return { '@xsi:type': 'Types:UInt32Value', '@Value': (value as ast.UInt32Value).value } as Types.UInt32Value;
+            case ast.UInt64Value.$type: return { '@xsi:type': 'Types:UInt64Value', '@Value': (value as ast.UInt64Value).value } as Types.UInt64Value;
+            case ast.EnumerationValue.$type: {
                 const enumValue = value as ast.EnumerationValue;
                 if (enumValue.value)
                     return { '@xsi:type': 'Types:EnumerationValue', '@Value': enumValue.value } as Types.EnumerationValue;
@@ -801,21 +801,21 @@ export class SmpGenerator implements XsmpGenerator {
                 }
                 return { '@xsi:type': 'Types:EnumerationValue', '@Value': this.toEnumerationValue(literalValue), '@Literal': Solver.getValue(literalValue)?.enumerationLiteral()?.getValue().name } as Types.EnumerationValue;
             }
-            case ast.String8Value: return { '@xsi:type': 'Types:String8Value', '@Value': (value as ast.String8Value).value } as Types.String8Value;
-            case ast.ArrayValue: {
+            case ast.String8Value.$type: return { '@xsi:type': 'Types:String8Value', '@Value': (value as ast.String8Value).value } as Types.String8Value;
+            case ast.ArrayValue.$type: {
                 const itemType = ast.isArrayType(expectedType) ? expectedType.itemType.ref : undefined;
                 return { '@xsi:type': 'Types:ArrayValue', ItemValue: (value as ast.ArrayValue).elements.map(element => this.convertValue(element, itemType)) } as Types.ArrayValue;
             }
-            case ast.StructureValue:
+            case ast.StructureValue.$type:
                 return { '@xsi:type': 'Types:StructureValue', FieldValue: this.convertStructureElements(value as ast.StructureValue, expectedType) } as Types.StructureValue;
-            case ast.CfgStructureFieldValue: {
+            case ast.CfgStructureFieldValue.$type: {
                 const fieldValue = value as ast.CfgStructureFieldValue;
                 return {
                     ...this.convertValue(fieldValue.value, fieldValue.unsafe ? undefined : this.getStructureFieldType(expectedType, fieldValue.field)),
                     '@Field': fieldValue.field
                 };
             }
-            case ast.FieldValue: return {
+            case ast.FieldValue.$type: return {
                 ...this.convertValue((value as ast.FieldValue).value, this.getResolvedConfigurationFieldType(value as ast.FieldValue)),
                 '@Field': this.pathService.stringifyPath((value as ast.FieldValue).field)
             };
@@ -876,9 +876,9 @@ export class SmpGenerator implements XsmpGenerator {
         const ownerPath = this.pathService.stringifyPath(link.ownerPath);
         const clientPath = this.pathService.stringifyPath(link.clientPath);
         switch (link.$type) {
-            case ast.EventLink: return { '@xsi:type': 'LinkBase:EventLink', OwnerPath: ownerPath, ClientPath: clientPath } as LinkBase.EventLink;
-            case ast.FieldLink: return { '@xsi:type': 'LinkBase:FieldLink', OwnerPath: ownerPath, ClientPath: clientPath } as LinkBase.FieldLink;
-            case ast.InterfaceLink: return {
+            case ast.EventLink.$type: return { '@xsi:type': 'LinkBase:EventLink', OwnerPath: ownerPath, ClientPath: clientPath } as LinkBase.EventLink;
+            case ast.FieldLink.$type: return { '@xsi:type': 'LinkBase:FieldLink', OwnerPath: ownerPath, ClientPath: clientPath } as LinkBase.FieldLink;
+            case ast.InterfaceLink.$type: return {
                 '@xsi:type': 'LinkBase:InterfaceLink',
                 OwnerPath: this.pathService.stringifyInterfaceLinkOwnerPath((link as ast.InterfaceLink).sourcePath) ?? '',
                 ClientPath: clientPath,
@@ -970,12 +970,12 @@ export class SmpGenerator implements XsmpGenerator {
     convertTemplateArgument(parameter: ast.TemplateArgument): Assembly.TemplateArgument {
 
         switch (parameter.$type) {
-            case ast.Int32Argument: return {
+            case ast.Int32Argument.$type: return {
                 '@xsi:type': 'Assembly:Int32Argument',
                 '@Name': parameter.parameter.ref?.name,
                 '@Value': (parameter as ast.Int32Argument).value
             } as Assembly.Int32Argument;
-            case ast.StringArgument: return {
+            case ast.StringArgument.$type: return {
                 '@xsi:type': 'Assembly:StringArgument',
                 '@Name': parameter.parameter.ref?.name,
                 '@Value': (parameter as ast.StringArgument).value.slice(1, -1)
@@ -990,12 +990,12 @@ export class SmpGenerator implements XsmpGenerator {
     convertTemplateParameter(parameter: ast.TemplateParameter): Assembly.TemplateArgument {
 
         switch (parameter.$type) {
-            case ast.Int32Parameter: return {
+            case ast.Int32Parameter.$type: return {
                 '@xsi:type': 'Assembly:Int32Argument',
                 '@Name': parameter.name,
                 '@Value': (parameter as ast.Int32Parameter).value
             } as Assembly.Int32Argument;
-            case ast.StringParameter: return {
+            case ast.StringParameter.$type: return {
                 '@xsi:type': 'Assembly:StringArgument',
                 '@Name': parameter.name,
                 '@Value': (parameter as ast.StringParameter).value?.slice(1, -1)
@@ -1018,12 +1018,12 @@ export class SmpGenerator implements XsmpGenerator {
 
     convertInvocation(invocation: ast.Invocation): Assembly.Invocation {
         switch (invocation.$type) {
-            case ast.OperationCall: return {
+            case ast.OperationCall.$type: return {
                 '@xsi:type': 'Assembly:OperationCall',
                 '@Operation': this.pathService.stringifyLocalNamedReference((invocation as ast.OperationCall).operation, false) ?? '',
                 Parameter: (invocation as ast.OperationCall).parameters.map(this.convertParameterValue, this)
             } as Assembly.OperationCall;
-            case ast.PropertyValue: return {
+            case ast.PropertyValue.$type: return {
                 '@xsi:type': 'Assembly:PropertyValue',
                 '@Property': this.pathService.stringifyLocalNamedReference((invocation as ast.PropertyValue).property, false) ?? '',
                 Value: this.convertValue((invocation as ast.PropertyValue).value)
@@ -1126,21 +1126,21 @@ export class SmpGenerator implements XsmpGenerator {
     }
     convertActivity(activity: ast.Activity): Schedule.Activity {
         switch (activity.$type) {
-            case ast.CallOperation:
+            case ast.CallOperation.$type:
                 return {
                     ...this.convertGeneratedActivityElement(activity),
                     '@xsi:type': 'Schedule:CallOperation',
                     OperationPath: this.pathService.stringifyPath((activity as ast.CallOperation).operationPath),
                     Parameter: (activity as ast.CallOperation).parameters.map(this.convertParameterValue, this)
                 } as Schedule.CallOperation;
-            case ast.EmitGlobalEvent:
+            case ast.EmitGlobalEvent.$type:
                 return {
                     ...this.convertGeneratedActivityElement(activity),
                     '@xsi:type': 'Schedule:EmitGlobalEvent',
                     EventName: (activity as ast.EmitGlobalEvent).eventName,
                     synchronous: !(activity as ast.EmitGlobalEvent).asynchronous
                 } as Schedule.EmitGlobalEvent;
-            case ast.ExecuteTask:
+            case ast.ExecuteTask.$type:
                 return {
                     ...this.convertGeneratedActivityElement(activity),
                     '@xsi:type': 'Schedule:ExecuteTask',
@@ -1148,21 +1148,21 @@ export class SmpGenerator implements XsmpGenerator {
                     Task: this.convertXlink((activity as ast.ExecuteTask).task, activity),
                     Argument: (activity as ast.ExecuteTask).parameter.map(this.convertTemplateArgument, this),
                 } as Schedule.ExecuteTask;
-            case ast.SetProperty:
+            case ast.SetProperty.$type:
                 return {
                     ...this.convertGeneratedActivityElement(activity),
                     '@xsi:type': 'Schedule:SetProperty',
                     PropertyPath: this.pathService.stringifyPath((activity as ast.SetProperty).propertyPath),
                     Value: this.convertValue((activity as ast.SetProperty).value),
                 } as Schedule.SetProperty;
-            case ast.Transfer:
+            case ast.Transfer.$type:
                 return {
                     ...this.convertGeneratedActivityElement(activity),
                     '@xsi:type': 'Schedule:Transfer',
                     OutputFieldPath: this.pathService.stringifyPath((activity as ast.Transfer).outputFieldPath),
                     InputFieldPath: this.pathService.stringifyPath((activity as ast.Transfer).inputFieldPath),
                 } as Schedule.Transfer;
-            case ast.Trigger:
+            case ast.Trigger.$type:
                 return {
                     ...this.convertGeneratedActivityElement(activity),
                     '@xsi:type': 'Schedule:Trigger',
@@ -1203,27 +1203,27 @@ export class SmpGenerator implements XsmpGenerator {
 
     convertEvent(event: ast.Event): Schedule.Event {
         switch (event.$type) {
-            case ast.EpochEvent:
+            case ast.EpochEvent.$type:
                 return {
                     ...this.convertEventBase(event),
                     '@EpochTime': (event as ast.EpochEvent).epochTime,
                 } as Schedule.EpochEvent;
-            case ast.MissionEvent:
+            case ast.MissionEvent.$type:
                 return {
                     ...this.convertEventBase(event),
                     '@MissionTime': (event as ast.MissionEvent).missionTime,
                 } as Schedule.MissionEvent;
-            case ast.SimulationEvent:
+            case ast.SimulationEvent.$type:
                 return {
                     ...this.convertEventBase(event),
                     '@SimulationTime': (event as ast.SimulationEvent).simulationTime,
                 } as Schedule.SimulationEvent;
-            case ast.ZuluEvent:
+            case ast.ZuluEvent.$type:
                 return {
                     ...this.convertEventBase(event),
                     '@ZuluTime': (event as ast.ZuluEvent).zuluTime,
                 } as Schedule.ZuluEvent;
-            case ast.GlobalEventTriggeredEvent:
+            case ast.GlobalEventTriggeredEvent.$type:
                 return {
                     ...this.convertEventBase(event),
                     '@StartEvent': (event as ast.GlobalEventTriggeredEvent).startEvent,

@@ -49,7 +49,7 @@ export class XsmpPathLinker extends DefaultLinker {
     }
 
     override buildReference(node: AstNode, property: string, refNode: CstNode | undefined, refText: string): Reference {
-        if (!(ast.isLocalNamedReference(node) && property === 'reference')) {
+        if (!(ast.isLocalNamedReference(node) && property === ast.LocalNamedReference.reference)) {
             return super.buildReference(node, property, refNode, refText);
         }
 
@@ -108,6 +108,6 @@ export class XsmpPathLinker extends DefaultLinker {
     }
 
     protected isPathReference(refInfo: ReferenceInfo): boolean {
-        return ast.isLocalNamedReference(refInfo.container) && refInfo.property === 'reference';
+        return ast.isLocalNamedReference(refInfo.container) && refInfo.property === ast.LocalNamedReference.reference;
     }
 }

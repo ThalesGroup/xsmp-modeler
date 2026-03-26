@@ -15,7 +15,7 @@ export class XsmpcatFoldingRangeProvider extends DefaultFoldingRangeProvider {
     protected collectNamespaceFolding(document: LangiumDocument, namespace: ast.Namespace, acceptor: FoldingRangeAcceptor): void {
         this.collectObjectFolding(document, namespace, acceptor);
         for (const element of namespace.elements) {
-            if (element.$type === ast.Namespace)
+            if (element.$type === ast.Namespace.$type)
                 this.collectNamespaceFolding(document, element, acceptor);
             else
                 this.collectTypeFolding(document, element, acceptor);

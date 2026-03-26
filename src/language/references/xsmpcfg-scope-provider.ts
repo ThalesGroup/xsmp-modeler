@@ -33,7 +33,7 @@ export class XsmpcfgScopeProvider implements ScopeProvider {
     }
 
     getScope(context: ReferenceInfo): Scope {
-        if (ast.isConcretePathNamedSegment(context.container) && context.property === 'reference') {
+        if (ast.isConcretePathNamedSegment(context.container) && context.property === ast.ConcretePathNamedSegment.reference) {
             return this.getCfgPathScope(context.container);
         }
         return this.getGlobalScope(AstUtils.getDocument(context.container), this.reflection.getReferenceType(context));

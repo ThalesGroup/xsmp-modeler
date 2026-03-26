@@ -19,28 +19,28 @@ export class XsmpNodeInfoProvider {
 
     getDetails(node: AstNode): string | undefined {
         switch (node.$type) {
-            case ast.Association: return (node as ast.Association).type?.$refText + (this.attrHelper.isByPointer(node as ast.Association) ? '*' : '');
-            case ast.Constant: return (node as ast.Constant).type?.$refText;
-            case ast.Container: return (node as ast.Container).type?.$refText + this.getMultiplicity(node as ast.NamedElementWithMultiplicity);
-            case ast.EventSink: return `EventSink<${(node as ast.EventSink).type?.$refText}>`;
-            case ast.EventSource: return `EventSource<${(node as ast.EventSource).type?.$refText}>`;
-            case ast.Field: return (node as ast.Field).type?.$refText;
-            case ast.AttributeType: return (node as ast.AttributeType).type?.$refText;
-            case ast.AssemblyInstance: return (node as ast.AssemblyInstance).assembly?.$refText;
-            case ast.EventType: return (node as ast.EventType).eventArgs?.$refText ?? 'void';
-            case ast.Integer: return (node as ast.Integer).primitiveType?.$refText ?? 'Smp::Int32';
-            case ast.Float: return (node as ast.Float).primitiveType?.$refText ?? 'Smp::Float64';
-            case ast.ModelInstance: return (node as ast.ModelInstance).implementation?.$refText ?? (node as ast.ModelInstance).strImplementation;
-            case ast.ValueReference: return (node as ast.ValueReference).type?.$refText + '*';
-            case ast.ArrayType: return `${(node as ast.ArrayType).itemType?.$refText}[${getValueAs((node as ast.ArrayType).size, PTK.Int64)?.getValue()}]`;
-            case ast.Operation: return (node as ast.Operation).returnParameter?.type?.$refText ?? 'void';
-            case ast.Property: return (node as ast.Property).type?.$refText;
-            case ast.Reference: return (node as ast.Reference).interface?.$refText + this.getMultiplicity(node as ast.NamedElementWithMultiplicity);
-            case ast.Model:
-            case ast.Service:
-            case ast.Class:
-            case ast.Exception:
-            case ast.EntryPoint:
+            case ast.Association.$type: return (node as ast.Association).type?.$refText + (this.attrHelper.isByPointer(node as ast.Association) ? '*' : '');
+            case ast.Constant.$type: return (node as ast.Constant).type?.$refText;
+            case ast.Container.$type: return (node as ast.Container).type?.$refText + this.getMultiplicity(node as ast.NamedElementWithMultiplicity);
+            case ast.EventSink.$type: return `EventSink<${(node as ast.EventSink).type?.$refText}>`;
+            case ast.EventSource.$type: return `EventSource<${(node as ast.EventSource).type?.$refText}>`;
+            case ast.Field.$type: return (node as ast.Field).type?.$refText;
+            case ast.AttributeType.$type: return (node as ast.AttributeType).type?.$refText;
+            case ast.AssemblyInstance.$type: return (node as ast.AssemblyInstance).assembly?.$refText;
+            case ast.EventType.$type: return (node as ast.EventType).eventArgs?.$refText ?? 'void';
+            case ast.Integer.$type: return (node as ast.Integer).primitiveType?.$refText ?? 'Smp::Int32';
+            case ast.Float.$type: return (node as ast.Float).primitiveType?.$refText ?? 'Smp::Float64';
+            case ast.ModelInstance.$type: return (node as ast.ModelInstance).implementation?.$refText ?? (node as ast.ModelInstance).strImplementation;
+            case ast.ValueReference.$type: return (node as ast.ValueReference).type?.$refText + '*';
+            case ast.ArrayType.$type: return `${(node as ast.ArrayType).itemType?.$refText}[${getValueAs((node as ast.ArrayType).size, PTK.Int64)?.getValue()}]`;
+            case ast.Operation.$type: return (node as ast.Operation).returnParameter?.type?.$refText ?? 'void';
+            case ast.Property.$type: return (node as ast.Property).type?.$refText;
+            case ast.Reference.$type: return (node as ast.Reference).interface?.$refText + this.getMultiplicity(node as ast.NamedElementWithMultiplicity);
+            case ast.Model.$type:
+            case ast.Service.$type:
+            case ast.Class.$type:
+            case ast.Exception.$type:
+            case ast.EntryPoint.$type:
                 return XsmpUtils.getNodeType(node);
             default: return undefined;
         }
@@ -75,7 +75,7 @@ export class XsmpNodeInfoProvider {
     }
 
     getTags(node: AstNode): SymbolTag[] | undefined {
-        if (ast.reflection.isSubtype(node.$type, ast.NamedElement) && this.docHelper.IsDeprecated(node as ast.NamedElement)) {
+        if (ast.reflection.isSubtype(node.$type, ast.NamedElement.$type) && this.docHelper.IsDeprecated(node as ast.NamedElement)) {
             return [SymbolTag.Deprecated];
         }
         return undefined;

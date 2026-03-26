@@ -46,13 +46,13 @@ export class XsmpasbScopeProvider implements ScopeProvider {
     }
 
     getScope(context: ReferenceInfo): Scope {
-        if (ast.isConcretePathNamedSegment(context.container) && context.property === 'reference') {
+        if (ast.isConcretePathNamedSegment(context.container) && context.property === ast.ConcretePathNamedSegment.reference) {
             return this.getPathScope(context.container);
         }
-        if (ast.isLocalNamedReference(context.container) && context.property === 'reference') {
+        if (ast.isLocalNamedReference(context.container) && context.property === ast.LocalNamedReference.reference) {
             return this.getLocalNamedReferenceScope(context.container);
         }
-        if (ast.isTemplateArgument(context.container) && context.property === 'parameter') {
+        if (ast.isTemplateArgument(context.container) && context.property === ast.TemplateArgument.parameter) {
             const assembly = ast.isAssemblyInstance(context.container.$container) && ast.isAssembly(context.container.$container.assembly?.ref)
                 ? context.container.$container.assembly.ref
                 : undefined;
@@ -86,19 +86,20 @@ export class XsmpasbScopeProvider implements ScopeProvider {
      */
     protected getGlobalScope(document: LangiumDocument, type:string): Scope {
         const globalScopes = this.globalScopeCache.get(document.uri, () => new Map<string, Scope>());
-        let scope = globalScopes.get(type);
-        if (!scope) {
-            scope = new XsmpGlobalScope(this.indexManager.allElements(type, this.projectManager.getVisibleUris(document)));
-            globalScopes.set(type, scope);
+        const existingScope = globalScopes.get(type);
+        if (existingScope) {
+            return existingScope;
         }
+        const scope = new XsmpGlobalScope(this.indexManager.allElements(type, this.projectManager.getVisibleUris(document)));
+        globalScopes.set(type, scope);
         return scope;
     }
 
     protected getPrecomputedScope(node: AstNode, document: LangiumDocument): Map<string, AstNodeDescription> {
         return this.precomputedCache.get(document.uri, node, () => {
             const precomputed = new Map<string, AstNodeDescription>();
-            if (document.precomputedScopes) {
-                for (const element of document.precomputedScopes.get(node)) {
+            if (document.localSymbols?.has(node)) {
+                for (const element of document.localSymbols.getStream(node)) {
                     precomputed.set(element.name, element);
                 }
             }

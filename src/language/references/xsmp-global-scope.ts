@@ -25,6 +25,11 @@ export class XsmpGlobalScope implements Scope {
         return this.elements.get(name);
     }
 
+    getElements(name: string): Stream<AstNodeDescription> {
+        const element = this.getElement(name);
+        return element ? stream([element]) : stream([]);
+    }
+
     getAllElements(): Stream<AstNodeDescription> {
         return stream(this.elements.values());
     }
@@ -41,6 +46,11 @@ export class XsmpMapScope implements Scope {
 
     getElement(name: string): AstNodeDescription | undefined {
         return this.elements.get(name) ?? this.outerScope.getElement(name);
+    }
+
+    getElements(name: string): Stream<AstNodeDescription> {
+        const element = this.elements.get(name);
+        return stream(element ? [element] : []).concat(this.outerScope.getElements(name));
     }
 
     getAllElements(): Stream<AstNodeDescription> {

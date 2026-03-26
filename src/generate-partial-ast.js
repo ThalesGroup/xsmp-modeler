@@ -6,15 +6,17 @@ const OUTPUT_FILE = "./src/language/generated/ast-partial.ts";
 
 const content = fs.readFileSync(INPUT_FILE, "utf-8");
 
-const typeRegex = /export\s+(?:interface|type)\s+(\w+)/g;
-const functionRegex = /export\s+function\s+(is\w+)\s*\(/g;
-const constRegex = /export\s+const\s+(\w+)\s*=/g;
+// Match only top-level exports. Langium 4 generates nested namespace exports for
+// per-language terminals/keywords, which must not be duplicated here.
+const typeRegex = /^export\s+(?:interface|type)\s+(\w+)/gm;
+const functionRegex = /^export\s+function\s+(is\w+)\s*\(/gm;
+const constRegex = /^export\s+const\s+(\w+)\s*=/gm;
 
-const types = [...content.matchAll(typeRegex)].map(match => match[1]);
+const types = [...new Set([...content.matchAll(typeRegex)].map(match => match[1]))];
 
-const functions = [...content.matchAll(functionRegex)].map(match => match[1]);
+const functions = [...new Set([...content.matchAll(functionRegex)].map(match => match[1]))];
 
-const constants = [...content.matchAll(constRegex)].map(match => match[1]);
+const constants = [...new Set([...content.matchAll(constRegex)].map(match => match[1]))];
 
 const output = `import * as ast from './ast.js';
 import type { AstUtils } from 'langium';

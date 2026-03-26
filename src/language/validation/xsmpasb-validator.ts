@@ -44,13 +44,13 @@ export class XsmpasbValidator extends XsmpcfgValidator {
     }
 
     checkAssembly(assembly: ast.Assembly, accept: ValidationAcceptor): void {
-        checkName(accept, assembly, assembly.name, 'name');
+        checkName(accept, assembly, assembly.name, ast.Assembly.name);
 
         const seen = new Set<string>();
         for (const parameter of assembly.parameters) {
             if (parameter.name) {
                 if (seen.has(parameter.name)) {
-                    accept('error', 'Duplicated template argument name.', { node: parameter, property: 'name' });
+                    accept('error', 'Duplicated template argument name.', { node: parameter, property: ast.TemplateParameter.name });
                 } else {
                     seen.add(parameter.name);
                 }
@@ -68,7 +68,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
 
     checkModelInstance(model: ast.ModelInstance, accept: ValidationAcceptor): void {
         if (!this.identifierPatternService.hasTemplate(model.name)) {
-            checkName(accept, model, model.name, 'name');
+            checkName(accept, model, model.name, ast.ModelInstance.name);
         }
         this.checkTemplatedInstanceName(model.name, model, accept);
 
@@ -85,7 +85,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
             if (seen.has(instanceName)) {
                 accept('error', 'Child Model Instance and Assembly Instance names shall be unique at the same hierarchy level.', {
                     node: instance,
-                    property: 'name'
+                    property: ast.NamedElement.name
                 });
             } else {
                 seen.add(instanceName);
@@ -97,7 +97,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
 
     checkAssemblyInstance(instance: ast.AssemblyInstance, accept: ValidationAcceptor): void {
         if (!this.identifierPatternService.hasTemplate(instance.name)) {
-            checkName(accept, instance, instance.name, 'name');
+            checkName(accept, instance, instance.name, ast.AssemblyInstance.name);
         }
         this.checkTemplatedInstanceName(instance.name, instance, accept);
     }
@@ -110,7 +110,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
         if (!ast.isContainer(container)) {
             accept('error', 'The selected container shall resolve to a Container of the current Component.', {
                 node: subInstance,
-                property: 'container'
+                property: ast.SubInstance.container
             });
             return;
         }
@@ -119,22 +119,22 @@ export class XsmpasbValidator extends XsmpcfgValidator {
         if (ast.isReferenceType(expectedType) && instanceType && !XsmpUtils.isBaseOfReferenceType(expectedType, instanceType)) {
             accept('error', 'The type of the sub-instance shall be compatible with the selected Container.', {
                 node: subInstance,
-                property: 'container'
+                property: ast.SubInstance.container
             });
         }
     }
 
     checkStringParameter(parameter: ast.StringParameter, accept: ValidationAcceptor): void {
-        checkName(accept, parameter, parameter.name, 'name');
+        checkName(accept, parameter, parameter.name, ast.TemplateParameter.name);
         if (AstUtils.getContainerOfType(parameter, ast.isAssembly) && parameter.value === undefined) {
-            accept('error', 'A Template Argument shall have a Value feature.', { node: parameter, property: 'value' });
+            accept('error', 'A Template Argument shall have a Value feature.', { node: parameter, property: ast.StringParameter.value });
         }
     }
 
     checkInt32Parameter(parameter: ast.Int32Parameter, accept: ValidationAcceptor): void {
-        checkName(accept, parameter, parameter.name, 'name');
+        checkName(accept, parameter, parameter.name, ast.TemplateParameter.name);
         if (AstUtils.getContainerOfType(parameter, ast.isAssembly) && parameter.value === undefined) {
-            accept('error', 'A Template Argument shall have a Value feature.', { node: parameter, property: 'value' });
+            accept('error', 'A Template Argument shall have a Value feature.', { node: parameter, property: ast.Int32Parameter.value });
         }
     }
 
@@ -145,12 +145,12 @@ export class XsmpasbValidator extends XsmpcfgValidator {
         if (!this.checkAssemblyPathTemplateParameters(configuration.name, accept)) {
             return;
         }
-        checkNoParentTraversal(accept, configuration, configuration.name, 'name');
-        checkRelativePath(accept, configuration, configuration.name, 'name', 'InstancePath');
+        checkNoParentTraversal(accept, configuration, configuration.name, ast.AssemblyComponentConfiguration.name);
+        checkRelativePath(accept, configuration, configuration.name, ast.AssemblyComponentConfiguration.name, 'InstancePath');
         const resolution = this.l2PathResolver.getAssemblyComponentPathResolution(configuration.name);
         this.acceptPathError(resolution.invalidMessage, resolution.invalidNode, accept);
         if (resolution.active && !resolution.invalidMessage && !resolution.finalComponent) {
-            accept('error', 'The configured instance shall resolve to a typed Component.', { node: configuration, property: 'name' });
+            accept('error', 'The configured instance shall resolve to a typed Component.', { node: configuration, property: ast.AssemblyComponentConfiguration.name });
         }
     }
 
@@ -162,7 +162,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
         if (!ast.isEntryPoint(entryPoint)) {
             accept('error', 'The selected entry point shall resolve to an EntryPoint of the current Component.', {
                 node: handler,
-                property: 'entryPoint'
+                property: ast.GlobalEventHandler.entryPoint
             });
         }
     }
@@ -174,11 +174,11 @@ export class XsmpasbValidator extends XsmpcfgValidator {
         if (!this.checkAssemblyPathTemplateParameters(fieldValue.field, accept)) {
             return;
         }
-        checkNoParentTraversal(accept, fieldValue, fieldValue.field, 'field');
+        checkNoParentTraversal(accept, fieldValue, fieldValue.field, ast.FieldValue.field);
         if (isAbsolutePath(fieldValue.field)) {
             accept('error', 'Field paths in an Assembly shall be relative to the current component instance.', {
                 node: fieldValue,
-                property: 'field'
+                property: ast.FieldValue.field
             });
         }
         const resolution = this.l2PathResolver.getAssemblyFieldPathResolution(fieldValue.field);
@@ -197,11 +197,11 @@ export class XsmpasbValidator extends XsmpcfgValidator {
     }
 
     checkInterfaceLink(link: ast.InterfaceLink, accept: ValidationAcceptor): void {
-        this.checkLinkPath(link, link.sourcePath, 'sourcePath', undefined, accept);
-        this.checkLinkPath(link, link.clientPath, 'clientPath', undefined, accept);
+        this.checkLinkPath(link, link.sourcePath, ast.InterfaceLink.sourcePath, undefined, accept);
+        this.checkLinkPath(link, link.clientPath, ast.InterfaceLink.clientPath, undefined, accept);
         this.checkInterfaceSource(link, accept);
         if (link.backReference) {
-            this.checkInterfaceReference(link.backReference, 'backReference', 'Client', 'Owner', accept);
+            this.checkInterfaceReference(link.backReference, ast.InterfaceLink.backReference, 'Client', 'Owner', accept);
         }
     }
 
@@ -212,7 +212,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
             if (!ast.isOperation(operation)) {
                 accept('error', 'The selected operation shall resolve to an Operation of the current Component.', {
                     node: call,
-                    property: 'operation'
+                    property: ast.OperationCall.operation
                 });
                 return;
             }
@@ -226,7 +226,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
                 continue;
             }
             if (seen.has(parameter.parameter)) {
-                accept('error', 'Duplicated parameter name.', { node: call, property: 'parameters', index });
+                accept('error', 'Duplicated parameter name.', { node: call, property: ast.OperationCall.parameters, index });
             } else {
                 seen.add(parameter.parameter);
             }
@@ -242,14 +242,14 @@ export class XsmpasbValidator extends XsmpcfgValidator {
         if (!ast.isProperty(target)) {
             accept('error', 'The selected property shall resolve to a Property of the current Component.', {
                 node: property,
-                property: 'property'
+                property: ast.PropertyValue.property
             });
             return;
         }
         if (XsmpUtils.getAccessKind(target) === 'readOnly') {
             accept('error', 'A PropertyValue shall target a writable Property.', {
                 node: property,
-                property: 'property'
+                property: ast.PropertyValue.property
             });
         }
         if (target.type?.ref && property.value) {
@@ -268,7 +268,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
             if (!target) {
                 accept('error', `The parameter '${parameter.parameter}' shall resolve to a Parameter of operation ${operation.name}.`, {
                     node: call,
-                    property: 'parameters',
+                    property: ast.OperationCall.parameters,
                     index
                 });
                 continue;
@@ -280,8 +280,8 @@ export class XsmpasbValidator extends XsmpcfgValidator {
     }
 
     private checkLinkPaths(link: ast.Link, accept: ValidationAcceptor): void {
-        this.checkLinkPath(link, link.ownerPath, 'ownerPath', 'The Owner Path shall refer to the current Model Instance or one of its children.', accept);
-        this.checkLinkPath(link, link.clientPath, 'clientPath', 'The Client Path shall refer to the current Model Instance or one of its children.', accept);
+        this.checkLinkPath(link, link.ownerPath, ast.Link.ownerPath, 'The Owner Path shall refer to the current Model Instance or one of its children.', accept);
+        this.checkLinkPath(link, link.clientPath, ast.Link.clientPath, 'The Client Path shall refer to the current Model Instance or one of its children.', accept);
     }
 
     private checkContainerUpperBounds(model: ast.ModelInstance, accept: ValidationAcceptor): void {
@@ -300,7 +300,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
             if (upper !== undefined && upper >= BigInt(0) && BigInt(count) > upper) {
                 accept('error', `The Container '${container.name ?? '<unknown>'}' shall not contain more than ${upper} sub-instance(s).`, {
                     node: subInstance,
-                    property: 'container'
+                    property: ast.SubInstance.container
                 });
             }
         }
@@ -318,7 +318,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
         this.visitAssemblyOccurrences(rootOccurrence, rootOccurrence, occurrence => {
             for (const link of occurrence.model.elements.filter(ast.isInterfaceLink)) {
                 this.collectSourceReferenceUsage(link, occurrence, rootOccurrence, usages);
-                this.collectReferenceUsage(link, 'backReference', link.clientPath, link.backReference, occurrence, rootOccurrence, usages);
+                this.collectReferenceUsage(link, ast.InterfaceLink.backReference, link.clientPath, link.backReference, occurrence, rootOccurrence, usages);
             }
         });
         for (const usage of usages.values()) {
@@ -336,7 +336,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
 
     private checkInterfaceReference(
         reference: ast.LocalNamedReference,
-        property: 'backReference',
+        property: typeof ast.InterfaceLink.backReference,
         sourceSide: 'Owner' | 'Client',
         targetSide: 'Owner' | 'Client',
         accept: ValidationAcceptor,
@@ -380,7 +380,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
         if (expectedType && oppositeContext.component && !XsmpUtils.isBaseOfReferenceType(expectedType, oppositeContext.component)) {
             accept('error', 'The selected source reference shall be compatible with the Client Component.', {
                 node: link,
-                property: 'sourcePath'
+                property: ast.InterfaceLink.sourcePath
             });
         }
     }
@@ -395,7 +395,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
 
     private collectReferenceUsage(
         link: ast.InterfaceLink,
-        property: 'backReference',
+        property: typeof ast.InterfaceLink.backReference,
         path: ast.Path | undefined,
         reference: ast.LocalNamedReference | undefined,
         occurrence: AssemblyOccurrence,
@@ -462,14 +462,14 @@ export class XsmpasbValidator extends XsmpcfgValidator {
             instancePath: this.displayOccurrencePath(targetOccurrence),
             usages: [],
         };
-        usage.usages.push({ link, property: 'sourcePath' });
+        usage.usages.push({ link, property: ast.InterfaceLink.sourcePath });
         usages.set(key, usage);
     }
 
     private checkLinkPath(
         link: ast.Link | ast.InterfaceLink,
         path: ast.Path | undefined,
-        property: 'ownerPath' | 'clientPath' | 'sourcePath',
+        property: typeof ast.Link.ownerPath | typeof ast.Link.clientPath | typeof ast.InterfaceLink.sourcePath,
         absoluteMessage: string | undefined,
         accept: ValidationAcceptor,
     ): void {
@@ -483,22 +483,22 @@ export class XsmpasbValidator extends XsmpcfgValidator {
             return;
         }
         if (hasParentTraversal(path)) {
-            if (property === 'sourcePath' && ast.isInterfaceLink(link)) {
-                accept('error', 'Paths shall not contain \'..\'.', { node: link, property: 'sourcePath' });
+            if (property === ast.InterfaceLink.sourcePath && ast.isInterfaceLink(link)) {
+                accept('error', 'Paths shall not contain \'..\'.', { node: link, property: ast.InterfaceLink.sourcePath });
             } else {
-                const narrowedProperty = property === 'ownerPath' ? 'ownerPath' : 'clientPath';
+                const narrowedProperty = property === ast.Link.ownerPath ? ast.Link.ownerPath : ast.Link.clientPath;
                 accept('error', 'Paths shall not contain \'..\'.', { node: link, property: narrowedProperty });
             }
         }
-        const resolution = ast.isInterfaceLink(link) && property === 'sourcePath'
+        const resolution = ast.isInterfaceLink(link) && property === ast.InterfaceLink.sourcePath
             ? this.l2PathResolver.getInterfaceLinkSourceResolution(link)
             : this.l2PathResolver.getAssemblyLinkPathResolution(path);
         this.acceptPathError(resolution.invalidMessage, resolution.invalidNode, accept);
         if (absoluteMessage && isAbsolutePath(path)) {
-            if (property === 'sourcePath' && ast.isInterfaceLink(link)) {
-                accept('error', absoluteMessage, { node: link, property: 'sourcePath' });
+            if (property === ast.InterfaceLink.sourcePath && ast.isInterfaceLink(link)) {
+                accept('error', absoluteMessage, { node: link, property: ast.InterfaceLink.sourcePath });
             } else {
-                const narrowedProperty = property === 'ownerPath' ? 'ownerPath' : 'clientPath';
+                const narrowedProperty = property === ast.Link.ownerPath ? ast.Link.ownerPath : ast.Link.clientPath;
                 accept('error', absoluteMessage, { node: link, property: narrowedProperty });
             }
         }
@@ -644,7 +644,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
                 const field = this.resolveStructureFieldByPath(type, element.field);
                 if (!field) {
                     if (!element.field.unsafe) {
-                        accept('error', `The structure field path '${this.pathService.stringifyPath(element.field)}' does not exist on type ${XsmpUtils.fqn(type)}.`, { node: element, property: 'field' });
+                        accept('error', `The structure field path '${this.pathService.stringifyPath(element.field)}' does not exist on type ${XsmpUtils.fqn(type)}.`, { node: element, property: ast.FieldValue.field });
                     }
                     continue;
                 }
@@ -758,7 +758,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
             if (!parameters.has(part.parameterName)) {
                 accept('error', `The placeholder '{${part.parameterName}}' shall resolve to a Template Argument of the enclosing Assembly.`, {
                     node,
-                    property: 'name'
+                    property: ast.NamedElement.name
                 });
             }
         }
@@ -768,7 +768,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
         if (concreteName !== undefined && !isValidExpandedL2Identifier(concreteName)) {
             accept('error', `The expanded name '${concreteName}' is not valid for SMP Level 2.`, {
                 node,
-                property: 'name'
+                property: ast.NamedElement.name
             });
         }
     }
@@ -983,6 +983,6 @@ interface ReferenceUsageBucket {
     instancePath: string;
     usages: Array<{
         link: ast.InterfaceLink;
-        property: 'sourcePath' | 'backReference';
+        property: typeof ast.InterfaceLink.sourcePath | typeof ast.InterfaceLink.backReference;
     }>;
 }

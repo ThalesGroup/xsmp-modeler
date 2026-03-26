@@ -82,41 +82,41 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
     public async generateHeader(path: string, type: ast.Type, notice: string | undefined) {
         let body: string | undefined;
         switch (type.$type) {
-            case ast.Class:
+            case ast.Class.$type:
                 body = await this.generateClassHeader(type as ast.Class);
                 break;
-            case ast.Exception:
+            case ast.Exception.$type:
                 body = await this.generateExceptionHeader(type as ast.Exception);
                 break;
-            case ast.Structure:
+            case ast.Structure.$type:
                 body = await this.generateStructureHeader(type as ast.Structure);
                 break;
-            case ast.Integer:
+            case ast.Integer.$type:
                 body = await this.generateIntegerHeader(type as ast.Integer);
                 break;
-            case ast.Float:
+            case ast.Float.$type:
                 body = await this.generateFloatHeader(type as ast.Float);
                 break;
-            case ast.Model:
-            case ast.Service:
+            case ast.Model.$type:
+            case ast.Service.$type:
                 body = await this.generateComponentHeader(type as ast.Component);
                 break;
-            case ast.Interface:
+            case ast.Interface.$type:
                 body = await this.generateInterfaceHeader(type as ast.Interface);
                 break;
-            case ast.ArrayType:
+            case ast.ArrayType.$type:
                 body = await this.generateArrayHeader(type as ast.ArrayType);
                 break;
-            case ast.Enumeration:
+            case ast.Enumeration.$type:
                 body = await this.generateEnumerationHeader(type as ast.Enumeration);
                 break;
-            case ast.StringType:
+            case ast.StringType.$type:
                 body = await this.generateStringHeader(type as ast.StringType);
                 break;
-            case ast.NativeType:
+            case ast.NativeType.$type:
                 body = await this.generateNativeTypeHeader(type as ast.NativeType);
                 break;
-            case ast.ValueReference:
+            case ast.ValueReference.$type:
                 body = await this.generateValueReferenceHeader(type as ast.ValueReference);
                 break;
         }
@@ -146,41 +146,41 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
     public async generateSource(path: string, type: ast.Type, notice: string | undefined) {
         let body: string | undefined;
         switch (type.$type) {
-            case ast.Class:
+            case ast.Class.$type:
                 body = await this.generateClassSource(type as ast.Class);
                 break;
-            case ast.Exception:
+            case ast.Exception.$type:
                 body = await this.generateExceptionSource(type as ast.Exception);
                 break;
-            case ast.Structure:
+            case ast.Structure.$type:
                 body = await this.generateStructureSource(type as ast.Structure);
                 break;
-            case ast.Integer:
+            case ast.Integer.$type:
                 body = await this.generateIntegerSource(type as ast.Integer);
                 break;
-            case ast.Float:
+            case ast.Float.$type:
                 body = await this.generateFloatSource(type as ast.Float);
                 break;
-            case ast.Model:
-            case ast.Service:
+            case ast.Model.$type:
+            case ast.Service.$type:
                 body = await this.generateComponentSource(type as ast.Component);
                 break;
-            case ast.Interface:
+            case ast.Interface.$type:
                 body = await this.generateInterfaceSource(type as ast.Interface);
                 break;
-            case ast.ArrayType:
+            case ast.ArrayType.$type:
                 body = await this.generateArraySource(type as ast.ArrayType);
                 break;
-            case ast.Enumeration:
+            case ast.Enumeration.$type:
                 body = await this.generateEnumerationSource(type as ast.Enumeration);
                 break;
-            case ast.StringType:
+            case ast.StringType.$type:
                 body = await this.generateStringSource(type as ast.StringType);
                 break;
-            case ast.NativeType:
+            case ast.NativeType.$type:
                 body = await this.generateNativeTypeSource(type as ast.NativeType);
                 break;
-            case ast.ValueReference:
+            case ast.ValueReference.$type:
                 body = await this.generateValueReferenceSource(type as ast.ValueReference);
                 break;
         }
@@ -202,41 +202,41 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
     public async generateHeaderGen(path: string, type: ast.Type, gen: boolean, notice: string | undefined) {
         let body: string | undefined;
         switch (type.$type) {
-            case ast.Class:
+            case ast.Class.$type:
                 body = await this.generateClassHeaderGen(type as ast.Class, gen);
                 break;
-            case ast.Exception:
+            case ast.Exception.$type:
                 body = await this.generateExceptionHeaderGen(type as ast.Exception, gen);
                 break;
-            case ast.Structure:
+            case ast.Structure.$type:
                 body = await this.generateStructureHeaderGen(type as ast.Structure, gen);
                 break;
-            case ast.Integer:
+            case ast.Integer.$type:
                 body = await this.generateIntegerHeaderGen(type as ast.Integer, gen);
                 break;
-            case ast.Float:
+            case ast.Float.$type:
                 body = await this.generateFloatHeaderGen(type as ast.Float, gen);
                 break;
-            case ast.Model:
-            case ast.Service:
+            case ast.Model.$type:
+            case ast.Service.$type:
                 body = await this.generateComponentHeaderGen(type as ast.Component, gen);
                 break;
-            case ast.Interface:
+            case ast.Interface.$type:
                 body = await this.generateInterfaceHeaderGen(type as ast.Interface, gen);
                 break;
-            case ast.ArrayType:
+            case ast.ArrayType.$type:
                 body = await this.generateArrayHeaderGen(type as ast.ArrayType, gen);
                 break;
-            case ast.Enumeration:
+            case ast.Enumeration.$type:
                 body = await this.generateEnumerationHeaderGen(type as ast.Enumeration, gen);
                 break;
-            case ast.StringType:
+            case ast.StringType.$type:
                 body = await this.generateStringHeaderGen(type as ast.StringType, gen);
                 break;
-            case ast.NativeType:
+            case ast.NativeType.$type:
                 body = await this.generateNativeTypeHeaderGen(type as ast.NativeType, gen);
                 break;
-            case ast.ValueReference:
+            case ast.ValueReference.$type:
                 body = await this.generateValueReferenceHeaderGen(type as ast.ValueReference, gen);
                 break;
         }
@@ -270,41 +270,41 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
     public async generateSourceGen(path: string, type: ast.Type, gen: boolean, notice: string | undefined) {
         let body: string | undefined;
         switch (type.$type) {
-            case ast.Class:
+            case ast.Class.$type:
                 body = await this.generateClassSourceGen(type as ast.Class, gen);
                 break;
-            case ast.Exception:
+            case ast.Exception.$type:
                 body = await this.generateExceptionSourceGen(type as ast.Exception, gen);
                 break;
-            case ast.Structure:
+            case ast.Structure.$type:
                 body = await this.generateStructureSourceGen(type as ast.Structure, gen);
                 break;
-            case ast.Integer:
+            case ast.Integer.$type:
                 body = await this.generateIntegerSourceGen(type as ast.Integer, gen);
                 break;
-            case ast.Float:
+            case ast.Float.$type:
                 body = await this.generateFloatSourceGen(type as ast.Float, gen);
                 break;
-            case ast.Model:
-            case ast.Service:
+            case ast.Model.$type:
+            case ast.Service.$type:
                 body = await this.generateComponentSourceGen(type as ast.Component, gen);
                 break;
-            case ast.Interface:
+            case ast.Interface.$type:
                 body = await this.generateInterfaceSourceGen(type as ast.Interface, gen);
                 break;
-            case ast.ArrayType:
+            case ast.ArrayType.$type:
                 body = await this.generateArraySourceGen(type as ast.ArrayType, gen);
                 break;
-            case ast.Enumeration:
+            case ast.Enumeration.$type:
                 body = await this.generateEnumerationSourceGen(type as ast.Enumeration, gen);
                 break;
-            case ast.StringType:
+            case ast.StringType.$type:
                 body = await this.generateStringSourceGen(type as ast.StringType, gen);
                 break;
-            case ast.NativeType:
+            case ast.NativeType.$type:
                 body = await this.generateNativeTypeSourceGen(type as ast.NativeType, gen);
                 break;
-            case ast.ValueReference:
+            case ast.ValueReference.$type:
                 body = await this.generateValueReferenceSourceGen(type as ast.ValueReference, gen);
                 break;
         }
@@ -765,16 +765,16 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
     /*
         protected override initialize(element: ast.NamedElement, gen: boolean = false): string | undefined {
             switch (element.$type) {
-                case ast.Association: return this.initializeAssociation(element as ast.Association, gen);
-                case ast.Constant: return this.initializeConstant(element as ast.Constant, gen);
-                case ast.Container: return this.initializeContainer(element as ast.Container, gen);
-                case ast.EntryPoint: return this.initializeEntryPoint(element as ast.EntryPoint, gen);
-                case ast.EventSink: return this.initializeEventSink(element as ast.EventSink);
-                case ast.EventSource: return this.initializeEventSource(element as ast.EventSource, gen);
-                case ast.Field: return this.initializeField(element as ast.Field, gen);
-                case ast.Operation: return this.initializeOperation(element as ast.Operation, gen);
-                case ast.Property: return this.initializeProperty(element as ast.Property, gen);
-                case ast.Reference_: return this.initializeReference(element as ast.Reference_, gen);
+                case ast.Association.$type: return this.initializeAssociation(element as ast.Association, gen);
+                case ast.Constant.$type: return this.initializeConstant(element as ast.Constant, gen);
+                case ast.Container.$type: return this.initializeContainer(element as ast.Container, gen);
+                case ast.EntryPoint.$type: return this.initializeEntryPoint(element as ast.EntryPoint, gen);
+                case ast.EventSink.$type: return this.initializeEventSink(element as ast.EventSink);
+                case ast.EventSource.$type: return this.initializeEventSource(element as ast.EventSource, gen);
+                case ast.Field.$type: return this.initializeField(element as ast.Field, gen);
+                case ast.Operation.$type: return this.initializeOperation(element as ast.Operation, gen);
+                case ast.Property.$type: return this.initializeProperty(element as ast.Property, gen);
+                case ast.Reference_.$type: return this.initializeReference(element as ast.Reference_, gen);
                 default: return undefined;
             }
         }*/
@@ -814,31 +814,31 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
 
     protected declareGen(element: ast.NamedElement, gen: boolean): string | undefined {
         switch (element.$type) {
-            case ast.Association: return this.declareAssociationGen(element as ast.Association, gen);
-            case ast.Constant: return this.declareConstantGen(element as ast.Constant, gen);
-            case ast.Container: return this.declareContainerGen(element as ast.Container, gen);
-            case ast.EntryPoint: return this.declareEntryPointGen(element as ast.EntryPoint, gen);
-            case ast.EventSink: return this.declareEventSinkGen(element as ast.EventSink, gen);
-            case ast.EventSource: return this.declareEventSourceGen(element as ast.EventSource, gen);
-            case ast.Field: return this.declareFieldGen(element as ast.Field, gen);
-            case ast.Operation: return this.declareOperationGen(element as ast.Operation, gen);
-            case ast.Property: return this.declarePropertyGen(element as ast.Property, gen);
-            case ast.Reference: return this.declareReferenceGen(element as ast.Reference, gen);
+            case ast.Association.$type: return this.declareAssociationGen(element as ast.Association, gen);
+            case ast.Constant.$type: return this.declareConstantGen(element as ast.Constant, gen);
+            case ast.Container.$type: return this.declareContainerGen(element as ast.Container, gen);
+            case ast.EntryPoint.$type: return this.declareEntryPointGen(element as ast.EntryPoint, gen);
+            case ast.EventSink.$type: return this.declareEventSinkGen(element as ast.EventSink, gen);
+            case ast.EventSource.$type: return this.declareEventSourceGen(element as ast.EventSource, gen);
+            case ast.Field.$type: return this.declareFieldGen(element as ast.Field, gen);
+            case ast.Operation.$type: return this.declareOperationGen(element as ast.Operation, gen);
+            case ast.Property.$type: return this.declarePropertyGen(element as ast.Property, gen);
+            case ast.Reference.$type: return this.declareReferenceGen(element as ast.Reference, gen);
             default: return undefined;
         }
     }
     protected defineGen(element: ast.NamedElement, gen: boolean): string | undefined {
         switch (element.$type) {
-            case ast.Association: return this.defineAssociationGen(element as ast.Association, gen);
-            case ast.Constant: return this.defineConstantGen(element as ast.Constant, gen);
-            case ast.Container: return this.defineContainerGen(element as ast.Container, gen);
-            case ast.EntryPoint: return this.defineEntryPointGen(element as ast.EntryPoint, gen);
-            case ast.EventSink: return this.defineEventSinkGen(element as ast.EventSink, gen);
-            case ast.EventSource: return this.defineEventSourceGen(element as ast.EventSource, gen);
-            case ast.Field: return this.defineFieldGen(element as ast.Field, gen);
-            case ast.Operation: return this.defineOperationGen(element as ast.Operation, gen);
-            case ast.Property: return this.definePropertyGen(element as ast.Property, gen);
-            case ast.Reference: return this.defineReferenceGen(element as ast.Reference, gen);
+            case ast.Association.$type: return this.defineAssociationGen(element as ast.Association, gen);
+            case ast.Constant.$type: return this.defineConstantGen(element as ast.Constant, gen);
+            case ast.Container.$type: return this.defineContainerGen(element as ast.Container, gen);
+            case ast.EntryPoint.$type: return this.defineEntryPointGen(element as ast.EntryPoint, gen);
+            case ast.EventSink.$type: return this.defineEventSinkGen(element as ast.EventSink, gen);
+            case ast.EventSource.$type: return this.defineEventSourceGen(element as ast.EventSource, gen);
+            case ast.Field.$type: return this.defineFieldGen(element as ast.Field, gen);
+            case ast.Operation.$type: return this.defineOperationGen(element as ast.Operation, gen);
+            case ast.Property.$type: return this.definePropertyGen(element as ast.Property, gen);
+            case ast.Reference.$type: return this.defineReferenceGen(element as ast.Reference, gen);
             default: return undefined;
         }
     }

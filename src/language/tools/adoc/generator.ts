@@ -236,7 +236,7 @@ export class ADocGenerator implements XsmpGenerator {
             .^h|UUID |${this.docHelper.getUuid(type)?.toString().trim()}
             `;
         switch (type.$type) {
-            case ast.Integer: {
+            case ast.Integer.$type: {
                 const integer = type as ast.Integer;
                 const unit = this.docHelper.getUnit(integer);
                 return s`
@@ -247,7 +247,7 @@ export class ADocGenerator implements XsmpGenerator {
                     ${unit ? `.^h|Unit |${unit}` : undefined}
                     `;
             }
-            case ast.Float: {
+            case ast.Float.$type: {
                 const float = type as ast.Float;
                 const unit = this.docHelper.getUnit(float);
                 return s`
@@ -258,7 +258,7 @@ export class ADocGenerator implements XsmpGenerator {
                     ${unit ? `.^h|Unit |${unit}` : undefined}
                     `;
             }
-            case ast.ArrayType: {
+            case ast.ArrayType.$type: {
                 const array = type as ast.ArrayType;
                 return s`
                     ${typeInfo}
@@ -266,14 +266,14 @@ export class ADocGenerator implements XsmpGenerator {
                     .^h|Size |${this.getShortValue(array.size)}
                     `;
             }
-            case ast.EventType: {
+            case ast.EventType.$type: {
                 const event = type as ast.EventType;
                 return s`
                     ${typeInfo}
                     .^h|Event Type |${this.crossReference(event.eventArgs ?? ['void'], event)}
                     `;
             }
-            case ast.NativeType: {
+            case ast.NativeType.$type: {
                 const native = type as ast.NativeType;
                 const location = this.docHelper.getNativeLocation(native);
                 const namespace = this.docHelper.getNativeNamespace(native);
@@ -284,28 +284,28 @@ export class ADocGenerator implements XsmpGenerator {
                     ${namespace ? `.^h|Namespace |${namespace}` : undefined}
                     `;
             }
-            case ast.StringType: {
+            case ast.StringType.$type: {
                 const string = type as ast.StringType;
                 return s`
                     ${typeInfo}
                     .^h|Length |${this.getShortValue(string.length)}
                     `;
             }
-            case ast.Class: {
+            case ast.Class.$type: {
                 const clazz = type as ast.Class;
                 return s`
                     ${typeInfo}
                     ${clazz.base ? `.^h|Extends |${this.crossReference(clazz.base, clazz)}` : undefined}
                     `;
             }
-            case ast.Exception: {
+            case ast.Exception.$type: {
                 const exception = type as ast.Exception;
                 return s`
                     ${typeInfo}
                     .^h|Extends |${this.crossReference(exception.base ?? ['Smp', 'Exception'], exception)}
                     `;
             }
-            case ast.Interface: {
+            case ast.Interface.$type: {
                 const inter = type as ast.Interface;
                 return s`
                     ${typeInfo}
@@ -313,8 +313,8 @@ export class ADocGenerator implements XsmpGenerator {
                     `;
             }
 
-            case ast.Model:
-            case ast.Service: {
+            case ast.Model.$type:
+            case ast.Service.$type: {
                 const component = type as ast.Component;
                 return s`
                     ${typeInfo}
@@ -444,31 +444,31 @@ export class ADocGenerator implements XsmpGenerator {
 
     private generateMermaidMembers(element: ast.NamedElement): string | undefined {
         switch (element.$type) {
-            case ast.Field: {
+            case ast.Field.$type: {
                 const field = element as ast.Field;
                 return `${this.generateMermaidVisibility(field)}${field.type.ref?.name} ${field.name}`;
             }
-            case ast.EventSource: {
+            case ast.EventSource.$type: {
                 const eventSource = element as ast.EventSource;
                 return `+EventSource<${eventSource.type.ref?.name}> ${eventSource.name}`;
             }
-            case ast.EventSink: {
+            case ast.EventSink.$type: {
                 const eventSink = element as ast.EventSink;
                 return `+EventSink<${eventSink.type.ref?.name}> ${eventSink.name}`;
             }
-            case ast.EntryPoint: {
+            case ast.EntryPoint.$type: {
                 const entryPoint = element as ast.EntryPoint;
                 return `+EntryPoint ${entryPoint.name}`;
             }
-            case ast.Constant: {
+            case ast.Constant.$type: {
                 const constant = element as ast.Constant;
                 return `${this.generateMermaidVisibility(constant)}constexpr ${constant.type.ref?.name} ${constant.name} = ${this.getShortValue(constant.value)}`;
             }
-            case ast.Association: {
+            case ast.Association.$type: {
                 const association = element as ast.Association;
                 return `${this.generateMermaidVisibility(association)}${association.type.ref?.name}* ${association.name}`;
             }
-            case ast.Operation: {
+            case ast.Operation.$type: {
                 const op = element as ast.Operation;
                 return `${this.generateMermaidVisibility(op)}${op.name}(${op.parameter.map(param => `${param.direction ?? 'in'} ${param.type.ref?.name}`).join(', ')}) ${op.returnParameter?.type.ref?.name ?? 'void'} `;
             }

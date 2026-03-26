@@ -16,12 +16,12 @@ export class XsmpcatTypeHierarchyProvider extends AbstractTypeHierarchyProvider 
     }
     protected override getSupertypes(node: AstNode): MaybePromise<TypeHierarchyItem[] | undefined> {
         switch (node.$type) {
-            case ast.Interface: {
+            case ast.Interface.$type: {
                 const items = (node as ast.Interface).base.filter(i => i.ref !== undefined).map(i => this.getXsmpTypeHierarchyItem(i.ref!), this);
                 return items.length === 0 ? undefined : items;
             }
-            case ast.Model:
-            case ast.Service: {
+            case ast.Model.$type:
+            case ast.Service.$type: {
                 const items: TypeHierarchyItem[] = [];
                 if ((node as ast.Component).base?.ref) {
                     items.push(this.getXsmpTypeHierarchyItem((node as ast.Component).base!.ref!));
@@ -29,12 +29,12 @@ export class XsmpcatTypeHierarchyProvider extends AbstractTypeHierarchyProvider 
                 items.push(...(node as ast.Component).interface.filter(i => i.ref !== undefined).map(i => this.getXsmpTypeHierarchyItem(i.ref!), this));
                 return items.length === 0 ? undefined : items;
             }
-            case ast.Class:
-            case ast.Exception:
+            case ast.Class.$type:
+            case ast.Exception.$type:
                 return (node as ast.Class).base?.ref ? [this.getXsmpTypeHierarchyItem((node as ast.Class).base!.ref!)] : undefined;
-            case ast.Integer:
+            case ast.Integer.$type:
                 return (node as ast.Integer).primitiveType?.ref ? [this.getXsmpTypeHierarchyItem((node as ast.Integer).primitiveType!.ref!)] : undefined;
-            case ast.Float:
+            case ast.Float.$type:
                 return (node as ast.Float).primitiveType?.ref ? [this.getXsmpTypeHierarchyItem((node as ast.Float).primitiveType!.ref!)] : undefined;
         }
         return undefined;
@@ -45,7 +45,7 @@ export class XsmpcatTypeHierarchyProvider extends AbstractTypeHierarchyProvider 
         return {
             name: targetNode.name ?? '<anonymous>',
             range: targetNode.$cstNode!.range,
-            selectionRange: GrammarUtils.findNodeForProperty(targetNode.$cstNode, 'name')!.range,
+            selectionRange: GrammarUtils.findNodeForProperty(targetNode.$cstNode, ast.NamedElement.name)!.range,
             uri: document.uri.toString(),
             kind: this.nodeKindProvider.getSymbolKind(targetNode),
             tags: this.nodeInfoProvider.getTags(targetNode),

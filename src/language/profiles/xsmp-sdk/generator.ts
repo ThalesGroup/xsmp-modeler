@@ -273,7 +273,7 @@ export class XsmpSdkGenerator extends GapPatternCppGenerator {
         if (type.elements.some(ast.isEntryPoint)) {
             includes.push('Xsmp/EntryPointPublisher.h');
         }
-        if (type.$type === ast.Model && type.elements.some(element => ast.isField(element) && this.attrHelper.isFailure(element), this)) {
+        if (type.$type === ast.Model.$type && type.elements.some(element => ast.isField(element) && this.attrHelper.isFailure(element), this)) {
             includes.push('Xsmp/FallibleModel.h');
         }
         return includes;
@@ -411,7 +411,7 @@ export class XsmpSdkGenerator extends GapPatternCppGenerator {
             bases.push('public virtual ::Xsmp::EventConsumer');
         if (type.elements.some(ast.isEntryPoint))
             bases.push('public virtual ::Xsmp::EntryPointPublisher');
-        if (type.$type === ast.Model && type.elements.filter(ast.isField).some(field => this.attrHelper.isFailure(field), this))
+        if (type.$type === ast.Model.$type && type.elements.filter(ast.isField).some(field => this.attrHelper.isFailure(field), this))
             bases.push('public virtual ::Xsmp::FallibleModel');
         return bases;
     }

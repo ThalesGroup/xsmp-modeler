@@ -1,4 +1,4 @@
-import type { AstNode, AstNodeDescription, AstNodeDescriptionProvider, LangiumDocument, PrecomputedScopes, ScopeComputation } from 'langium';
+import type { AstNode, AstNodeDescription, AstNodeDescriptionProvider, LangiumDocument, LocalSymbols, ScopeComputation } from 'langium';
 import * as ast from '../generated/ast-partial.js';
 import { Cancellation, MultiMap } from 'langium';
 import type { XsmpServices } from '../xsmp-module.js';
@@ -11,7 +11,7 @@ export class XsmpsedScopeComputation implements ScopeComputation {
         this.descriptions = services.workspace.AstNodeDescriptionProvider;
     }
 
-    async computeExports(document: LangiumDocument, _cancelToken = Cancellation.CancellationToken.None): Promise<AstNodeDescription[]> {
+    async collectExportedSymbols(document: LangiumDocument, _cancelToken = Cancellation.CancellationToken.None): Promise<AstNodeDescription[]> {
         const schedule = document.parseResult.value as ast.Schedule;
         const exportedDescriptions: AstNodeDescription[] = [];
 
@@ -23,7 +23,7 @@ export class XsmpsedScopeComputation implements ScopeComputation {
         return exportedDescriptions;
     }
 
-    async computeLocalScopes(document: LangiumDocument, _cancelToken = Cancellation.CancellationToken.None): Promise<PrecomputedScopes> {
+    async collectLocalSymbols(document: LangiumDocument, _cancelToken = Cancellation.CancellationToken.None): Promise<LocalSymbols> {
         const scopes = new MultiMap<AstNode, AstNodeDescription>();
         const schedule = document.parseResult.value as ast.Schedule;
         schedule.elements.filter(ast.isTask).forEach(element => scopes.add(schedule, this.descriptions.createDescription(element, element.name, document)));

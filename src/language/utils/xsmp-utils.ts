@@ -18,7 +18,7 @@ export function fqn(node: ast.NamedElement | ast.ReturnParameter | undefined, se
     let name = node.name ?? 'return';
     let parent = node.$container;
 
-    while (parent && (parent.$type === ast.Namespace || ast.reflection.isSubtype(parent.$type, ast.Type))) {
+    while (parent && (parent.$type === ast.Namespace.$type || ast.reflection.isSubtype(parent.$type, ast.Type.$type))) {
         name = `${(parent as ast.NamedElement).name}${separator}${name}`;
         parent = parent.$container;
     }
@@ -51,8 +51,8 @@ export function getVisibility(node: ast.VisibilityElement): VisibilityKind | und
 }
 export function getRealVisibility(node: ast.NamedElement): VisibilityKind {
 
-    if (ast.reflection.isSubtype(node.$type, ast.VisibilityElement)) {
-        if (node.$container?.$type === ast.Structure || node.$container?.$type === ast.Interface) {
+    if (ast.reflection.isSubtype(node.$type, ast.VisibilityElement.$type)) {
+        if (node.$container?.$type === ast.Structure.$type || node.$container?.$type === ast.Interface.$type) {
             return VisibilityKind.public;
         }
         return getVisibility(node as ast.VisibilityElement) ?? VisibilityKind.private;
@@ -85,7 +85,7 @@ export function isString8(type: ast.Type | undefined): boolean {
 export function getPTK(type: ast.Type | undefined, defaultKind: PTK = PTK.None): PTK {
     if (!type) { return defaultKind; }
     switch (type.$type) {
-        case ast.PrimitiveType:
+        case ast.PrimitiveType.$type:
             switch (fqn(type)) {
                 case 'Smp.Bool': return PTK.Bool;
                 case 'Smp.Char8': return PTK.Char8;
@@ -104,10 +104,10 @@ export function getPTK(type: ast.Type | undefined, defaultKind: PTK = PTK.None):
                 case 'Smp.String8': return PTK.String8;
                 default: return PTK.None;
             }
-        case ast.Float: return getPTK((type as ast.Float).primitiveType?.ref, PTK.Float64);
-        case ast.Integer: return getPTK((type as ast.Integer).primitiveType?.ref, PTK.Int32);
-        case ast.StringType: return PTK.String8;
-        case ast.Enumeration: return PTK.Enum;
+        case ast.Float.$type: return getPTK((type as ast.Float).primitiveType?.ref, PTK.Float64);
+        case ast.Integer.$type: return getPTK((type as ast.Integer).primitiveType?.ref, PTK.Int32);
+        case ast.StringType.$type: return PTK.String8;
+        case ast.Enumeration.$type: return PTK.Enum;
         default: return PTK.None;
     }
 }
@@ -223,8 +223,8 @@ function checkIsBaseOfReferenceType(parent: ast.ReferenceType, base: ast.Type | 
         const parentFqn = fqn(parent);
         if (parentFqn === 'Smp.IObject' ||
             parentFqn === 'Smp.IComponent' ||
-            (parentFqn === 'Smp.IModel' && base.$type === ast.Model) ||
-            (parentFqn === 'Smp.IService' && base.$type === ast.Service) ||
+            (parentFqn === 'Smp.IModel' && base.$type === ast.Model.$type) ||
+            (parentFqn === 'Smp.IService' && base.$type === ast.Service.$type) ||
             (parentFqn === 'Smp.IEntryPointPublisher' && base.elements.some(ast.isEntryPoint)) ||
             (parentFqn === 'Smp.IComposite' && base.elements.some(ast.isContainer)) ||
             (parentFqn === 'Smp.IAggregate' && base.elements.some(ast.isReference)) ||
@@ -277,11 +277,11 @@ export function isTypeVisibleFrom(from: AstNode, element: ast.Type): boolean {
 
 export function getNodeType(node: AstNode): string {
     switch (node.$type) {
-        case ast.ArrayType:
+        case ast.ArrayType.$type:
             return 'Array';
-        case ast.ReturnParameter:
-            return ast.Parameter;
-        case ast.StringType:
+        case ast.ReturnParameter.$type:
+            return ast.Parameter.$type;
+        case ast.StringType.$type:
             return 'String';
         default:
             return node.$type;
@@ -290,22 +290,22 @@ export function getNodeType(node: AstNode): string {
 
 export function getKeywordForType(type: ast.Type): string | undefined {
     switch (type.$type) {
-        case ast.ArrayType: return 'array';
-        case ast.AttributeType: return 'attribute';
-        case ast.Class: return 'class';
-        case ast.Enumeration: return 'enum';
-        case ast.EventType: return 'event';
-        case ast.Exception: return 'exception';
-        case ast.Float: return 'float';
-        case ast.Integer: return 'integer';
-        case ast.Interface: return 'interface';
-        case ast.Model: return 'model';
-        case ast.NativeType: return 'native';
-        case ast.PrimitiveType: return 'primitive';
-        case ast.Service: return 'service';
-        case ast.StringType: return 'string';
-        case ast.Structure: return 'struct';
-        case ast.ValueReference: return 'using';
+        case ast.ArrayType.$type: return 'array';
+        case ast.AttributeType.$type: return 'attribute';
+        case ast.Class.$type: return 'class';
+        case ast.Enumeration.$type: return 'enum';
+        case ast.EventType.$type: return 'event';
+        case ast.Exception.$type: return 'exception';
+        case ast.Float.$type: return 'float';
+        case ast.Integer.$type: return 'integer';
+        case ast.Interface.$type: return 'interface';
+        case ast.Model.$type: return 'model';
+        case ast.NativeType.$type: return 'native';
+        case ast.PrimitiveType.$type: return 'primitive';
+        case ast.Service.$type: return 'service';
+        case ast.StringType.$type: return 'string';
+        case ast.Structure.$type: return 'struct';
+        case ast.ValueReference.$type: return 'using';
     }
     return undefined;
 }

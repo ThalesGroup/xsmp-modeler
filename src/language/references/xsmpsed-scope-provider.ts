@@ -32,16 +32,15 @@ export class XsmpsedScopeProvider implements ScopeProvider {
 
     protected getLocalScopes(context: ReferenceInfo, referenceType: string): Array<Stream<AstNodeDescription>> {
         const scopes: Array<Stream<AstNodeDescription>> = [];
-        const precomputed = AstUtils.getDocument(context.container).precomputedScopes;
+        const precomputed = AstUtils.getDocument(context.container).localSymbols;
         if (!precomputed) {
             return scopes;
         }
 
         let currentNode: AstNode | undefined = context.container;
         do {
-            const allDescriptions = precomputed.get(currentNode);
-            if (allDescriptions.length > 0) {
-                scopes.push(stream(allDescriptions).filter(desc => this.reflection.isSubtype(desc.type, referenceType)));
+            if (precomputed.has(currentNode)) {
+                scopes.push(precomputed.getStream(currentNode).filter((desc): desc is AstNodeDescription => this.reflection.isSubtype(desc.type, referenceType)));
             }
             currentNode = currentNode.$container;
         } while (currentNode);
@@ -49,11 +48,11 @@ export class XsmpsedScopeProvider implements ScopeProvider {
     }
 
     getScope(context: ReferenceInfo): Scope {
-        if (ast.isConcretePathNamedSegment(context.container) && context.property === 'reference') {
+        if (ast.isConcretePathNamedSegment(context.container) && context.property === ast.ConcretePathNamedSegment.reference) {
             return this.getPathScope(context.container);
         }
         const referenceType = this.reflection.getReferenceType(context);
-        if (ast.isTemplateArgument(context.container) && context.property === 'parameter') {
+        if (ast.isTemplateArgument(context.container) && context.property === ast.TemplateArgument.parameter) {
             const task = (context.container.$container as ast.ExecuteTask).task;
             const schedule = task?.ref ? AstUtils.getContainerOfType(task.ref, ast.isSchedule) : undefined;
             return schedule ? this.createScopeForNodes(schedule.parameters, EMPTY_SCOPE) : EMPTY_SCOPE;

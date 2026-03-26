@@ -33,10 +33,10 @@ export class XsmplnkScopeProvider implements ScopeProvider {
     }
 
     getScope(context: ReferenceInfo): Scope {
-        if (ast.isConcretePathNamedSegment(context.container) && context.property === 'reference') {
+        if (ast.isConcretePathNamedSegment(context.container) && context.property === ast.ConcretePathNamedSegment.reference) {
             return this.getPathScope(context.container);
         }
-        if (ast.isLocalNamedReference(context.container) && context.property === 'reference') {
+        if (ast.isLocalNamedReference(context.container) && context.property === ast.LocalNamedReference.reference) {
             return this.getLocalNamedReferenceScope(context.container);
         }
         return this.getGlobalScope(AstUtils.getDocument(context.container), this.reflection.getReferenceType(context));

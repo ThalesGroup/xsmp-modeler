@@ -6,33 +6,33 @@ import { XsmpFormatterBase } from './xsmp-formatter-base.js';
 export class XsmpsedFormatter extends XsmpFormatterBase {
     protected override format(node: AstNode): void {
         switch (node.$type) {
-            case ast.Path: return this.formatPath(node as ast.Path, this.getNodeFormatter(node));
-            case ast.PathMember: return this.formatPathMember(node as ast.PathMember, this.getNodeFormatter(node));
-            case ast.Schedule: return this.formatSchedule(node as ast.Schedule, this.getNodeFormatter(node));
-            case ast.StringParameter: return this.formatTypedAssignment(this.getNodeFormatter(node));
-            case ast.Int32Parameter: return this.formatTypedAssignment(this.getNodeFormatter(node));
-            case ast.Task: return this.formatTask(node as ast.Task, this.getNodeFormatter(node));
-            case ast.CallOperation: return this.formatCallOperation(node as ast.CallOperation, this.getNodeFormatter(node));
-            case ast.SetProperty: return this.formatSetProperty(node as ast.SetProperty, this.getNodeFormatter(node));
-            case ast.Transfer: return this.formatTransfer(node as ast.Transfer, this.getNodeFormatter(node));
-            case ast.Trigger: return this.formatTrigger(node as ast.Trigger, this.getNodeFormatter(node));
-            case ast.ExecuteTask: return this.formatExecuteTask(node as ast.ExecuteTask, this.getNodeFormatter(node));
-            case ast.StringArgument: return this.formatAssignment(this.getNodeFormatter(node));
-            case ast.Int32Argument: return this.formatAssignment(this.getNodeFormatter(node));
-            case ast.EmitGlobalEvent: return this.formatEmitGlobalEvent(node as ast.EmitGlobalEvent, this.getNodeFormatter(node));
-            case ast.ParameterValue: return this.formatAssignment(this.getNodeFormatter(node));
-            case ast.MissionEvent: return this.formatMissionEvent(node as ast.MissionEvent, this.getNodeFormatter(node));
-            case ast.EpochEvent: return this.formatEpochEvent(node as ast.EpochEvent, this.getNodeFormatter(node));
-            case ast.SimulationEvent: return this.formatSimulationEvent(node as ast.SimulationEvent, this.getNodeFormatter(node));
-            case ast.ZuluEvent: return this.formatZuluEvent(node as ast.ZuluEvent, this.getNodeFormatter(node));
-            case ast.GlobalEventTriggeredEvent: return this.formatGlobalEventTriggeredEvent(node as ast.GlobalEventTriggeredEvent, this.getNodeFormatter(node));
+            case ast.Path.$type: return this.formatPath(node as ast.Path, this.getNodeFormatter(node));
+            case ast.PathMember.$type: return this.formatPathMember(node as ast.PathMember, this.getNodeFormatter(node));
+            case ast.Schedule.$type: return this.formatSchedule(node as ast.Schedule, this.getNodeFormatter(node));
+            case ast.StringParameter.$type: return this.formatTypedAssignment(this.getNodeFormatter(node));
+            case ast.Int32Parameter.$type: return this.formatTypedAssignment(this.getNodeFormatter(node));
+            case ast.Task.$type: return this.formatTask(node as ast.Task, this.getNodeFormatter(node));
+            case ast.CallOperation.$type: return this.formatCallOperation(node as ast.CallOperation, this.getNodeFormatter(node));
+            case ast.SetProperty.$type: return this.formatSetProperty(node as ast.SetProperty, this.getNodeFormatter(node));
+            case ast.Transfer.$type: return this.formatTransfer(node as ast.Transfer, this.getNodeFormatter(node));
+            case ast.Trigger.$type: return this.formatTrigger(node as ast.Trigger, this.getNodeFormatter(node));
+            case ast.ExecuteTask.$type: return this.formatExecuteTask(node as ast.ExecuteTask, this.getNodeFormatter(node));
+            case ast.StringArgument.$type: return this.formatAssignment(this.getNodeFormatter(node));
+            case ast.Int32Argument.$type: return this.formatAssignment(this.getNodeFormatter(node));
+            case ast.EmitGlobalEvent.$type: return this.formatEmitGlobalEvent(node as ast.EmitGlobalEvent, this.getNodeFormatter(node));
+            case ast.ParameterValue.$type: return this.formatAssignment(this.getNodeFormatter(node));
+            case ast.MissionEvent.$type: return this.formatMissionEvent(node as ast.MissionEvent, this.getNodeFormatter(node));
+            case ast.EpochEvent.$type: return this.formatEpochEvent(node as ast.EpochEvent, this.getNodeFormatter(node));
+            case ast.SimulationEvent.$type: return this.formatSimulationEvent(node as ast.SimulationEvent, this.getNodeFormatter(node));
+            case ast.ZuluEvent.$type: return this.formatZuluEvent(node as ast.ZuluEvent, this.getNodeFormatter(node));
+            case ast.GlobalEventTriggeredEvent.$type: return this.formatGlobalEventTriggeredEvent(node as ast.GlobalEventTriggeredEvent, this.getNodeFormatter(node));
         }
     }
 
     protected formatSchedule(node: ast.Schedule, formatter: NodeFormatter<ast.Schedule>): void {
         formatter.keyword('schedule').prepend(Formatting.noIndent());
         this.formatSeparatedAngleList(formatter);
-        formatter.property('name').prepend(Formatting.oneSpace());
+        formatter.property(ast.Schedule.name).prepend(Formatting.oneSpace());
         formatter.keyword('epoch').surround(Formatting.oneSpace());
         formatter.keyword('mission').surround(Formatting.oneSpace());
         formatter.nodes(...node.elements).prepend(Formatting.noIndent());

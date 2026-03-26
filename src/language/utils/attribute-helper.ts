@@ -152,10 +152,10 @@ export class AttributeHelper {
         return this.cache.get({ key: 'isByPointer', node: element }, () => {
             const value = this.attributeBoolValue(element, 'Attributes.ByPointer');
             switch (element.$type) {
-                case ast.Association: return value ?? ast.isReferenceType(element.type?.ref);
-                case ast.Property: return value ?? (ast.isReferenceType(element.type?.ref) && !this.isByReference(element));
-                case ast.Parameter:
-                case ast.ReturnParameter:
+                case ast.Association.$type: return value ?? ast.isReferenceType(element.type?.ref);
+                case ast.Property.$type: return value ?? (ast.isReferenceType(element.type?.ref) && !this.isByReference(element));
+                case ast.Parameter.$type:
+                case ast.ReturnParameter.$type:
                     return value ?? (kind(element) === ArgKind.BY_PTR && !(this.attributeBoolValue(element, 'Attributes.ByReference') ?? false));
             }
         }) as boolean;
@@ -165,9 +165,9 @@ export class AttributeHelper {
         return this.cache.get({ key: 'isByReference', node: element }, () => {
             const value = this.attributeBoolValue(element, 'Attributes.ByReference');
             switch (element.$type) {
-                case ast.Property: return value ?? false;
-                case ast.Parameter:
-                case ast.ReturnParameter:
+                case ast.Property.$type: return value ?? false;
+                case ast.Parameter.$type:
+                case ast.ReturnParameter.$type:
                     return value ?? (kind(element) === ArgKind.BY_REF && !(this.attributeBoolValue(element, 'Attributes.ByPointer') ?? false));
             }
         }) as boolean;
@@ -219,7 +219,7 @@ export class AttributeHelper {
      * @return the signature
      */
     getSignature(element: ast.NamedElement): string | undefined {
-        if (ast.Operation === element.$type) {
+        if (ast.Operation.$type === element.$type) {
             return `${element.name}(${(element as ast.Operation).parameter.map(p => this.getParameterSignature(p), this).join(', ')})`;
         }
         return element.name;

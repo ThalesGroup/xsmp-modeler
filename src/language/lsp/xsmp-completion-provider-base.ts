@@ -144,6 +144,7 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
             const refInfo: ReferenceInfo = {
                 reference: {
                     $refText: '',
+                    ref: undefined,
                 },
                 container: node,
                 property: assignment.feature,
@@ -297,13 +298,13 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
         return `\${${index}|${uniqueChoices.map(choice => this.escapeSnippetChoice(choice)).join(',')}|}`;
     }
 
-    protected getCrossReferenceNames(context: CompletionContext, type: string, property: string): string[] {
+    protected getCrossReferenceNames(context: CompletionContext, type: string | { readonly $type: string }, property: string): string[] {
         const container = this.getRecoveryAstNode(context);
         const refInfo: ReferenceInfo = {
-            reference: { $refText: '' },
+            reference: { $refText: '', ref: undefined },
             container: {
                 $container: container,
-                $type: type,
+                $type: typeof type === 'string' ? type : type.$type,
             },
             property,
         };

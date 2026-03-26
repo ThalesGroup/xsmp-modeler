@@ -39,7 +39,7 @@ export class XsmpprojectValidator {
 
     private computeNamesForProjects(): MultiMap<string, AstNodeDescription> {
         const map = new MultiMap<string, AstNodeDescription>();
-        for (const type of this.indexManager.allElements(ast.Project)) {
+        for (const type of this.indexManager.allElements(ast.Project.$type)) {
             map.add(type.name, type);
         }
         return map;
@@ -82,7 +82,7 @@ export class XsmpprojectValidator {
         if (project.standard && !SmpStandards.includes(project.standard)) {
             accept('error', `Unknown version. Only the following versions are supported: ${SmpStandards.join(', ')}.`, {
                 node: project,
-                property: 'standard'
+                property: ast.Project.standard
             });
         }
         if(project.name)
@@ -90,7 +90,7 @@ export class XsmpprojectValidator {
         if (duplicates.length > 1) {
             accept('error', 'Duplicated project name', {
                 node: project,
-                property: 'name',
+                property: ast.Project.name,
                 relatedInformation: duplicates.filter(d => d.node !== project).map(d => ({ location: Location.create(d.documentUri.toString(), d.nameSegment!.range), message: d.name }))
             });
         }
@@ -104,10 +104,10 @@ export class XsmpprojectValidator {
 
         project.elements.forEach((element) => {
             switch (element.$type) {
-                case ast.ProfileReference: {
-                    if (element.profile && this.checkTypeReference(accept, element, element.profile, 'profile')) {
+                case ast.ProfileReference.$type: {
+                    if (element.profile && this.checkTypeReference(accept, element, element.profile, ast.ProfileReference.profile)) {
                         if (profile) {
-                            accept('error', 'A profile is already defined.', { node: element, property: 'profile' });
+                            accept('error', 'A profile is already defined.', { node: element, property: ast.ProfileReference.profile });
                         }
                         else {
                             profile = element.profile.ref;
@@ -115,42 +115,42 @@ export class XsmpprojectValidator {
                     }
                     break;
                 }
-                case ast.ToolReference: {
-                    if (element.tool && this.checkTypeReference(accept, element, element.tool, 'tool')) {
+                case ast.ToolReference.$type: {
+                    if (element.tool && this.checkTypeReference(accept, element, element.tool, ast.ToolReference.tool)) {
 
                         // Check no duplicated tool
                         if (tools.has(element.tool.ref!))
-                            accept('error', `Duplicated tool '${element.tool.ref?.name}'.`, { node: element, property: 'tool' });
+                            accept('error', `Duplicated tool '${element.tool.ref?.name}'.`, { node: element, property: ast.ToolReference.tool });
                         else
                             tools.add(element.tool.ref!);
                     }
                     break;
                 }
-                case ast.Dependency: {
-                    if (element.project && this.checkTypeReference(accept, element, element.project, 'project')) {
+                case ast.Dependency.$type: {
+                    if (element.project && this.checkTypeReference(accept, element, element.project, ast.Dependency.project)) {
                         if (this.projectManager.getDependencies(element.project.ref!).has(project))
-                            accept('error', `Cyclic dependency detected '${element.project.ref?.name}'.`, { node: element, property: 'project' });
+                            accept('error', `Cyclic dependency detected '${element.project.ref?.name}'.`, { node: element, property: ast.Dependency.project });
 
                         // Check no duplicated dependency
                         if (dependencies.has(element.project.ref!))
-                            accept('error', `Duplicated dependency '${element.project.ref?.name}'.`, { node: element, property: 'project' });
+                            accept('error', `Duplicated dependency '${element.project.ref?.name}'.`, { node: element, property: ast.Dependency.project });
                         else
                             dependencies.add(element.project.ref!);
 
                         if (project.standard !== element.project.ref?.standard) {
-                            accept('error', `SMP version does not match '${project.standard}'.`, { node: element, property: 'project' });
+                            accept('error', `SMP version does not match '${project.standard}'.`, { node: element, property: ast.Dependency.project });
                         }
                     }
                     break;
                 }
-                case ast.Source: {
+                case ast.Source.$type: {
                     if (element.path) {
                         const { path } = UriUtils.joinPath(projectUri, element.path);
                         if (!isSameOrContainedPath(projectUri.path, path)) {
-                            accept('error', `Source path '${element.path}' is not contained within the project directory.`, { node: element, property: 'path' });
+                            accept('error', `Source path '${element.path}' is not contained within the project directory.`, { node: element, property: ast.Source.path });
                         }
                         else if (!fs.existsSync(path)) {
-                            accept('error', `Source path '${element.path}' does not exist.`, { node: element, property: 'path' });
+                            accept('error', `Source path '${element.path}' does not exist.`, { node: element, property: ast.Source.path });
                         }
                     }
                     break;

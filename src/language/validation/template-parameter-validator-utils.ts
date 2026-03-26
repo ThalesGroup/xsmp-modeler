@@ -37,7 +37,7 @@ export function warnUnusedTemplateParameters(
         }
         accept('warning', `The Template Parameter '${parameter.name}' is not used.`, {
             node: parameter,
-            property: 'name',
+            property: ast.TemplateParameter.name,
         });
     }
 }

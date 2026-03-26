@@ -16,7 +16,7 @@ export class XsmpsedCompletionProvider extends XsmpCompletionProviderBase {
                 acceptor(context, this.createKeywordSnippet(keyword, 'schedule ${1:Name}\n$0', 'Schedule Definition'));
                 break;
             case 'task': {
-                const components = this.getCrossReferenceNames(context, ast.Task, 'component');
+                const components = this.getCrossReferenceNames(context, ast.Task, ast.Task.component);
                 acceptor(context, this.createKeywordSnippet(
                     keyword,
                     `task ${this.createPlaceholder(1, 'Name')}${components.length > 0 ? ` on ${this.createChoicePlaceholder(2, components, 'demo.Component')}` : ''}\n{\n\t$0\n}`,
@@ -93,7 +93,7 @@ export class XsmpsedCompletionProvider extends XsmpCompletionProviderBase {
             }
         }
 
-        if (refInfo.container.$type === ast.Task && refInfo.property === 'component' && ast.isComponent(nodeDescription.node)) {
+        if (refInfo.container.$type === ast.Task.$type && refInfo.property === ast.Task.component && ast.isComponent(nodeDescription.node)) {
             return this.createReferenceLikeItem(
                 nodeDescription,
                 nodeDescription.name,
@@ -101,7 +101,7 @@ export class XsmpsedCompletionProvider extends XsmpCompletionProviderBase {
             );
         }
 
-        if (ast.isExecuteTask(refInfo.container.$container) && refInfo.property === 'task' && ast.isTask(nodeDescription.node)) {
+        if (ast.isExecuteTask(refInfo.container.$container) && refInfo.property === ast.ExecuteTask.task && ast.isTask(nodeDescription.node)) {
             return this.createReferenceLikeItem(
                 nodeDescription,
                 this.createExecuteTaskText(nodeDescription.node),
@@ -136,7 +136,7 @@ export class XsmpsedCompletionProvider extends XsmpCompletionProviderBase {
     }
 
     protected addEventSnippets(context: CompletionContext, acceptor: CompletionAcceptor): void {
-        const tasks = this.getCrossReferenceNames(context, ast.ExecuteTask, 'task');
+        const tasks = this.getCrossReferenceNames(context, ast.ExecuteTask, ast.ExecuteTask.task);
         const task = this.createChoicePlaceholder(1, tasks, 'Task');
         acceptor(context, this.createSnippetItem('Event Epoch', `event ${task} epoch "${this.createPlaceholder(2, '2025-01-01T00:00:00Z')}"`, 'Epoch Event'));
         acceptor(context, this.createSnippetItem('Event Mission', `event ${task} mission "${this.createPlaceholder(2, 'PT10S')}"`, 'Mission Event'));

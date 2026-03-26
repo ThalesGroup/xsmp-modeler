@@ -17,7 +17,7 @@ export class XsmpcfgCompletionProvider extends XsmpCompletionProviderBase {
                 acceptor(context, this.createKeywordSnippet(keyword, 'configuration ${1:Name}\n$0', 'Configuration Definition'));
                 break;
             case 'include': {
-                const configurations = this.getCrossReferenceNames(context, ast.ConfigurationUsage, 'configuration');
+                const configurations = this.getCrossReferenceNames(context, ast.ConfigurationUsage, ast.ConfigurationUsage.configuration);
                 acceptor(context, this.createKeywordSnippet(
                     keyword,
                     `include ${this.createChoicePlaceholder(1, configurations, 'Configuration')}${this.createPlaceholder(2, ' at path')}`,
@@ -75,8 +75,8 @@ export class XsmpcfgCompletionProvider extends XsmpCompletionProviderBase {
 
         const configuration = this.getRecoveryContainerOfType(context, ast.isConfiguration);
         const componentConfiguration = this.getRecoveryContainerOfType(context, ast.isComponentConfiguration);
-        const components = this.getCrossReferenceNames(context, ast.ComponentConfiguration, 'component');
-        const configurations = this.getCrossReferenceNames(context, ast.ConfigurationUsage, 'configuration');
+        const components = this.getCrossReferenceNames(context, ast.ComponentConfiguration, ast.ComponentConfiguration.component);
+        const configurations = this.getCrossReferenceNames(context, ast.ConfigurationUsage, ast.ConfigurationUsage.configuration);
 
         if (componentConfiguration) {
             acceptor(context, this.createSnippetItem(
@@ -150,7 +150,7 @@ export class XsmpcfgCompletionProvider extends XsmpCompletionProviderBase {
             return;
         }
 
-        const configurations = this.getCrossReferenceNames(context, ast.ConfigurationUsage, 'configuration');
+        const configurations = this.getCrossReferenceNames(context, ast.ConfigurationUsage, ast.ConfigurationUsage.configuration);
         for (const child of this.getDirectChildComponentContexts(component)) {
             const componentName = XsmpUtils.fqn(child.component);
             acceptor(context, this.createContextualValueItem(

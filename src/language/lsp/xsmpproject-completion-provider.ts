@@ -14,21 +14,26 @@ export class XsmpprojectCompletionProvider extends XsmpCompletionProviderBase {
         this.projectManager = services.shared.workspace.ProjectManager;
     }
 
+    protected isReferenceProperty(refInfo: ReferenceInfo, type: string | { readonly $type: string }, property: string): boolean {
+        const expectedType = typeof type === 'string' ? type : type.$type;
+        return refInfo.container.$type === expectedType && refInfo.property === property;
+    }
+
     protected override getReferenceCandidates(refInfo: ReferenceInfo, _context: CompletionContext): Stream<AstNodeDescription> {
-        const refId = `${refInfo.container.$type}:${refInfo.property}`;
         const project = AstUtils.getContainerOfType(refInfo.container, ast.isProject);
         if (project) {
-            switch (refId) {
-                case 'Dependency:project':
-                    return this.scopeProvider.getScope(refInfo).getAllElements().filter(d => ast.isProject(d.node)
-                        && !this.projectManager.getDependencies(d.node).has(project)
-                        && !this.projectManager.getDependencies(project).has(d.node));
-                case 'ToolReference:tool':
-                    return this.scopeProvider.getScope(refInfo).getAllElements().filter(d =>
-                        !project.elements.filter(ast.isToolReference).some(r => r.tool?.$refText === d.name));
-                case 'ProfileReference:profile':
-                    return this.scopeProvider.getScope(refInfo).getAllElements().filter(d =>
-                        !project.elements.filter(ast.isProfileReference).some(r => r.profile?.$refText === d.name));
+            if (this.isReferenceProperty(refInfo, ast.Dependency, ast.Dependency.project)) {
+                return this.scopeProvider.getScope(refInfo).getAllElements().filter(d => ast.isProject(d.node)
+                    && !this.projectManager.getDependencies(d.node).has(project)
+                    && !this.projectManager.getDependencies(project).has(d.node));
+            }
+            if (this.isReferenceProperty(refInfo, ast.ToolReference, ast.ToolReference.tool)) {
+                return this.scopeProvider.getScope(refInfo).getAllElements().filter(d =>
+                    !project.elements.filter(ast.isToolReference).some(r => r.tool?.$refText === d.name));
+            }
+            if (this.isReferenceProperty(refInfo, ast.ProfileReference, ast.ProfileReference.profile)) {
+                return this.scopeProvider.getScope(refInfo).getAllElements().filter(d =>
+                    !project.elements.filter(ast.isProfileReference).some(r => r.profile?.$refText === d.name));
             }
         }
         return this.scopeProvider.getScope(refInfo).getAllElements();
@@ -39,17 +44,16 @@ export class XsmpprojectCompletionProvider extends XsmpCompletionProviderBase {
         _context: CompletionContext,
         nodeDescription: AstNodeDescription,
     ) {
-        const refId = `${refInfo.container.$type}:${refInfo.property}`;
-        switch (refId) {
-            case 'Dependency:project':
-                return this.createReferenceLikeItem(nodeDescription, `"${nodeDescription.name}"`, 'Project dependency.');
-            case 'ToolReference:tool':
-                return this.createReferenceLikeItem(nodeDescription, `"${nodeDescription.name}"`, 'Enabled XSMP tool.');
-            case 'ProfileReference:profile':
-                return this.createReferenceLikeItem(nodeDescription, `"${nodeDescription.name}"`, 'Activated XSMP profile.');
-            default:
-                return undefined;
+        if (this.isReferenceProperty(refInfo, ast.Dependency, ast.Dependency.project)) {
+            return this.createReferenceLikeItem(nodeDescription, `"${nodeDescription.name}"`, 'Project dependency.');
         }
+        if (this.isReferenceProperty(refInfo, ast.ToolReference, ast.ToolReference.tool)) {
+            return this.createReferenceLikeItem(nodeDescription, `"${nodeDescription.name}"`, 'Enabled XSMP tool.');
+        }
+        if (this.isReferenceProperty(refInfo, ast.ProfileReference, ast.ProfileReference.profile)) {
+            return this.createReferenceLikeItem(nodeDescription, `"${nodeDescription.name}"`, 'Activated XSMP profile.');
+        }
+        return undefined;
     }
 
     protected override filterKeyword(context: CompletionContext, keyword: GrammarAST.Keyword): boolean {
@@ -66,7 +70,7 @@ export class XsmpprojectCompletionProvider extends XsmpCompletionProviderBase {
     }
 
     protected override completionFor(context: CompletionContext, next: NextFeature, acceptor: CompletionAcceptor): MaybePromise<void> {
-        if (next.property === 'standard') {
+        if (next.property === ast.Project.standard) {
             for (const standard of SmpStandards) {
                 acceptor(context, this.createValueItem(standard, `"${standard}"`, 'SMP standard revision.'));
             }
@@ -162,12 +166,12 @@ export class XsmpprojectCompletionProvider extends XsmpCompletionProviderBase {
         ));
         acceptor(context, this.createSnippetItem(
             'Profile',
-            `profile "${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.ProfileReference, 'profile'), 'esa-cdk')}"`,
+            `profile "${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.ProfileReference, ast.ProfileReference.profile), 'esa-cdk')}"`,
             'Profile Reference'
         ));
         acceptor(context, this.createSnippetItem(
             'Tool',
-            `tool "${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.ToolReference, 'tool'), 'adoc')}"`,
+            `tool "${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.ToolReference, ast.ToolReference.tool), 'adoc')}"`,
             'Tool Reference'
         ));
     }

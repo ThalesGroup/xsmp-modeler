@@ -22,7 +22,7 @@ export class XsmpRenameProvider extends DefaultRenameProvider {
         const offset = document.textDocument.offsetAt(params.position);
         const leafNode = CstUtils.findDeclarationNodeAtOffset(rootNode, offset, this.grammarConfig.nameRegexp);
         if (!leafNode) return undefined;
-        const targetNode = this.references.findDeclaration(leafNode);
+        const targetNode = this.references.findDeclarations(leafNode).at(0);
         if (!targetNode) return undefined;
         const location = this.getNodeLocation(targetNode);
         if (location) {

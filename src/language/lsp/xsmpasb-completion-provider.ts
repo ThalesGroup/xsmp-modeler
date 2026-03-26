@@ -134,10 +134,10 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
         const assembly = this.getRecoveryContainerOfType(context, ast.isAssembly);
         const model = this.getRecoveryContainerOfType(context, ast.isModelInstance);
         const componentConfiguration = this.getRecoveryContainerOfType(context, ast.isAssemblyComponentConfiguration);
-        const components = this.getCrossReferenceNames(context, ast.ModelInstance, 'implementation');
-        const assemblies = this.getCrossReferenceNames(context, ast.AssemblyInstance, 'assembly');
-        const configurations = this.getCrossReferenceNames(context, ast.AssemblyInstance, 'configuration');
-        const linkBases = this.getCrossReferenceNames(context, ast.AssemblyInstance, 'linkBase');
+        const components = this.getCrossReferenceNames(context, ast.ModelInstance, ast.ModelInstance.implementation);
+        const assemblies = this.getCrossReferenceNames(context, ast.AssemblyInstance, ast.AssemblyInstance.assembly);
+        const configurations = this.getCrossReferenceNames(context, ast.AssemblyInstance, ast.AssemblyInstance.configuration);
+        const linkBases = this.getCrossReferenceNames(context, ast.AssemblyInstance, ast.AssemblyInstance.linkBase);
 
         if (componentConfiguration) {
             acceptor(context, this.createSnippetItem('Subscribe', 'subscribe ${1:entryPoint} -> "${2:GlobalEvent}"', 'Global Event Subscription'));
@@ -210,9 +210,9 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
             return;
         }
 
-        const assemblies = this.getCrossReferenceNames(context, ast.AssemblyInstance, 'assembly');
-        const configurations = this.getCrossReferenceNames(context, ast.AssemblyInstance, 'configuration');
-        const linkBases = this.getCrossReferenceNames(context, ast.AssemblyInstance, 'linkBase');
+        const assemblies = this.getCrossReferenceNames(context, ast.AssemblyInstance, ast.AssemblyInstance.assembly);
+        const configurations = this.getCrossReferenceNames(context, ast.AssemblyInstance, ast.AssemblyInstance.configuration);
+        const linkBases = this.getCrossReferenceNames(context, ast.AssemblyInstance, ast.AssemblyInstance.linkBase);
 
         for (const child of this.getDirectChildComponentContexts(component)) {
             const componentName = XsmpUtils.fqn(child.component);

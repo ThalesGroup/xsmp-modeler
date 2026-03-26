@@ -18,6 +18,11 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
         super(services);
     }
 
+    protected isReferenceProperty(refInfo: ReferenceInfo, type: string | { readonly $type: string }, property: string): boolean {
+        const expectedType = typeof type === 'string' ? type : type.$type;
+        return refInfo.container.$type === expectedType && refInfo.property === property;
+    }
+
     protected isValidAttributeType(desc: AstNodeDescription, attribute: ast.Attribute): boolean {
         if (!ast.isAttributeType(desc.node)) {
             return false;
@@ -47,104 +52,123 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
     }
 
     protected getFilter(refInfo: ReferenceInfo): ((desc: AstNodeDescription) => boolean) | undefined {
-        const refId = `${refInfo.container.$type}:${refInfo.property}`;
-        switch (refId) {
-            case 'Attribute:type':
-                return desc => this.isValidAttributeType(desc, refInfo.container as ast.Attribute);
-            case 'Class:base':
-                return desc => ast.isClass(desc.node)
-                    && !XsmpUtils.isBaseOfClass(refInfo.container as ast.Class, desc.node)
-                    && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node);
-            case 'Interface:base':
-                return desc => ast.isInterface(desc.node)
-                    && !XsmpUtils.isBaseOfInterface(refInfo.container as ast.Interface, desc.node)
-                    && !(refInfo.container as ast.Interface).base.some(i => i.ref === desc.node)
-                    && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node);
-            case 'Model:interface':
-            case 'Service:interface':
-                return desc => ast.isInterface(desc.node)
-                    && !(refInfo.container as ast.Component).interface.some(i => i.ref === desc.node)
-                    && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node);
-            case 'Reference:interface':
-                return desc => ast.isInterface(desc.node) && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node);
-            case 'Model:base':
-                return desc => ast.isModel(desc.node)
-                    && !XsmpUtils.isBaseOfComponent(refInfo.container as ast.Component, desc.node)
-                    && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node);
-            case 'Service:base':
-                return desc => ast.isService(desc.node)
-                    && !XsmpUtils.isBaseOfComponent(refInfo.container as ast.Component, desc.node)
-                    && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node);
-            case 'ArrayType:itemType':
-                return desc => ast.isValueType(desc.node)
-                    && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node)
-                    && !XsmpUtils.isRecursiveType(refInfo.container as ast.ArrayType, desc.node);
-            case 'ValueReference:type':
-            case 'AttributeType:type':
-                return desc => ast.isValueType(desc.node) && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node);
-            case 'Field:type':
-                return desc => ast.isValueType(desc.node)
-                    && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node)
-                    && !XsmpUtils.isRecursiveType((refInfo.container as ast.Field).$container, desc.node);
-            case 'Property:attachedField':
-                return desc => ast.isField(desc.node)
-                    && (desc.node.$container === refInfo.container.$container || XsmpUtils.getRealVisibility(desc.node) !== VisibilityKind.private);
-            case 'Integer:primitiveType':
-                return desc => desc.type === ast.PrimitiveType
-                    && this.intRegex.test(desc.name)
-                    && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
-            case 'Float:primitiveType':
-                return desc => desc.type === ast.PrimitiveType
-                    && this.floatRegex.test(desc.name)
-                    && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
-            case 'EventType:eventArgs':
-            case 'Constant:type':
-                return desc => ast.reflection.isSubtype(desc.type, ast.SimpleType)
-                    && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
-            case 'Parameter:type':
-            case 'ReturnParameter:type':
-            case 'Association:type':
-            case 'Property:type':
-                return desc => ast.reflection.isSubtype(desc.type, ast.LanguageType)
-                    && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
-            case 'Container:type':
-                return desc => ast.reflection.isSubtype(desc.type, ast.ReferenceType)
-                    && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
-            case 'Container:defaultComponent':
-                return desc => ast.reflection.isSubtype(desc.type, ast.Component)
-                    && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
-            case 'EventSink:type':
-            case 'EventSource:type':
-                return desc => ast.EventType === desc.type && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
-            case 'Operation:raisedException':
-                return desc => ast.Exception === desc.type
-                    && !(refInfo.container as ast.Operation).raisedException.some(e => e.ref === desc.node)
-                    && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
-            case 'Property:getRaises':
-                return desc => ast.Exception === desc.type
-                    && !(refInfo.container as ast.Property).getRaises.some(e => e.ref === desc.node)
-                    && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
-            case 'Property:setRaises':
-                return desc => ast.Exception === desc.type
-                    && !(refInfo.container as ast.Property).setRaises.some(e => e.ref === desc.node)
-                    && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
-            case 'Exception:base':
-                return desc => ast.isException(desc.node)
-                    && !XsmpUtils.isBaseOfClass(refInfo.container as ast.Class, desc.node)
-                    && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
-            case 'EntryPoint:input':
-                return desc => ast.isField(desc.node)
-                    && XsmpUtils.isInput(desc.node)
-                    && (desc.node.$container === refInfo.container.$container || XsmpUtils.getRealVisibility(desc.node) !== VisibilityKind.private);
-            case 'EntryPoint:output':
-                return desc => ast.isField(desc.node)
-                    && XsmpUtils.isOutput(desc.node)
-                    && (desc.node.$container === refInfo.container.$container || XsmpUtils.getRealVisibility(desc.node) !== VisibilityKind.private);
-            case 'NamedElementReference:value':
-                return desc => this.isValidNamedElementReference(desc, refInfo.container as ast.Expression);
-            default:
-                return undefined;
+        if (this.isReferenceProperty(refInfo, ast.Attribute, ast.Attribute.type)) {
+            return desc => this.isValidAttributeType(desc, refInfo.container as ast.Attribute);
         }
+        if (this.isReferenceProperty(refInfo, ast.Class, ast.Class.base)) {
+            return desc => ast.isClass(desc.node)
+                && !XsmpUtils.isBaseOfClass(refInfo.container as ast.Class, desc.node)
+                && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node);
+        }
+        if (this.isReferenceProperty(refInfo, ast.Interface, ast.Interface.base)) {
+            return desc => ast.isInterface(desc.node)
+                && !XsmpUtils.isBaseOfInterface(refInfo.container as ast.Interface, desc.node)
+                && !(refInfo.container as ast.Interface).base.some(i => i.ref === desc.node)
+                && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node);
+        }
+        if (this.isReferenceProperty(refInfo, ast.Model, ast.Component.interface) || this.isReferenceProperty(refInfo, ast.Service, ast.Component.interface)) {
+            return desc => ast.isInterface(desc.node)
+                && !(refInfo.container as ast.Component).interface.some(i => i.ref === desc.node)
+                && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node);
+        }
+        if (this.isReferenceProperty(refInfo, ast.Reference, ast.Reference.interface)) {
+            return desc => ast.isInterface(desc.node) && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node);
+        }
+        if (this.isReferenceProperty(refInfo, ast.Model, ast.Component.base)) {
+            return desc => ast.isModel(desc.node)
+                && !XsmpUtils.isBaseOfComponent(refInfo.container as ast.Component, desc.node)
+                && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node);
+        }
+        if (this.isReferenceProperty(refInfo, ast.Service, ast.Component.base)) {
+            return desc => ast.isService(desc.node)
+                && !XsmpUtils.isBaseOfComponent(refInfo.container as ast.Component, desc.node)
+                && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node);
+        }
+        if (this.isReferenceProperty(refInfo, ast.ArrayType, ast.ArrayType.itemType)) {
+            return desc => ast.isValueType(desc.node)
+                && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node)
+                && !XsmpUtils.isRecursiveType(refInfo.container as ast.ArrayType, desc.node);
+        }
+        if (this.isReferenceProperty(refInfo, ast.ValueReference, ast.ValueReference.type) || this.isReferenceProperty(refInfo, ast.AttributeType, ast.AttributeType.type)) {
+            return desc => ast.isValueType(desc.node) && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node);
+        }
+        if (this.isReferenceProperty(refInfo, ast.Field, ast.Field.type)) {
+            return desc => ast.isValueType(desc.node)
+                && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node)
+                && !XsmpUtils.isRecursiveType((refInfo.container as ast.Field).$container, desc.node);
+        }
+        if (this.isReferenceProperty(refInfo, ast.Property, ast.Property.attachedField)) {
+            return desc => ast.isField(desc.node)
+                && (desc.node.$container === refInfo.container.$container || XsmpUtils.getRealVisibility(desc.node) !== VisibilityKind.private);
+        }
+        if (this.isReferenceProperty(refInfo, ast.Integer, ast.Integer.primitiveType)) {
+            return desc => desc.type === ast.PrimitiveType.$type
+                && this.intRegex.test(desc.name)
+                && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
+        }
+        if (this.isReferenceProperty(refInfo, ast.Float, ast.Float.primitiveType)) {
+            return desc => desc.type === ast.PrimitiveType.$type
+                && this.floatRegex.test(desc.name)
+                && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
+        }
+        if (this.isReferenceProperty(refInfo, ast.EventType, ast.EventType.eventArgs) || this.isReferenceProperty(refInfo, ast.Constant, ast.Constant.type)) {
+            return desc => ast.reflection.isSubtype(desc.type, ast.SimpleType.$type)
+                && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
+        }
+        if (
+            this.isReferenceProperty(refInfo, ast.Parameter, ast.Parameter.type)
+            || this.isReferenceProperty(refInfo, ast.ReturnParameter, ast.ReturnParameter.type)
+            || this.isReferenceProperty(refInfo, ast.Association, ast.Association.type)
+            || this.isReferenceProperty(refInfo, ast.Property, ast.Property.type)
+        ) {
+            return desc => ast.reflection.isSubtype(desc.type, ast.LanguageType.$type)
+                && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
+        }
+        if (this.isReferenceProperty(refInfo, ast.Container, ast.Container.type)) {
+            return desc => ast.reflection.isSubtype(desc.type, ast.ReferenceType.$type)
+                && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
+        }
+        if (this.isReferenceProperty(refInfo, ast.Container, ast.Container.defaultComponent)) {
+            return desc => ast.reflection.isSubtype(desc.type, ast.Component.$type)
+                && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
+        }
+        if (this.isReferenceProperty(refInfo, ast.EventSink, ast.EventSink.type) || this.isReferenceProperty(refInfo, ast.EventSource, ast.EventSource.type)) {
+            return desc => ast.EventType.$type === desc.type && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
+        }
+        if (this.isReferenceProperty(refInfo, ast.Operation, ast.Operation.raisedException)) {
+            return desc => ast.Exception.$type === desc.type
+                && !(refInfo.container as ast.Operation).raisedException.some(e => e.ref === desc.node)
+                && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
+        }
+        if (this.isReferenceProperty(refInfo, ast.Property, ast.Property.getRaises)) {
+            return desc => ast.Exception.$type === desc.type
+                && !(refInfo.container as ast.Property).getRaises.some(e => e.ref === desc.node)
+                && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
+        }
+        if (this.isReferenceProperty(refInfo, ast.Property, ast.Property.setRaises)) {
+            return desc => ast.Exception.$type === desc.type
+                && !(refInfo.container as ast.Property).setRaises.some(e => e.ref === desc.node)
+                && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
+        }
+        if (this.isReferenceProperty(refInfo, ast.Exception, ast.Class.base)) {
+            return desc => ast.isException(desc.node)
+                && !XsmpUtils.isBaseOfClass(refInfo.container as ast.Class, desc.node)
+                && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
+        }
+        if (this.isReferenceProperty(refInfo, ast.EntryPoint, ast.EntryPoint.input)) {
+            return desc => ast.isField(desc.node)
+                && XsmpUtils.isInput(desc.node)
+                && (desc.node.$container === refInfo.container.$container || XsmpUtils.getRealVisibility(desc.node) !== VisibilityKind.private);
+        }
+        if (this.isReferenceProperty(refInfo, ast.EntryPoint, ast.EntryPoint.output)) {
+            return desc => ast.isField(desc.node)
+                && XsmpUtils.isOutput(desc.node)
+                && (desc.node.$container === refInfo.container.$container || XsmpUtils.getRealVisibility(desc.node) !== VisibilityKind.private);
+        }
+        if (this.isReferenceProperty(refInfo, ast.NamedElementReference, ast.NamedElementReference.value)) {
+            return desc => this.isValidNamedElementReference(desc, refInfo.container as ast.Expression);
+        }
+        return undefined;
     }
 
     protected override getReferenceCandidates(refInfo: ReferenceInfo, context: CompletionContext): Stream<AstNodeDescription> {
@@ -181,7 +205,7 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
             AstUtils.assignMandatoryProperties(this.astReflection, node);
         }
 
-        if (node.$type !== ast.NamedElementReference || assignment.feature !== 'value') {
+        if (node.$type !== ast.NamedElementReference.$type || assignment.feature !== ast.NamedElementReference.value) {
             return;
         }
 
@@ -199,35 +223,44 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
         _context: CompletionContext,
         nodeDescription: AstNodeDescription,
     ) {
-        const refId = `${refInfo.container.$type}:${refInfo.property}`;
-        switch (refId) {
-            case 'Field:type':
-                return this.createTypedMemberSnippet(nodeDescription, 'field', 'Field Definition');
-            case 'Constant:type':
-                return this.createTypedMemberSnippet(nodeDescription, 'constant', 'Constant Definition', true);
-            case 'Property:type':
-                return this.createTypedMemberSnippet(nodeDescription, 'property', 'Property Definition');
-            case 'Association:type':
-                return this.createTypedMemberSnippet(nodeDescription, 'association', 'Association Definition');
-            case 'Container:type':
-                return this.createTypedMemberSnippet(nodeDescription, 'container', 'Container Definition', false, '[*]');
-            case 'Reference:interface':
-                return this.createTypedMemberSnippet(nodeDescription, 'reference', 'Reference Definition', false, '[*]');
-            case 'EventSink:type':
-                return this.createTypedMemberSnippet(nodeDescription, 'eventsink', 'Event Sink Definition');
-            case 'EventSource:type':
-                return this.createTypedMemberSnippet(nodeDescription, 'eventsource', 'Event Source Definition');
-            case 'ValueReference:type':
-                return this.createReferenceLikeItem(nodeDescription, `${this.createPlaceholder(1, 'Name')} = ${nodeDescription.name}*`, 'Value reference definition.');
-            case 'ArrayType:itemType':
-                return this.createReferenceLikeItem(nodeDescription, `${nodeDescription.name}[${this.createPlaceholder(1, '1')}]`, 'Array definition.');
-            case 'Property:attachedField':
-            case 'EntryPoint:input':
-            case 'EntryPoint:output':
-                return this.createReferenceLikeItem(nodeDescription, nodeDescription.name, nodeDescription.type);
-            default:
-                return undefined;
+        if (this.isReferenceProperty(refInfo, ast.Field, ast.Field.type)) {
+            return this.createTypedMemberSnippet(nodeDescription, 'field', 'Field Definition');
         }
+        if (this.isReferenceProperty(refInfo, ast.Constant, ast.Constant.type)) {
+            return this.createTypedMemberSnippet(nodeDescription, 'constant', 'Constant Definition', true);
+        }
+        if (this.isReferenceProperty(refInfo, ast.Property, ast.Property.type)) {
+            return this.createTypedMemberSnippet(nodeDescription, 'property', 'Property Definition');
+        }
+        if (this.isReferenceProperty(refInfo, ast.Association, ast.Association.type)) {
+            return this.createTypedMemberSnippet(nodeDescription, 'association', 'Association Definition');
+        }
+        if (this.isReferenceProperty(refInfo, ast.Container, ast.Container.type)) {
+            return this.createTypedMemberSnippet(nodeDescription, 'container', 'Container Definition', false, '[*]');
+        }
+        if (this.isReferenceProperty(refInfo, ast.Reference, ast.Reference.interface)) {
+            return this.createTypedMemberSnippet(nodeDescription, 'reference', 'Reference Definition', false, '[*]');
+        }
+        if (this.isReferenceProperty(refInfo, ast.EventSink, ast.EventSink.type)) {
+            return this.createTypedMemberSnippet(nodeDescription, 'eventsink', 'Event Sink Definition');
+        }
+        if (this.isReferenceProperty(refInfo, ast.EventSource, ast.EventSource.type)) {
+            return this.createTypedMemberSnippet(nodeDescription, 'eventsource', 'Event Source Definition');
+        }
+        if (this.isReferenceProperty(refInfo, ast.ValueReference, ast.ValueReference.type)) {
+            return this.createReferenceLikeItem(nodeDescription, `${this.createPlaceholder(1, 'Name')} = ${nodeDescription.name}*`, 'Value reference definition.');
+        }
+        if (this.isReferenceProperty(refInfo, ast.ArrayType, ast.ArrayType.itemType)) {
+            return this.createReferenceLikeItem(nodeDescription, `${nodeDescription.name}[${this.createPlaceholder(1, '1')}]`, 'Array definition.');
+        }
+        if (
+            this.isReferenceProperty(refInfo, ast.Property, ast.Property.attachedField)
+            || this.isReferenceProperty(refInfo, ast.EntryPoint, ast.EntryPoint.input)
+            || this.isReferenceProperty(refInfo, ast.EntryPoint, ast.EntryPoint.output)
+        ) {
+            return this.createReferenceLikeItem(nodeDescription, nodeDescription.name, nodeDescription.type);
+        }
+        return undefined;
     }
 
     protected override createKeywordSnippets(context: CompletionContext, keyword: GrammarAST.Keyword, acceptor: CompletionAcceptor): void {
@@ -259,14 +292,14 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
             case 'array':
                 acceptor(context, this.createTypeKeywordSnippet(
                     keyword,
-                    `array ${this.createPlaceholder(1, 'Name')} = ${this.createChoicePlaceholder(2, this.getCrossReferenceNames(context, ast.ArrayType, 'itemType'), 'Smp.Float64')}[${this.createPlaceholder(3, '1')}]`,
+                    `array ${this.createPlaceholder(1, 'Name')} = ${this.createChoicePlaceholder(2, this.getCrossReferenceNames(context, ast.ArrayType, ast.ArrayType.itemType), 'Smp.Float64')}[${this.createPlaceholder(3, '1')}]`,
                     'Array Definition'
                 ));
                 break;
             case 'using':
                 acceptor(context, this.createTypeKeywordSnippet(
                     keyword,
-                    `using ${this.createPlaceholder(1, 'Name')} = ${this.createChoicePlaceholder(2, this.getCrossReferenceNames(context, ast.ValueReference, 'type'), 'Smp.Float64')}*`,
+                    `using ${this.createPlaceholder(1, 'Name')} = ${this.createChoicePlaceholder(2, this.getCrossReferenceNames(context, ast.ValueReference, ast.ValueReference.type), 'Smp.Float64')}*`,
                     'Value Reference Definition'
                 ));
                 break;
@@ -291,7 +324,7 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
             case 'attribute':
                 acceptor(context, this.createTypeKeywordSnippet(
                     keyword,
-                    `attribute ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.AttributeType, 'type'), 'Smp.Bool')} ${this.createPlaceholder(2, 'Name')} = ${this.createPlaceholder(3, 'false')}`,
+                    `attribute ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.AttributeType, ast.AttributeType.type), 'Smp.Bool')} ${this.createPlaceholder(2, 'Name')} = ${this.createPlaceholder(3, 'false')}`,
                     'Attribute Type Definition'
                 ));
                 break;
@@ -301,21 +334,21 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
             case 'constant':
                 acceptor(context, this.createKeywordSnippet(
                     keyword,
-                    `constant ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Constant, 'type'), 'Smp.Int32')} ${this.createPlaceholder(2, 'name')} = ${this.createPlaceholder(3, '0')}`,
+                    `constant ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Constant, ast.Constant.type), 'Smp.Int32')} ${this.createPlaceholder(2, 'name')} = ${this.createPlaceholder(3, '0')}`,
                     'Constant Definition'
                 ));
                 break;
             case 'field':
                 acceptor(context, this.createKeywordSnippet(
                     keyword,
-                    `field ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Field, 'type'), 'Smp.Int32')} ${this.createPlaceholder(2, 'name')}`,
+                    `field ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Field, ast.Field.type), 'Smp.Int32')} ${this.createPlaceholder(2, 'name')}`,
                     'Field Definition'
                 ));
                 break;
             case 'property':
                 acceptor(context, this.createKeywordSnippet(
                     keyword,
-                    `property ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Property, 'type'), 'Smp.Int32')} ${this.createPlaceholder(2, 'name')}`,
+                    `property ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Property, ast.Property.type), 'Smp.Int32')} ${this.createPlaceholder(2, 'name')}`,
                     'Property Definition'
                 ));
                 break;
@@ -325,21 +358,21 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
             case 'association':
                 acceptor(context, this.createKeywordSnippet(
                     keyword,
-                    `association ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Association, 'type'), 'demo.Type')} ${this.createPlaceholder(2, 'name')}`,
+                    `association ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Association, ast.Association.type), 'demo.Type')} ${this.createPlaceholder(2, 'name')}`,
                     'Association Definition'
                 ));
                 break;
             case 'container':
                 acceptor(context, this.createKeywordSnippet(
                     keyword,
-                    `container ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Container, 'type'), 'demo.Component')}[*] ${this.createPlaceholder(2, 'name')}`,
+                    `container ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Container, ast.Container.type), 'demo.Component')}[*] ${this.createPlaceholder(2, 'name')}`,
                     'Container Definition'
                 ));
                 break;
             case 'reference':
                 acceptor(context, this.createKeywordSnippet(
                     keyword,
-                    `reference ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Reference, 'interface'), 'demo.Interface')}[*] ${this.createPlaceholder(2, 'name')}`,
+                    `reference ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Reference, ast.Reference.interface), 'demo.Interface')}[*] ${this.createPlaceholder(2, 'name')}`,
                     'Reference Definition'
                 ));
                 break;
@@ -349,14 +382,14 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
             case 'eventsink':
                 acceptor(context, this.createKeywordSnippet(
                     keyword,
-                    `eventsink ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.EventSink, 'type'), 'demo.Event')} ${this.createPlaceholder(2, 'name')}`,
+                    `eventsink ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.EventSink, ast.EventSink.type), 'demo.Event')} ${this.createPlaceholder(2, 'name')}`,
                     'Event Sink Definition'
                 ));
                 break;
             case 'eventsource':
                 acceptor(context, this.createKeywordSnippet(
                     keyword,
-                    `eventsource ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.EventSource, 'type'), 'demo.Event')} ${this.createPlaceholder(2, 'name')}`,
+                    `eventsource ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.EventSource, ast.EventSource.type), 'demo.Event')} ${this.createPlaceholder(2, 'name')}`,
                     'Event Source Definition'
                 ));
                 break;
@@ -399,12 +432,12 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
         if (structure && !ast.isClass(structure) && !ast.isException(structure) && !ast.isModel(structure) && !ast.isService(structure)) {
             acceptor(context, this.createSnippetItem(
                 'Field',
-                `field ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Field, 'type'), 'Smp.Int32')} ${this.createPlaceholder(2, 'name')}`,
+                `field ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Field, ast.Field.type), 'Smp.Int32')} ${this.createPlaceholder(2, 'name')}`,
                 'Field Definition'
             ));
             acceptor(context, this.createSnippetItem(
                 'Constant',
-                `constant ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Constant, 'type'), 'Smp.Int32')} ${this.createPlaceholder(2, 'name')} = ${this.createPlaceholder(3, '0')}`,
+                `constant ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Constant, ast.Constant.type), 'Smp.Int32')} ${this.createPlaceholder(2, 'name')} = ${this.createPlaceholder(3, '0')}`,
                 'Constant Definition'
             ));
             return;
@@ -428,12 +461,12 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
         acceptor(context, this.createTypeSnippetItem('Service', 'service ${1:Name}\n{\n\t$0\n}', 'Service Definition'));
         acceptor(context, this.createTypeSnippetItem(
             'Array',
-            `array ${this.createPlaceholder(1, 'Name')} = ${this.createChoicePlaceholder(2, this.getCrossReferenceNames(context, ast.ArrayType, 'itemType'), 'Smp.Float64')}[${this.createPlaceholder(3, '1')}]`,
+            `array ${this.createPlaceholder(1, 'Name')} = ${this.createChoicePlaceholder(2, this.getCrossReferenceNames(context, ast.ArrayType, ast.ArrayType.itemType), 'Smp.Float64')}[${this.createPlaceholder(3, '1')}]`,
             'Array Definition'
         ));
         acceptor(context, this.createTypeSnippetItem(
             'Value Reference',
-            `using ${this.createPlaceholder(1, 'Name')} = ${this.createChoicePlaceholder(2, this.getCrossReferenceNames(context, ast.ValueReference, 'type'), 'Smp.Float64')}*`,
+            `using ${this.createPlaceholder(1, 'Name')} = ${this.createChoicePlaceholder(2, this.getCrossReferenceNames(context, ast.ValueReference, ast.ValueReference.type), 'Smp.Float64')}*`,
             'Value Reference Definition'
         ));
         acceptor(context, this.createTypeSnippetItem('Integer', 'integer ${1:Name} extends ${2:Smp.Int32}', 'Integer Definition'));
@@ -444,7 +477,7 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
         acceptor(context, this.createTypeSnippetItem('Native', 'native ${1:Name}', 'Native Type Definition'));
         acceptor(context, this.createTypeSnippetItem(
             'Attribute Type',
-            `attribute ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.AttributeType, 'type'), 'Smp.Bool')} ${this.createPlaceholder(2, 'Name')} = ${this.createPlaceholder(3, 'false')}`,
+            `attribute ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.AttributeType, ast.AttributeType.type), 'Smp.Bool')} ${this.createPlaceholder(2, 'Name')} = ${this.createPlaceholder(3, 'false')}`,
             'Attribute Type Definition'
         ));
         acceptor(context, this.createTypeSnippetItem('Enumeration', 'enum ${1:Name}\n{\n\t${2:Literal} = ${3:0}\n}', 'Enumeration Definition'));
@@ -465,14 +498,14 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
     protected addClassifierMemberSnippets(context: CompletionContext, classifier: ast.WithBody, acceptor: CompletionAcceptor): void {
         acceptor(context, this.createSnippetItem(
             'Constant',
-            `constant ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Constant, 'type'), 'Smp.Int32')} ${this.createPlaceholder(2, 'name')} = ${this.createPlaceholder(3, '0')}`,
+            `constant ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Constant, ast.Constant.type), 'Smp.Int32')} ${this.createPlaceholder(2, 'name')} = ${this.createPlaceholder(3, '0')}`,
             'Constant Definition'
         ));
 
         if (ast.isStructure(classifier) || ast.isClass(classifier) || ast.isException(classifier) || ast.isModel(classifier) || ast.isService(classifier)) {
             acceptor(context, this.createSnippetItem(
                 'Field',
-                `field ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Field, 'type'), 'Smp.Int32')} ${this.createPlaceholder(2, 'name')}`,
+                `field ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Field, ast.Field.type), 'Smp.Int32')} ${this.createPlaceholder(2, 'name')}`,
                 'Field Definition'
             ));
         }
@@ -480,7 +513,7 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
         if (!ast.isStructure(classifier)) {
             acceptor(context, this.createSnippetItem(
                 'Property',
-                `property ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Property, 'type'), 'Smp.Int32')} ${this.createPlaceholder(2, 'name')}`,
+                `property ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Property, ast.Property.type), 'Smp.Int32')} ${this.createPlaceholder(2, 'name')}`,
                 'Property Definition'
             ));
             acceptor(context, this.createSnippetItem('Operation', 'def void ${1:name}($0)', 'Operation Definition'));
@@ -489,7 +522,7 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
         if (ast.isClass(classifier) || ast.isException(classifier) || ast.isModel(classifier) || ast.isService(classifier)) {
             acceptor(context, this.createSnippetItem(
                 'Association',
-                `association ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Association, 'type'), 'demo.Type')} ${this.createPlaceholder(2, 'name')}`,
+                `association ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Association, ast.Association.type), 'demo.Type')} ${this.createPlaceholder(2, 'name')}`,
                 'Association Definition'
             ));
         }
@@ -497,23 +530,23 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
         if (ast.isModel(classifier) || ast.isService(classifier)) {
             acceptor(context, this.createSnippetItem(
                 'Container',
-                `container ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Container, 'type'), 'demo.Component')}[*] ${this.createPlaceholder(2, 'name')}`,
+                `container ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Container, ast.Container.type), 'demo.Component')}[*] ${this.createPlaceholder(2, 'name')}`,
                 'Container Definition'
             ));
             acceptor(context, this.createSnippetItem(
                 'Reference',
-                `reference ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Reference, 'interface'), 'demo.Interface')}[*] ${this.createPlaceholder(2, 'name')}`,
+                `reference ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Reference, ast.Reference.interface), 'demo.Interface')}[*] ${this.createPlaceholder(2, 'name')}`,
                 'Reference Definition'
             ));
             acceptor(context, this.createSnippetItem('Entry Point', 'entrypoint ${1:name}', 'Entry Point Definition'));
             acceptor(context, this.createSnippetItem(
                 'Event Sink',
-                `eventsink ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.EventSink, 'type'), 'demo.Event')} ${this.createPlaceholder(2, 'name')}`,
+                `eventsink ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.EventSink, ast.EventSink.type), 'demo.Event')} ${this.createPlaceholder(2, 'name')}`,
                 'Event Sink Definition'
             ));
             acceptor(context, this.createSnippetItem(
                 'Event Source',
-                `eventsource ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.EventSource, 'type'), 'demo.Event')} ${this.createPlaceholder(2, 'name')}`,
+                `eventsource ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.EventSource, ast.EventSource.type), 'demo.Event')} ${this.createPlaceholder(2, 'name')}`,
                 'Event Source Definition'
             ));
         }

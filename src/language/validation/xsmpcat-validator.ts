@@ -91,7 +91,7 @@ export class XsmpcatValidator {
 
     private computeUuidsForTypes(): MultiMap<string, AstNodeDescription> {
         const map = new MultiMap<string, AstNodeDescription>();
-        for (const type of this.indexManager.allElements(ast.Type)) {
+        for (const type of this.indexManager.allElements(ast.Type.$type)) {
             if (type.node) {
                 const uuid = this.docHelper.getUuid(type.node as ast.Type)?.toString().trim();
                 if (XsmpUtils.isUUID(uuid)) {
@@ -104,7 +104,7 @@ export class XsmpcatValidator {
 
     private computeServiceNames(): MultiMap<string, AstNodeDescription> {
         const map = new MultiMap<string, AstNodeDescription>();
-        for (const type of this.indexManager.allElements(ast.Service)) {
+        for (const type of this.indexManager.allElements(ast.Service.$type)) {
             const service = type.node as ast.Service;
             if (service.name) {
                 map.add(service.name, type);
@@ -115,7 +115,7 @@ export class XsmpcatValidator {
 
     private computeVisibleNames(document: LangiumDocument): MultiMap<string, AstNodeDescription> {
         const map = new MultiMap<string, AstNodeDescription>();
-        for (const element of this.indexManager.allElements(ast.NamedElement, this.projectManager.getVisibleUris(document))) {
+        for (const element of this.indexManager.allElements(ast.NamedElement.$type, this.projectManager.getVisibleUris(document))) {
             map.add(element.name, element);
         }
         return map;
@@ -126,7 +126,7 @@ export class XsmpcatValidator {
     }
 
     checkNamedElement(element: ast.NamedElement, accept: ValidationAcceptor): void {
-        checkName(accept, element, element.name, 'name', { allowCppKeywords: false, required: false });
+        checkName(accept, element, element.name, ast.NamedElement.name, { allowCppKeywords: false, required: false });
         this.checkAttributes(element, accept);
     }
 
@@ -137,7 +137,7 @@ export class XsmpcatValidator {
             if (!attribute.type) {
                 accept('error', 'Missing type.', { node: attribute, keyword: '@' });
             }
-            else if (this.checkTypeReference(accept, attribute, attribute.type.ref, 'type')) {
+            else if (this.checkTypeReference(accept, attribute, attribute.type.ref, ast.Attribute.type)) {
                 const type = attribute.type.ref as ast.AttributeType,
                     usages = this.docHelper.getUsages(type);
 
@@ -155,54 +155,75 @@ export class XsmpcatValidator {
         }
     }
     public static getReferenceType(type: string, property: string): string {
-
-        const referenceId = `${type}:${property}`;
-        switch (referenceId) {
-            case 'Attribute:type':
-                return ast.AttributeType;
-            case 'Class:base':
-                return ast.Class;
-            case 'Interface:base':
-            case 'Model:interface':
-            case 'Service:interface':
-            case 'Reference:interface':
-                return ast.Interface;
-            case 'Model:base':
-                return ast.Model;
-            case 'Service:base':
-                return ast.Service;
-            case 'ArrayType:itemType':
-            case 'ValueReference:type':
-            case 'AttributeType:type':
-            case 'Field:type':
-                return ast.ValueType;
-            case 'Integer:primitiveType':
-            case 'Float:primitiveType':
-                return ast.PrimitiveType;
-            case 'EventType:eventArgs':
-            case 'Constant:type':
-                return ast.SimpleType;
-            case 'Parameter:type':
-            case 'ReturnParameter:type':
-            case 'Association:type':
-            case 'Property:type':
-                return ast.LanguageType;
-            case 'Container:type':
-                return ast.ReferenceType;
-            case 'Container:defaultComponent':
-                return ast.Component;
-            case 'EventSink:type':
-            case 'EventSource:type':
-                return ast.EventType;
-            case 'Operation:raisedException':
-            case 'Property:getRaises':
-            case 'Property:setRaises':
-            case 'Exception:base':
-                return ast.Exception;
-            default: {
-                throw new Error(`${referenceId} is not a valid reference id.`);
-            }
+        if (type === ast.Attribute.$type && property === ast.Attribute.type) {
+            return ast.AttributeType.$type;
         }
+        if (type === ast.Class.$type && property === ast.Class.base) {
+            return ast.Class.$type;
+        }
+        if (
+            (type === ast.Interface.$type && property === ast.Interface.base)
+            || (type === ast.Model.$type && property === ast.Component.interface)
+            || (type === ast.Service.$type && property === ast.Component.interface)
+            || (type === ast.Reference.$type && property === ast.Reference.interface)
+        ) {
+            return ast.Interface.$type;
+        }
+        if (type === ast.Model.$type && property === ast.Component.base) {
+            return ast.Model.$type;
+        }
+        if (type === ast.Service.$type && property === ast.Component.base) {
+            return ast.Service.$type;
+        }
+        if (
+            (type === ast.ArrayType.$type && property === ast.ArrayType.itemType)
+            || (type === ast.ValueReference.$type && property === ast.ValueReference.type)
+            || (type === ast.AttributeType.$type && property === ast.AttributeType.type)
+            || (type === ast.Field.$type && property === ast.Field.type)
+        ) {
+            return ast.ValueType.$type;
+        }
+        if (
+            (type === ast.Integer.$type && property === ast.Integer.primitiveType)
+            || (type === ast.Float.$type && property === ast.Float.primitiveType)
+        ) {
+            return ast.PrimitiveType.$type;
+        }
+        if (
+            (type === ast.EventType.$type && property === ast.EventType.eventArgs)
+            || (type === ast.Constant.$type && property === ast.Constant.type)
+        ) {
+            return ast.SimpleType.$type;
+        }
+        if (
+            (type === ast.Parameter.$type && property === ast.Parameter.type)
+            || (type === ast.ReturnParameter.$type && property === ast.ReturnParameter.type)
+            || (type === ast.Association.$type && property === ast.Association.type)
+            || (type === ast.Property.$type && property === ast.Property.type)
+        ) {
+            return ast.LanguageType.$type;
+        }
+        if (type === ast.Container.$type && property === ast.Container.type) {
+            return ast.ReferenceType.$type;
+        }
+        if (type === ast.Container.$type && property === ast.Container.defaultComponent) {
+            return ast.Component.$type;
+        }
+        if (
+            (type === ast.EventSink.$type && property === ast.EventSink.type)
+            || (type === ast.EventSource.$type && property === ast.EventSource.type)
+        ) {
+            return ast.EventType.$type;
+        }
+        if (
+            (type === ast.Operation.$type && property === ast.Operation.raisedException)
+            || (type === ast.Property.$type && property === ast.Property.getRaises)
+            || (type === ast.Property.$type && property === ast.Property.setRaises)
+            || (type === ast.Exception.$type && property === ast.Class.base)
+        ) {
+            return ast.Exception.$type;
+        }
+        throw new Error(`${type}:${property} is not a valid reference id.`);
     }
 
     checkTypeReference<T extends AstNode, U extends ast.Type>(accept: ValidationAcceptor, node: T, reference: U | undefined, property: Properties<T>, index?: number): reference is U {
@@ -232,7 +253,7 @@ export class XsmpcatValidator {
 
         if (!field) { return false; }
 
-        if (field.$type !== ast.Field) {
+        if (field.$type !== ast.Field.$type) {
             accept('error', 'Expecting a Field.', { node, property, index });
             return false;
         }
@@ -282,7 +303,7 @@ export class XsmpcatValidator {
                     const field = fields[i] as ast.Field;
                     if (ast.isDesignatedInitializer(exp)) {
                         if (exp.field?.ref !== field) {
-                            accept('error', `Invalid field name, expecting ${field.name}.`, { node: exp, property: 'field', data: diagnosticData(IssueCodes.InvalidFieldName) });
+                            accept('error', `Invalid field name, expecting ${field.name}.`, { node: exp, property: ast.DesignatedInitializer.field, data: diagnosticData(IssueCodes.InvalidFieldName) });
                         }
                         exp = exp.expr;
                     }
@@ -307,16 +328,16 @@ export class XsmpcatValidator {
     }
 
     checkAttribute(attribute: ast.Attribute, accept: ValidationAcceptor): void {
-        if (this.checkTypeReference(accept, attribute, attribute.type?.ref, 'type')) {
+        if (this.checkTypeReference(accept, attribute, attribute.type?.ref, ast.Attribute.type)) {
             const attributeType = attribute.type.ref as ast.AttributeType;
             if (attribute.value) { this.checkExpression(attributeType.type?.ref, attribute.value, accept); }
-            else if (!attributeType.default) { accept('error', 'A value is required.', { node: attribute, property: 'value', data: diagnosticData(IssueCodes.MissingValue) }); }
+            else if (!attributeType.default) { accept('error', 'A value is required.', { node: attribute, property: ast.Attribute.value, data: diagnosticData(IssueCodes.MissingValue) }); }
         }
     }
 
     checkConstant(constant: ast.Constant, accept: ValidationAcceptor): void {
 
-        if (this.checkTypeReference(accept, constant, constant.type?.ref, 'type')) {
+        if (this.checkTypeReference(accept, constant, constant.type?.ref, ast.Constant.type)) {
             const type = constant.type.ref as ast.PrimitiveType;
             if (!constant.value) { accept('error', 'A Constant must have an initialization value.', { node: constant, keyword: 'constant', data: diagnosticData(IssueCodes.MissingValue) }); }
             else { this.checkExpression(type, constant.value, accept); }
@@ -324,7 +345,7 @@ export class XsmpcatValidator {
     }
 
     checkField(field: ast.Field, accept: ValidationAcceptor): void {
-        if (this.checkTypeReference(accept, field, field.type?.ref, 'type')) {
+        if (this.checkTypeReference(accept, field, field.type?.ref, ast.Field.type)) {
             this.checkExpression(field.type.ref, field.default, accept);
         }
     }
@@ -332,19 +353,19 @@ export class XsmpcatValidator {
     checkEnumeration(enumeration: ast.Enumeration, accept: ValidationAcceptor): void {
         this.checkModifier(enumeration, [ast.isVisibilityModifiers], accept);
         if (enumeration.literal.length === 0) {
-            accept('error', 'An Enumeration shall contains at least one literal.', { node: enumeration, property: 'literal' });
+            accept('error', 'An Enumeration shall contains at least one literal.', { node: enumeration, property: ast.Enumeration.literal });
         }
 
         const values = new Set<string | number | bigint | boolean | ast.EnumerationLiteral>(),
             literals = new Set<string>();
         for (const literal of enumeration.literal) {
-            if (literal.name && literals.has(literal.name)) { accept('error', 'Duplicated literal name.', { node: literal, property: 'name' }); }
+            if (literal.name && literals.has(literal.name)) { accept('error', 'Duplicated literal name.', { node: literal, property: ast.EnumerationLiteral.name }); }
             else { literals.add(literal.name ?? ''); }
 
             const value = this.checkExpression(PTK.Int32, literal.value, accept);
             if (value !== undefined) {
                 if (values.has(value)) {
-                    accept('error', 'Enumeration Literal Values shall be unique within an Enumeration.', { node: literal, property: 'value' });
+                    accept('error', 'Enumeration Literal Values shall be unique within an Enumeration.', { node: literal, property: ast.EnumerationLiteral.value });
                 }
                 else {
                     values.add(value);
@@ -358,25 +379,25 @@ export class XsmpcatValidator {
     checkInteger(integer: ast.Integer, accept: ValidationAcceptor): void {
         this.checkModifier(integer, [ast.isVisibilityModifiers], accept);
 
-        this.checkTypeReference(accept, integer, integer.primitiveType?.ref, 'primitiveType');
+        this.checkTypeReference(accept, integer, integer.primitiveType?.ref, ast.Integer.primitiveType);
 
         const kind = XsmpUtils.getPTK(integer);
         if (this.integerTypes.has(kind)) {
             const min = this.checkExpression(kind, integer.minimum, accept),
                 max = this.checkExpression(kind, integer.maximum, accept);
             if (min !== undefined && max !== undefined && min > max) {
-                accept('error', 'Minimum shall be less or equal than Maximum.', { node: integer, property: 'minimum' });
+                accept('error', 'Minimum shall be less or equal than Maximum.', { node: integer, property: ast.Integer.minimum });
             }
         }
         else {
-            accept('error', 'Expecting an Integral Type.', { node: integer, property: 'primitiveType' });
+            accept('error', 'Expecting an Integral Type.', { node: integer, property: ast.Integer.primitiveType });
         }
 
     }
     checkFloat(float: ast.Float, accept: ValidationAcceptor): void {
         this.checkModifier(float, [ast.isVisibilityModifiers], accept);
 
-        this.checkTypeReference(accept, float, float.primitiveType?.ref, 'primitiveType');
+        this.checkTypeReference(accept, float, float.primitiveType?.ref, ast.Float.primitiveType);
 
         const kind = XsmpUtils.getPTK(float);
         if (isFloatingType(kind)) {
@@ -386,12 +407,12 @@ export class XsmpcatValidator {
             if (min !== undefined && max !== undefined) {
                 if (min > max || (min === max && float.range !== '...')) {
                     accept('error', float.range !== '...' ? 'Minimum shall be less than Maximum.' : 'Minimum shall be less or equal than Maximum.',
-                        { node: float, property: 'minimum' });
+                        { node: float, property: ast.Float.minimum });
                 }
             }
         }
         else {
-            accept('error', 'Expecting a Floating Point Type.', { node: float, property: 'primitiveType' });
+            accept('error', 'Expecting a Floating Point Type.', { node: float, property: ast.Float.primitiveType });
         }
     }
 
@@ -422,7 +443,7 @@ export class XsmpcatValidator {
         if (duplicates.length > 1) {
             accept('error', 'Duplicated Type name.', {
                 node: type,
-                property: 'name',
+                property: ast.Type.name,
                 data: diagnosticData(IssueCodes.DuplicatedTypeName),
                 relatedInformation: duplicates.filter(d => d.node !== type).map(d => ({ location: Location.create(d.documentUri.toString(), d.nameSegment!.range), message: d.name }))
             });
@@ -430,28 +451,28 @@ export class XsmpcatValidator {
     }
 
     checkAssociation(association: ast.Association, accept: ValidationAcceptor): void {
-        this.checkTypeReference(accept, association, association.type?.ref, 'type');
+        this.checkTypeReference(accept, association, association.type?.ref, ast.Association.type);
     }
 
     checkContainer(container: ast.Container, accept: ValidationAcceptor): void {
-        if (this.checkTypeReference(accept, container, container.type?.ref, 'type') &&
-            this.checkTypeReference(accept, container, container.defaultComponent?.ref, 'defaultComponent') &&
+        if (this.checkTypeReference(accept, container, container.type?.ref, ast.Container.type) &&
+            this.checkTypeReference(accept, container, container.defaultComponent?.ref, ast.Container.defaultComponent) &&
             !XsmpUtils.isBaseOfReferenceType(container.type.ref as ast.ReferenceType, container.defaultComponent.ref)) {
             accept('error', `The default Component shall be a sub type of ${XsmpUtils.fqn(container.type.ref)}`,
-                { node: container, property: 'defaultComponent' });
+                { node: container, property: ast.Container.defaultComponent });
         }
     }
 
     checkNamedElementWithMultiplicity(element: ast.NamedElementWithMultiplicity, accept: ValidationAcceptor): void {
         const lower = XsmpUtils.getLower(element);
         if (lower !== undefined && lower < 0) {
-            accept('error', 'Lower bound shall be a positive number or 0.', { node: element.multiplicity!, property: 'lower' });
+            accept('error', 'Lower bound shall be a positive number or 0.', { node: element.multiplicity!, property: ast.Multiplicity.lower });
         }
 
         const upper = XsmpUtils.getUpper(element);
         if (upper !== undefined && upper !== BigInt(-1) && lower !== undefined && upper < lower) {
             accept('error', 'Lower bound shall be less or equal to the upper bound, if present.\nUpper bound shall be -1 or larger or equal to the lower bound.',
-                { node: element.multiplicity!, property: 'lower' });
+                { node: element.multiplicity!, property: ast.Multiplicity.lower });
         }
     }
 
@@ -460,14 +481,14 @@ export class XsmpcatValidator {
             let visited = false;
             for (const [index, modifier] of element.modifiers.entries()) {
                 if (check(modifier)) {
-                    if (visited) { accept('error', 'Illegal modifier.', { node: element, property: 'modifiers', index, data: diagnosticData(IssueCodes.IllegalModifier) }); }
+                    if (visited) { accept('error', 'Illegal modifier.', { node: element, property: ast.VisibilityElement.modifiers, index, data: diagnosticData(IssueCodes.IllegalModifier) }); }
                     visited = true;
                 }
             }
         }
 
         for (const [index, modifier] of element.modifiers.entries()) {
-            if (!checks.some(check => check(modifier))) { accept('error', 'Invalid modifier.', { node: element, property: 'modifiers', index, data: diagnosticData(IssueCodes.InvalidModifier) }); }
+            if (!checks.some(check => check(modifier))) { accept('error', 'Invalid modifier.', { node: element, property: ast.VisibilityElement.modifiers, index, data: diagnosticData(IssueCodes.InvalidModifier) }); }
         }
     }
 
@@ -481,7 +502,7 @@ export class XsmpcatValidator {
                     if (duplicatedOp.length > 0) {
                         accept('error', 'Duplicated identifier.', {
                             node: member,
-                            property: 'name',
+                            property: ast.NamedElement.name,
                             relatedInformation: duplicatedOp.filter(d => d.$cstNode !== undefined).map(d => ({ location: Location.create(AstUtils.getDocument(d).uri.toString(), d.$cstNode!.range), message: XsmpUtils.fqn(d) }))
                         });
                     }
@@ -489,7 +510,7 @@ export class XsmpcatValidator {
                 else if (!(ast.isConstant(member) || ast.isProperty(member)) || duplicates.find(d => d.$container === member.$container)) {
                     accept('error', 'Duplicated identifier.', {
                         node: member,
-                        property: 'name',
+                        property: ast.NamedElement.name,
                         relatedInformation: duplicates.filter(d => d.$cstNode !== undefined).map(d => ({ location: Location.create(AstUtils.getDocument(d).uri.toString(), d.$cstNode!.range), message: XsmpUtils.fqn(d) }))
                     });
                 }
@@ -536,11 +557,11 @@ export class XsmpcatValidator {
         this.checkModifier(inter, [ast.isVisibilityModifiers], accept);
         const visited = new Set<ast.Type>();
         for (const [index, base] of inter.base.entries()) {
-            if (this.checkTypeReference(accept, inter, base.ref, 'base', index)) {
-                if (visited.has(base.ref)) { accept('error', 'Duplicated interface.', { node: inter, property: 'base', index, data: diagnosticData(IssueCodes.DuplicatedInterfaceBase) }); }
+            if (this.checkTypeReference(accept, inter, base.ref, ast.Interface.base, index)) {
+                if (visited.has(base.ref)) { accept('error', 'Duplicated interface.', { node: inter, property: ast.Interface.base, index, data: diagnosticData(IssueCodes.DuplicatedInterfaceBase) }); }
                 else {
                     visited.add(base.ref);
-                    if (XsmpUtils.isBaseOfInterface(inter, base.ref)) { accept('error', 'Cyclic dependency detected.', { node: inter, property: 'base', index, data: diagnosticData(IssueCodes.CyclicInterfaceBase) }); }
+                    if (XsmpUtils.isBaseOfInterface(inter, base.ref)) { accept('error', 'Cyclic dependency detected.', { node: inter, property: ast.Interface.base, index, data: diagnosticData(IssueCodes.CyclicInterfaceBase) }); }
                 }
             }
         }
@@ -550,11 +571,11 @@ export class XsmpcatValidator {
             this.checkDuplicatedMember(duplicates, element, accept);
 
             switch (element.$type) {
-                case ast.Constant:
-                case ast.Operation:
+                case ast.Constant.$type:
+                case ast.Operation.$type:
                     this.checkModifier(element, [], accept);
                     break;
-                case ast.Property:
+                case ast.Property.$type:
                     this.checkModifier(element, [ast.isAccessKind], accept);
                     break;
             }
@@ -564,12 +585,12 @@ export class XsmpcatValidator {
     checkComponent(component: ast.Component, accept: ValidationAcceptor): void {
 
         this.checkModifier(component, [ast.isVisibilityModifiers, (elem) => elem === 'abstract'], accept);
-        if (this.checkTypeReference(accept, component, component.base?.ref, 'base') && XsmpUtils.isBaseOfComponent(component, component.base.ref)) { accept('error', 'Cyclic dependency detected.', { node: component, property: 'base', data: diagnosticData(IssueCodes.CyclicComponentBase) }); }
+        if (this.checkTypeReference(accept, component, component.base?.ref, ast.Component.base) && XsmpUtils.isBaseOfComponent(component, component.base.ref)) { accept('error', 'Cyclic dependency detected.', { node: component, property: ast.Component.base, data: diagnosticData(IssueCodes.CyclicComponentBase) }); }
 
         const visited = new Set<ast.Type | undefined>();
         for (const [index, inter] of component.interface.entries()) {
-            if (this.checkTypeReference(accept, component, inter.ref, 'interface', index)) {
-                if (visited.has(inter.ref)) { accept('error', 'Duplicated interface.', { node: component, property: 'interface', index, data: diagnosticData(IssueCodes.DuplicatedComponentInterface) }); }
+            if (this.checkTypeReference(accept, component, inter.ref, ast.Component.interface, index)) {
+                if (visited.has(inter.ref)) { accept('error', 'Duplicated interface.', { node: component, property: ast.Component.interface, index, data: diagnosticData(IssueCodes.DuplicatedComponentInterface) }); }
                 else { visited.add(inter.ref); }
             }
         }
@@ -579,27 +600,27 @@ export class XsmpcatValidator {
             this.checkDuplicatedMember(duplicates, element, accept);
 
             switch (element.$type) {
-                case ast.Constant:
-                case ast.Operation:
-                case ast.Association:
+                case ast.Constant.$type:
+                case ast.Operation.$type:
+                case ast.Association.$type:
                     this.checkModifier(element, [ast.isVisibilityModifiers], accept);
                     break;
-                case ast.Field:
+                case ast.Field.$type:
                     this.checkModifier(element, [ast.isVisibilityModifiers, (elem) => elem === 'input', (elem) => elem === 'output', (elem) => elem === 'transient'], accept);
                     break;
-                case ast.Property:
+                case ast.Property.$type:
                     this.checkModifier(element, [ast.isVisibilityModifiers, ast.isAccessKind], accept);
                     break;
             }
         }
 
         if (!component.modifiers.includes('abstract') &&
-            component.elements.some(e => (ast.isOperation(e) || ast.isProperty(e)) && this.attrHelper.isAbstract(e), this)) { accept('warning', `The ${component.$type} shall be abstract.`, { node: component, keyword: component.$type === ast.Model ? 'model' : 'service', data: diagnosticData(IssueCodes.MissingAbstract) }); }
+            component.elements.some(e => (ast.isOperation(e) || ast.isProperty(e)) && this.attrHelper.isAbstract(e), this)) { accept('warning', `The ${component.$type} shall be abstract.`, { node: component, keyword: component.$type === ast.Model.$type ? 'model' : 'service', data: diagnosticData(IssueCodes.MissingAbstract) }); }
     }
 
     checkStructure(structure: ast.Structure, accept: ValidationAcceptor): void {
 
-        if (structure.$type !== ast.Structure) { return; }
+        if (structure.$type !== ast.Structure.$type) { return; }
         this.checkModifier(structure, [ast.isVisibilityModifiers], accept);
 
         const duplicates = this.initDuplicatedMembers(structure);
@@ -607,12 +628,12 @@ export class XsmpcatValidator {
             this.checkDuplicatedMember(duplicates, element, accept);
 
             switch (element.$type) {
-                case ast.Constant:
+                case ast.Constant.$type:
                     this.checkModifier(element, [], accept);
                     break;
-                case ast.Field:
+                case ast.Field.$type:
                     this.checkModifier(element, [(elem) => elem === 'input', (elem) => elem === 'output', (elem) => elem === 'transient'], accept);
-                    if (XsmpUtils.isRecursiveType(structure, element.type?.ref)) { accept('error', 'Recursive Field Type.', { node: element, property: 'type' }); }
+                    if (XsmpUtils.isRecursiveType(structure, element.type?.ref)) { accept('error', 'Recursive Field Type.', { node: element, property: ast.Field.type }); }
                     break;
             }
         }
@@ -620,8 +641,8 @@ export class XsmpcatValidator {
 
     checkClass(clazz: ast.Class, accept: ValidationAcceptor): void {
         this.checkModifier(clazz, [ast.isVisibilityModifiers, (elem) => elem === 'abstract'], accept);
-        if (clazz.base && this.checkTypeReference(accept, clazz, clazz.base.ref, 'base') && XsmpUtils.isBaseOfClass(clazz, clazz.base.ref)) {
-            accept('error', 'Cyclic dependency detected.', { node: clazz, property: 'base', data: diagnosticData(IssueCodes.CyclicClassBase) });
+        if (clazz.base && this.checkTypeReference(accept, clazz, clazz.base.ref, ast.Class.base) && XsmpUtils.isBaseOfClass(clazz, clazz.base.ref)) {
+            accept('error', 'Cyclic dependency detected.', { node: clazz, property: ast.Class.base, data: diagnosticData(IssueCodes.CyclicClassBase) });
         }
 
         const duplicates = this.initDuplicatedMembers(clazz);
@@ -629,52 +650,52 @@ export class XsmpcatValidator {
             this.checkDuplicatedMember(duplicates, element, accept);
 
             switch (element.$type) {
-                case ast.Constant:
-                case ast.Operation:
-                case ast.Association:
+                case ast.Constant.$type:
+                case ast.Operation.$type:
+                case ast.Association.$type:
                     this.checkModifier(element, [ast.isVisibilityModifiers], accept);
                     break;
-                case ast.Field:
+                case ast.Field.$type:
                     this.checkModifier(element, [ast.isVisibilityModifiers, (elem) => elem === 'input', (elem) => elem === 'output', (elem) => elem === 'transient'], accept);
                     if (XsmpUtils.isRecursiveType(clazz, element.type?.ref)) {
-                        accept('error', 'Recursive Field Type.', { node: element, property: 'type' });
+                        accept('error', 'Recursive Field Type.', { node: element, property: ast.Field.type });
                     }
                     break;
-                case ast.Property:
+                case ast.Property.$type:
                     this.checkModifier(element, [ast.isVisibilityModifiers, ast.isAccessKind], accept);
                     break;
             }
         }
         if (!clazz.modifiers.includes('abstract') &&
             clazz.elements.some(e => (ast.isOperation(e) || ast.isProperty(e)) && this.attrHelper.isAbstract(e), this)) {
-            accept('warning', `The ${clazz.$type} shall be abstract.`, { node: clazz, keyword: clazz.$type === ast.Class ? 'class' : 'exception', data: diagnosticData(IssueCodes.MissingAbstract) });
+            accept('warning', `The ${clazz.$type} shall be abstract.`, { node: clazz, keyword: clazz.$type === ast.Class.$type ? 'class' : 'exception', data: diagnosticData(IssueCodes.MissingAbstract) });
         }
     }
 
     checkEventType(eventType: ast.EventType, accept: ValidationAcceptor): void {
         this.checkModifier(eventType, [ast.isVisibilityModifiers], accept);
-        this.checkTypeReference(accept, eventType, eventType.eventArgs?.ref, 'eventArgs');
+        this.checkTypeReference(accept, eventType, eventType.eventArgs?.ref, ast.EventType.eventArgs);
     }
 
     checkNativeType(nativeType: ast.NativeType, accept: ValidationAcceptor): void {
         this.checkModifier(nativeType, [ast.isVisibilityModifiers], accept);
         if (!this.docHelper.getNativeType(nativeType)) {
-            accept('error', 'The javadoc \'@type\' tag shall be defined with the C++ type name.', { node: nativeType, property: 'name' });
+            accept('error', 'The javadoc \'@type\' tag shall be defined with the C++ type name.', { node: nativeType, property: ast.NativeType.name });
         }
     }
 
     checkEventSink(eventSink: ast.EventSink, accept: ValidationAcceptor): void {
-        this.checkTypeReference(accept, eventSink, eventSink.type?.ref, 'type');
+        this.checkTypeReference(accept, eventSink, eventSink.type?.ref, ast.EventSink.type);
     }
 
     checkEventSource(eventSource: ast.EventSource, accept: ValidationAcceptor): void {
-        this.checkTypeReference(accept, eventSource, eventSource.type?.ref, 'type');
+        this.checkTypeReference(accept, eventSource, eventSource.type?.ref, ast.EventSource.type);
     }
     checkString(string: ast.StringType, accept: ValidationAcceptor): void {
         this.checkModifier(string, [ast.isVisibilityModifiers], accept);
         const length = this.checkExpression(PTK.Int64, string.length, accept);
         if (length === undefined) { accept('error', 'Missing String length.', { node: string, keyword: XsmpUtils.getKeywordForType(string) }); }
-        else if (length as bigint < 0) { accept('error', 'The String length shall be a positive number.', { node: string, property: 'length' }); }
+        else if (length as bigint < 0) { accept('error', 'The String length shall be a positive number.', { node: string, property: ast.StringType.length }); }
     }
 
     checkArrayType(array: ast.ArrayType, accept: ValidationAcceptor): void {
@@ -684,27 +705,27 @@ export class XsmpcatValidator {
             accept('error', 'Missing Array size.', { node: array, keyword: XsmpUtils.getKeywordForType(array) });
         }
         else if (size as bigint < 0) {
-            accept('error', 'The Array size shall be a positive number.', { node: array, property: 'size' });
+            accept('error', 'The Array size shall be a positive number.', { node: array, property: ast.ArrayType.size });
         }
 
-        if (this.checkTypeReference(accept, array, array.itemType?.ref, 'itemType')) {
+        if (this.checkTypeReference(accept, array, array.itemType?.ref, ast.ArrayType.itemType)) {
             const type = array.itemType.ref as ast.ValueType;
 
             if (XsmpUtils.isRecursiveType(array, type)) {
-                accept('error', 'Recursive Array Type.', { node: array, property: 'itemType' });
+                accept('error', 'Recursive Array Type.', { node: array, property: ast.ArrayType.itemType });
             }
 
             if (!ast.isSimpleType(type) && this.attrHelper.isSimpleArray(array)) {
-                accept('error', 'An array annotated with \'@SimpleArray\' requires a SimpleType item type.', { node: array, property: 'itemType', data: diagnosticData(IssueCodes.NonSimpleArray) });
+                accept('error', 'An array annotated with \'@SimpleArray\' requires a SimpleType item type.', { node: array, property: ast.ArrayType.itemType, data: diagnosticData(IssueCodes.NonSimpleArray) });
             }
         }
     }
 
     checkAttributeType(attribute: ast.AttributeType, accept: ValidationAcceptor): void {
         this.checkModifier(attribute, [ast.isVisibilityModifiers], accept);
-        if (this.checkTypeReference(accept, attribute, attribute.type?.ref, 'type')) {
+        if (this.checkTypeReference(accept, attribute, attribute.type?.ref, ast.AttributeType.type)) {
             if (!attribute.default) {
-                accept('warning', 'Default value is missing.', { node: attribute, property: 'name' });
+                accept('warning', 'Default value is missing.', { node: attribute, property: ast.AttributeType.name });
             }
             else {
                 this.checkExpression(attribute.type.ref, attribute.default, accept);
@@ -730,10 +751,10 @@ export class XsmpcatValidator {
 
     checkEntryPoint(entryPoint: ast.EntryPoint, accept: ValidationAcceptor): void {
         entryPoint.input.forEach((f, i) => {
-            if (this.checkFieldReference(accept, entryPoint, f.ref, 'input', i) && !XsmpUtils.isInput(f.ref)) { accept('error', 'Field is not an Input.', { node: entryPoint, property: 'input', index: i }); }
+            if (this.checkFieldReference(accept, entryPoint, f.ref, ast.EntryPoint.input, i) && !XsmpUtils.isInput(f.ref)) { accept('error', 'Field is not an Input.', { node: entryPoint, property: ast.EntryPoint.input, index: i }); }
         });
         entryPoint.output.forEach((f, i) => {
-            if (this.checkFieldReference(accept, entryPoint, f.ref, 'output', i) && !XsmpUtils.isOutput(f.ref)) { accept('error', 'Field is not an Output.', { node: entryPoint, property: 'output', index: i }); }
+            if (this.checkFieldReference(accept, entryPoint, f.ref, ast.EntryPoint.output, i) && !XsmpUtils.isOutput(f.ref)) { accept('error', 'Field is not an Output.', { node: entryPoint, property: ast.EntryPoint.output, index: i }); }
         });
     }
     checkService(service: ast.Service, accept: ValidationAcceptor): void {
@@ -743,7 +764,7 @@ export class XsmpcatValidator {
             if (duplicates.length > 1 && !isBuiltinLibrary(AstUtils.getDocument(service).uri)) {
                 accept('error', 'Duplicated Service name.', {
                     node: service,
-                    property: 'name',
+                    property: ast.Service.name,
                     relatedInformation: duplicates.filter(d => d.node !== service).map(d => ({ location: Location.create(d.documentUri.toString(), d.nameSegment!.range), message: d.name }))
                 });
             }
@@ -755,11 +776,11 @@ export class XsmpcatValidator {
         if (date && isNaN(Date.parse(date.toString().trim()))) {
             accept('warning', 'Invalid date format (e.g: 1970-01-01T00:00:00Z).', { node: catalogue, range: date.range });
         }
-        const duplicates = this.indexManager.allElements(ast.Catalogue).filter(c => c.name === catalogue.name).toArray();
+        const duplicates = this.indexManager.allElements(ast.Catalogue.$type).filter(c => c.name === catalogue.name).toArray();
         if (duplicates.length > 1 && !isBuiltinLibrary(AstUtils.getDocument(catalogue).uri)) {
             accept('error', 'Duplicated Catalogue name.', {
                 node: catalogue,
-                property: 'name',
+                property: ast.Catalogue.name,
                 relatedInformation: duplicates.filter(d => d.node !== catalogue).map(d => ({ location: Location.create(d.documentUri.toString(), d.nameSegment!.range), message: d.name }))
             });
         }
@@ -769,18 +790,18 @@ export class XsmpcatValidator {
     }
 
     checkProperty(property: ast.Property, accept: ValidationAcceptor): void {
-        if (this.checkTypeReference(accept, property, property.type?.ref, 'type') &&
-            this.checkFieldReference(accept, property, property.attachedField?.ref, 'attachedField') &&
+        if (this.checkTypeReference(accept, property, property.type?.ref, ast.Property.type) &&
+            this.checkFieldReference(accept, property, property.attachedField?.ref, ast.Property.attachedField) &&
             property.type.ref !== property.attachedField.ref.type?.ref) {
-            accept('error', 'The Type of the AttachedField shall match the Type of the Property.', { node: property, property: 'attachedField' });
+            accept('error', 'The Type of the AttachedField shall match the Type of the Property.', { node: property, property: ast.Property.attachedField });
         }
 
         const getRaises = new Set<ast.Type | undefined>();
         for (const [index, exception] of property.getRaises.entries()) {
-            if (this.checkTypeReference(accept, property, exception.ref, 'getRaises', index)) {
+            if (this.checkTypeReference(accept, property, exception.ref, ast.Property.getRaises, index)) {
                 if (getRaises.has(exception.ref)) {
                     accept('error', 'Duplicated exception.', {
-                        node: property, property: 'getRaises', index, data: diagnosticData(IssueCodes.DuplicatedException)
+                        node: property, property: ast.Property.getRaises, index, data: diagnosticData(IssueCodes.DuplicatedException)
                     });
                 }
                 else {
@@ -790,10 +811,10 @@ export class XsmpcatValidator {
         }
         const setRaises = new Set<ast.Type | undefined>();
         for (const [index, exception] of property.setRaises.entries()) {
-            if (this.checkTypeReference(accept, property, exception.ref, 'setRaises', index)) {
+            if (this.checkTypeReference(accept, property, exception.ref, ast.Property.setRaises, index)) {
                 if (setRaises.has(exception.ref)) {
                     accept('error', 'Duplicated exception.', {
-                        node: property, property: 'setRaises', index, data: diagnosticData(IssueCodes.DuplicatedException)
+                        node: property, property: ast.Property.setRaises, index, data: diagnosticData(IssueCodes.DuplicatedException)
                     });
                 }
                 else {
@@ -830,20 +851,20 @@ export class XsmpcatValidator {
     }
 
     checkReference(reference: ast.Reference, accept: ValidationAcceptor): void {
-        this.checkTypeReference(accept, reference, reference.interface?.ref, 'interface');
+        this.checkTypeReference(accept, reference, reference.interface?.ref, ast.Reference.interface);
     }
 
     checkValueReference(valueReference: ast.ValueReference, accept: ValidationAcceptor): void {
         this.checkModifier(valueReference, [ast.isVisibilityModifiers], accept);
-        this.checkTypeReference(accept, valueReference, valueReference.type?.ref, 'type');
+        this.checkTypeReference(accept, valueReference, valueReference.type?.ref, ast.ValueReference.type);
     }
 
     checkOperation(operation: ast.Operation, accept: ValidationAcceptor): void {
 
         const raisedException = new Set<ast.Type | undefined>();
         for (const [index, exception] of operation.raisedException.entries()) {
-            if (this.checkTypeReference(accept, operation, exception.ref, 'raisedException', index)) {
-                if (raisedException.has(exception.ref)) { accept('error', 'Duplicated exception.', { node: operation, property: 'raisedException', index, data: diagnosticData(IssueCodes.DuplicatedException) }); }
+            if (this.checkTypeReference(accept, operation, exception.ref, ast.Operation.raisedException, index)) {
+                if (raisedException.has(exception.ref)) { accept('error', 'Duplicated exception.', { node: operation, property: ast.Operation.raisedException, index, data: diagnosticData(IssueCodes.DuplicatedException) }); }
                 else { raisedException.add(exception.ref); }
             }
         }
@@ -869,7 +890,7 @@ export class XsmpcatValidator {
             const isConst = this.attrHelper.attribute(operation, 'Attributes.Const');
             if (this.attrHelper.isAttributeTrue(isConst)) { accept('warning', 'Const attribute is ignored for a Constructor.', { node: isConst!, data: diagnosticData(IssueCodes.InvalidAttribute) }); }
 
-            if (operation.returnParameter) { accept('error', 'A Constructors shall not have any return parameters.', { node: operation, property: 'returnParameter' }); }
+            if (operation.returnParameter) { accept('error', 'A Constructors shall not have any return parameters.', { node: operation, property: ast.Operation.returnParameter }); }
         }
 
         const parameterNames = new Set<string>();
@@ -878,16 +899,16 @@ export class XsmpcatValidator {
         // Check that default value of parameters are provided
         let requireDefaultValue = false;
         for (const parameter of operation.parameter) {
-            if (parameterNames.has(parameter.name ?? '')) { accept('error', 'Duplicated parameter name.', { node: parameter, property: 'name' }); }
+            if (parameterNames.has(parameter.name ?? '')) { accept('error', 'Duplicated parameter name.', { node: parameter, property: ast.Parameter.name }); }
             else { parameterNames.add(parameter.name ?? ''); }
 
             if (parameter.default !== undefined) { requireDefaultValue = true; }
-            else if (requireDefaultValue) { accept('error', 'The Parameter requires a default vallue.', { node: parameter, property: 'default', data: diagnosticData(IssueCodes.MissingValue) }); }
+            else if (requireDefaultValue) { accept('error', 'The Parameter requires a default vallue.', { node: parameter, property: ast.Parameter.default, data: diagnosticData(IssueCodes.MissingValue) }); }
         }
 
     }
     checkParameter(parameter: ast.Parameter, accept: ValidationAcceptor): void {
-        if (this.checkTypeReference(accept, parameter, parameter.type?.ref, 'type')) { this.checkExpression(parameter.type.ref, parameter.default, accept); } //TODO isByPointer
+        if (this.checkTypeReference(accept, parameter, parameter.type?.ref, ast.Parameter.type)) { this.checkExpression(parameter.type.ref, parameter.default, accept); } //TODO isByPointer
 
         const isByPointer = this.attrHelper.attribute(parameter, 'Attributes.ByPointer');
         if (this.attrHelper.isAttributeTrue(isByPointer) && this.attrHelper.isAttributeTrue(this.attrHelper.attribute(parameter, 'Attributes.ByReference'))) {
@@ -896,7 +917,7 @@ export class XsmpcatValidator {
     }
 
     checkReturnParameter(parameter: ast.ReturnParameter, accept: ValidationAcceptor): void {
-        this.checkTypeReference(accept, parameter, parameter.type?.ref, 'type');
+        this.checkTypeReference(accept, parameter, parameter.type?.ref, ast.ReturnParameter.type);
 
         const isByPointer = this.attrHelper.attribute(parameter, 'Attributes.ByPointer');
         if (this.attrHelper.isAttributeTrue(isByPointer) && this.attrHelper.isAttributeTrue(this.attrHelper.attribute(parameter, 'Attributes.ByReference'))) {
@@ -907,18 +928,18 @@ export class XsmpcatValidator {
 
     checkPrimitiveType(type: ast.PrimitiveType, accept: ValidationAcceptor): void {
         this.checkModifier(type, [ast.isVisibilityModifiers], accept);
-        if (XsmpUtils.getPTK(type) === PTK.None) { accept('error', 'Unsupported Primitive Type.', { node: type, property: 'name' }); }
+        if (XsmpUtils.getPTK(type) === PTK.None) { accept('error', 'Unsupported Primitive Type.', { node: type, property: ast.PrimitiveType.name }); }
     }
 
     checkNamespace(namespace: ast.Namespace, accept: ValidationAcceptor): void {
 
         const duplicates = this.getDuplicatedName(namespace);
-        if (duplicates.length > 1 && (duplicates.some(ast.isType) || duplicates.filter(e => e.type !== ast.Catalogue && AstUtils.getDocument(namespace).uri === e.documentUri).length > 1)) {
+        if (duplicates.length > 1 && (duplicates.some(ast.isType) || duplicates.filter(e => e.type !== ast.Catalogue.$type && AstUtils.getDocument(namespace).uri === e.documentUri).length > 1)) {
 
             accept('error', 'Duplicated name.', {
                 node: namespace,
-                property: 'name',
-                relatedInformation: duplicates.filter(d => d.node !== namespace && d.type !== ast.Catalogue && AstUtils.getDocument(namespace).uri === d.documentUri).map(d => ({ location: Location.create(d.documentUri.toString(), d.nameSegment!.range), message: d.name }))
+                property: ast.Namespace.name,
+                relatedInformation: duplicates.filter(d => d.node !== namespace && d.type !== ast.Catalogue.$type && AstUtils.getDocument(namespace).uri === d.documentUri).map(d => ({ location: Location.create(d.documentUri.toString(), d.nameSegment!.range), message: d.name }))
             });
         }
 

@@ -322,7 +322,7 @@ function convertBuiltinFunction<T>(func: ast.BuiltInFunction, accept?: Validatio
     if (func.name?.endsWith('f')) {
         if (!builtInFloat32Functions.includes(func.name)) {
             if (accept)
-                accept('error', `Unknown built-in function '${func.name}'.`, { node: func, property: 'name' });
+                accept('error', `Unknown built-in function '${func.name}'.`, { node: func, property: ast.BuiltInFunction.name });
             return undefined;
         }
         const value = getValueAs(func.argument, PTK.Float32, accept)?.floatValue(PTK.Float32);
@@ -330,7 +330,7 @@ function convertBuiltinFunction<T>(func: ast.BuiltInFunction, accept?: Validatio
     }
     if (func.name && !builtInFloat64Functions.includes(func.name)) {
         if (accept)
-            accept('error', `Unknown built-in function '${func.name}'.`, { node: func, property: 'name' });
+            accept('error', `Unknown built-in function '${func.name}'.`, { node: func, property: ast.BuiltInFunction.name });
         return undefined;
     }
     const value = getValueAs(func.argument, PTK.Float64, accept)?.floatValue(PTK.Float64);
@@ -340,29 +340,29 @@ function convertBuiltinFunction<T>(func: ast.BuiltInFunction, accept?: Validatio
 export function getValue<T>(expression: ast.Expression | undefined, accept?: ValidationAcceptor): Value<T> | undefined {
     if (expression) {
         switch (expression.$type) {
-            case ast.IntegerLiteral: return IntegralValue.of(expression as ast.IntegerLiteral, accept);
-            case ast.FloatingLiteral: return FloatValue.of(expression as ast.FloatingLiteral, accept);
-            case ast.BooleanLiteral: return new BoolValue((expression as ast.BooleanLiteral).isTrue);
-            case ast.StringLiteral: return new StringValue((expression as ast.StringLiteral).value.join(''));
-            case ast.CharacterLiteral: return new CharValue((expression as ast.CharacterLiteral).value ?? '');
-            case ast.UnaryOperation: return unaryOperation(expression as ast.UnaryOperation, accept);
-            case ast.BinaryOperation: return binaryOperation(expression as ast.BinaryOperation, accept);
-            case ast.ParenthesizedExpression: return getValue((expression as ast.ParenthesizedExpression).expr, accept);
-            case ast.BuiltInConstant: {
+            case ast.IntegerLiteral.$type: return IntegralValue.of(expression as ast.IntegerLiteral, accept);
+            case ast.FloatingLiteral.$type: return FloatValue.of(expression as ast.FloatingLiteral, accept);
+            case ast.BooleanLiteral.$type: return new BoolValue((expression as ast.BooleanLiteral).isTrue);
+            case ast.StringLiteral.$type: return new StringValue((expression as ast.StringLiteral).value.join(''));
+            case ast.CharacterLiteral.$type: return new CharValue((expression as ast.CharacterLiteral).value ?? '');
+            case ast.UnaryOperation.$type: return unaryOperation(expression as ast.UnaryOperation, accept);
+            case ast.BinaryOperation.$type: return binaryOperation(expression as ast.BinaryOperation, accept);
+            case ast.ParenthesizedExpression.$type: return getValue((expression as ast.ParenthesizedExpression).expr, accept);
+            case ast.BuiltInConstant.$type: {
                 const cst = expression as ast.BuiltInConstant;
                 if (cst.name && !builtInConstants.includes(cst.name)) {
                     if (accept)
-                        accept('error', `Unknown built-in constant '${cst.name}'.`, { node: cst, property: 'name' });
+                        accept('error', `Unknown built-in constant '${cst.name}'.`, { node: cst, property: ast.BuiltInConstant.name });
                     return undefined;
                 }
                 return new FloatValue(Math[cst.name as BuiltInConstants], PTK.Float64);
             }
-            case ast.BuiltInFunction:
+            case ast.BuiltInFunction.$type:
                 if (!(expression as ast.BuiltInFunction).argument && accept) {
-                    accept('error', 'Missing argument.', { node: expression, property: 'argument' });
+                    accept('error', 'Missing argument.', { node: expression, property: ast.BuiltInFunction.argument });
                 }
                 return convertBuiltinFunction(expression as ast.BuiltInFunction, accept);
-            case ast.NamedElementReference:
+            case ast.NamedElementReference.$type:
                 {
                     const ref = expression as ast.NamedElementReference;
                     if (ast.isEnumerationLiteral(ref.value?.ref)) {

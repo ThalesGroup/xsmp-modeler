@@ -1,6 +1,6 @@
 import type { AstNode } from 'langium';
 import { AbstractFormatter, Formatting, type NodeFormatter } from 'langium/lsp';
-import type * as ast from '../generated/ast-partial.js';
+import * as ast from '../generated/ast-partial.js';
 
 export abstract class XsmpFormatterBase extends AbstractFormatter {
     protected formatTypeAnnotation<T extends AstNode>(formatter: NodeFormatter<T>): void {
@@ -41,7 +41,7 @@ export abstract class XsmpFormatterBase extends AbstractFormatter {
     }
 
     protected formatPathMember(_node: ast.PathMember, formatter: NodeFormatter<ast.PathMember>): void {
-        formatter.property('separator').surround(Formatting.noSpace());
+        formatter.property(ast.PathMember.separator).surround(Formatting.noSpace());
     }
 
     protected formatCommaList<T extends AstNode>(formatter: NodeFormatter<T>): void {

@@ -71,34 +71,34 @@ export class TasMdkValidator {
 
         // String8 shall be forbidden
         if (XsmpUtils.isString8(field.type?.ref)) {
-            accept('error', 'String8 type is forbidden for fields.', { node: field, property: 'type' });
+            accept('error', 'String8 type is forbidden for fields.', { node: field, property: ast.Field.type });
         }
 
         switch (field.$container.$type) {
-            case ast.Model:
-            case ast.Service:
+            case ast.Model.$type:
+            case ast.Service.$type:
                 if (XsmpUtils.getRealVisibility(field) === VisibilityKind.public) {
-                    accept('error', 'A field cannot be public in Gram environment.', { node: field, property: 'modifiers', index: field.modifiers.indexOf('public') });
+                    accept('error', 'A field cannot be public in Gram environment.', { node: field, property: ast.Field.modifiers, index: field.modifiers.indexOf('public') });
                 }
                 if (XsmpUtils.isInput(field) && XsmpUtils.isOutput(field)) {
                     accept('error', 'A field cannot be both an input and an output.',
-                        { node: field, property: 'modifiers', index: field.modifiers.indexOf('input') });
+                        { node: field, property: ast.Field.modifiers, index: field.modifiers.indexOf('input') });
                 }
                 else if (field.name) {
 
                     // check naming convention of fields
                     if (XsmpUtils.isInput(field) && !field.name.startsWith('inp_')) {
-                        accept('error', 'The name of an input field must start with \'inp_\'.', { node: field, property: 'name' }
+                        accept('error', 'The name of an input field must start with \'inp_\'.', { node: field, property: ast.Field.name }
                         );
 
                     }
                     else if (XsmpUtils.isOutput(field) && !field.name.startsWith('out_')) {
-                        accept('error', 'The name of an output field must start with \'out_\'.', { node: field, property: 'name' });
+                        accept('error', 'The name of an output field must start with \'out_\'.', { node: field, property: ast.Field.name });
                     }
                     else if (!XsmpUtils.isOutput(field) && !XsmpUtils.isInput(field) && !field.name.startsWith('fea_')
                         && !field.name.startsWith('sta_')) {
 
-                        accept('error', 'The name of a feature field must start with \'fea_\' and a state must start with \'sta_\'.', { node: field, property: 'name' });
+                        accept('error', 'The name of a feature field must start with \'fea_\' and a state must start with \'sta_\'.', { node: field, property: ast.Field.name });
                     }
                 }
                 this.checkForMissingDescription(field, accept, 'field');
@@ -115,7 +115,7 @@ export class TasMdkValidator {
         if (filename !== n.name) {
             accept('error',
                 `The Catalogue name '${n.name}' must match the file name '${filename}'. Rename the file or the Catalogue name accordingly.`,
-                { node: n, property: 'name' });
+                { node: n, property: ast.Catalogue.name });
         }
     }
 
@@ -146,12 +146,11 @@ export class TasMdkValidator {
     checkEventSource(n: ast.EventSource, accept: ValidationAcceptor): void {
         // check naming convention of event sources
         if (!n.name?.startsWith('eso_')) {
-
-            accept('error', 'The name of an EventSource must start with \'eso_\'.', { node: n, property: 'name' });
+            accept('error', 'The name of an EventSource must start with \'eso_\'.', { node: n, property: ast.EventSource.name });
         }
         // check event type of the event source is void
         if (ast.isEventType(n.type?.ref) && n.type.ref.eventArgs?.ref) {
-            accept('error', 'An EventSource must be of type void.', { node: n, property: 'type' });
+            accept('error', 'An EventSource must be of type void.', { node: n, property: ast.EventSource.type });
         }
         this.checkForMissingDescription(n, accept, 'eventsource');
     }
@@ -159,8 +158,7 @@ export class TasMdkValidator {
     checkEventSink(n: ast.EventSink, accept: ValidationAcceptor): void {
         // check naming convention of event sink
         if (!n.name?.startsWith('esi_')) {
-
-            accept('error', 'The name of an EventSink must start with \'esi_\'.', { node: n, property: 'name' });
+            accept('error', 'The name of an EventSink must start with \'esi_\'.', { node: n, property: ast.EventSink.name });
         }
         this.checkForMissingDescription(n, accept, 'eventsink');
     }
@@ -168,8 +166,7 @@ export class TasMdkValidator {
     checkEntryPoint(n: ast.EntryPoint, accept: ValidationAcceptor): void {
         // check naming convention of entry points
         if (!n.name?.startsWith('ept_')) {
-
-            accept('error', 'The name of an EntryPoint must start with \'ept_\'.', { node: n, property: 'name' });
+            accept('error', 'The name of an EntryPoint must start with \'ept_\'.', { node: n, property: ast.EntryPoint.name });
         }
         this.checkForMissingDescription(n, accept, 'entrypoint');
     }
@@ -177,20 +174,19 @@ export class TasMdkValidator {
     checkReference(n: ast.Reference, accept: ValidationAcceptor): void {
         // check naming convention of references
         if (!n.name?.startsWith('ref_')) {
-            accept('error', 'The name of a Reference must start with \'ref_\'.', { node: n, property: 'name' });
+            accept('error', 'The name of a Reference must start with \'ref_\'.', { node: n, property: ast.Reference.name });
         }
     }
 
     checkOperation(n: ast.Operation, accept: ValidationAcceptor): void {
         if (ast.isComponent(n.$container)) {
             if (XsmpUtils.getRealVisibility(n) === VisibilityKind.public) {
-                accept('error', 'An operation cannot be public in Gram environment.', { node: n, property: 'modifiers', index: n.modifiers.indexOf('public') });
+                accept('error', 'An operation cannot be public in Gram environment.', { node: n, property: ast.Operation.modifiers, index: n.modifiers.indexOf('public') });
             }
 
             // check naming convention of operations
             if (!n.name?.startsWith('ope_')) {
-
-                accept('error', 'The name of an operation must start with \'ope_\'.', { node: n, property: 'name' });
+                accept('error', 'The name of an operation must start with \'ope_\'.', { node: n, property: ast.Operation.name });
             }
             this.checkOperationIsPublicable(n, accept);
 
@@ -211,7 +207,7 @@ export class TasMdkValidator {
 
         const type = p.type?.ref;
         if (!ast.isSimpleType(type)) {
-            accept('error', `A parameter of type ${type?.$type} is not publicable.`, { node: p, property: 'type' });
+            accept('error', `A parameter of type ${type?.$type} is not publicable.`, { node: p, property: ast.Parameter.type });
         }
 
     }

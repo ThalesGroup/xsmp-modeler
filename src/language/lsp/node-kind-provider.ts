@@ -9,67 +9,67 @@ export class XsmpNodeKindProvider implements NodeKindProvider {
 
         const type = isAstNodeDescription(node) ? node.type : node.$type;
         switch (type) {
-            case ast.ArrayType: return CompletionItemKind.Operator;
-            case ast.Assembly:
-            case ast.Configuration:
-            case ast.LinkBase:
-            case ast.Schedule:
+            case ast.ArrayType.$type: return CompletionItemKind.Operator;
+            case ast.Assembly.$type:
+            case ast.Configuration.$type:
+            case ast.LinkBase.$type:
+            case ast.Schedule.$type:
                 return CompletionItemKind.File;
-            case ast.Constant: return CompletionItemKind.Constant;
-            case ast.Enumeration: return CompletionItemKind.Enum;
-            case ast.EnumerationLiteral: return CompletionItemKind.EnumMember;
-            case ast.EmitGlobalEvent:
-            case ast.EpochEvent:
-            case ast.EventLink:
-            case ast.EventSink:
-            case ast.EventSource:
-            case ast.EventType:
-            case ast.GlobalEventHandler:
-            case ast.GlobalEventTriggeredEvent:
-            case ast.MissionEvent:
-            case ast.SimulationEvent:
-            case ast.Trigger:
-            case ast.ZuluEvent:
+            case ast.Constant.$type: return CompletionItemKind.Constant;
+            case ast.Enumeration.$type: return CompletionItemKind.Enum;
+            case ast.EnumerationLiteral.$type: return CompletionItemKind.EnumMember;
+            case ast.EmitGlobalEvent.$type:
+            case ast.EpochEvent.$type:
+            case ast.EventLink.$type:
+            case ast.EventSink.$type:
+            case ast.EventSource.$type:
+            case ast.EventType.$type:
+            case ast.GlobalEventHandler.$type:
+            case ast.GlobalEventTriggeredEvent.$type:
+            case ast.MissionEvent.$type:
+            case ast.SimulationEvent.$type:
+            case ast.Trigger.$type:
+            case ast.ZuluEvent.$type:
                 return CompletionItemKind.Event;
-            case ast.CallOperation:
-            case ast.ExecuteTask:
-            case ast.Operation:
-            case ast.OperationCall:
-            case ast.Task:
+            case ast.CallOperation.$type:
+            case ast.ExecuteTask.$type:
+            case ast.Operation.$type:
+            case ast.OperationCall.$type:
+            case ast.Task.$type:
                 return CompletionItemKind.Method;
-            case ast.Interface: return CompletionItemKind.Interface;
-            case ast.Integer:
-            case ast.PrimitiveType:
-            case ast.Float:
+            case ast.Interface.$type: return CompletionItemKind.Interface;
+            case ast.Integer.$type:
+            case ast.PrimitiveType.$type:
+            case ast.Float.$type:
                 return CompletionItemKind.TypeParameter;
-            case ast.Project:
-            case ast.Tool:
-            case ast.Profile:
-            case ast.Catalogue:
+            case ast.Project.$type:
+            case ast.Tool.$type:
+            case ast.Profile.$type:
+            case ast.Catalogue.$type:
                 return CompletionItemKind.File;
-            case ast.StringType: return CompletionItemKind.Text;
-            case ast.Structure: return CompletionItemKind.Struct;
-            case ast.AssemblyComponentConfiguration:
-            case ast.AssemblyInstance:
-            case ast.Class:
-            case ast.ComponentConfiguration:
-            case ast.ComponentLinkBase:
-            case ast.Exception:
-            case ast.Model:
-            case ast.ModelInstance:
-            case ast.Service:
+            case ast.StringType.$type: return CompletionItemKind.Text;
+            case ast.Structure.$type: return CompletionItemKind.Struct;
+            case ast.AssemblyComponentConfiguration.$type:
+            case ast.AssemblyInstance.$type:
+            case ast.Class.$type:
+            case ast.ComponentConfiguration.$type:
+            case ast.ComponentLinkBase.$type:
+            case ast.Exception.$type:
+            case ast.Model.$type:
+            case ast.ModelInstance.$type:
+            case ast.Service.$type:
                 return CompletionItemKind.Class;
-            case ast.ConfigurationUsage:
+            case ast.ConfigurationUsage.$type:
                 return CompletionItemKind.Module;
-            case ast.PropertyValue:
-            case ast.SetProperty:
+            case ast.PropertyValue.$type:
+            case ast.SetProperty.$type:
                 return CompletionItemKind.Property;
-            case ast.Field:
-            case ast.FieldLink:
-            case ast.FieldValue:
-            case ast.InterfaceLink:
-            case ast.Transfer:
-            case ast.Property:
+            case ast.Field.$type:
+            case ast.FieldLink.$type:
+            case ast.FieldValue.$type:
+            case ast.InterfaceLink.$type:
+            case ast.Transfer.$type:
+            case ast.Property.$type:
             default: return CompletionItemKind.Field;
         }
     }
@@ -78,72 +78,72 @@ export class XsmpNodeKindProvider implements NodeKindProvider {
 
         const type = isAstNodeDescription(node) ? node.type : node.$type;
         switch (type) {
-            case ast.Assembly:
-            case ast.Configuration:
-            case ast.LinkBase:
-            case ast.Schedule:
+            case ast.Assembly.$type:
+            case ast.Configuration.$type:
+            case ast.LinkBase.$type:
+            case ast.Schedule.$type:
                 return SymbolKind.Package;
-            case ast.ArrayType: return SymbolKind.Array;
-            case ast.CallOperation:
-            case ast.ExecuteTask:
+            case ast.ArrayType.$type: return SymbolKind.Array;
+            case ast.CallOperation.$type:
+            case ast.ExecuteTask.$type:
                 return SymbolKind.Method;
-            case ast.Constant: return SymbolKind.Constant;
-            case ast.Enumeration: return SymbolKind.Enum;
-            case ast.EnumerationLiteral: return SymbolKind.EnumMember;
-            case ast.EmitGlobalEvent:
-            case ast.EpochEvent:
-            case ast.EventLink:
-            case ast.GlobalEventHandler:
-            case ast.GlobalEventTriggeredEvent:
-            case ast.MissionEvent:
-            case ast.SimulationEvent:
-            case ast.Trigger:
-            case ast.EventSink:
-            case ast.EventSource:
-            case ast.EventType:
-            case ast.ZuluEvent:
+            case ast.Constant.$type: return SymbolKind.Constant;
+            case ast.Enumeration.$type: return SymbolKind.Enum;
+            case ast.EnumerationLiteral.$type: return SymbolKind.EnumMember;
+            case ast.EmitGlobalEvent.$type:
+            case ast.EpochEvent.$type:
+            case ast.EventLink.$type:
+            case ast.GlobalEventHandler.$type:
+            case ast.GlobalEventTriggeredEvent.$type:
+            case ast.MissionEvent.$type:
+            case ast.SimulationEvent.$type:
+            case ast.Trigger.$type:
+            case ast.EventSink.$type:
+            case ast.EventSource.$type:
+            case ast.EventType.$type:
+            case ast.ZuluEvent.$type:
                 return SymbolKind.Event;
-            case ast.AssemblyInstance:
-            case ast.ComponentConfiguration:
-            case ast.ComponentLinkBase:
-            case ast.EntryPoint:
-            case ast.ModelInstance:
-            case ast.AssemblyComponentConfiguration:
+            case ast.AssemblyInstance.$type:
+            case ast.ComponentConfiguration.$type:
+            case ast.ComponentLinkBase.$type:
+            case ast.EntryPoint.$type:
+            case ast.ModelInstance.$type:
+            case ast.AssemblyComponentConfiguration.$type:
                 return SymbolKind.Object;
-            case ast.OperationCall:
-            case ast.Task:
+            case ast.OperationCall.$type:
+            case ast.Task.$type:
                 return SymbolKind.Method;
-            case ast.Operation: return SymbolKind.Method;
-            case ast.Interface: return SymbolKind.Interface;
-            case ast.Integer:
-            case ast.PrimitiveType:
-            case ast.Float: return SymbolKind.Number;
-            case ast.Project:
-            case ast.Tool:
-            case ast.Profile:
-            case ast.Catalogue:
+            case ast.Operation.$type: return SymbolKind.Method;
+            case ast.Interface.$type: return SymbolKind.Interface;
+            case ast.Integer.$type:
+            case ast.PrimitiveType.$type:
+            case ast.Float.$type: return SymbolKind.Number;
+            case ast.Project.$type:
+            case ast.Tool.$type:
+            case ast.Profile.$type:
+            case ast.Catalogue.$type:
                 return SymbolKind.Package;
-            case ast.PropertyValue:
-            case ast.SetProperty:
+            case ast.PropertyValue.$type:
+            case ast.SetProperty.$type:
                 return SymbolKind.Property;
-            case ast.ConfigurationUsage:
+            case ast.ConfigurationUsage.$type:
                 return SymbolKind.Module;
-            case ast.Property: return SymbolKind.Property;
-            case ast.Parameter: return SymbolKind.Variable;
-            case ast.StringType: return SymbolKind.String;
-            case ast.Structure: return SymbolKind.Struct;
-            case ast.Namespace: return SymbolKind.Namespace;
-            case ast.Class:
-            case ast.Exception:
-            case ast.Model:
-            case ast.Service:
+            case ast.Property.$type: return SymbolKind.Property;
+            case ast.Parameter.$type: return SymbolKind.Variable;
+            case ast.StringType.$type: return SymbolKind.String;
+            case ast.Structure.$type: return SymbolKind.Struct;
+            case ast.Namespace.$type: return SymbolKind.Namespace;
+            case ast.Class.$type:
+            case ast.Exception.$type:
+            case ast.Model.$type:
+            case ast.Service.$type:
                 return SymbolKind.Class;
-            case ast.Association:
-            case ast.FieldLink:
-            case ast.Field:
-            case ast.FieldValue:
-            case ast.InterfaceLink:
-            case ast.Transfer:
+            case ast.Association.$type:
+            case ast.FieldLink.$type:
+            case ast.Field.$type:
+            case ast.FieldValue.$type:
+            case ast.InterfaceLink.$type:
+            case ast.Transfer.$type:
             default: return SymbolKind.Field;
         }
 

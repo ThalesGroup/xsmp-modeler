@@ -49,15 +49,15 @@ export class XsmpsedValidator {
     }
 
     checkSchedule(schedule: ast.Schedule, accept: ValidationAcceptor): void {
-        checkName(accept, schedule, schedule.name, 'name');
-        checkValidDateTime(accept, schedule, schedule.epochTime, 'epochTime', 'EpochTime');
-        checkValidDateTime(accept, schedule, schedule.missionStart, 'missionStart', 'MissionStart');
+        checkName(accept, schedule, schedule.name, ast.Schedule.name);
+        checkValidDateTime(accept, schedule, schedule.epochTime, ast.Schedule.epochTime, 'EpochTime');
+        checkValidDateTime(accept, schedule, schedule.missionStart, ast.Schedule.missionStart, 'MissionStart');
 
         const seen = new Set<string>();
         for (const parameter of schedule.parameters) {
             if (parameter.name) {
                 if (seen.has(parameter.name)) {
-                    accept('error', 'Duplicated template argument name.', { node: parameter, property: 'name' });
+                    accept('error', 'Duplicated template argument name.', { node: parameter, property: ast.TemplateParameter.name });
                 } else {
                     seen.add(parameter.name);
                 }
@@ -69,7 +69,7 @@ export class XsmpsedValidator {
         if (hasRelativePath && !hasRootParameter) {
             accept('error', 'A Schedule using relative paths shall declare at least one String8 Template Argument for the root path.', {
                 node: schedule,
-                property: 'parameters'
+                property: ast.Schedule.parameters
             });
         }
 
@@ -85,16 +85,16 @@ export class XsmpsedValidator {
     }
 
     checkTask(task: ast.Task, accept: ValidationAcceptor): void {
-        checkName(accept, task, task.name, 'name');
+        checkName(accept, task, task.name, ast.Task.name);
     }
 
     checkStringParameter(parameter: ast.StringParameter, accept: ValidationAcceptor): void {
         if (!AstUtils.getContainerOfType(parameter, ast.isSchedule)) {
             return;
         }
-        checkName(accept, parameter, parameter.name, 'name');
+        checkName(accept, parameter, parameter.name, ast.TemplateParameter.name);
         if (parameter.value === undefined) {
-            accept('error', 'A Template Argument shall have a Value feature.', { node: parameter, property: 'value' });
+            accept('error', 'A Template Argument shall have a Value feature.', { node: parameter, property: ast.StringParameter.value });
         }
     }
 
@@ -102,9 +102,9 @@ export class XsmpsedValidator {
         if (!AstUtils.getContainerOfType(parameter, ast.isSchedule)) {
             return;
         }
-        checkName(accept, parameter, parameter.name, 'name');
+        checkName(accept, parameter, parameter.name, ast.TemplateParameter.name);
         if (parameter.value === undefined) {
-            accept('error', 'A Template Argument shall have a Value feature.', { node: parameter, property: 'value' });
+            accept('error', 'A Template Argument shall have a Value feature.', { node: parameter, property: ast.Int32Parameter.value });
         }
     }
 
@@ -130,7 +130,7 @@ export class XsmpsedValidator {
                 continue;
             }
             if (seen.has(parameter.parameter)) {
-                accept('error', 'Duplicated parameter name.', { node: call, property: 'parameters', index });
+                accept('error', 'Duplicated parameter name.', { node: call, property: ast.CallOperation.parameters, index });
             } else {
                 seen.add(parameter.parameter);
             }
@@ -154,7 +154,7 @@ export class XsmpsedValidator {
         if (resolution.finalComponent !== expectedComponent && !XsmpUtils.isBaseOfComponent(expectedComponent, resolution.finalComponent)) {
             accept('error', `The root path shall resolve to a Component compatible with the execution context of task ${execute.task?.$refText ?? '<unknown>'}.`, {
                 node: execute,
-                property: 'root'
+                property: ast.ExecuteTask.root
             });
         }
     }
@@ -190,7 +190,7 @@ export class XsmpsedValidator {
         if (schedule && taskSchedule && schedule !== taskSchedule) {
             accept('error', 'An Event shall be associated with a Task defined in the same Schedule.', {
                 node: event,
-                property: 'task'
+                property: ast.Event.task
             });
         }
         checkValidDuration(accept, event, event.cycleTime, 'cycleTime', 'CycleTime');
@@ -199,16 +199,16 @@ export class XsmpsedValidator {
 
     private activityUsesRelativePath(activity: ast.Activity): boolean {
         switch (activity.$type) {
-            case ast.Trigger:
+            case ast.Trigger.$type:
                 return !isAbsolutePath((activity as ast.Trigger).entryPoint);
-            case ast.Transfer:
+            case ast.Transfer.$type:
                 return !isAbsolutePath((activity as ast.Transfer).outputFieldPath)
                     || !isAbsolutePath((activity as ast.Transfer).inputFieldPath);
-            case ast.SetProperty:
+            case ast.SetProperty.$type:
                 return !isAbsolutePath((activity as ast.SetProperty).propertyPath);
-            case ast.CallOperation:
+            case ast.CallOperation.$type:
                 return !isAbsolutePath((activity as ast.CallOperation).operationPath);
-            case ast.ExecuteTask:
+            case ast.ExecuteTask.$type:
                 return (activity as ast.ExecuteTask).root !== undefined && !isAbsolutePath((activity as ast.ExecuteTask).root);
             default:
                 return false;

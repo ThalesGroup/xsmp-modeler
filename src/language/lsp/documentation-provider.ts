@@ -13,8 +13,8 @@ export class XsmpDocumentationProvider extends JSDocDocumentationProvider {
 
     override getDocumentation(node: AstNode): string | undefined {
         switch (node.$type) {
-            case ast.Parameter: return this.docHelper.getDescription(node as ast.Parameter);
-            case ast.ReturnParameter: return this.docHelper.getDescription(node as ast.ReturnParameter);
+            case ast.Parameter.$type: return this.docHelper.getDescription(node as ast.Parameter);
+            case ast.ReturnParameter.$type: return this.docHelper.getDescription(node as ast.ReturnParameter);
             default: {
                 const parsedJSDoc = this.docHelper.getJSDoc(node);
                 if (parsedJSDoc) {

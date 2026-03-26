@@ -303,7 +303,7 @@ export class Xsmpl2PathResolver {
 
         if (ast.isInterfaceLink(container)) {
             const property = (reference as AstNode & { $containerProperty?: string }).$containerProperty;
-            if (property === 'backReference' || container.backReference === reference) {
+            if (property === ast.InterfaceLink.backReference || container.backReference === reference) {
                 const resolution = this.getInterfaceLinkEndpointComponent(container, 'client');
                 return {
                     candidates: this.getComponentMembers(resolution.component, ['reference']),

@@ -5,11 +5,11 @@ import * as ast from '../generated/ast-partial.js';
 export class XsmpprojectFormatter extends AbstractFormatter {
     protected override format(node: AstNode): void {
         switch (node.$type) {
-            case ast.Project: return this.formatProject(node as ast.Project, this.getNodeFormatter(node));
-            case ast.Dependency: return this.formatDependency(node as ast.Dependency, this.getNodeFormatter(node));
-            case ast.ProfileReference: return this.formatProfileReference(node as ast.ProfileReference, this.getNodeFormatter(node));
-            case ast.ToolReference: return this.formatToolReference(node as ast.ToolReference, this.getNodeFormatter(node));
-            case ast.Source: return this.formatSource(node as ast.Source, this.getNodeFormatter(node));
+            case ast.Project.$type: return this.formatProject(node as ast.Project, this.getNodeFormatter(node));
+            case ast.Dependency.$type: return this.formatDependency(node as ast.Dependency, this.getNodeFormatter(node));
+            case ast.ProfileReference.$type: return this.formatProfileReference(node as ast.ProfileReference, this.getNodeFormatter(node));
+            case ast.ToolReference.$type: return this.formatToolReference(node as ast.ToolReference, this.getNodeFormatter(node));
+            case ast.Source.$type: return this.formatSource(node as ast.Source, this.getNodeFormatter(node));
         }
     }
     formatProject(node: ast.Project, formatter: NodeFormatter<ast.Project>) {

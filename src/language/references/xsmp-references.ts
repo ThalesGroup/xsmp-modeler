@@ -10,22 +10,23 @@ export class XsmpReferences extends DefaultReferences {
         this.services = services;
     }
 
-    override findDeclaration(sourceCstNode: CstNode): AstNode | undefined {
+    override findDeclarations(sourceCstNode: CstNode): AstNode[] {
         const templateDeclaration = this.findTemplateParameterFromCst(sourceCstNode);
         if (templateDeclaration) {
-            return templateDeclaration;
+            return [templateDeclaration];
         }
 
-        const declaration = super.findDeclaration(sourceCstNode);
-        if (declaration) {
-            return declaration;
+        const declarations = super.findDeclarations(sourceCstNode);
+        if (declarations.length > 0) {
+            return declarations;
         }
 
         const patternSegment = AstUtils.getContainerOfType(sourceCstNode.astNode, ast.isPatternPathNamedSegment);
         if (!patternSegment) {
-            return undefined;
+            return [];
         }
-        return this.services.shared.L2PathResolver.getNamedSegmentTarget(patternSegment);
+        const target = this.services.shared.L2PathResolver.getNamedSegmentTarget(patternSegment);
+        return target ? [target] : [];
     }
 
     protected findTemplateParameterFromCst(sourceCstNode: CstNode): ast.TemplateParameter | undefined {

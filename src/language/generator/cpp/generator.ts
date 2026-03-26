@@ -91,8 +91,8 @@ export abstract class CppGenerator implements XsmpGenerator {
     }
     registerComponent(component: ast.Component): string | undefined {
         switch (component.$type) {
-            case ast.Model: return this.registerModel(component as ast.Model);
-            case ast.Service: return this.registerService(component as ast.Service);
+            case ast.Model.$type: return this.registerModel(component as ast.Model);
+            case ast.Service.$type: return this.registerService(component as ast.Service);
             default: return undefined;
         }
     }
@@ -377,21 +377,21 @@ export abstract class CppGenerator implements XsmpGenerator {
         const dependencies = new Set<ast.Catalogue | undefined>();
         for (const element of AstUtils.streamAllContents(catalogue)) {
             switch (element.$type) {
-                case ast.Field:
+                case ast.Field.$type:
                     dependencies.add(AstUtils.getContainerOfType((element as ast.Field).type.ref, ast.isCatalogue));
                     break;
-                case ast.Property:
+                case ast.Property.$type:
                     dependencies.add(AstUtils.getContainerOfType((element as ast.Property).type.ref, ast.isCatalogue));
                     break;
-                case ast.Model:
-                case ast.Service:
+                case ast.Model.$type:
+                case ast.Service.$type:
                     dependencies.add(AstUtils.getContainerOfType((element as ast.Component).base?.ref, ast.isCatalogue));
                     break;
-                case ast.Class:
-                case ast.Exception:
+                case ast.Class.$type:
+                case ast.Exception.$type:
                     dependencies.add(AstUtils.getContainerOfType((element as ast.Class).base?.ref, ast.isCatalogue));
                     break;
-                case ast.ArrayType:
+                case ast.ArrayType.$type:
                     dependencies.add(AstUtils.getContainerOfType((element as ast.ArrayType).itemType.ref, ast.isCatalogue));
                     break;
             }
@@ -513,7 +513,7 @@ export abstract class CppGenerator implements XsmpGenerator {
             return '';
         }
         switch (expr.$type) {
-            case ast.CollectionLiteral: {
+            case ast.CollectionLiteral.$type: {
                 const type = this.typeProvider.getType(expr);
                 if (ast.isArrayType(type) && ast.isArrayType(type.itemType.ref))
                     return `{ ${(expr as ast.CollectionLiteral).elements.map(e => `{${this.expression(e)}}`, this).join(', ')}}`;
@@ -521,14 +521,14 @@ export abstract class CppGenerator implements XsmpGenerator {
                     return `{ ${(expr as ast.CollectionLiteral).elements.map(e => ast.isArrayType(this.typeProvider.getType(e)) ? `{${this.expression(e)}}` : this.expression(e), this).join(', ')}}`;
                 return `{ ${(expr as ast.CollectionLiteral).elements.map(e => this.expression(e), this).join(', ')}}`;
             }
-            case ast.DesignatedInitializer: return `/* .${(expr as ast.DesignatedInitializer).field.ref?.name} = */${this.expression((expr as ast.DesignatedInitializer).expr)}`;
-            case ast.UnaryOperation: return `${(expr as ast.UnaryOperation).feature}${this.expression((expr as ast.UnaryOperation).operand)}`;
-            case ast.BinaryOperation: return `${this.expression((expr as ast.BinaryOperation).leftOperand)} ${(expr as ast.BinaryOperation).feature} ${this.expression((expr as ast.BinaryOperation).rightOperand)}`;
-            case ast.ParenthesizedExpression: return `(${this.expression((expr as ast.ParenthesizedExpression).expr)})`;
-            case ast.BooleanLiteral: return (expr as ast.BooleanLiteral).isTrue ? 'true' : 'false';
-            case ast.BuiltInConstant: return `M_${(expr as ast.BuiltInConstant).name}`;
-            case ast.BuiltInFunction: return `std::${(expr as ast.BuiltInFunction).name}(${this.expression((expr as ast.BuiltInFunction).argument)})`;
-            case ast.IntegerLiteral: {
+            case ast.DesignatedInitializer.$type: return `/* .${(expr as ast.DesignatedInitializer).field.ref?.name} = */${this.expression((expr as ast.DesignatedInitializer).expr)}`;
+            case ast.UnaryOperation.$type: return `${(expr as ast.UnaryOperation).feature}${this.expression((expr as ast.UnaryOperation).operand)}`;
+            case ast.BinaryOperation.$type: return `${this.expression((expr as ast.BinaryOperation).leftOperand)} ${(expr as ast.BinaryOperation).feature} ${this.expression((expr as ast.BinaryOperation).rightOperand)}`;
+            case ast.ParenthesizedExpression.$type: return `(${this.expression((expr as ast.ParenthesizedExpression).expr)})`;
+            case ast.BooleanLiteral.$type: return (expr as ast.BooleanLiteral).isTrue ? 'true' : 'false';
+            case ast.BuiltInConstant.$type: return `M_${(expr as ast.BuiltInConstant).name}`;
+            case ast.BuiltInFunction.$type: return `std::${(expr as ast.BuiltInFunction).name}(${this.expression((expr as ast.BuiltInFunction).argument)})`;
+            case ast.IntegerLiteral.$type: {
                 const type = this.typeProvider.getType(expr);
                 if (ast.isEnumeration(type)) {
                     const value = Solver.getValueAs(expr, type)?.enumerationLiteral()?.getValue();
@@ -541,8 +541,8 @@ export abstract class CppGenerator implements XsmpGenerator {
                 }
                 return (expr as ast.IntegerLiteral).text.replaceAll("'", '');
             }
-            case ast.FloatingLiteral: return (expr as ast.FloatingLiteral).text.replaceAll("'", '');
-            case ast.StringLiteral: {
+            case ast.FloatingLiteral.$type: return (expr as ast.FloatingLiteral).text.replaceAll("'", '');
+            case ast.StringLiteral.$type: {
                 const kind = getPTK(this.typeProvider.getType(expr));
                 switch (kind) {
                     case PTK.Duration:
@@ -554,9 +554,9 @@ export abstract class CppGenerator implements XsmpGenerator {
                 }
                 return (expr as ast.StringLiteral).$cstNode?.text as string;
             }
-            case ast.CharacterLiteral: return (expr as ast.CharacterLiteral).$cstNode?.text as string;
-            case ast.KeywordExpression: return (expr as ast.KeywordExpression).name;
-            case ast.NamedElementReference: {
+            case ast.CharacterLiteral.$type: return (expr as ast.CharacterLiteral).$cstNode?.text as string;
+            case ast.KeywordExpression.$type: return (expr as ast.KeywordExpression).name;
+            case ast.NamedElementReference.$type: {
                 const value = (expr as ast.NamedElementReference).value;
                 return value.ref?.$container === AstUtils.getContainerOfType(expr, ast.isType) ? value.ref?.name ?? '' : this.fqn(value.ref);
             }
@@ -761,29 +761,29 @@ export abstract class CppGenerator implements XsmpGenerator {
 
     protected headerIncludes(element: ast.NamedElement): Include[] {
         switch (element.$type) {
-            case ast.Class: return this.headerIncludesClass(element as ast.Class);
-            case ast.Exception: return this.headerIncludesException(element as ast.Exception);
-            case ast.Structure: return this.headerIncludesStructure(element as ast.Structure);
-            case ast.Integer: return this.headerIncludesInteger(element as ast.Integer);
-            case ast.Float: return this.headerIncludesFloat(element as ast.Float);
-            case ast.Model: return this.headerIncludesModel(element as ast.Model);
-            case ast.Service: return this.headerIncludesService(element as ast.Service);
-            case ast.Interface: return this.headerIncludesInterface(element as ast.Interface);
-            case ast.ArrayType: return this.headerIncludesArray(element as ast.ArrayType);
-            case ast.Enumeration: return this.headerIncludesEnumeration(element as ast.Enumeration);
-            case ast.StringType: return this.headerIncludesString(element as ast.StringType);
-            case ast.NativeType: return this.headerIncludesNativeType(element as ast.NativeType);
-            case ast.Association: return this.headerIncludesAssociation(element as ast.Association);
-            case ast.Constant: return this.headerIncludesConstant(element as ast.Constant);
-            case ast.Container: return this.headerIncludesContainer(element as ast.Container);
-            case ast.EntryPoint: return this.headerIncludesEntryPoint(element as ast.EntryPoint);
-            case ast.EventSink: return this.headerIncludesEventSink(element as ast.EventSink);
-            case ast.EventSource: return this.headerIncludesEventSource(element as ast.EventSource);
-            case ast.Field: return this.headerIncludesField(element as ast.Field);
-            case ast.Operation: return this.headerIncludesOperation(element as ast.Operation);
-            case ast.Property: return this.headerIncludesProperty(element as ast.Property);
-            case ast.Reference: return this.headerIncludesReference(element as ast.Reference);
-            case ast.ValueReference: return this.headerIncludesValueReference(element as ast.ValueReference);
+            case ast.Class.$type: return this.headerIncludesClass(element as ast.Class);
+            case ast.Exception.$type: return this.headerIncludesException(element as ast.Exception);
+            case ast.Structure.$type: return this.headerIncludesStructure(element as ast.Structure);
+            case ast.Integer.$type: return this.headerIncludesInteger(element as ast.Integer);
+            case ast.Float.$type: return this.headerIncludesFloat(element as ast.Float);
+            case ast.Model.$type: return this.headerIncludesModel(element as ast.Model);
+            case ast.Service.$type: return this.headerIncludesService(element as ast.Service);
+            case ast.Interface.$type: return this.headerIncludesInterface(element as ast.Interface);
+            case ast.ArrayType.$type: return this.headerIncludesArray(element as ast.ArrayType);
+            case ast.Enumeration.$type: return this.headerIncludesEnumeration(element as ast.Enumeration);
+            case ast.StringType.$type: return this.headerIncludesString(element as ast.StringType);
+            case ast.NativeType.$type: return this.headerIncludesNativeType(element as ast.NativeType);
+            case ast.Association.$type: return this.headerIncludesAssociation(element as ast.Association);
+            case ast.Constant.$type: return this.headerIncludesConstant(element as ast.Constant);
+            case ast.Container.$type: return this.headerIncludesContainer(element as ast.Container);
+            case ast.EntryPoint.$type: return this.headerIncludesEntryPoint(element as ast.EntryPoint);
+            case ast.EventSink.$type: return this.headerIncludesEventSink(element as ast.EventSink);
+            case ast.EventSource.$type: return this.headerIncludesEventSource(element as ast.EventSource);
+            case ast.Field.$type: return this.headerIncludesField(element as ast.Field);
+            case ast.Operation.$type: return this.headerIncludesOperation(element as ast.Operation);
+            case ast.Property.$type: return this.headerIncludesProperty(element as ast.Property);
+            case ast.Reference.$type: return this.headerIncludesReference(element as ast.Reference);
+            case ast.ValueReference.$type: return this.headerIncludesValueReference(element as ast.ValueReference);
             default: return [];
         }
     }
@@ -879,29 +879,29 @@ export abstract class CppGenerator implements XsmpGenerator {
     }
     protected sourceIncludes(element: ast.NamedElement): Include[] {
         switch (element.$type) {
-            case ast.Class: return this.sourceIncludesClass(element as ast.Class);
-            case ast.Exception: return this.sourceIncludesException(element as ast.Exception);
-            case ast.Structure: return this.sourceIncludesStructure(element as ast.Structure);
-            case ast.Integer: return this.sourceIncludesInteger(element as ast.Integer);
-            case ast.Float: return this.sourceIncludesFloat(element as ast.Float);
-            case ast.Model: return this.sourceIncludesModel(element as ast.Model);
-            case ast.Service: return this.sourceIncludesService(element as ast.Service);
-            case ast.Interface: return this.sourceIncludesInterface(element as ast.Interface);
-            case ast.ArrayType: return this.sourceIncludesArray(element as ast.ArrayType);
-            case ast.Enumeration: return this.sourceIncludesEnumeration(element as ast.Enumeration);
-            case ast.StringType: return this.sourceIncludesString(element as ast.StringType);
-            case ast.NativeType: return this.sourceIncludesNativeType(element as ast.NativeType);
-            case ast.Association: return this.sourceIncludesAssociation(element as ast.Association);
-            case ast.Constant: return this.sourceIncludesConstant(element as ast.Constant);
-            case ast.Container: return this.sourceIncludesContainer(element as ast.Container);
-            case ast.EntryPoint: return this.sourceIncludesEntryPoint(element as ast.EntryPoint);
-            case ast.EventSink: return this.sourceIncludesEventSink(element as ast.EventSink);
-            case ast.EventSource: return this.sourceIncludesEventSource(element as ast.EventSource);
-            case ast.Field: return this.sourceIncludesField(element as ast.Field);
-            case ast.Operation: return this.sourceIncludesOperation(element as ast.Operation);
-            case ast.Property: return this.sourceIncludesProperty(element as ast.Property);
-            case ast.Reference: return this.sourceIncludesReference(element as ast.Reference);
-            case ast.ValueReference: return this.sourceIncludesValueReference(element as ast.ValueReference);
+            case ast.Class.$type: return this.sourceIncludesClass(element as ast.Class);
+            case ast.Exception.$type: return this.sourceIncludesException(element as ast.Exception);
+            case ast.Structure.$type: return this.sourceIncludesStructure(element as ast.Structure);
+            case ast.Integer.$type: return this.sourceIncludesInteger(element as ast.Integer);
+            case ast.Float.$type: return this.sourceIncludesFloat(element as ast.Float);
+            case ast.Model.$type: return this.sourceIncludesModel(element as ast.Model);
+            case ast.Service.$type: return this.sourceIncludesService(element as ast.Service);
+            case ast.Interface.$type: return this.sourceIncludesInterface(element as ast.Interface);
+            case ast.ArrayType.$type: return this.sourceIncludesArray(element as ast.ArrayType);
+            case ast.Enumeration.$type: return this.sourceIncludesEnumeration(element as ast.Enumeration);
+            case ast.StringType.$type: return this.sourceIncludesString(element as ast.StringType);
+            case ast.NativeType.$type: return this.sourceIncludesNativeType(element as ast.NativeType);
+            case ast.Association.$type: return this.sourceIncludesAssociation(element as ast.Association);
+            case ast.Constant.$type: return this.sourceIncludesConstant(element as ast.Constant);
+            case ast.Container.$type: return this.sourceIncludesContainer(element as ast.Container);
+            case ast.EntryPoint.$type: return this.sourceIncludesEntryPoint(element as ast.EntryPoint);
+            case ast.EventSink.$type: return this.sourceIncludesEventSink(element as ast.EventSink);
+            case ast.EventSource.$type: return this.sourceIncludesEventSource(element as ast.EventSource);
+            case ast.Field.$type: return this.sourceIncludesField(element as ast.Field);
+            case ast.Operation.$type: return this.sourceIncludesOperation(element as ast.Operation);
+            case ast.Property.$type: return this.sourceIncludesProperty(element as ast.Property);
+            case ast.Reference.$type: return this.sourceIncludesReference(element as ast.Reference);
+            case ast.ValueReference.$type: return this.sourceIncludesValueReference(element as ast.ValueReference);
             default: return [];
         }
     }
@@ -965,11 +965,11 @@ export abstract class CppGenerator implements XsmpGenerator {
         const includes = [];
         for (const element of AstUtils.streamAst(expr)) {
             switch (element.$type) {
-                case ast.NamedElementReference:
+                case ast.NamedElementReference.$type:
                     includes.push((element as ast.NamedElementReference).value.ref?.$container);
                     break;
-                case ast.BuiltInConstant:
-                case ast.BuiltInFunction:
+                case ast.BuiltInConstant.$type:
+                case ast.BuiltInFunction.$type:
                     includes.push('cmath');
                     break;
             }
@@ -1016,47 +1016,47 @@ export abstract class CppGenerator implements XsmpGenerator {
     }
     /*protected declare(element: ast.NamedElement): string | undefined {
         switch (element.$type) {
-            case ast.Association: return this.declareAssociation(element as ast.Association);
-            case ast.Constant: return this.declareConstant(element as ast.Constant);
-            case ast.Container: return this.declareContainer(element as ast.Container);
-            case ast.EntryPoint: return this.declareEntryPoint(element as ast.EntryPoint);
-            case ast.EventSink: return this.declareEventSink(element as ast.EventSink);
-            case ast.EventSource: return this.declareEventSource(element as ast.EventSource);
-            case ast.Field: return this.declareField(element as ast.Field);
-            case ast.Operation: return this.declareOperation(element as ast.Operation);
-            case ast.Property: return this.declareProperty(element as ast.Property);
-            case ast.Reference: return this.declareReference(element as ast.Reference);
+            case ast.Association.$type: return this.declareAssociation(element as ast.Association);
+            case ast.Constant.$type: return this.declareConstant(element as ast.Constant);
+            case ast.Container.$type: return this.declareContainer(element as ast.Container);
+            case ast.EntryPoint.$type: return this.declareEntryPoint(element as ast.EntryPoint);
+            case ast.EventSink.$type: return this.declareEventSink(element as ast.EventSink);
+            case ast.EventSource.$type: return this.declareEventSource(element as ast.EventSource);
+            case ast.Field.$type: return this.declareField(element as ast.Field);
+            case ast.Operation.$type: return this.declareOperation(element as ast.Operation);
+            case ast.Property.$type: return this.declareProperty(element as ast.Property);
+            case ast.Reference.$type: return this.declareReference(element as ast.Reference);
             default: return undefined;
         }
     }*/
     protected define(element: ast.NamedElement): string | undefined {
         switch (element.$type) {
-            case ast.Association: return this.defineAssociation(element as ast.Association);
-            case ast.Constant: return this.defineConstant(element as ast.Constant);
-            case ast.Container: return this.defineContainer(element as ast.Container);
-            case ast.EntryPoint: return this.defineEntryPoint(element as ast.EntryPoint);
-            case ast.EventSink: return this.defineEventSink(element as ast.EventSink);
-            case ast.EventSource: return this.defineEventSource(element as ast.EventSource);
-            case ast.Field: return this.defineField(element as ast.Field);
-            case ast.Operation: return this.defineOperation(element as ast.Operation);
-            case ast.Property: return this.defineProperty(element as ast.Property);
-            case ast.Reference: return this.defineReference(element as ast.Reference);
+            case ast.Association.$type: return this.defineAssociation(element as ast.Association);
+            case ast.Constant.$type: return this.defineConstant(element as ast.Constant);
+            case ast.Container.$type: return this.defineContainer(element as ast.Container);
+            case ast.EntryPoint.$type: return this.defineEntryPoint(element as ast.EntryPoint);
+            case ast.EventSink.$type: return this.defineEventSink(element as ast.EventSink);
+            case ast.EventSource.$type: return this.defineEventSource(element as ast.EventSource);
+            case ast.Field.$type: return this.defineField(element as ast.Field);
+            case ast.Operation.$type: return this.defineOperation(element as ast.Operation);
+            case ast.Property.$type: return this.defineProperty(element as ast.Property);
+            case ast.Reference.$type: return this.defineReference(element as ast.Reference);
             default: return undefined;
         }
     }
 
     protected finalize(element: ast.NamedElement): string | undefined {
         switch (element.$type) {
-            case ast.Association: return this.finalizeAssociation(element as ast.Association);
-            case ast.Constant: return this.finalizeConstant(element as ast.Constant);
-            case ast.Container: return this.finalizeContainer(element as ast.Container);
-            case ast.EntryPoint: return this.finalizeEntryPoint(element as ast.EntryPoint);
-            case ast.EventSink: return this.finalizeEventSink(element as ast.EventSink);
-            case ast.EventSource: return this.finalizeEventSource(element as ast.EventSource);
-            case ast.Field: return this.finalizeField(element as ast.Field);
-            case ast.Operation: return this.finalizeOperation(element as ast.Operation);
-            case ast.Property: return this.finalizeProperty(element as ast.Property);
-            case ast.Reference: return this.finalizeReference(element as ast.Reference);
+            case ast.Association.$type: return this.finalizeAssociation(element as ast.Association);
+            case ast.Constant.$type: return this.finalizeConstant(element as ast.Constant);
+            case ast.Container.$type: return this.finalizeContainer(element as ast.Container);
+            case ast.EntryPoint.$type: return this.finalizeEntryPoint(element as ast.EntryPoint);
+            case ast.EventSink.$type: return this.finalizeEventSink(element as ast.EventSink);
+            case ast.EventSource.$type: return this.finalizeEventSource(element as ast.EventSource);
+            case ast.Field.$type: return this.finalizeField(element as ast.Field);
+            case ast.Operation.$type: return this.finalizeOperation(element as ast.Operation);
+            case ast.Property.$type: return this.finalizeProperty(element as ast.Property);
+            case ast.Reference.$type: return this.finalizeReference(element as ast.Reference);
             default: return undefined;
         }
     }
@@ -1075,16 +1075,16 @@ export abstract class CppGenerator implements XsmpGenerator {
     }
     protected construct(element: ast.NamedElement): string | undefined {
         switch (element.$type) {
-            case ast.Association: return this.constructAssociation(element as ast.Association);
-            case ast.Constant: return this.constructConstant(element as ast.Constant);
-            case ast.Container: return this.constructContainer(element as ast.Container);
-            case ast.EntryPoint: return this.constructEntryPoint(element as ast.EntryPoint);
-            case ast.EventSink: return this.constructEventSink(element as ast.EventSink);
-            case ast.EventSource: return this.constructEventSource(element as ast.EventSource);
-            case ast.Field: return this.constructField(element as ast.Field);
-            case ast.Operation: return this.constructOperation(element as ast.Operation);
-            case ast.Property: return this.constructProperty(element as ast.Property);
-            case ast.Reference: return this.constructReference(element as ast.Reference);
+            case ast.Association.$type: return this.constructAssociation(element as ast.Association);
+            case ast.Constant.$type: return this.constructConstant(element as ast.Constant);
+            case ast.Container.$type: return this.constructContainer(element as ast.Container);
+            case ast.EntryPoint.$type: return this.constructEntryPoint(element as ast.EntryPoint);
+            case ast.EventSink.$type: return this.constructEventSink(element as ast.EventSink);
+            case ast.EventSource.$type: return this.constructEventSource(element as ast.EventSource);
+            case ast.Field.$type: return this.constructField(element as ast.Field);
+            case ast.Operation.$type: return this.constructOperation(element as ast.Operation);
+            case ast.Property.$type: return this.constructProperty(element as ast.Property);
+            case ast.Reference.$type: return this.constructReference(element as ast.Reference);
             default: return undefined;
         }
     }
@@ -1276,9 +1276,9 @@ export abstract class CppGenerator implements XsmpGenerator {
 
     protected publishMember(element: ast.Publicable): string | undefined {
         switch (element.$type) {
-            case ast.Field: return this.publishField(element);
-            case ast.Operation: return this.publishOperation(element);
-            case ast.Property: return this.publishProperty(element);
+            case ast.Field.$type: return this.publishField(element);
+            case ast.Operation.$type: return this.publishOperation(element);
+            case ast.Property.$type: return this.publishProperty(element);
         }
     }
     protected isCdkField(_field: ast.Field): boolean {

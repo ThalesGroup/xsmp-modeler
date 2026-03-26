@@ -1,4 +1,4 @@
-import type { AstNode, AstNodeDescription, AstNodeDescriptionProvider, LangiumDocument, PrecomputedScopes, ScopeComputation } from 'langium';
+import type { AstNode, AstNodeDescription, AstNodeDescriptionProvider, LangiumDocument, LocalSymbols, ScopeComputation } from 'langium';
 import * as ast from '../generated/ast-partial.js';
 import { Cancellation, MultiMap, interruptAndCheck } from 'langium';
 import * as XsmpUtils from '../utils/xsmp-utils.js';
@@ -16,7 +16,7 @@ export class XsmpcatScopeComputation implements ScopeComputation {
         this.documlentationHelper = services.shared.DocumentationHelper;
     }
 
-    async computeExports(document: LangiumDocument, cancelToken = Cancellation.CancellationToken.None): Promise<AstNodeDescription[]> {
+    async collectExportedSymbols(document: LangiumDocument, cancelToken = Cancellation.CancellationToken.None): Promise<AstNodeDescription[]> {
         const catalogue = document.parseResult.value as ast.Catalogue,
             exportedDescriptions: AstNodeDescription[] = [];
         //Export the Catalogue
@@ -39,7 +39,7 @@ export class XsmpcatScopeComputation implements ScopeComputation {
             if (element.name) {
                 await interruptAndCheck(cancelToken);
                 const elementName = `${baseName}.${element.name}`;
-                if (element.$type === ast.Namespace) {
+                if (element.$type === ast.Namespace.$type) {
                     await this.computeNamespaceExports(document, element, exportedDescriptions, elementName, cancelToken);
                 }
                 else {
@@ -57,7 +57,7 @@ export class XsmpcatScopeComputation implements ScopeComputation {
             exportedDescriptions.push(this.descriptions.createDescription(type, uuid, document));
         }*/
         switch (type.$type) {
-            case ast.Enumeration: {
+            case ast.Enumeration.$type: {
                 const elementBaseName = `${typeName}.`;
                 for (const literal of (type as ast.Enumeration).literal) { // Export the literals
                     if (literal.name) {
@@ -66,15 +66,15 @@ export class XsmpcatScopeComputation implements ScopeComputation {
                 }
                 break;
             }
-            case ast.Structure:
-            case ast.Class:
-            case ast.Exception:
-            case ast.Interface:
-            case ast.Model:
-            case ast.Service: {
+            case ast.Structure.$type:
+            case ast.Class.$type:
+            case ast.Exception.$type:
+            case ast.Interface.$type:
+            case ast.Model.$type:
+            case ast.Service.$type: {
                 const elementBaseName = `${typeName}.`;
                 for (const member of (type as ast.WithBody).elements) {
-                    if (member.name && ast.Constant === member.$type && XsmpUtils.getRealVisibility(member) === VisibilityKind.public) { // Export only public constants
+                    if (member.name && ast.Constant.$type === member.$type && XsmpUtils.getRealVisibility(member) === VisibilityKind.public) { // Export only public constants
                         exportedDescriptions.push(this.descriptions.createDescription(member, elementBaseName + member.name, document));
                     }
                 }
@@ -82,7 +82,7 @@ export class XsmpcatScopeComputation implements ScopeComputation {
         }
     }
 
-    async computeLocalScopes(document: LangiumDocument, cancelToken = Cancellation.CancellationToken.None): Promise<PrecomputedScopes> {
+    async collectLocalSymbols(document: LangiumDocument, cancelToken = Cancellation.CancellationToken.None): Promise<LocalSymbols> {
         const catalogue = document.parseResult.value as ast.Catalogue,
             scopes = new MultiMap<AstNode, AstNodeDescription>(),
 
@@ -102,7 +102,7 @@ export class XsmpcatScopeComputation implements ScopeComputation {
 
     protected async computeNamespaceLocalScopes(
         namespace: ast.Namespace,
-        scopes: PrecomputedScopes,
+        scopes: MultiMap<AstNode, AstNodeDescription>,
         document: LangiumDocument,
         cancelToken: Cancellation.CancellationToken
     ): Promise<AstNodeDescription[]> {
@@ -112,14 +112,14 @@ export class XsmpcatScopeComputation implements ScopeComputation {
             if (!element.name) { continue; }
             await interruptAndCheck(cancelToken);
             switch (element.$type) {
-                case ast.Namespace: {
+                case ast.Namespace.$type: {
                     const nestedDescriptions = await this.computeNamespaceLocalScopes(element, scopes, document, cancelToken);
                     nestedDescriptions.forEach(description => {
                         localDescriptions.push(this.createAliasDescription(element, description));
                     });
                     continue;
                 }
-                case ast.Enumeration: {
+                case ast.Enumeration.$type: {
                     const nestedDescriptions = (element as ast.Enumeration).literal.map(literal =>
                         this.descriptions.createDescription(literal, literal.name, document)
                     );
@@ -129,18 +129,18 @@ export class XsmpcatScopeComputation implements ScopeComputation {
                     });
                     break;
                 }
-                case ast.Structure:
-                case ast.Class:
-                case ast.Exception:
-                case ast.Interface:
-                case ast.Model:
-                case ast.Service: {
+                case ast.Structure.$type:
+                case ast.Class.$type:
+                case ast.Exception.$type:
+                case ast.Interface.$type:
+                case ast.Model.$type:
+                case ast.Service.$type: {
                     const nestedDescriptions: AstNodeDescription[] = [],
                         internalDescriptions: AstNodeDescription[] = [];
 
                     // Constants are exported to parent scopes whereas fields are local
                     (element as ast.WithBody).elements.forEach(member => {
-                        if (ast.Constant === member.$type && member.name) {
+                        if (ast.Constant.$type === member.$type && member.name) {
                             nestedDescriptions.push(this.descriptions.createDescription(member, member.name, document));
                         }
                         if ('name' in member && typeof member.name === 'string' && member.name) {

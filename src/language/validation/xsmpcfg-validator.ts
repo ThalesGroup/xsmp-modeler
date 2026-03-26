@@ -38,7 +38,7 @@ export class XsmpcfgValidator {
     }
 
     checkConfiguration(configuration: ast.Configuration, accept: ValidationAcceptor): void {
-        checkName(accept, configuration, configuration.name, 'name');
+        checkName(accept, configuration, configuration.name, ast.Configuration.name);
     }
 
     checkComponentConfiguration(configuration: ast.ComponentConfiguration, accept: ValidationAcceptor): void {

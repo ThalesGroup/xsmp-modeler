@@ -12,8 +12,8 @@ export class DocumentationHelper {
     getJSDoc(element: AstNode): JSDocComment | undefined {
         return this.cache.get(element, () => {
             switch (element.$type) {
-                case ast.BuiltInFunction:
-                case ast.BuiltInConstant: {
+                case ast.BuiltInFunction.$type:
+                case ast.BuiltInConstant.$type: {
                     const builtin = element as ast.BuiltInConstant;
                     switch (builtin.name) {
                         case 'PI': return parseJSDoc('/** The double value that is closer than any other to pi, the ratio of the circumference of a circle to its diameter. */');
@@ -131,11 +131,11 @@ export class DocumentationHelper {
     }
 
     getDescription(element: ast.NamedElement | ast.ReturnParameter): string | undefined {
-        if (ast.Parameter === element.$type) {
+        if (ast.Parameter.$type === element.$type) {
             const regex = new RegExp(`^${element.name}\\s`);
             return this.getJSDoc(element.$container as AstNode)?.getTags('param').find(t => regex.test(t.content.toString()))?.content.toString().slice(element.name?.length).trim();
         }
-        if (ast.ReturnParameter === element.$type) {
+        if (ast.ReturnParameter.$type === element.$type) {
             return this.getJSDoc(element.$container)?.getTag('return')?.content.toString().trim();
         }
         const jsDoc = this.getJSDoc(element);

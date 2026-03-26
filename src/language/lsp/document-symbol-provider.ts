@@ -59,95 +59,95 @@ export class XsmpDocumentSymbolProvider implements DocumentSymbolProvider {
 
     protected getSymbolName(node: AstNode): string | undefined {
         switch (node.$type) {
-            case ast.ModelInstance:
-            case ast.AssemblyInstance:
+            case ast.ModelInstance.$type:
+            case ast.AssemblyInstance.$type:
                 if (ast.isSubInstance(node.$container)) {
                     const containerName = this.pathService.stringifyLocalNamedReference(node.$container.container) ?? '<unknown>';
                     return `${containerName} += ${(node as ast.ModelInstance | ast.AssemblyInstance).name}`;
                 }
                 return (node as ast.ModelInstance | ast.AssemblyInstance).name;
-            case ast.AssemblyComponentConfiguration:
+            case ast.AssemblyComponentConfiguration.$type:
                 return `configure ${this.pathService.stringifyPath((node as ast.AssemblyComponentConfiguration).name)}`;
-            case ast.ComponentConfiguration: {
+            case ast.ComponentConfiguration.$type: {
                 const configuration = node as ast.ComponentConfiguration;
                 const path = this.pathService.stringifyPath(configuration.name) ?? '';
                 return configuration.component?.$refText ? `${path}: ${configuration.component.$refText}` : path;
             }
-            case ast.ComponentLinkBase:
+            case ast.ComponentLinkBase.$type:
                 return this.pathService.stringifyPath((node as ast.ComponentLinkBase).name);
-            case ast.ConfigurationUsage: {
+            case ast.ConfigurationUsage.$type: {
                 const usage = node as ast.ConfigurationUsage;
                 const includePath = this.pathService.stringifyPath(usage.path);
                 return `include ${this.getReferenceText(usage.configuration)}${includePath ? ` at ${includePath}` : ''}`;
             }
-            case ast.GlobalEventHandler: {
+            case ast.GlobalEventHandler.$type: {
                 const handler = node as ast.GlobalEventHandler;
                 return `subscribe ${this.pathService.stringifyLocalNamedReference(handler.entryPoint) ?? '<unknown>'} -> ${this.quote(handler.globalEventName)}`;
             }
-            case ast.EventLink: {
+            case ast.EventLink.$type: {
                 const link = node as ast.EventLink;
                 return `event link ${this.pathService.stringifyPath(link.ownerPath)} -> ${this.pathService.stringifyPath(link.clientPath)}`;
             }
-            case ast.FieldLink: {
+            case ast.FieldLink.$type: {
                 const link = node as ast.FieldLink;
                 return `field link ${this.pathService.stringifyPath(link.ownerPath)} -> ${this.pathService.stringifyPath(link.clientPath)}`;
             }
-            case ast.InterfaceLink: {
+            case ast.InterfaceLink.$type: {
                 const link = node as ast.InterfaceLink;
                 const sourcePath = this.pathService.stringifyPath(link.sourcePath) ?? '<unknown>';
                 const backReference = this.pathService.stringifyLocalNamedReference(link.backReference);
                 return `interface link ${sourcePath} -> ${this.pathService.stringifyPath(link.clientPath)}${backReference ? `:${backReference}` : ''}`;
             }
-            case ast.OperationCall: {
+            case ast.OperationCall.$type: {
                 const call = node as ast.OperationCall;
                 return `call ${this.pathService.stringifyLocalNamedReference(call.operation) ?? '<unknown>'}${this.formatArgumentList(call.parameters.map(parameter => parameter.parameter))}`;
             }
-            case ast.CallOperation: {
+            case ast.CallOperation.$type: {
                 const call = node as ast.CallOperation;
                 return `call ${this.pathService.stringifyPath(call.operationPath)}${this.formatArgumentList(call.parameters.map(parameter => parameter.parameter))}`;
             }
-            case ast.PropertyValue:
+            case ast.PropertyValue.$type:
                 return `property ${this.pathService.stringifyLocalNamedReference((node as ast.PropertyValue).property) ?? '<unknown>'}`;
-            case ast.SetProperty:
+            case ast.SetProperty.$type:
                 return `property ${this.pathService.stringifyPath((node as ast.SetProperty).propertyPath)}`;
-            case ast.FieldValue:
+            case ast.FieldValue.$type:
                 return this.pathService.stringifyPath((node as ast.FieldValue).field);
-            case ast.Trigger:
+            case ast.Trigger.$type:
                 return `trig ${this.pathService.stringifyPath((node as ast.Trigger).entryPoint)}`;
-            case ast.Transfer: {
+            case ast.Transfer.$type: {
                 const transfer = node as ast.Transfer;
                 return `transfer ${this.pathService.stringifyPath(transfer.outputFieldPath)} -> ${this.pathService.stringifyPath(transfer.inputFieldPath)}`;
             }
-            case ast.ExecuteTask: {
+            case ast.ExecuteTask.$type: {
                 const execute = node as ast.ExecuteTask;
                 return `execute ${this.getReferenceText(execute.task)}${execute.root ? ` at ${this.pathService.stringifyPath(execute.root)}` : ''}`;
             }
-            case ast.EmitGlobalEvent: {
+            case ast.EmitGlobalEvent.$type: {
                 const emit = node as ast.EmitGlobalEvent;
                 return `${emit.asynchronous ? 'async ' : ''}emit ${this.quote(emit.eventName)}`;
             }
-            case ast.MissionEvent: {
+            case ast.MissionEvent.$type: {
                 const event = node as ast.MissionEvent;
                 return `event ${this.getReferenceText(event.task)} mission ${this.quote(event.missionTime)}`;
             }
-            case ast.EpochEvent: {
+            case ast.EpochEvent.$type: {
                 const event = node as ast.EpochEvent;
                 return `event ${this.getReferenceText(event.task)} epoch ${this.quote(event.epochTime)}`;
             }
-            case ast.SimulationEvent: {
+            case ast.SimulationEvent.$type: {
                 const event = node as ast.SimulationEvent;
                 return `event ${this.getReferenceText(event.task)} simulation ${this.quote(event.simulationTime)}`;
             }
-            case ast.ZuluEvent: {
+            case ast.ZuluEvent.$type: {
                 const event = node as ast.ZuluEvent;
                 return `event ${this.getReferenceText(event.task)} zulu ${this.quote(event.zuluTime)}`;
             }
-            case ast.GlobalEventTriggeredEvent: {
+            case ast.GlobalEventTriggeredEvent.$type: {
                 const event = node as ast.GlobalEventTriggeredEvent;
                 return `event ${this.getReferenceText(event.task)} on ${this.quote(event.startEvent)}${event.stopEvent ? ` until ${this.quote(event.stopEvent)}` : ''}`;
             }
         }
-        if (!ast.reflection.isSubtype(node.$type, ast.NamedElement)) {
+        if (!ast.reflection.isSubtype(node.$type, ast.NamedElement.$type)) {
             return undefined;
         }
         return this.attrHelper.getSignature(node as ast.NamedElement);
@@ -155,9 +155,9 @@ export class XsmpDocumentSymbolProvider implements DocumentSymbolProvider {
 
     protected getChildren(astNode: AstNode): AstNode[] {
         switch (astNode.$type) {
-            case ast.Assembly:
+            case ast.Assembly.$type:
                 return this.sortChildren([...(astNode as ast.Assembly).configurations, (astNode as ast.Assembly).model]);
-            case ast.SubInstance:
+            case ast.SubInstance.$type:
                 return this.sortChildren([(astNode as ast.SubInstance).instance]);
             default:
                 if ('elements' in astNode) {
