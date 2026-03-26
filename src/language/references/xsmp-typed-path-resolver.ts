@@ -1,6 +1,7 @@
 import type { AstNode } from 'langium';
 import * as ast from '../generated/ast.js';
 import type { XsmpSharedServices } from '../xsmp-module.js';
+import type { IdentifierPatternService, TemplateBindings } from './identifier-pattern-service.js';
 import type { XsmpPathService } from './xsmp-path-service.js';
 
 export interface TypedComponentPathResolution {
@@ -79,9 +80,11 @@ export const componentModeFieldPathMessages: TypedFieldPathMessages = {
 
 export class XsmpTypedPathResolver {
     protected readonly pathService: XsmpPathService;
+    protected readonly identifierPatternService: IdentifierPatternService;
 
     constructor(services: XsmpSharedServices) {
         this.pathService = services.PathService;
+        this.identifierPatternService = services.IdentifierPatternService;
     }
 
     getFieldCandidatesForType(type: ast.Type | undefined): readonly ast.Field[] {
@@ -112,7 +115,7 @@ export class XsmpTypedPathResolver {
         return undefined;
     }
 
-    resolveComponentPath(path: ast.Path, initialStack: readonly ast.Component[] | undefined): TypedComponentPathResolution {
+    resolveComponentPath(path: ast.Path, initialStack: readonly ast.Component[] | undefined, bindings?: TemplateBindings): TypedComponentPathResolution {
         const namedSegments = new Map<ast.PathNamedSegment, readonly ast.NamedElement[]>();
         if (!initialStack || initialStack.length === 0) {
             return { active: false, namedSegments };
@@ -168,7 +171,7 @@ export class XsmpTypedPathResolver {
 
             const candidates = this.getComponentPathMembers(currentComponent);
             namedSegments.set(actualSegment, candidates);
-            const resolved = this.resolveNamedElement(actualSegment, candidates);
+            const resolved = this.resolveNamedElement(actualSegment, candidates, bindings);
             if (!resolved) {
                 return {
                     active: true,
@@ -201,6 +204,7 @@ export class XsmpTypedPathResolver {
         path: ast.Path,
         component: ast.Component | undefined,
         messages: TypedFieldPathMessages,
+        bindings?: TemplateBindings,
     ): TypedFieldPathResolution {
         const namedSegments = new Map<ast.PathNamedSegment, readonly ast.Field[]>();
         if (!component) {
@@ -247,7 +251,7 @@ export class XsmpTypedPathResolver {
 
         const firstCandidates = this.getFieldCandidatesForType(component);
         namedSegments.set(firstSegment, firstCandidates);
-        const firstField = this.resolveNamedElement(firstSegment, firstCandidates);
+        const firstField = this.resolveNamedElement(firstSegment, firstCandidates, bindings);
         if (!firstField) {
             return {
                 active: true,
@@ -281,6 +285,7 @@ export class XsmpTypedPathResolver {
         path: ast.Path,
         baseStack: readonly ast.Component[] | undefined,
         options: TypedComponentMemberPathOptions<T>,
+        bindings?: TemplateBindings,
     ): TypedMemberPathResolution<T> {
         const namedSegments = new Map<ast.PathNamedSegment, readonly ast.NamedElement[]>();
         if (!baseStack || baseStack.length === 0) {
@@ -334,7 +339,7 @@ export class XsmpTypedPathResolver {
             if (isLast) {
                 const candidates = options.getFinalCandidates(currentComponent);
                 namedSegments.set(actualSegment, candidates);
-                const resolved = this.resolveNamedElement(actualSegment, candidates);
+                const resolved = this.resolveNamedElement(actualSegment, candidates, bindings);
                 if (!resolved) {
                     return {
                         active: true,
@@ -355,7 +360,7 @@ export class XsmpTypedPathResolver {
 
             const candidates = this.getComponentPathMembers(currentComponent);
             namedSegments.set(actualSegment, candidates);
-            const resolved = this.resolveNamedElement(actualSegment, candidates);
+            const resolved = this.resolveNamedElement(actualSegment, candidates, bindings);
             const nextComponent = resolved ? this.getChildComponentForPathMember(resolved) : undefined;
             if (!resolved || !nextComponent) {
                 return {
@@ -377,6 +382,7 @@ export class XsmpTypedPathResolver {
         path: ast.Path,
         baseStack: readonly ast.Component[] | undefined,
         options: TypedComponentFieldPathOptions,
+        bindings?: TemplateBindings,
     ): TypedMemberPathResolution<ast.Field> {
         const namedSegments = new Map<ast.PathNamedSegment, readonly ast.NamedElement[]>();
         if (!baseStack || baseStack.length === 0) {
@@ -428,10 +434,10 @@ export class XsmpTypedPathResolver {
 
             const childCandidates = this.getComponentPathMembers(currentComponent);
             const fieldCandidates = options.getFinalCandidates(currentComponent);
-            const resolvedField = this.resolveNamedElement(actualSegment, fieldCandidates);
+            const resolvedField = this.resolveNamedElement(actualSegment, fieldCandidates, bindings);
             const isLast = index === segments.length - 1;
 
-            if (isLast || !this.hasTraversableChild(actualSegment, childCandidates)) {
+            if (isLast || !this.hasTraversableChild(actualSegment, childCandidates, bindings)) {
                 namedSegments.set(actualSegment, fieldCandidates);
                 if (!resolvedField) {
                     return {
@@ -465,7 +471,7 @@ export class XsmpTypedPathResolver {
             }
 
             namedSegments.set(actualSegment, childCandidates);
-            const child = this.resolveNamedElement(actualSegment, childCandidates);
+            const child = this.resolveNamedElement(actualSegment, childCandidates, bindings);
             const nextComponent = child ? this.getChildComponentForPathMember(child) : undefined;
             if (!nextComponent) {
                 return {
@@ -572,18 +578,23 @@ export class XsmpTypedPathResolver {
     protected hasTraversableChild(
         segment: ast.PathNamedSegment,
         candidates: ReadonlyArray<ast.Container | ast.Reference>,
+        bindings?: TemplateBindings,
     ): boolean {
-        const child = this.resolveNamedElement(segment, candidates);
+        const child = this.resolveNamedElement(segment, candidates, bindings);
         return Boolean(child && this.getChildComponentForPathMember(child));
     }
 
-    resolveNamedElement<T extends ast.NamedElement>(segment: ast.PathNamedSegment, candidates: readonly T[]): T | undefined {
-        const linked = segment.reference?.ref;
-        if (linked && candidates.includes(linked as T)) {
-            return linked as T;
+    resolveNamedElement<T extends ast.NamedElement>(segment: ast.PathNamedSegment, candidates: readonly T[], bindings?: TemplateBindings): T | undefined {
+        if (ast.isConcretePathNamedSegment(segment)) {
+            const linked = segment.reference?.ref;
+            if (linked && candidates.includes(linked as T)) {
+                return linked as T;
+            }
+            const refText = segment.reference?.$refText;
+            return refText ? candidates.find(candidate => candidate.name === refText) : undefined;
         }
-        const refText = segment.reference?.$refText;
-        return refText ? candidates.find(candidate => candidate.name === refText) : undefined;
+        const matches = this.identifierPatternService.matchCandidates(segment, candidates, candidate => candidate.name, bindings).matches;
+        return matches.length === 1 ? matches[0] : undefined;
     }
 
     protected collectComponentPathMembers(

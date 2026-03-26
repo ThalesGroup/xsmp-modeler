@@ -9,6 +9,7 @@ import 'xsmp-types'
 */
 entry LinkBase returns LinkBase:
     'link' name=ValidID
+    ('for' assembly=[Assembly:ValidID])?
     elements+=ComponentLinkBase*;
 
 
@@ -60,10 +61,28 @@ PathIndex returns PathIndex:
     '[' index=INT ']';
 
 PathSegment returns PathSegment:
-    PathNamedSegment | PathParentSegment | PathSelfSegment;
+    ConcretePathNamedSegment | PatternPathNamedSegment | PathParentSegment | PathSelfSegment;
 
-PathNamedSegment returns PathNamedSegment:
+ConcretePathNamedSegment returns ConcretePathNamedSegment:
     reference=[NamedElement:ValidID];
+
+PatternPathNamedSegment returns PatternPathNamedSegment:
+    pattern=TemplateIdentifierPattern;
+
+TemplateIdentifierPattern returns IdentifierPattern:
+    {IdentifierPattern}
+    parts+=IdentifierTextPart*
+    parts+=IdentifierTemplatePart
+    parts+=IdentifierPatternPart*;
+
+IdentifierPatternPart returns IdentifierPatternPart:
+    IdentifierTextPart | IdentifierTemplatePart;
+
+IdentifierTextPart returns IdentifierTextPart:
+    text=ID;
+
+IdentifierTemplatePart returns IdentifierTemplatePart:
+    text=TEMPLATE_ID;
 
 PathParentSegment returns PathParentSegment:
     {PathParentSegment} '..';
@@ -76,7 +95,8 @@ PathSeparator returns string:
 
 hidden terminal WS: /\s+/;
 
-terminal ID: /([_a-zA-Z]\w*|{[_a-zA-Z]\w*}\w*)+/;
+terminal TEMPLATE_ID: /\{[_a-zA-Z]\w*\}\w*/;
+terminal ID: /[_a-zA-Z]\w*/;
 
 terminal INT returns bigint: /[+-]?(0|[1-9]\d*)/;
 

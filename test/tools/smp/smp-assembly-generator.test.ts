@@ -80,9 +80,37 @@ describe('SMP assembly generator tests', () => {
 
         expect(actualXml).toBe(fs.readFileSync(expectedPath).toString());
     });
+
+    test('preserves templated instance names and paths in generated assembly XML', async () => {
+        const generator = new SmpGenerator(services.shared);
+        const document = await parseSource(`assembly <Index = 1, Suffix = "Tail"> Demo
+
+configure Unit{Index}_{Suffix}
+{
+    count = 1i32
+}
+
+Root: demo.Root
+{
+    child += Unit{Index}_{Suffix}: demo.Child
+}
+`);
+        setGeneratedBy(false);
+
+        const actualXml = checkDocumentValid(document) ??
+            await generator.doGenerateAssembly(document.parseResult.value, undefined);
+
+        expect(actualXml).toContain('InstancePath="Unit{Index}_{Suffix}"');
+        expect(actualXml).toContain('Name="Unit{Index}_{Suffix}"');
+        expect(actualXml.includes('unsafe')).toBe(false);
+    });
 });
 
 async function parseFixture(fileName: string): Promise<LangiumDocument<Assembly>> {
+    return parseSource(fs.readFileSync(path.resolve(__dirname, fileName)).toString(), fileName);
+}
+
+async function parseSource(source: string, fileName = 'demo.xsmpasb'): Promise<LangiumDocument<Assembly>> {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-smp-assembly-fixture-'));
     tempDirs.push(tempDir);
 
@@ -95,7 +123,7 @@ source "src"
     const catalogueDocument = await parseCatalogue(catalogueSource, {
         documentUri: URI.file(path.join(tempDir, 'src', 'demo.xsmpcat')).toString(),
     });
-    const assemblyDocument = await parseAssembly(fs.readFileSync(path.resolve(__dirname, fileName)).toString(), {
+    const assemblyDocument = await parseAssembly(source, {
         documentUri: URI.file(path.join(tempDir, 'src', fileName)).toString(),
     });
 
@@ -103,7 +131,6 @@ source "src"
     expect(projectDocument.parseResult.parserErrors).toHaveLength(0);
     expect(catalogueDocument.parseResult.parserErrors).toHaveLength(0);
     expect(assemblyDocument.parseResult.parserErrors).toHaveLength(0);
-
     return assemblyDocument;
 }
 

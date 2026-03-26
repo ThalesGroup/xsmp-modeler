@@ -33,13 +33,13 @@ export class XsmpcfgScopeProvider implements ScopeProvider {
     }
 
     getScope(context: ReferenceInfo): Scope {
-        if (ast.isPathNamedSegment(context.container) && context.property === 'reference') {
+        if (ast.isConcretePathNamedSegment(context.container) && context.property === 'reference') {
             return this.getCfgPathScope(context.container);
         }
         return this.getGlobalScope(AstUtils.getDocument(context.container), this.reflection.getReferenceType(context));
     }
 
-    protected getCfgPathScope(segment: ast.PathNamedSegment): Scope {
+    protected getCfgPathScope(segment: ast.ConcretePathNamedSegment): Scope {
         const candidates = this.pathResolver.getNamedSegmentCandidates(segment);
         return candidates.length > 0 ? this.createScope(candidates) : EMPTY_SCOPE;
     }

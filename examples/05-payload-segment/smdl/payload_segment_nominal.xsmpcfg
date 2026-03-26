@@ -7,13 +7,13 @@ configuration PayloadSegmentNominal
         margin = 8,
         harmonics = [0.0, 0.2, 0.1, 0.0]
     }
-    include PayloadNominal at payload
-    router
+    include PayloadNominal at unsafe payload
+    router: demo.payloadsegment.DownlinkRouter
     {
         sourceFrames = [1.0, 1.0, 1.0, 1.0]
         downlinkedFrames = [0.0, 0.0, 0.0, 0.0]
     }
-    logger
+    logger: demo.payloadsegment.PayloadLogger
     {
         lastMessage = "payload ready"
     }

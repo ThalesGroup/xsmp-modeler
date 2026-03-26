@@ -49,7 +49,7 @@ export class XsmpPathLinker extends DefaultLinker {
     }
 
     override buildReference(node: AstNode, property: string, refNode: CstNode | undefined, refText: string): Reference {
-        if (!(ast.isPathNamedSegment(node) && property === 'reference')) {
+        if (!(ast.isConcretePathNamedSegment(node) && property === 'reference')) {
             return super.buildReference(node, property, refNode, refText);
         }
 
@@ -108,6 +108,6 @@ export class XsmpPathLinker extends DefaultLinker {
     }
 
     protected isPathReference(refInfo: ReferenceInfo): boolean {
-        return ast.isPathNamedSegment(refInfo.container) && refInfo.property === 'reference';
+        return ast.isConcretePathNamedSegment(refInfo.container) && refInfo.property === 'reference';
     }
 }

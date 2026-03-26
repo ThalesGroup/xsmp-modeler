@@ -18,6 +18,7 @@ import { XsmpDocumentGenerator } from './workspace/document-generator.js';
 import { XsmpDocumentUpdateHandler } from './lsp/document-update-handler.js';
 import { XsmpTypeProvider } from './references/type-provider.js';
 import { XsmpPathService } from './references/xsmp-path-service.js';
+import { IdentifierPatternService } from './references/identifier-pattern-service.js';
 import { XsmpTypedPathResolver } from './references/xsmp-typed-path-resolver.js';
 import { XsmpcfgPathResolver } from './references/xsmpcfg-path-resolver.js';
 import { Xsmpl2PathResolver } from './references/xsmpl2-path-resolver.js';
@@ -134,6 +135,7 @@ export function createXsmpServices(context: DefaultSharedModuleContext): {
  * Declaration of custom shared services
  */
 export interface XsmpAddedSharedServices {
+    readonly IdentifierPatternService: IdentifierPatternService,
     readonly PathService: XsmpPathService,
     readonly TypedPathResolver: XsmpTypedPathResolver,
     readonly CfgPathResolver: XsmpcfgPathResolver,
@@ -157,6 +159,7 @@ export type XsmpSharedServices = LangiumSharedServices & XsmpAddedSharedServices
 
 export const XsmpSharedModule: Module<XsmpSharedServices, DeepPartial<XsmpSharedServices>> = {
     AttributeHelper: (services) => new AttributeHelper(services),
+    IdentifierPatternService: (services) => new IdentifierPatternService(services),
     PathService: (services) => new XsmpPathService(services),
     TypedPathResolver: (services) => new XsmpTypedPathResolver(services),
     CfgPathResolver: (services) => new XsmpcfgPathResolver(services),

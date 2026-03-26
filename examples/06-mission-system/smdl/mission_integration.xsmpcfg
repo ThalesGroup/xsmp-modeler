@@ -2,7 +2,7 @@ configuration MissionIntegration
 /system: demo.mission.MissionSystemRoot
 {
     integrated = true
-    ground
+    ground: demo.mission.GroundConsole
     {
         consoleMessage = "integration ready"
         uplinkMode = demo.foundation.Mode.Nominal

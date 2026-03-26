@@ -116,6 +116,42 @@ event Main mission "PT1S"
         ]));
         expect(messages.some(message => message.includes('unsafe'))).toBe(false);
     });
+
+    test('resolves templated schedule paths with schedule defaults', async () => {
+        const document = await parseInProject(`schedule <Target = "child"> Demo
+
+task Main: demo.Root
+{
+    call {Target}.reset()
+}
+`);
+
+        expect(getMessages(document)).toEqual([]);
+    });
+
+    test('reports unknown placeholders and invalid expanded schedule path segments', async () => {
+        const unknownPlaceholder = await parseInProject(`schedule <Root = "child"> Demo
+
+task Main: demo.Root
+{
+    call {Missing}.reset()
+}
+`);
+        expect(getMessages(unknownPlaceholder)).toEqual([
+            "The placeholder '{Missing}' shall resolve to a Template Argument of the enclosing Schedule.",
+        ]);
+
+        const invalidExpansion = await parseInProject(`schedule <Target = "1bad"> Demo
+
+task Main: demo.Root
+{
+    call {Target}.reset()
+}
+`);
+        expect(getMessages(invalidExpansion)).toEqual([
+            "The expanded path segment '1bad' is not valid for SMP Level 2.",
+        ]);
+    });
 });
 
 async function parseInProject(source: string): Promise<LangiumDocument<Schedule>> {

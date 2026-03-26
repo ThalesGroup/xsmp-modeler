@@ -112,10 +112,28 @@ PathIndex returns PathIndex:
     '[' index=INT ']';
 
 PathSegment returns PathSegment:
-    PathNamedSegment | PathParentSegment | PathSelfSegment;
+    ConcretePathNamedSegment | PatternPathNamedSegment | PathParentSegment | PathSelfSegment;
 
-PathNamedSegment returns PathNamedSegment:
+ConcretePathNamedSegment returns ConcretePathNamedSegment:
     reference=[NamedElement:Name];
+
+PatternPathNamedSegment returns PatternPathNamedSegment:
+    pattern=TemplateIdentifierPattern;
+
+TemplateIdentifierPattern returns IdentifierPattern:
+    {IdentifierPattern}
+    parts+=IdentifierTextPart*
+    parts+=IdentifierTemplatePart
+    parts+=IdentifierPatternPart*;
+
+IdentifierPatternPart returns IdentifierPatternPart:
+    IdentifierTextPart | IdentifierTemplatePart;
+
+IdentifierTextPart returns IdentifierTextPart:
+    text=ID;
+
+IdentifierTemplatePart returns IdentifierTemplatePart:
+    text=TEMPLATE_ID;
 
 PathParentSegment returns PathParentSegment:
     {PathParentSegment} '..';
@@ -178,7 +196,8 @@ terminal DURATION_STRING: /"[^"]*"d/;
 terminal STRING: /"[^"]*"/;
 terminal CHAR: /'[^']*'/;
 
-terminal ID: /([_a-zA-Z]\w*|{[_a-zA-Z]\w*}\w*)+/;
+terminal TEMPLATE_ID: /\{[_a-zA-Z]\w*\}\w*/;
+terminal ID: /[_a-zA-Z]\w*/;
 
 
 terminal FLOATING_LITERAL:FRACTIONALCONSTANT EXPONENTPART?| DIGITSEQUENCE EXPONENTPART;

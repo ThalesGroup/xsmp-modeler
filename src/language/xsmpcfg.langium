@@ -111,9 +111,9 @@ PathIndex returns PathIndex:
     '[' index=INT ']';
 
 PathSegment returns PathSegment:
-    PathNamedSegment | PathParentSegment | PathSelfSegment;
+    ConcretePathNamedSegment | PathParentSegment | PathSelfSegment;
 
-PathNamedSegment returns PathNamedSegment:
+ConcretePathNamedSegment returns ConcretePathNamedSegment:
     reference=[NamedElement:ValidID];
 
 PathParentSegment returns PathParentSegment:

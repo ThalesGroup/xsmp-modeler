@@ -1,13 +1,13 @@
-assembly OrbitalSegment
-configure avionics
+assembly <Lane = "Ops", BusMember = "avionics", RouterMember = "router", LoggerMember = "logger"> OrbitalSegment
+configure Avionics{Lane}
 {
     subscribe step -> "PlatformReady"
     property modeState = demo.foundation.Mode.Nominal
 }
-Scenario: demo.orbit.OrbitalPlatform
+Scenario{Lane}: demo.orbit.OrbitalPlatform
 {
     missionMode = demo.foundation.Mode.Standby
-    avionics += Avionics: demo.avionics.AvionicsUnit
-    router += Router: demo.orbit.PowerRouter
-    logger += Logger: demo.orbit.SegmentLogger
+    avionics += Avionics{Lane}: demo.avionics.AvionicsUnit
+    router += Router{Lane}: demo.orbit.PowerRouter
+    logger += Logger{Lane}: demo.orbit.SegmentLogger
 }

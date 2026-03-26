@@ -1,16 +1,27 @@
-schedule <root: string = "/payloadSegment", cycles: int32 = 2> PayloadSegmentSchedule epoch "2025-01-01T00:10:00Z" mission "2025-01-01T00:10:00Z"
-task Prime
+schedule <root: string = "/payloadSegment", PayloadMember: string = "payload", RouterMember: string = "router", LoggerMember: string = "logger", cycles: int32 = 2> PayloadSegmentSchedule epoch "2025-01-01T00:10:00Z" mission "2025-01-01T00:10:00Z"
+
+task Prime: demo.payloadsegment.PayloadPlatform
 {
-    call logger.log(message = "payload bootstrap")
+    call {LoggerMember}.log(message = "payload bootstrap")
     property platformMode = demo.foundation.Mode.Nominal
-    trig payload.capture
+    trig {PayloadMember}.capture
+    execute Flush at {PayloadMember}
     async emit "PayloadReady"
 }
-task Downlink
+
+task Flush: demo.payload.PayloadUnit
 {
-    transfer payload.camera.frames -> router.sourceFrames
-    trig router.relay
-    call logger.log(message = "payload relay")
+    trig memory.flush
+    call camera.apply(requestedMode = demo.foundation.Mode.Nominal)
 }
+
+task Downlink: demo.payloadsegment.PayloadPlatform
+{
+    transfer {PayloadMember}.camera.frames -> {RouterMember}.sourceFrames
+    trig {RouterMember}.relay
+    call {LoggerMember}.log(message = "payload relay")
+}
+
 event Prime zulu "2025-01-01T00:10:20Z"
 event Downlink on "PayloadReady" using epoch delay "PT10S" cycle "PT1M" repeat 2
+event Flush simulation "PT20S"

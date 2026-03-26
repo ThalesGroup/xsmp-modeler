@@ -3,6 +3,7 @@ import { AstUtils, WorkspaceCache } from 'langium';
 import * as ast from '../generated/ast.js';
 import type { XsmpSharedServices } from '../xsmp-module.js';
 import type { XsmpPathService } from './xsmp-path-service.js';
+import type { IdentifierPatternService, TemplateBindings } from './identifier-pattern-service.js';
 import {
     componentModeFieldPathMessages,
     type TypedComponentPathResolution,
@@ -17,27 +18,33 @@ export interface L2PathResolution<T extends ast.NamedElement = ast.NamedElement>
     finalElement?: T;
     finalType?: ast.Type;
     finalComponent?: ast.Component;
+    finalBindings?: TemplateBindings;
     invalidMessage?: string;
     invalidNode?: AstNode;
     namedSegments: ReadonlyMap<ast.PathNamedSegment, readonly ast.NamedElement[]>;
+    segmentBindings?: ReadonlyMap<ast.PathNamedSegment, TemplateBindings | undefined>;
 }
 
 export interface AsbInstancePathResolution {
     active: boolean;
     finalComponent?: ast.Component;
+    finalBindings?: TemplateBindings;
     invalidMessage?: string;
     invalidNode?: AstNode;
     namedSegments: ReadonlyMap<ast.PathNamedSegment, readonly ast.NamedElement[]>;
+    segmentBindings?: ReadonlyMap<ast.PathNamedSegment, TemplateBindings | undefined>;
 }
 
 interface AssemblyNodeChild {
     member: ast.Container;
+    instance: ast.ModelInstance | ast.AssemblyInstance;
     node: AssemblyNode;
 }
 
 interface AssemblyNode {
     component?: ast.Component;
-    children: Map<string, AssemblyNodeChild>;
+    bindings?: TemplateBindings;
+    children: AssemblyNodeChild[];
 }
 
 type MemberKind =
@@ -52,8 +59,9 @@ type MemberKind =
 
 export class Xsmpl2PathResolver {
     protected readonly pathService: XsmpPathService;
+    protected readonly identifierPatternService: IdentifierPatternService;
     protected readonly typedPathResolver: XsmpTypedPathResolver;
-    protected readonly assemblyNodeCache: WorkspaceCache<ast.ModelInstance, AssemblyNode>;
+    protected readonly assemblyNodeCache: WorkspaceCache<ast.ModelInstance, Map<string, AssemblyNode>>;
     protected readonly assemblyConfigPathCache: WorkspaceCache<ast.Path, AsbInstancePathResolution>;
     protected readonly assemblyFieldPathCache: WorkspaceCache<ast.Path, L2PathResolution<ast.Field>>;
     protected readonly assemblyLinkPathCache: WorkspaceCache<ast.Path, L2PathResolution>;
@@ -65,8 +73,9 @@ export class Xsmpl2PathResolver {
 
     constructor(services: XsmpSharedServices) {
         this.pathService = services.PathService;
+        this.identifierPatternService = services.IdentifierPatternService;
         this.typedPathResolver = services.TypedPathResolver;
-        this.assemblyNodeCache = new WorkspaceCache<ast.ModelInstance, AssemblyNode>(services);
+        this.assemblyNodeCache = new WorkspaceCache<ast.ModelInstance, Map<string, AssemblyNode>>(services);
         this.assemblyConfigPathCache = new WorkspaceCache<ast.Path, AsbInstancePathResolution>(services);
         this.assemblyFieldPathCache = new WorkspaceCache<ast.Path, L2PathResolution<ast.Field>>(services);
         this.assemblyLinkPathCache = new WorkspaceCache<ast.Path, L2PathResolution>(services);
@@ -78,29 +87,61 @@ export class Xsmpl2PathResolver {
     }
 
     getNamedSegmentCandidates(segment: ast.PathNamedSegment): readonly ast.NamedElement[] {
+        return this.getNamedSegmentContext(segment).candidates;
+    }
+
+    getNamedSegmentTarget(segment: ast.PathNamedSegment): ast.NamedElement | undefined {
+        const { candidates, bindings } = this.getNamedSegmentContext(segment);
+        return this.resolveNamedSegmentTarget(segment, candidates, bindings);
+    }
+
+    protected getNamedSegmentContext(segment: ast.PathNamedSegment): {
+        candidates: readonly ast.NamedElement[];
+        bindings?: TemplateBindings;
+    } {
         const path = AstUtils.getContainerOfType(segment, ast.isPath);
         if (!path) {
-            return [];
+            return { candidates: [] };
         }
 
         if (ast.isAssemblyComponentConfiguration(path.$container)) {
-            return this.getAssemblyComponentPathResolution(path).namedSegments.get(segment) ?? [];
+            const resolution = this.getAssemblyComponentPathResolution(path);
+            return {
+                candidates: resolution.namedSegments.get(segment) ?? [],
+                bindings: resolution.segmentBindings?.get(segment),
+            };
         }
         if (ast.isComponentLinkBase(path.$container)) {
-            return this.getLinkBaseComponentPathResolution(path).namedSegments.get(segment) ?? [];
+            const resolution = this.getLinkBaseComponentPathResolution(path);
+            return {
+                candidates: resolution.namedSegments.get(segment) ?? [],
+                bindings: resolution.segmentBindings?.get(segment),
+            };
         }
         if (ast.isFieldValue(path.$container)) {
             const assemblyConfiguration = AstUtils.getContainerOfType(path.$container, ast.isAssemblyComponentConfiguration);
             if (assemblyConfiguration || AstUtils.getContainerOfType(path.$container, ast.isModelInstance)) {
-                return this.getAssemblyFieldPathResolution(path).namedSegments.get(segment) ?? [];
+                const resolution = this.getAssemblyFieldPathResolution(path);
+                return {
+                    candidates: resolution.namedSegments.get(segment) ?? [],
+                    bindings: resolution.segmentBindings?.get(segment),
+                };
             }
         }
         if (ast.isEventLink(path.$container) || ast.isFieldLink(path.$container) || ast.isInterfaceLink(path.$container)) {
             if (AstUtils.getContainerOfType(path.$container, ast.isModelInstance)) {
-                return this.getAssemblyLinkPathResolution(path).namedSegments.get(segment) ?? [];
+                const resolution = this.getAssemblyLinkPathResolution(path);
+                return {
+                    candidates: resolution.namedSegments.get(segment) ?? [],
+                    bindings: resolution.segmentBindings?.get(segment),
+                };
             }
             if (AstUtils.getContainerOfType(path.$container, ast.isComponentLinkBase)) {
-                return this.getLinkBaseEndpointPathResolution(path).namedSegments.get(segment) ?? [];
+                const resolution = this.getLinkBaseEndpointPathResolution(path);
+                return {
+                    candidates: resolution.namedSegments.get(segment) ?? [],
+                    bindings: resolution.segmentBindings?.get(segment),
+                };
             }
         }
         if (
@@ -110,10 +151,14 @@ export class Xsmpl2PathResolver {
             || ast.isTrigger(path.$container)
             || ast.isExecuteTask(path.$container)
         ) {
-            return this.getScheduleActivityPathResolution(path).namedSegments.get(segment) ?? [];
+            const resolution = this.getScheduleActivityPathResolution(path);
+            return {
+                candidates: resolution.namedSegments.get(segment) ?? [],
+                bindings: resolution.segmentBindings?.get(segment),
+            };
         }
 
-        return [];
+        return { candidates: [] };
     }
 
     getComponentLinkBaseComponentStack(linkBase: ast.ComponentLinkBase): readonly ast.Component[] | undefined {
@@ -161,9 +206,10 @@ export class Xsmpl2PathResolver {
 
     protected computeComponentLinkBaseComponentStack(linkBase: ast.ComponentLinkBase): readonly ast.Component[] | undefined {
         const parent = ast.isComponentLinkBase(linkBase.$container) ? linkBase.$container : undefined;
-        const parentStack = parent ? this.getComponentLinkBaseComponentStack(parent) : undefined;
+        const parentStack = parent ? this.getComponentLinkBaseComponentStack(parent) : this.getRootLinkBaseComponentStack(linkBase);
         const explicitComponent = ast.isComponent(linkBase.component?.ref) ? linkBase.component.ref : undefined;
-        const resolution = parentStack ? this.typedPathResolver.resolveComponentPath(linkBase.name, parentStack) : undefined;
+        const bindings = this.getLinkBaseTemplateBindings(linkBase);
+        const resolution = parentStack ? this.typedPathResolver.resolveComponentPath(linkBase.name, parentStack, bindings) : undefined;
 
         if (explicitComponent) {
             if (resolution?.finalStack && resolution.finalStack.length > 0) {
@@ -193,17 +239,24 @@ export class Xsmpl2PathResolver {
         const configuration = AstUtils.getContainerOfType(fieldValue, ast.isAssemblyComponentConfiguration);
         if (configuration) {
             const target = this.getAssemblyComponentPathResolution(configuration.name);
-            return this.typedFieldResolutionToL2(this.typedPathResolver.resolveFieldPath(path, target.finalComponent, componentModeFieldPathMessages));
+            return this.typedFieldResolutionToL2(
+                this.typedPathResolver.resolveFieldPath(path, target.finalComponent, componentModeFieldPathMessages, target.finalBindings),
+                target.finalBindings
+            );
         }
 
         const model = AstUtils.getContainerOfType(fieldValue, ast.isModelInstance);
-        return this.typedFieldResolutionToL2(this.typedPathResolver.resolveFieldPath(path, this.getModelComponent(model), componentModeFieldPathMessages));
+        const assemblyNode = model ? this.getAssemblyNode(model, this.getAssemblyTemplateBindings(path)) : undefined;
+        return this.typedFieldResolutionToL2(
+            this.typedPathResolver.resolveFieldPath(path, assemblyNode?.component, componentModeFieldPathMessages, assemblyNode?.bindings),
+            assemblyNode?.bindings
+        );
     }
 
     protected computeAssemblyLinkPathResolution(path: ast.Path): L2PathResolution {
         const link = AstUtils.getContainerOfType(path, ast.isLink);
         const model = link ? AstUtils.getContainerOfType(link, ast.isModelInstance) : undefined;
-        const baseNode = model ? this.getAssemblyNode(model) : undefined;
+        const baseNode = model ? this.getAssemblyNode(model, this.getAssemblyTemplateBindings(path)) : undefined;
         if (!link || !baseNode) {
             return this.inactiveResolution();
         }
@@ -225,35 +278,38 @@ export class Xsmpl2PathResolver {
 
     protected computeLinkBaseComponentPathResolution(path: ast.Path): L2PathResolution {
         const baseStack = this.getBaseStackForLinkBaseComponentPath(path);
-        return this.typedComponentResolutionToL2(baseStack ? this.typedPathResolver.resolveComponentPath(path, baseStack) : undefined);
+        const bindings = this.getLinkBaseTemplateBindings(path);
+        return this.typedComponentResolutionToL2(baseStack ? this.typedPathResolver.resolveComponentPath(path, baseStack, bindings) : undefined, bindings);
     }
 
     protected computeLinkBaseEndpointPathResolution(path: ast.Path): L2PathResolution {
         const link = AstUtils.getContainerOfType(path, ast.isLink);
         const componentLinkBase = link ? AstUtils.getContainerOfType(link, ast.isComponentLinkBase) : undefined;
         const baseStack = componentLinkBase ? this.getComponentLinkBaseComponentStack(componentLinkBase) : undefined;
+        const bindings = this.getLinkBaseTemplateBindings(path);
         if (!link || !baseStack) {
             return this.inactiveResolution();
         }
 
         if (ast.isEventLink(link)) {
-            return this.resolveComponentMemberPath(path, baseStack, [path === link.ownerPath ? 'eventSource' : 'eventSink']);
+            return this.resolveComponentMemberPath(path, baseStack, [path === link.ownerPath ? 'eventSource' : 'eventSink'], bindings);
         }
         if (ast.isFieldLink(link)) {
-            return this.resolveComponentFieldEndpointPath(path, baseStack, path === link.ownerPath ? 'outputField' : 'inputField');
+            return this.resolveComponentFieldEndpointPath(path, baseStack, path === link.ownerPath ? 'outputField' : 'inputField', bindings);
         }
         if (ast.isInterfaceLink(link)) {
-            return this.typedComponentResolutionToL2(this.typedPathResolver.resolveComponentPath(path, baseStack));
+            return this.typedComponentResolutionToL2(this.typedPathResolver.resolveComponentPath(path, baseStack, bindings), bindings);
         }
 
         return this.inactiveResolution();
     }
 
     protected computeScheduleActivityPathResolution(path: ast.Path): L2PathResolution {
+        const bindings = this.getScheduleTemplateBindings(path);
         if (ast.isExecuteTask(path.$container)) {
             const task = AstUtils.getContainerOfType(path.$container, ast.isTask);
             const baseStack = task ? this.getTaskComponentStack(task) : undefined;
-            return this.typedComponentResolutionToL2(baseStack ? this.typedPathResolver.resolveComponentPath(path, baseStack) : undefined);
+            return this.typedComponentResolutionToL2(baseStack ? this.typedPathResolver.resolveComponentPath(path, baseStack, bindings) : undefined, bindings);
         }
 
         const task = AstUtils.getContainerOfType(path.$container, ast.isTask);
@@ -263,20 +319,21 @@ export class Xsmpl2PathResolver {
         }
 
         if (ast.isCallOperation(path.$container)) {
-            return this.resolveComponentMemberPath(path, baseStack, ['operation']);
+            return this.resolveComponentMemberPath(path, baseStack, ['operation'], bindings);
         }
         if (ast.isSetProperty(path.$container)) {
-            return this.resolveComponentMemberPath(path, baseStack, ['property']);
+            return this.resolveComponentMemberPath(path, baseStack, ['property'], bindings);
         }
         if (ast.isTransfer(path.$container)) {
             return this.resolveComponentFieldEndpointPath(
                 path,
                 baseStack,
-                path === path.$container.outputFieldPath ? 'outputField' : 'inputField'
+                path === path.$container.outputFieldPath ? 'outputField' : 'inputField',
+                bindings
             );
         }
         if (ast.isTrigger(path.$container)) {
-            return this.resolveComponentMemberPath(path, baseStack, ['entryPoint']);
+            return this.resolveComponentMemberPath(path, baseStack, ['entryPoint'], bindings);
         }
 
         return this.inactiveResolution();
@@ -286,7 +343,7 @@ export class Xsmpl2PathResolver {
         if (ast.isComponentLinkBase(path.$container)) {
             return ast.isComponentLinkBase(path.$container.$container)
                 ? this.getComponentLinkBaseComponentStack(path.$container.$container)
-                : undefined;
+                : this.getRootLinkBaseComponentStack(path.$container);
         }
         if (ast.isLink(path.$container)) {
             const componentLinkBase = AstUtils.getContainerOfType(path.$container, ast.isComponentLinkBase);
@@ -297,8 +354,9 @@ export class Xsmpl2PathResolver {
 
     protected resolveAssemblyInstancePath(path: ast.Path, baseNode: AssemblyNode | undefined): AsbInstancePathResolution {
         const namedSegments = new Map<ast.PathNamedSegment, readonly ast.NamedElement[]>();
+        const segmentBindings = new Map<ast.PathNamedSegment, TemplateBindings | undefined>();
         if (!baseNode) {
-            return { active: false, namedSegments };
+            return { active: false, namedSegments, segmentBindings };
         }
 
         const segments = this.pathService.getPathSegments(path);
@@ -307,7 +365,9 @@ export class Xsmpl2PathResolver {
                 return {
                     active: true,
                     finalComponent: baseNode.component,
+                    finalBindings: baseNode.bindings,
                     namedSegments,
+                    segmentBindings,
                 };
             }
             return {
@@ -315,6 +375,7 @@ export class Xsmpl2PathResolver {
                 invalidMessage: 'A path shall not be empty.',
                 invalidNode: path,
                 namedSegments,
+                segmentBindings,
             };
         }
 
@@ -342,25 +403,39 @@ export class Xsmpl2PathResolver {
                 };
             }
 
-            const candidates = [...currentNode.children.values()].map(child => child.member);
+            const candidates = currentNode.children.map(child => child.instance);
             namedSegments.set(actualSegment, candidates);
+            segmentBindings.set(actualSegment, currentNode.bindings);
             const segmentText = this.pathService.getSegmentText(actualSegment);
-            const next = currentNode.children.get(segmentText);
+            const next = this.resolveAssemblyChild(actualSegment, currentNode.children, currentNode.bindings);
             if (!next) {
                 return {
                     active: true,
                     invalidMessage: `The path segment '${segmentText}' shall resolve to a child Model Instance or Assembly Instance.`,
                     invalidNode: actualSegment,
                     namedSegments,
+                    segmentBindings,
                 };
             }
-            currentNode = next.node;
+            if (Array.isArray(next)) {
+                return {
+                    active: true,
+                    invalidMessage: `The path segment '${segmentText}' is ambiguous.`,
+                    invalidNode: actualSegment,
+                    namedSegments,
+                    segmentBindings,
+                };
+            }
+            const resolvedNext = next as AssemblyNodeChild;
+            currentNode = resolvedNext.node;
         }
 
         return {
             active: true,
             finalComponent: currentNode.component,
+            finalBindings: currentNode.bindings,
             namedSegments,
+            segmentBindings,
         };
     }
 
@@ -369,9 +444,11 @@ export class Xsmpl2PathResolver {
         return {
             active: resolution.active,
             finalComponent: resolution.finalComponent,
+            finalBindings: resolution.finalBindings,
             invalidMessage: resolution.invalidMessage,
             invalidNode: resolution.invalidNode,
             namedSegments: resolution.namedSegments,
+            segmentBindings: resolution.segmentBindings,
         };
     }
 
@@ -381,8 +458,9 @@ export class Xsmpl2PathResolver {
         memberKinds: MemberKind[],
     ): L2PathResolution {
         const namedSegments = new Map<ast.PathNamedSegment, readonly ast.NamedElement[]>();
+        const segmentBindings = new Map<ast.PathNamedSegment, TemplateBindings | undefined>();
         if (!baseNode) {
-            return { active: false, namedSegments };
+            return { active: false, namedSegments, segmentBindings };
         }
 
         const segments = this.pathService.getPathSegments(path);
@@ -392,6 +470,7 @@ export class Xsmpl2PathResolver {
                 invalidMessage: 'A path shall not be empty.',
                 invalidNode: path,
                 namedSegments,
+                segmentBindings,
             };
         }
 
@@ -400,12 +479,13 @@ export class Xsmpl2PathResolver {
             const segment = segments[index];
             if (ast.isPathIndex(segment)) {
                 return {
-                    active: true,
-                    invalidMessage: 'This path kind shall not use array indices.',
-                    invalidNode: segment,
-                    namedSegments,
-                };
-            }
+                        active: true,
+                        invalidMessage: 'This path kind shall not use array indices.',
+                        invalidNode: segment,
+                        namedSegments,
+                        segmentBindings,
+                    };
+                }
 
             const actualSegment = ast.isPathMember(segment) ? segment.segment : segment;
             if (ast.isPathSelfSegment(actualSegment)) {
@@ -413,25 +493,29 @@ export class Xsmpl2PathResolver {
             }
             if (ast.isPathParentSegment(actualSegment)) {
                 return {
-                    active: true,
-                    invalidMessage: 'Assembly paths shall not contain \'..\'.',
-                    invalidNode: actualSegment,
-                    namedSegments,
-                };
-            }
+                        active: true,
+                        invalidMessage: 'Assembly paths shall not contain \'..\'.',
+                        invalidNode: actualSegment,
+                        namedSegments,
+                        segmentBindings,
+                    };
+                }
 
             const isLast = index === segments.length - 1;
             if (isLast) {
                 const candidates = this.getComponentMembers(currentNode.component, memberKinds);
                 namedSegments.set(actualSegment, candidates);
-                const resolved = this.typedPathResolver.resolveNamedElement(actualSegment, candidates);
+                segmentBindings.set(actualSegment, currentNode.bindings);
+                const resolved = this.typedPathResolver.resolveNamedElement(actualSegment, candidates, currentNode.bindings);
                 if (!resolved) {
                     return {
                         active: true,
                         finalComponent: currentNode.component,
+                        finalBindings: currentNode.bindings,
                         invalidMessage: `The path segment '${this.pathService.getSegmentText(actualSegment)}' shall resolve to a supported member of the current Component.`,
                         invalidNode: actualSegment,
                         namedSegments,
+                        segmentBindings,
                     };
                 }
                 return {
@@ -439,26 +523,43 @@ export class Xsmpl2PathResolver {
                     finalElement: resolved,
                     finalType: this.getMemberType(resolved),
                     finalComponent: currentNode.component,
+                    finalBindings: currentNode.bindings,
                     namedSegments,
+                    segmentBindings,
                 };
             }
 
-            const candidates = [...currentNode.children.values()].map(child => child.member);
+            const candidates = currentNode.children.map(child => child.instance);
             namedSegments.set(actualSegment, candidates);
-            const next = currentNode.children.get(this.pathService.getSegmentText(actualSegment));
+            segmentBindings.set(actualSegment, currentNode.bindings);
+            const next = this.resolveAssemblyChild(actualSegment, currentNode.children, currentNode.bindings);
             if (!next) {
                 return {
                     active: true,
                     finalComponent: currentNode.component,
+                    finalBindings: currentNode.bindings,
                     invalidMessage: `The path segment '${this.pathService.getSegmentText(actualSegment)}' shall resolve to a child Model Instance or Assembly Instance.`,
                     invalidNode: actualSegment,
                     namedSegments,
+                    segmentBindings,
                 };
             }
-            currentNode = next.node;
+            if (Array.isArray(next)) {
+                return {
+                    active: true,
+                    finalComponent: currentNode.component,
+                    finalBindings: currentNode.bindings,
+                    invalidMessage: `The path segment '${this.pathService.getSegmentText(actualSegment)}' is ambiguous.`,
+                    invalidNode: actualSegment,
+                    namedSegments,
+                    segmentBindings,
+                };
+            }
+            const resolvedNext = next as AssemblyNodeChild;
+            currentNode = resolvedNext.node;
         }
 
-        return { active: true, finalComponent: currentNode.component, namedSegments };
+        return { active: true, finalComponent: currentNode.component, finalBindings: currentNode.bindings, namedSegments, segmentBindings };
     }
 
     protected resolveAssemblyFieldEndpointPath(
@@ -467,8 +568,9 @@ export class Xsmpl2PathResolver {
         requiredKind: 'inputField' | 'outputField',
     ): L2PathResolution<ast.Field> {
         const namedSegments = new Map<ast.PathNamedSegment, readonly ast.NamedElement[]>();
+        const segmentBindings = new Map<ast.PathNamedSegment, TemplateBindings | undefined>();
         if (!baseNode) {
-            return { active: false, namedSegments };
+            return { active: false, namedSegments, segmentBindings };
         }
 
         const segments = this.pathService.getPathSegments(path);
@@ -478,6 +580,7 @@ export class Xsmpl2PathResolver {
                 invalidMessage: 'A path shall not be empty.',
                 invalidNode: path,
                 namedSegments,
+                segmentBindings,
             };
         }
 
@@ -490,6 +593,7 @@ export class Xsmpl2PathResolver {
                     invalidMessage: 'Field paths shall start with a Field.',
                     invalidNode: segment,
                     namedSegments,
+                    segmentBindings,
                 };
             }
 
@@ -503,21 +607,36 @@ export class Xsmpl2PathResolver {
                     invalidMessage: 'Assembly paths shall not contain \'..\'.',
                     invalidNode: actualSegment,
                     namedSegments,
+                    segmentBindings,
                 };
             }
 
-            const child = currentNode.children.get(this.pathService.getSegmentText(actualSegment));
+            const child = this.resolveAssemblyChild(actualSegment, currentNode.children, currentNode.bindings);
             const fieldCandidates = this.getComponentMembers(currentNode.component, [requiredKind]) as ast.Field[];
-            const resolvedField = this.typedPathResolver.resolveNamedElement(actualSegment, fieldCandidates);
-            if (!child || index === segments.length - 1) {
+            const resolvedField = this.typedPathResolver.resolveNamedElement(actualSegment, fieldCandidates, currentNode.bindings);
+            if (!child || Array.isArray(child) || index === segments.length - 1) {
                 namedSegments.set(actualSegment, fieldCandidates);
+                segmentBindings.set(actualSegment, currentNode.bindings);
+                if (Array.isArray(child)) {
+                    return {
+                        active: true,
+                        finalComponent: currentNode.component,
+                        finalBindings: currentNode.bindings,
+                        invalidMessage: `The path segment '${this.pathService.getSegmentText(actualSegment)}' is ambiguous.`,
+                        invalidNode: actualSegment,
+                        namedSegments,
+                        segmentBindings,
+                    };
+                }
                 if (!resolvedField) {
                     return {
                         active: true,
                         finalComponent: currentNode.component,
+                        finalBindings: currentNode.bindings,
                         invalidMessage: `The path segment '${this.pathService.getSegmentText(actualSegment)}' shall resolve to a ${requiredKind === 'outputField' ? 'Field marked as Output' : 'Field marked as Input'} of the current Component.`,
                         invalidNode: actualSegment,
                         namedSegments,
+                        segmentBindings,
                     };
                 }
                 const tail = this.typedPathResolver.resolveFieldTail(
@@ -535,23 +654,28 @@ export class Xsmpl2PathResolver {
                     finalElement: tail.finalField,
                     finalType: tail.finalType,
                     finalComponent: currentNode.component,
+                    finalBindings: currentNode.bindings,
                     invalidMessage: tail.invalidMessage,
                     invalidNode: tail.invalidNode,
                     namedSegments,
+                    segmentBindings,
                 };
             }
 
-            namedSegments.set(actualSegment, [child.member]);
-            currentNode = child.node;
+            const resolvedChild = child as AssemblyNodeChild;
+            namedSegments.set(actualSegment, [resolvedChild.instance]);
+            segmentBindings.set(actualSegment, currentNode.bindings);
+            currentNode = resolvedChild.node;
         }
 
-        return { active: true, finalComponent: currentNode.component, namedSegments };
+        return { active: true, finalComponent: currentNode.component, finalBindings: currentNode.bindings, namedSegments, segmentBindings };
     }
 
     protected resolveComponentMemberPath(
         path: ast.Path,
         baseStack: readonly ast.Component[] | undefined,
         memberKinds: MemberKind[],
+        bindings?: TemplateBindings,
     ): L2PathResolution {
         return this.typedMemberResolutionToL2(this.typedPathResolver.resolveComponentMemberPath(path, baseStack, {
             getFinalCandidates: (component) => this.getComponentMembers(component, memberKinds),
@@ -560,13 +684,14 @@ export class Xsmpl2PathResolver {
             containerOrReferenceMessage: (segmentText) => `The path segment '${segmentText}' shall resolve to a Container or Reference of the current Component.`,
             finalMissingMessage: (segmentText) => `The path segment '${segmentText}' shall resolve to a supported member of the current Component.`,
             parentMessage: 'The path segment ".." shall not navigate above the typed component context.',
-        }));
+        }, bindings), bindings);
     }
 
     protected resolveComponentFieldEndpointPath(
         path: ast.Path,
         baseStack: readonly ast.Component[] | undefined,
         requiredKind: 'inputField' | 'outputField',
+        bindings?: TemplateBindings,
     ): L2PathResolution<ast.Field> {
         return this.typedMemberResolutionToL2(this.typedPathResolver.resolveComponentFieldPath(path, baseStack, {
             getFinalCandidates: (component) => this.getComponentMembers(component, [requiredKind]) as ast.Field[],
@@ -577,52 +702,58 @@ export class Xsmpl2PathResolver {
             structureRequiredMessage: (segmentText) => `The path segment '${segmentText}' requires a Structure-typed parent value.`,
             structureFieldMessage: (segmentText) => `The path segment '${segmentText}' shall resolve to a Field of the current Structure value.`,
             parentMessage: 'The path segment ".." shall not navigate above the typed component context.',
-        }));
+        }, bindings), bindings);
     }
 
-    protected typedFieldResolutionToL2(resolution: TypedFieldPathResolution): L2PathResolution<ast.Field> {
+    protected typedFieldResolutionToL2(resolution: TypedFieldPathResolution, bindings?: TemplateBindings): L2PathResolution<ast.Field> {
         return {
             active: resolution.active,
             finalElement: resolution.finalField,
             finalType: resolution.finalType,
+            finalBindings: bindings,
             invalidMessage: resolution.invalidMessage,
             invalidNode: resolution.invalidNode,
             namedSegments: resolution.namedSegments,
+            segmentBindings: this.createSegmentBindingsMap(resolution.namedSegments, bindings),
         };
     }
 
-    protected typedComponentResolutionToL2(resolution: TypedComponentPathResolution | undefined): L2PathResolution {
+    protected typedComponentResolutionToL2(resolution: TypedComponentPathResolution | undefined, bindings?: TemplateBindings): L2PathResolution {
         if (!resolution) {
             return this.inactiveResolution();
         }
         return {
             active: resolution.active,
             finalComponent: resolution.finalComponent,
+            finalBindings: bindings,
             invalidMessage: resolution.invalidMessage,
             invalidNode: resolution.invalidNode,
             namedSegments: resolution.namedSegments,
+            segmentBindings: this.createSegmentBindingsMap(resolution.namedSegments, bindings),
         };
     }
 
-    protected typedMemberResolutionToL2<T extends ast.NamedElement>(resolution: TypedMemberPathResolution<T>): L2PathResolution<T> {
+    protected typedMemberResolutionToL2<T extends ast.NamedElement>(resolution: TypedMemberPathResolution<T>, bindings?: TemplateBindings): L2PathResolution<T> {
         return {
             active: resolution.active,
             finalElement: resolution.finalElement,
             finalType: resolution.finalType,
             finalComponent: resolution.finalComponent,
+            finalBindings: bindings,
             invalidMessage: resolution.invalidMessage,
             invalidNode: resolution.invalidNode,
             namedSegments: resolution.namedSegments,
+            segmentBindings: this.createSegmentBindingsMap(resolution.namedSegments, bindings),
         };
     }
 
     protected inactiveResolution<T extends ast.NamedElement>(): L2PathResolution<T> {
-        return { active: false, namedSegments: new Map() };
+        return { active: false, namedSegments: new Map(), segmentBindings: new Map() };
     }
 
     protected getAssemblyConfigurationBaseNode(configuration: ast.AssemblyComponentConfiguration): AssemblyNode | undefined {
         if (ast.isAssembly(configuration.$container)) {
-            return this.getAssemblyNode(configuration.$container.model);
+            return this.getAssemblyNode(configuration.$container.model, this.createTemplateBindings(configuration.$container.parameters));
         }
         if (ast.isAssemblyInstance(configuration.$container)) {
             return this.getAssemblyNodeForAssemblyInstance(configuration.$container);
@@ -630,23 +761,34 @@ export class Xsmpl2PathResolver {
         return undefined;
     }
 
-    protected getAssemblyNode(model: ast.ModelInstance | undefined): AssemblyNode | undefined {
-        return model ? this.assemblyNodeCache.get(model, () => this.computeAssemblyNode(model)) : undefined;
+    protected getAssemblyNode(model: ast.ModelInstance | undefined, bindings?: TemplateBindings): AssemblyNode | undefined {
+        if (!model) {
+            return undefined;
+        }
+        const signature = this.getBindingsSignature(bindings);
+        const variants = this.assemblyNodeCache.get(model, () => new Map<string, AssemblyNode>());
+        let node = variants.get(signature);
+        if (!node) {
+            node = this.computeAssemblyNode(model, bindings);
+            variants.set(signature, node);
+        }
+        return node;
     }
 
     protected getAssemblyNodeForAssemblyInstance(instance: ast.AssemblyInstance | undefined): AssemblyNode | undefined {
-        return this.getAssemblyNode(instance?.assembly.ref?.model);
+        const assembly = instance && ast.isAssembly(instance.assembly.ref) ? instance.assembly.ref : undefined;
+        return this.getAssemblyNode(assembly?.model, assembly ? this.createTemplateBindings(assembly.parameters, instance?.arguments ?? []) : undefined);
     }
 
-    protected computeAssemblyNode(model: ast.ModelInstance): AssemblyNode {
+    protected computeAssemblyNode(model: ast.ModelInstance, bindings?: TemplateBindings): AssemblyNode {
         const component = this.getModelComponent(model);
-        const children = new Map<string, AssemblyNodeChild>();
+        const children: AssemblyNodeChild[] = [];
         for (const subInstance of model.elements.filter(ast.isSubInstance)) {
             if (!subInstance.container) {
                 continue;
             }
             const childNode = ast.isModelInstance(subInstance.instance)
-                ? this.getAssemblyNode(subInstance.instance)
+                ? this.getAssemblyNode(subInstance.instance, bindings)
                 : ast.isAssemblyInstance(subInstance.instance)
                     ? this.getAssemblyNodeForAssemblyInstance(subInstance.instance)
                     : undefined;
@@ -654,10 +796,10 @@ export class Xsmpl2PathResolver {
                 .getComponentPathMembers(component)
                 .find((candidate): candidate is ast.Container => ast.isContainer(candidate) && candidate.name === subInstance.container);
             if (member && childNode) {
-                children.set(subInstance.container, { member, node: childNode });
+                children.push({ member, instance: subInstance.instance, node: childNode });
             }
         }
-        return { component, children };
+        return { component, bindings, children };
     }
 
     protected getModelComponent(model: ast.ModelInstance | undefined): ast.Component | undefined {
@@ -732,6 +874,137 @@ export class Xsmpl2PathResolver {
             return element.type.ref;
         }
         return undefined;
+    }
+
+    protected resolveNamedSegmentTarget<T extends ast.NamedElement>(
+        segment: ast.PathNamedSegment,
+        candidates: readonly T[],
+        bindings?: TemplateBindings,
+    ): T | undefined {
+        if (ast.isConcretePathNamedSegment(segment)) {
+            const linked = segment.reference?.ref;
+            if (linked && candidates.includes(linked as T)) {
+                return linked as T;
+            }
+            const refText = segment.reference?.$refText;
+            return refText ? candidates.find(candidate => candidate.name === refText) : undefined;
+        }
+        const matches = this.identifierPatternService.matchCandidates(segment, candidates, candidate => candidate.name, bindings).matches;
+        return matches.length === 1 ? matches[0] : undefined;
+    }
+
+    protected resolveAssemblyChild(
+        segment: ast.PathNamedSegment,
+        children: readonly AssemblyNodeChild[],
+        bindings: TemplateBindings | undefined,
+    ): AssemblyNodeChild | readonly AssemblyNodeChild[] | undefined {
+        const segmentText = this.pathService.getSegmentText(segment);
+        const matches = children.filter(child =>
+            this.identifierPatternService.matches(this.identifierPatternService.getSegmentPattern(segment), child.instance.name, bindings)
+            || child.member.name === segmentText
+        );
+        if (matches.length === 1) {
+            return matches[0];
+        }
+        return matches.length > 1 ? matches : undefined;
+    }
+
+    protected getTemplateBindingsForPath(node: AstNode): TemplateBindings | undefined {
+        return this.getAssemblyTemplateBindings(node)
+            ?? this.getScheduleTemplateBindings(node)
+            ?? this.getLinkBaseTemplateBindings(node);
+    }
+
+    protected getAssemblyTemplateBindings(node: AstNode): TemplateBindings | undefined {
+        const assembly = AstUtils.getContainerOfType(node, ast.isAssembly);
+        return assembly ? this.createTemplateBindings(assembly.parameters) : undefined;
+    }
+
+    protected getScheduleTemplateBindings(node: AstNode): TemplateBindings | undefined {
+        const schedule = AstUtils.getContainerOfType(node, ast.isSchedule);
+        return schedule ? this.createTemplateBindings(schedule.parameters) : undefined;
+    }
+
+    protected getLinkBaseTemplateBindings(node: AstNode): TemplateBindings | undefined {
+        const linkBase = AstUtils.getContainerOfType(node, ast.isLinkBase);
+        const assembly = ast.isAssembly(linkBase?.assembly?.ref) ? linkBase.assembly.ref : undefined;
+        return assembly ? this.createTemplateBindings(assembly.parameters) : undefined;
+    }
+
+    protected getRootLinkBaseComponentStack(node: AstNode): readonly ast.Component[] | undefined {
+        const linkBase = AstUtils.getContainerOfType(node, ast.isLinkBase);
+        const assembly = ast.isAssembly(linkBase?.assembly?.ref) ? linkBase.assembly.ref : undefined;
+        const component = this.getModelComponent(assembly?.model);
+        return component ? [component] : undefined;
+    }
+
+    protected createTemplateBindings(
+        parameters: readonly ast.TemplateParameter[],
+        argumentsList: readonly ast.TemplateArgument[] = [],
+    ): TemplateBindings | undefined {
+        const bindings = new Map<string, string>();
+        for (const parameter of parameters) {
+            const value = this.getTemplateParameterValue(parameter);
+            if (value !== undefined) {
+                bindings.set(parameter.name, value);
+            }
+        }
+        for (const argument of argumentsList) {
+            const name = argument.parameter.ref?.name;
+            const value = this.getTemplateArgumentValue(argument);
+            if (name && value !== undefined) {
+                bindings.set(name, value);
+            }
+        }
+        return bindings.size > 0 ? bindings : undefined;
+    }
+
+    protected getTemplateParameterValue(parameter: ast.TemplateParameter): string | undefined {
+        if (ast.isStringParameter(parameter)) {
+            return this.normalizeTemplateString(parameter.value);
+        }
+        if (ast.isInt32Parameter(parameter)) {
+            return parameter.value?.toString();
+        }
+        return undefined;
+    }
+
+    protected getTemplateArgumentValue(argument: ast.TemplateArgument): string | undefined {
+        if (ast.isStringArgument(argument)) {
+            return this.normalizeTemplateString(argument.value);
+        }
+        if (ast.isInt32Argument(argument)) {
+            return argument.value.toString();
+        }
+        return undefined;
+    }
+
+    protected normalizeTemplateString(value: string | undefined): string | undefined {
+        if (!value) {
+            return undefined;
+        }
+        return value.startsWith('"') && value.endsWith('"') ? value.slice(1, -1) : value;
+    }
+
+    protected createSegmentBindingsMap(
+        namedSegments: ReadonlyMap<ast.PathNamedSegment, readonly ast.NamedElement[]>,
+        bindings?: TemplateBindings,
+    ): ReadonlyMap<ast.PathNamedSegment, TemplateBindings | undefined> {
+        const result = new Map<ast.PathNamedSegment, TemplateBindings | undefined>();
+        for (const segment of namedSegments.keys()) {
+            result.set(segment, bindings);
+        }
+        return result;
+    }
+
+    protected getBindingsSignature(bindings?: TemplateBindings): string {
+        if (!bindings || bindings.size === 0) {
+            return '';
+        }
+        return [...bindings.entries()]
+            .sort(([left], [right]) => left.localeCompare(right))
+            .map(([name, value]) => `${name}=${value}`)
+            .join(';');
     }
 
 }

@@ -1,13 +1,13 @@
-assembly PayloadSegment
-configure payload
+assembly <Tag = "Science", PayloadMember = "payload", RouterMember = "router", LoggerMember = "logger"> PayloadSegment
+configure Payload{Tag}
 {
     subscribe capture -> "PayloadReady"
     property acquisitionMode = demo.foundation.Mode.Nominal
 }
-Scenario: demo.payloadsegment.PayloadPlatform
+Scenario{Tag}: demo.payloadsegment.PayloadPlatform
 {
     platformMode = demo.foundation.Mode.Standby
-    payload += Payload: demo.payload.PayloadUnit
-    router += Router: demo.payloadsegment.DownlinkRouter
-    logger += Logger: demo.payloadsegment.PayloadLogger
+    payload += Payload{Tag}: demo.payload.PayloadUnit
+    router += Router{Tag}: demo.payloadsegment.DownlinkRouter
+    logger += Logger{Tag}: demo.payloadsegment.PayloadLogger
 }

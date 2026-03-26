@@ -1,12 +1,12 @@
-assembly MissionDemo
-configure ground
+assembly <OrbitTag = "Ops", PayloadTag = "Science", OrbitalMember = "orbital", PayloadMember = "payload", ConsoleMember = "ground"> MissionDemo
+configure Ground{OrbitTag}
 {
     subscribe dispatch -> "MissionReady"
 }
-System: demo.mission.MissionSystemRoot
+System{OrbitTag}: demo.mission.MissionSystemRoot
 {
     integrated = false
-    orbitalSegment += Orbiter: OrbitalSegment using config OrbitalNominal using link OrbitalLinks
-    payloadSegment += Payload: PayloadSegment using config PayloadSegmentNominal using link PayloadSegmentLinks
-    ground += Ground: demo.mission.GroundConsole
+    orbital += Orbiter{OrbitTag}: OrbitalSegment<Lane = "Ops", BusMember = "avionics", RouterMember = "router", LoggerMember = "logger"> using config OrbitalNominal using link OrbitalLinks
+    payload += Payload{PayloadTag}: PayloadSegment<Tag = "Science", PayloadMember = "payload", RouterMember = "router", LoggerMember = "logger"> using config PayloadSegmentNominal using link PayloadSegmentLinks
+    ground += Ground{OrbitTag}: demo.mission.GroundConsole
 }

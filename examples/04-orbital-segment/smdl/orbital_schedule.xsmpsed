@@ -1,16 +1,28 @@
-schedule <root: string = "/orbit", cycles: int32 = 3> OrbitalSchedule epoch "2025-01-01T00:00:00Z" mission "2025-01-01T00:00:00Z"
-task Bootstrap
+schedule <root: string = "/orbit", BusMember: string = "avionics", RouterMember: string = "router", LoggerMember: string = "logger", cycles: int32 = 3> OrbitalSchedule epoch "2025-01-01T00:00:00Z" mission "2025-01-01T00:00:00Z"
+
+task Bootstrap: demo.orbit.OrbitalPlatform
 {
-    call logger.log(message = "orbital bootstrap")
+    call {LoggerMember}.log(message = "orbital bootstrap")
     property missionMode = demo.foundation.Mode.Nominal
-    trig avionics.step
+    trig {BusMember}.step
+    execute PowerBalance at {BusMember}
     async emit "PlatformReady"
 }
-task Observe
+
+task Observe: demo.orbit.OrbitalPlatform
 {
-    transfer router.distributedBus -> avionics.power.lineVoltage
-    call logger.log(message = "orbital cycle")
+    transfer {BusMember}.power.lineVoltage -> {RouterMember}.incomingBus
+    trig {RouterMember}.distribute
+    call {LoggerMember}.log(message = "orbital cycle")
     trig run
 }
+
+task PowerBalance: demo.avionics.AvionicsUnit
+{
+    trig power.balance
+    call computer.apply(requestedMode = demo.foundation.Mode.Nominal)
+}
+
 event Bootstrap epoch "2025-01-01T00:00:10Z"
 event Observe on "PlatformReady" using mission delay "PT5S" cycle "PT30S" repeat 3
+event PowerBalance simulation "PT45S"

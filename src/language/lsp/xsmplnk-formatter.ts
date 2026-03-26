@@ -19,6 +19,7 @@ export class XsmplnkFormatter extends XsmpFormatterBase {
     protected formatLinkBase(node: ast.LinkBase, formatter: NodeFormatter<ast.LinkBase>): void {
         formatter.keyword('link').prepend(Formatting.noIndent()).append(Formatting.oneSpace());
         formatter.property('name').append(Formatting.newLine({ allowMore: true }));
+        formatter.keyword('for').surround(Formatting.oneSpace());
         formatter.nodes(...node.elements).prepend(Formatting.noIndent());
     }
 

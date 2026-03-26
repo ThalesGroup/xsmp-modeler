@@ -1,10 +1,12 @@
-link OrbitalLinks
-/orbit
+link OrbitalLinks for OrbitalSegment
+
+/: demo.orbit.OrbitalPlatform
 {
-    field link router.distributedBus -> avionics.power.lineVoltage
-    interface link avionics: logger -> logger
-    event link avionics.publishedMode -> publishedMode
-    avionics
+    field link {BusMember}.power.lineVoltage -> {RouterMember}.incomingBus
+    interface link {BusMember}: logger -> {LoggerMember}
+    event link {BusMember}.publishedMode -> inboundMode
+
+    avionics: demo.avionics.AvionicsUnit
     {
         field link power.lineVoltage -> computer.tuning[0]
     }

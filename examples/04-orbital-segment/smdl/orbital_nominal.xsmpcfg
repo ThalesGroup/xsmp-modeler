@@ -8,13 +8,13 @@ configuration OrbitalNominal
         heater = 12,
         enabled = true
     }
-    include AvionicsNominal at avionics
-    router
+    include AvionicsNominal at unsafe avionics
+    router: demo.orbit.PowerRouter
     {
         incomingBus = 28.0
         distributedBus = 28.0
     }
-    logger
+    logger: demo.orbit.SegmentLogger
     {
         lastMessage = "orbital ready"
     }

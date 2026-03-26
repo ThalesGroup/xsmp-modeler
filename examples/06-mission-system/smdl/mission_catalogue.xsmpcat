@@ -22,8 +22,8 @@ namespace demo::mission
     public model MissionSystemRoot
     {
         output field Smp.Bool integrated = false
-        container demo.foundation.ICommandable[] orbitalSegment
-        container demo.foundation.ICommandable[] payloadSegment
+        container demo.orbit.OrbitalPlatform orbital = demo.orbit.OrbitalPlatform
+        container demo.payloadsegment.PayloadPlatform payload = demo.payloadsegment.PayloadPlatform
         container demo.mission.GroundConsole ground = demo.mission.GroundConsole
 
         entrypoint supervise

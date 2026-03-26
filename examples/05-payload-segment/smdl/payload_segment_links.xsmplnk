@@ -1,11 +1,13 @@
-link PayloadSegmentLinks
-/payloadSegment
+link PayloadSegmentLinks for PayloadSegment
+
+/: demo.payloadsegment.PayloadPlatform
 {
-    field link payload.camera.frames -> router.sourceFrames
-    interface link payload: logger -> logger
-    event link payload.payloadMode -> publishedMode
-    router
+    field link {PayloadMember}.camera.frames -> {RouterMember}.sourceFrames
+    interface link {PayloadMember}: logger -> {LoggerMember}
+    event link {PayloadMember}.payloadMode -> inboundMode
+
+    payload: demo.payload.PayloadUnit
     {
-        field link sourceFrames[0] -> downlinkedFrames[0]
+        event link camera.frameReady -> uplinkMode
     }
 }

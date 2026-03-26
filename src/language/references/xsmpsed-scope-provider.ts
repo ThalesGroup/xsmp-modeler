@@ -49,7 +49,7 @@ export class XsmpsedScopeProvider implements ScopeProvider {
     }
 
     getScope(context: ReferenceInfo): Scope {
-        if (ast.isPathNamedSegment(context.container) && context.property === 'reference') {
+        if (ast.isConcretePathNamedSegment(context.container) && context.property === 'reference') {
             return this.getPathScope(context.container);
         }
         const referenceType = this.reflection.getReferenceType(context);
@@ -67,7 +67,7 @@ export class XsmpsedScopeProvider implements ScopeProvider {
         return result;
     }
 
-    protected getPathScope(segment: ast.PathNamedSegment): Scope {
+    protected getPathScope(segment: ast.ConcretePathNamedSegment): Scope {
         const candidates = this.pathResolver.getNamedSegmentCandidates(segment);
         return candidates.length > 0 ? this.createScopeForNamedElements(candidates) : EMPTY_SCOPE;
     }

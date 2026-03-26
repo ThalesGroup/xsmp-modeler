@@ -63,6 +63,24 @@ describe('SMP schedule generator tests', () => {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
+
+  test('preserves templated schedule paths in generated XML', async () => {
+    const generator = new SmpGenerator(services.shared);
+    document = await parse(`schedule <Target = "child"> Demo
+
+task Main: demo.Root
+{
+    call {Target}.reset()
+}
+`, { documentUri: 'templated-test.xsmpsed' });
+    setGeneratedBy(false);
+
+    const actualXml = checkDocumentValid(document) ??
+      await generator.doGenerateSchedule(document.parseResult.value, undefined);
+
+    expect(actualXml).toContain('<OperationPath>{Target}.reset</OperationPath>');
+    expect(actualXml.includes('unsafe')).toBe(false);
+  });
 });
 
 function checkDocumentValid(document: LangiumDocument): string | undefined {

@@ -46,8 +46,14 @@ export class XsmpasbScopeProvider implements ScopeProvider {
     }
 
     getScope(context: ReferenceInfo): Scope {
-        if (ast.isPathNamedSegment(context.container) && context.property === 'reference') {
+        if (ast.isConcretePathNamedSegment(context.container) && context.property === 'reference') {
             return this.getPathScope(context.container);
+        }
+        if (ast.isTemplateArgument(context.container) && context.property === 'parameter') {
+            const assembly = ast.isAssemblyInstance(context.container.$container) && ast.isAssembly(context.container.$container.assembly.ref)
+                ? context.container.$container.assembly.ref
+                : undefined;
+            return assembly ? this.createTemplateScope(assembly.parameters) : EMPTY_SCOPE;
         }
         return this.computeScope(context);
     }
@@ -97,7 +103,7 @@ export class XsmpasbScopeProvider implements ScopeProvider {
         });
     }
 
-    protected getPathScope(segment: ast.PathNamedSegment): Scope {
+    protected getPathScope(segment: ast.ConcretePathNamedSegment): Scope {
         const candidates = this.pathResolver.getNamedSegmentCandidates(segment);
         return candidates.length > 0 ? this.createScope(candidates) : EMPTY_SCOPE;
     }
@@ -106,6 +112,16 @@ export class XsmpasbScopeProvider implements ScopeProvider {
         return new StreamScope(
             stream(elements)
                 .filter((element): element is ast.NamedElement => Boolean(element.name))
+                .map(element => this.descriptions.createDescription(element, element.name)),
+            outerScope,
+            options
+        );
+    }
+
+    protected createTemplateScope(elements: Iterable<ast.TemplateParameter>, outerScope?: Scope, options?: ScopeOptions): Scope {
+        return new StreamScope(
+            stream(elements)
+                .filter((element): element is ast.TemplateParameter => Boolean(element.name))
                 .map(element => this.descriptions.createDescription(element, element.name)),
             outerScope,
             options

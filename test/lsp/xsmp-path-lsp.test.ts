@@ -166,6 +166,60 @@ task Worker: demo.Child
         const content = hover && MarkupContent.is(hover.contents) ? hover.contents.value : '';
         expect(content).toMatch(/child reset|reset/i);
     });
+
+    test('supports template parameter navigation and concretized definition on templated schedule paths', async () => {
+        const catalogue = extractRange(scheduleCatalogueSource);
+        const scheduleText = `schedule <Target = "child", Tail = "set"> Demo
+
+task Main: demo.Root
+{
+    call {Target}.re{Tail}()
+}
+`;
+
+        const parameterOffset = scheduleText.indexOf('Target = "child"');
+        const placeholderOffset = scheduleText.indexOf('{Target}') + 2;
+        const targetOffset = scheduleText.indexOf('re{Tail}') + 1;
+        expect(parameterOffset).toBeGreaterThanOrEqual(0);
+        expect(placeholderOffset).toBeGreaterThanOrEqual(0);
+        expect(targetOffset).toBeGreaterThanOrEqual(0);
+
+        const { catalogueDocument, document } = await parseScheduleWorkspace(catalogue.text, scheduleText);
+
+        const parameterLocations = await getDefinitions(services.xsmpsed.lsp.DefinitionProvider, document, placeholderOffset);
+        expectLocation(parameterLocations, document, [parameterOffset, parameterOffset + 'Target'.length]);
+
+        const targetLocations = await getDefinitions(services.xsmpsed.lsp.DefinitionProvider, document, targetOffset);
+        expectLocation(targetLocations, catalogueDocument, catalogue.range);
+    });
+
+    test('supports template parameter navigation inside templated instance names', async () => {
+        const catalogue = extractRange(assemblyCatalogueSource);
+        const assemblyText = `assembly <Index = 1, Suffix = "Tail"> Demo
+
+Root: demo.Root
+{
+    child += Unit{Index}_{Suffix}: demo.Child
+}
+`;
+
+        const indexDefinitionOffset = assemblyText.indexOf('Index = 1');
+        const indexPlaceholderOffset = assemblyText.indexOf('{Index}_') + 2;
+        const suffixDefinitionOffset = assemblyText.indexOf('Suffix = "Tail"');
+        const suffixPlaceholderOffset = assemblyText.indexOf('{Suffix}') + 2;
+        expect(indexDefinitionOffset).toBeGreaterThanOrEqual(0);
+        expect(indexPlaceholderOffset).toBeGreaterThanOrEqual(0);
+        expect(suffixDefinitionOffset).toBeGreaterThanOrEqual(0);
+        expect(suffixPlaceholderOffset).toBeGreaterThanOrEqual(0);
+
+        const { document } = await parseAssemblyWorkspace(catalogue.text, assemblyText);
+
+        const indexLocations = await getDefinitions(services.xsmpasb.lsp.DefinitionProvider, document, indexPlaceholderOffset);
+        expectLocation(indexLocations, document, [indexDefinitionOffset, indexDefinitionOffset + 'Index'.length]);
+
+        const suffixLocations = await getDefinitions(services.xsmpasb.lsp.DefinitionProvider, document, suffixPlaceholderOffset);
+        expectLocation(suffixLocations, document, [suffixDefinitionOffset, suffixDefinitionOffset + 'Suffix'.length]);
+    });
 });
 
 async function parseAssemblyWorkspace(catalogueText: string, assemblyText: string): Promise<{

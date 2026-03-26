@@ -3,7 +3,7 @@ grammar Xsmpasb
 import 'xsmp-types'
 
 entry Assembly returns Assembly:
-    'assembly' ('<' parameters+=TemplateParameter (',' parameters+=TemplateParameter)*'>')? name=Name
+    'assembly' ('<' parameters+=TemplateParameter (',' parameters+=TemplateParameter)*'>')? name=ValidID
     configurations+=ComponentConfiguration*
     model=ModelInstance
     configurations+=ComponentConfiguration*;
@@ -38,13 +38,13 @@ Int32Argument returns Int32Argument:
 
 
 ModelInstance returns ModelInstance:
-    name=Name ':' (implementation=[Component:QualifiedName] | strImplementation=STRING)
+    name=InstanceName ':' (implementation=[Component:QualifiedName] | strImplementation=STRING)
     ('{'
         elements+=(GlobalEventHandler|SubInstance|Link|Invocation|FieldValue)*
     '}')?;
 
 AssemblyInstance returns AssemblyInstance:
-    name=Name ':' assembly=[Assembly:ValidID] ('<' (arguments+=TemplateArgument (',' arguments+=TemplateArgument)*)?'>')?
+    name=InstanceName ':' assembly=[Assembly:ValidID] ('<' (arguments+=TemplateArgument (',' arguments+=TemplateArgument)*)?'>')?
     ('using' 'config' configuration=[Configuration:ValidID])?
     ('using' 'link' linkBase=[LinkBase:ValidID])?
     ('{'
@@ -54,8 +54,8 @@ AssemblyInstance returns AssemblyInstance:
 SubInstance returns SubInstance:
     container=ValidID '+=' instance=(ModelInstance|AssemblyInstance);
 
-Name returns string:
-    ValidID;
+InstanceName returns string:
+    (ID | TEMPLATE_ID)+;
 
 Path returns Path:
     {Path}
@@ -73,10 +73,28 @@ PathIndex returns PathIndex:
     '[' index=INT ']';
 
 PathSegment returns PathSegment:
-    PathNamedSegment | PathParentSegment | PathSelfSegment;
+    ConcretePathNamedSegment | PatternPathNamedSegment | PathParentSegment | PathSelfSegment;
 
-PathNamedSegment returns PathNamedSegment:
+ConcretePathNamedSegment returns ConcretePathNamedSegment:
     reference=[NamedElement:ValidID];
+
+PatternPathNamedSegment returns PatternPathNamedSegment:
+    pattern=TemplateIdentifierPattern;
+
+TemplateIdentifierPattern returns IdentifierPattern:
+    {IdentifierPattern}
+    parts+=IdentifierTextPart*
+    parts+=IdentifierTemplatePart
+    parts+=IdentifierPatternPart*;
+
+IdentifierPatternPart returns IdentifierPatternPart:
+    IdentifierTextPart | IdentifierTemplatePart;
+
+IdentifierTextPart returns IdentifierTextPart:
+    text=ID;
+
+IdentifierTemplatePart returns IdentifierTemplatePart:
+    text=TEMPLATE_ID;
 
 PathParentSegment returns PathParentSegment:
     {PathParentSegment} '..';
@@ -178,7 +196,8 @@ terminal DATETIME_STRING: /"[^"]*"dt/;
 terminal DURATION_STRING: /"[^"]*"d/;
 terminal STRING: /"[^"]*"/;
 terminal CHAR: /'[^']*'/;
-terminal ID: /([_a-zA-Z]\w*|{[_a-zA-Z]\w*}\w*)+/;
+terminal TEMPLATE_ID: /\{[_a-zA-Z]\w*\}\w*/;
+terminal ID: /[_a-zA-Z]\w*/;
 
 
 terminal FLOATING_LITERAL:FRACTIONALCONSTANT EXPONENTPART?| DIGITSEQUENCE EXPONENTPART;

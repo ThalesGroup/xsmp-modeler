@@ -1,8 +1,8 @@
-link Demo
+link Demo for DemoAsm
 Root:demo.Root
 {
 event link unsafe a->b
-field link out->child.in
+field link out->{Target}.in
 interface link child:ref->child:back
 child:demo.Child
 {

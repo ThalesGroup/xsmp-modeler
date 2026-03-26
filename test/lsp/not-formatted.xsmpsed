@@ -1,7 +1,7 @@
 schedule<_root:string="/Root",count:int32=1>Demo epoch "2025-01-01T00:00:00Z" mission "PT0S"
 task Main:demo.Root
 {
-call unsafe op(a=1i32,b=2i32)
+call unsafe {Target}.op(a=1i32,b=2i32)
 property flag=true
 transfer out->in
 trig entry

@@ -143,9 +143,9 @@ export class XsmpcatScopeComputation implements ScopeComputation {
                         if (ast.Constant === member.$type && member.name) {
                             nestedDescriptions.push(this.descriptions.createDescription(member, member.name, document));
                         }
-                       // else if ((ast.Field === member.$type||ast.Container === member.$type) && member.name) {
+                        if ('name' in member && typeof member.name === 'string' && member.name) {
                             internalDescriptions.push(this.descriptions.createDescription(member, member.name, document));
-                      //  }
+                        }
                     });
 
                     scopes.addAll(element, [...nestedDescriptions, ...internalDescriptions]);

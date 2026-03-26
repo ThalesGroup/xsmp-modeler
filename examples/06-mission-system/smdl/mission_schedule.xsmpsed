@@ -1,13 +1,30 @@
-schedule <root: string = "/system", phases: int32 = 2> MissionSchedule epoch "2025-01-01T01:00:00Z" mission "2025-01-01T01:00:00Z"
-task Dispatch
+schedule <root: string = "/system", OrbitalMember: string = "orbital", PayloadMember: string = "payload", ConsoleMember: string = "ground", phases: int32 = 2> MissionSchedule epoch "2025-01-01T01:00:00Z" mission "2025-01-01T01:00:00Z"
+
+task Dispatch: demo.mission.MissionSystemRoot
 {
-    call ground.log(message = "mission dispatch")
-    trig ground.dispatch
+    call {ConsoleMember}.log(message = "mission dispatch")
+    trig {ConsoleMember}.dispatch
+    execute OrbitalTick at {OrbitalMember}
+    execute PayloadTick at {PayloadMember}
     async emit "MissionReady"
 }
-task Monitor
+
+task OrbitalTick: demo.orbit.OrbitalPlatform
+{
+    trig run
+}
+
+task PayloadTick: demo.payloadsegment.PayloadPlatform
+{
+    trig run
+}
+
+task Monitor: demo.mission.MissionSystemRoot
 {
     trig supervise
 }
+
 event Dispatch mission "PT15S"
 event Monitor on "MissionReady" using epoch delay "PT10S" cycle "PT1M" repeat 2
+event OrbitalTick simulation "PT20S"
+event PayloadTick zulu "2025-01-01T01:01:00Z"

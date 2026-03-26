@@ -8,17 +8,17 @@ configuration AvionicsNominal
         heater = 12,
         enabled = true
     }
-    power
+    power: demo.avionics.BatteryPack
     {
         commandedMode = demo.foundation.Mode.Nominal
         stateOfCharge = 82
         lineVoltage = 28.2
         safetyMargin = 15
     }
-    computer
+    computer: demo.avionics.AttitudeComputer
     {
         modeState = demo.foundation.Mode.Nominal
         tuning = [1.0, 0.6, 0.3, 0.1]
     }
-    include SensorCalibration at sensor
+    include SensorCalibration at unsafe sensor
 }

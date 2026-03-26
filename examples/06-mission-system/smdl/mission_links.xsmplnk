@@ -1,8 +1,9 @@
-link MissionLinks
-/system
+link MissionLinks for MissionDemo
+
+/: demo.mission.MissionSystemRoot
 {
-    interface link Orbiter: upstreamLogger -> Ground
-    interface link Payload: upstreamLogger -> Ground
-    event link Ground.uplinkEvent -> Orbiter.inboundMode
-    event link Ground.uplinkEvent -> Payload.inboundMode
+    interface link {OrbitalMember}: upstreamLogger -> {ConsoleMember}
+    interface link {PayloadMember}: upstreamLogger -> {ConsoleMember}
+    event link {ConsoleMember}.uplinkEvent -> {OrbitalMember}.inboundMode
+    event link {ConsoleMember}.uplinkEvent -> {PayloadMember}.inboundMode
 }

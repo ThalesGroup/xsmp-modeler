@@ -42,6 +42,11 @@ namespace demo
         eventsink demo.FlagEvent inbound
         eventsource demo.FlagEvent outbound
     }
+
+    public model System
+    {
+        container Root bus = demo.Root
+    }
 }
 `;
 
@@ -99,9 +104,87 @@ Root: demo.Root
         ]));
         expect(messages.some(message => message.includes('unsafe'))).toBe(false);
     });
+
+    test('matches templated child instance names from assembly parameters', async () => {
+        const document = await parseInProject(`assembly <Side = "Left"> Demo
+
+configure {Side}Receiver
+{
+    count = 1i32
+}
+
+Root: demo.Root
+{
+    child += {Side}Receiver: demo.Child
+}
+`);
+
+        expect(getMessages(document)).toEqual([]);
+    });
+
+    test('concretizes nested assembly instance names from template arguments', async () => {
+        const document = await parseInProject(`assembly Demo
+
+configure Bus.leaf
+{
+    count = 1i32
+}
+
+Root: demo.System
+{
+    bus += Bus: NestedAsm<Target = "leaf">
+}
+`, [
+            ['nested.xsmpasb', `assembly <Target = "child"> NestedAsm
+
+NestedRoot: demo.Root
+{
+    child += {Target}: demo.Child
+}
+`]
+        ]);
+
+        expect(getMessages(document)).toEqual([]);
+    });
+
+    test('reports unknown placeholders in assembly paths', async () => {
+        const document = await parseInProject(`assembly Demo
+
+configure {Missing}Receiver
+{
+    count = 1i32
+}
+
+Root: demo.Root
+{
+    child += LeftReceiver: demo.Child
+}
+`);
+
+        expect(getMessages(document)).toEqual([
+            "The placeholder '{Missing}' shall resolve to a Template Argument of the enclosing Assembly.",
+        ]);
+    });
+
+    test('supports template placeholders followed by suffix text in instance names', async () => {
+        const document = await parseInProject(`assembly <Index = 1, Suffix = "Tail"> Demo
+
+configure Unit{Index}_{Suffix}
+{
+    count = 1i32
+}
+
+Root: demo.Root
+{
+    child += Unit{Index}_{Suffix}: demo.Child
+}
+`);
+
+        expect(getMessages(document)).toEqual([]);
+    });
 });
 
-async function parseInProject(source: string): Promise<LangiumDocument<Assembly>> {
+async function parseInProject(source: string, extraAssemblies: Array<[string, string]> = []): Promise<LangiumDocument<Assembly>> {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmpasb-validating-'));
     tempDirs.push(tempDir);
 
@@ -114,13 +197,19 @@ source "src"
     const catalogueDocument = await parseCatalogue(catalogueSource, {
         documentUri: URI.file(path.join(tempDir, 'src', 'demo.xsmpcat')).toString(),
     });
+    const extraAssemblyDocuments = await Promise.all(extraAssemblies.map(async ([fileName, assemblySource]) => await parseAssembly(assemblySource, {
+        documentUri: URI.file(path.join(tempDir, 'src', fileName)).toString(),
+    })));
     const assemblyDocument = await parseAssembly(source, {
         documentUri: URI.file(path.join(tempDir, 'src', 'demo.xsmpasb')).toString(),
     });
 
-    documents.push(projectDocument, catalogueDocument, assemblyDocument);
+    documents.push(projectDocument, catalogueDocument, ...extraAssemblyDocuments, assemblyDocument);
     expect(projectDocument.parseResult.parserErrors).toHaveLength(0);
     expect(catalogueDocument.parseResult.parserErrors).toHaveLength(0);
+    for (const extraAssemblyDocument of extraAssemblyDocuments) {
+        expect(extraAssemblyDocument.parseResult.parserErrors).toHaveLength(0);
+    }
     expect(assemblyDocument.parseResult.parserErrors).toHaveLength(0);
 
     return assemblyDocument;

@@ -3,7 +3,7 @@ import { EmptyFileSystem, type LangiumDocument, URI } from 'langium';
 import { expandToString as s } from 'langium/generate';
 import { clearDocuments, parseHelper } from 'langium/test';
 import { createXsmpServices } from '../../../src/language/xsmp-module.js';
-import { Catalogue, LinkBase, Project, isLinkBase } from '../../../src/language/generated/ast.js';
+import { Assembly, Catalogue, LinkBase, Project, isLinkBase } from '../../../src/language/generated/ast.js';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -13,6 +13,7 @@ import { setGeneratedBy } from '../../../src/language/generator/generator.js';
 let services: ReturnType<typeof createXsmpServices>;
 let parseProject: ReturnType<typeof parseHelper<Project>>;
 let parseCatalogue: ReturnType<typeof parseHelper<Catalogue>>;
+let parseAssembly: ReturnType<typeof parseHelper<Assembly>>;
 let parseLinkBase: ReturnType<typeof parseHelper<LinkBase>>;
 const documents: LangiumDocument[] = [];
 const tempDirs: string[] = [];
@@ -44,6 +45,7 @@ beforeAll(async () => {
     services = createXsmpServices(EmptyFileSystem);
     parseProject = parseHelper<Project>(services.xsmpproject);
     parseCatalogue = parseHelper<Catalogue>(services.xsmpcat);
+    parseAssembly = parseHelper<Assembly>(services.xsmpasb);
     parseLinkBase = parseHelper<LinkBase>(services.xsmplnk);
 
     await services.shared.workspace.WorkspaceManager.initializeWorkspace([]);
@@ -76,9 +78,37 @@ describe('SMP link base generator tests', () => {
 
         expect(actualXml).toBe(fs.readFileSync(expectedPath).toString());
     });
+
+    test('preserves templated paths in generated link base XML', async () => {
+        const generator = new SmpGenerator(services.shared);
+        const document = await parseSource(`link Demo for DemoAsm
+
+/: demo.Root
+{
+    field link outValue -> {Target}.inValue
+}
+`, `assembly <Target = "child"> DemoAsm
+
+Root: demo.Root
+{
+    child += Leaf: demo.Child
+}
+`);
+        setGeneratedBy(false);
+
+        const actualXml = checkDocumentValid(document) ??
+            await generator.doGenerateLinkBase(document.parseResult.value, undefined);
+
+        expect(actualXml).toContain('<ClientPath>{Target}.inValue</ClientPath>');
+        expect(actualXml.includes('unsafe')).toBe(false);
+    });
 });
 
 async function parseFixture(fileName: string): Promise<LangiumDocument<LinkBase>> {
+    return parseSource(fs.readFileSync(path.resolve(__dirname, fileName)).toString());
+}
+
+async function parseSource(source: string, assemblySource?: string, fileName = 'demo.xsmplnk'): Promise<LangiumDocument<LinkBase>> {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-smp-linkbase-fixture-'));
     tempDirs.push(tempDir);
 
@@ -91,13 +121,19 @@ source "src"
     const catalogueDocument = await parseCatalogue(catalogueSource, {
         documentUri: URI.file(path.join(tempDir, 'src', 'demo.xsmpcat')).toString(),
     });
-    const linkBaseDocument = await parseLinkBase(fs.readFileSync(path.resolve(__dirname, fileName)).toString(), {
+    const assemblyDocument = assemblySource
+        ? await parseAssembly(assemblySource, {
+            documentUri: URI.file(path.join(tempDir, 'src', 'demoasm.xsmpasb')).toString(),
+        })
+        : undefined;
+    const linkBaseDocument = await parseLinkBase(source, {
         documentUri: URI.file(path.join(tempDir, 'src', fileName)).toString(),
     });
 
-    documents.push(projectDocument, catalogueDocument, linkBaseDocument);
+    documents.push(projectDocument, catalogueDocument, ...(assemblyDocument ? [assemblyDocument] : []), linkBaseDocument);
     expect(projectDocument.parseResult.parserErrors).toHaveLength(0);
     expect(catalogueDocument.parseResult.parserErrors).toHaveLength(0);
+    expect(assemblyDocument?.parseResult.parserErrors ?? []).toHaveLength(0);
     expect(linkBaseDocument.parseResult.parserErrors).toHaveLength(0);
 
     return linkBaseDocument;

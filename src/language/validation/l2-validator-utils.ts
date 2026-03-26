@@ -1,7 +1,9 @@
 import type { AstNode, Properties, ValidationAcceptor } from 'langium';
 import * as ast from '../generated/ast-partial.js';
 import * as Duration from '../utils/duration.js';
+
 const dateTimeRegex = /^\d{4}-\d{2}-\d{2}T.+$/;
+const l2ExpandedIdentifierRegex = /^[_a-zA-Z]\w*$/;
 
 function isParentSegment(segment: ast.PathElement | ast.PathSegment): boolean {
     return ast.isPathParentSegment(ast.isPathMember(segment) ? segment.segment : segment);
@@ -91,4 +93,8 @@ export function checkNonNegativeBigInt<N extends AstNode>(
     if (value !== undefined && value < BigInt(0)) {
         accept('error', `${label} shall be a positive number or 0.`, { node, property });
     }
+}
+
+export function isValidExpandedL2Identifier(value: string | undefined): value is string {
+    return value !== undefined && l2ExpandedIdentifierRegex.test(value);
 }

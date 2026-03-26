@@ -24,11 +24,26 @@ interface Path {
     head?: PathSegment
     elements: PathElement[]
 }
-type PathSegment = PathNamedSegment | PathParentSegment | PathSelfSegment
+type PathSegment = ConcretePathNamedSegment | PatternPathNamedSegment | PathParentSegment | PathSelfSegment
 type PathElement = PathMember | PathIndex
 
 interface PathNamedSegment {
+}
+interface ConcretePathNamedSegment extends PathNamedSegment {
     reference?: @NamedElement
+}
+interface PatternPathNamedSegment extends PathNamedSegment {
+    pattern: IdentifierPattern
+}
+interface IdentifierPattern {
+    parts: IdentifierPatternPart[]
+}
+type IdentifierPatternPart = IdentifierTextPart | IdentifierTemplatePart
+interface IdentifierTextPart {
+    text: string
+}
+interface IdentifierTemplatePart {
+    text: string
 }
 interface PathParentSegment {
 }
@@ -500,6 +515,7 @@ interface ConfigurationUsage {
 
 
 interface LinkBase extends Document {
+    assembly?: @Assembly
     elements: ComponentLinkBase[]
 }
 

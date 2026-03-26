@@ -33,13 +33,13 @@ export class XsmplnkScopeProvider implements ScopeProvider {
     }
 
     getScope(context: ReferenceInfo): Scope {
-        if (ast.isPathNamedSegment(context.container) && context.property === 'reference') {
+        if (ast.isConcretePathNamedSegment(context.container) && context.property === 'reference') {
             return this.getPathScope(context.container);
         }
         return this.getGlobalScope(AstUtils.getDocument(context.container), this.reflection.getReferenceType(context));
     }
 
-    protected getPathScope(segment: ast.PathNamedSegment): Scope {
+    protected getPathScope(segment: ast.ConcretePathNamedSegment): Scope {
         const candidates = this.pathResolver.getNamedSegmentCandidates(segment);
         return candidates.length > 0 ? this.createScope(candidates) : EMPTY_SCOPE;
     }

@@ -1,8 +1,13 @@
 import * as ast from '../generated/ast.js';
 import type { XsmpSharedServices } from '../xsmp-module.js';
+import type { IdentifierPatternService } from './identifier-pattern-service.js';
 
 export class XsmpPathService {
-    constructor(_services: XsmpSharedServices) { }
+    protected readonly identifierPatternService: IdentifierPatternService;
+
+    constructor(services: XsmpSharedServices) {
+        this.identifierPatternService = services.IdentifierPatternService;
+    }
 
     stringifyPath(path: ast.Path | undefined, includeUnsafe = false): string | undefined {
         if (!path) {
@@ -46,8 +51,11 @@ export class XsmpPathService {
     }
 
     getSegmentText(segment: ast.PathNamedSegment | ast.PathSegment): string {
-        if (ast.isPathNamedSegment(segment)) {
+        if (ast.isConcretePathNamedSegment(segment)) {
             return segment.reference?.ref?.name ?? segment.reference?.$refText ?? '';
+        }
+        if (ast.isPatternPathNamedSegment(segment)) {
+            return this.identifierPatternService.stringifyPattern(segment.pattern) ?? '';
         }
         if (ast.isPathParentSegment(segment)) {
             return '..';

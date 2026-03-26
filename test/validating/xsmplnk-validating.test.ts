@@ -2,7 +2,7 @@ import { afterEach, beforeAll, describe, expect, test } from 'vitest';
 import { clearDocuments, parseHelper, type ParseHelperOptions } from 'langium/test';
 import { EmptyFileSystem, type LangiumDocument, URI } from 'langium';
 import { createXsmpServices } from '../../src/language/xsmp-module.js';
-import { Catalogue, LinkBase, Project, isLinkBase } from '../../src/language/generated/ast.js';
+import { Assembly, Catalogue, LinkBase, Project, isLinkBase } from '../../src/language/generated/ast.js';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -10,6 +10,7 @@ import * as path from 'node:path';
 let services: ReturnType<typeof createXsmpServices>;
 let parseProject: ReturnType<typeof parseHelper<Project>>;
 let parseCatalogue: ReturnType<typeof parseHelper<Catalogue>>;
+let parseAssembly: ReturnType<typeof parseHelper<Assembly>>;
 let parseLinkBase: ReturnType<typeof parseHelper<LinkBase>>;
 const documents: LangiumDocument[] = [];
 const tempDirs: string[] = [];
@@ -48,6 +49,7 @@ beforeAll(async () => {
     services = createXsmpServices(EmptyFileSystem);
     parseProject = parseHelper<Project>(services.xsmpproject);
     parseCatalogue = parseHelper<Catalogue>(services.xsmpcat);
+    parseAssembly = parseHelper<Assembly>(services.xsmpasb);
     const doParseLinkBase = parseHelper<LinkBase>(services.xsmplnk);
     parseLinkBase = (input: string, options?: ParseHelperOptions) => doParseLinkBase(input, { validation: true, ...options });
 
@@ -99,9 +101,61 @@ Unanchored
 
         expect(getMessages(document)).toEqual([]);
     });
+
+    test('requires an assembly anchor for templated link base paths', async () => {
+        const document = await parseInProject(`link Demo
+
+/: demo.Root
+{
+    field link outValue -> {Target}.inValue
+}
+`);
+
+        expect(getMessages(document)).toEqual([
+            'A Link Base using templated paths shall declare an Assembly anchor with \'for <Assembly>\'.',
+        ]);
+    });
+
+    test('resolves templated link paths with imported assembly defaults', async () => {
+        const document = await parseInProject(`link Demo for DemoAsm
+
+/: demo.Root
+{
+    field link outValue -> {Target}.inValue
+}
+`, `assembly <Target = "child"> DemoAsm
+
+Root: demo.Root
+{
+    child += Leaf: demo.Child
+}
+`);
+
+        expect(getMessages(document)).toEqual([]);
+    });
+
+    test('reports unknown placeholders from the anchored assembly', async () => {
+        const document = await parseInProject(`link Demo for DemoAsm
+
+/: demo.Root
+{
+    field link outValue -> {Missing}.inValue
+}
+`, `assembly <Target = "child"> DemoAsm
+
+Root: demo.Root
+{
+    child += Leaf: demo.Child
+}
+`);
+
+        expect(getMessages(document)).toEqual([
+            "The placeholder '{Missing}' shall resolve to a Template Argument of the anchored Assembly.",
+        ]);
+    });
 });
 
-async function parseInProject(source: string): Promise<LangiumDocument<LinkBase>> {
+async function parseInProject(source: string, assemblySource?: string): Promise<LangiumDocument<LinkBase>> {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmplnk-validating-'));
     tempDirs.push(tempDir);
 
@@ -114,13 +168,19 @@ source "src"
     const catalogueDocument = await parseCatalogue(catalogueSource, {
         documentUri: URI.file(path.join(tempDir, 'src', 'demo.xsmpcat')).toString(),
     });
+    const assemblyDocument = assemblySource
+        ? await parseAssembly(assemblySource, {
+            documentUri: URI.file(path.join(tempDir, 'src', 'demoasm.xsmpasb')).toString(),
+        })
+        : undefined;
     const linkBaseDocument = await parseLinkBase(source, {
         documentUri: URI.file(path.join(tempDir, 'src', 'demo.xsmplnk')).toString(),
     });
 
-    documents.push(projectDocument, catalogueDocument, linkBaseDocument);
+    documents.push(projectDocument, catalogueDocument, ...(assemblyDocument ? [assemblyDocument] : []), linkBaseDocument);
     expect(projectDocument.parseResult.parserErrors).toHaveLength(0);
     expect(catalogueDocument.parseResult.parserErrors).toHaveLength(0);
+    expect(assemblyDocument?.parseResult.parserErrors ?? []).toHaveLength(0);
     expect(linkBaseDocument.parseResult.parserErrors).toHaveLength(0);
 
     return linkBaseDocument;

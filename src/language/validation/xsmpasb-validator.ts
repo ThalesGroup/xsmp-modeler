@@ -1,9 +1,10 @@
 import { AstUtils, type ValidationAcceptor, type ValidationChecks } from 'langium';
 import * as ast from '../generated/ast.js';
 import type { XsmpasbServices } from '../xsmpasb-module.js';
-import { checkNoParentTraversal, checkRelativePath, isAbsolutePath } from './l2-validator-utils.js';
+import { checkNoParentTraversal, checkRelativePath, isAbsolutePath, isValidExpandedL2Identifier } from './l2-validator-utils.js';
 import { checkName } from './name-validator-utils.js';
 import type { Xsmpl2PathResolver } from '../references/xsmpl2-path-resolver.js';
+import type { IdentifierPatternService } from '../references/identifier-pattern-service.js';
 import { PTK } from '../utils/primitive-type-kind.js';
 import * as Solver from '../utils/solver.js';
 import * as XsmpUtils from '../utils/xsmp-utils.js';
@@ -31,10 +32,12 @@ export function registerXsmpasbValidationChecks(services: XsmpasbServices) {
 
 export class XsmpasbValidator extends XsmpcfgValidator {
     protected readonly l2PathResolver: Xsmpl2PathResolver;
+    protected readonly identifierPatternService: IdentifierPatternService;
 
     constructor(services: XsmpasbServices) {
         super(services as unknown as XsmpcfgServices);
         this.l2PathResolver = services.shared.L2PathResolver;
+        this.identifierPatternService = services.shared.IdentifierPatternService;
     }
 
     checkAssembly(assembly: ast.Assembly, accept: ValidationAcceptor): void {
@@ -53,7 +56,10 @@ export class XsmpasbValidator extends XsmpcfgValidator {
     }
 
     checkModelInstance(model: ast.ModelInstance, accept: ValidationAcceptor): void {
-        checkName(accept, model, model.name, 'name');
+        if (!this.identifierPatternService.hasTemplate(model.name)) {
+            checkName(accept, model, model.name, 'name');
+        }
+        this.checkTemplatedInstanceName(model.name, model, accept);
 
         const seen = new Set<string>();
         for (const subInstance of model.elements.filter(ast.isSubInstance)) {
@@ -74,7 +80,10 @@ export class XsmpasbValidator extends XsmpcfgValidator {
     }
 
     checkAssemblyInstance(instance: ast.AssemblyInstance, accept: ValidationAcceptor): void {
-        checkName(accept, instance, instance.name, 'name');
+        if (!this.identifierPatternService.hasTemplate(instance.name)) {
+            checkName(accept, instance, instance.name, 'name');
+        }
+        this.checkTemplatedInstanceName(instance.name, instance, accept);
     }
 
     checkStringParameter(parameter: ast.StringParameter, accept: ValidationAcceptor): void {
@@ -95,6 +104,9 @@ export class XsmpasbValidator extends XsmpcfgValidator {
         if (configuration.name.unsafe) {
             return;
         }
+        if (!this.checkAssemblyPathTemplateParameters(configuration.name, accept)) {
+            return;
+        }
         checkNoParentTraversal(accept, configuration, configuration.name, 'name');
         checkRelativePath(accept, configuration, configuration.name, 'name', 'InstancePath');
         const resolution = this.l2PathResolver.getAssemblyComponentPathResolution(configuration.name);
@@ -106,6 +118,9 @@ export class XsmpasbValidator extends XsmpcfgValidator {
 
     checkAssemblyFieldValue(fieldValue: ast.FieldValue, accept: ValidationAcceptor): void {
         if (!fieldValue.field || ast.isStructureValue(fieldValue.$container) || fieldValue.field.unsafe) {
+            return;
+        }
+        if (!this.checkAssemblyPathTemplateParameters(fieldValue.field, accept)) {
             return;
         }
         checkNoParentTraversal(accept, fieldValue, fieldValue.field, 'field');
@@ -162,6 +177,9 @@ export class XsmpasbValidator extends XsmpcfgValidator {
         accept: ValidationAcceptor,
     ): void {
         if (path.unsafe) {
+            return;
+        }
+        if (!this.checkAssemblyPathTemplateParameters(path, accept)) {
             return;
         }
         checkNoParentTraversal(accept, link, path, property);
@@ -392,11 +410,92 @@ export class XsmpasbValidator extends XsmpcfgValidator {
 
     protected resolveNamedStructureField(type: ast.Structure, segment: ast.PathNamedSegment): ast.Field | undefined {
         const candidates = this.pathResolver.getFieldCandidatesForType(type);
-        const linked = segment.reference?.ref;
-        if (linked && candidates.includes(linked as ast.Field)) {
-            return linked as ast.Field;
+        if (ast.isConcretePathNamedSegment(segment)) {
+            const linked = segment.reference?.ref;
+            if (linked && candidates.includes(linked as ast.Field)) {
+                return linked as ast.Field;
+            }
+            const refText = segment.reference?.$refText;
+            return refText ? candidates.find(candidate => candidate.name === refText) : undefined;
         }
-        const refText = segment.reference?.$refText;
-        return refText ? candidates.find(candidate => candidate.name === refText) : undefined;
+        const matches = this.identifierPatternService.matchCandidates(segment, candidates, candidate => candidate.name, undefined).matches;
+        return matches.length === 1 ? matches[0] : undefined;
+    }
+
+    protected checkTemplatedInstanceName(
+        name: string | undefined,
+        node: ast.ModelInstance | ast.AssemblyInstance,
+        accept: ValidationAcceptor,
+    ): void {
+        const pattern = this.identifierPatternService.parseTextPattern(name);
+        if (!pattern || !this.identifierPatternService.hasTemplate(pattern)) {
+            return;
+        }
+        const assembly = AstUtils.getContainerOfType(node, ast.isAssembly);
+        const parameters = new Map((assembly?.parameters ?? []).map(parameter => [parameter.name, parameter]));
+        for (const part of pattern.parts) {
+            if (part.kind !== 'template' || !part.parameterName) {
+                continue;
+            }
+            if (!parameters.has(part.parameterName)) {
+                accept('error', `The placeholder '{${part.parameterName}}' shall resolve to a Template Argument of the enclosing Assembly.`, {
+                    node,
+                    property: 'name'
+                });
+            }
+        }
+
+        const bindings = this.getAssemblyTemplateBindings(assembly);
+        const concreteName = this.identifierPatternService.substitute(pattern, bindings);
+        if (concreteName !== undefined && !isValidExpandedL2Identifier(concreteName)) {
+            accept('error', `The expanded name '${concreteName}' is not valid for SMP Level 2.`, {
+                node,
+                property: 'name'
+            });
+        }
+    }
+
+    protected checkAssemblyPathTemplateParameters(path: ast.Path, accept: ValidationAcceptor): boolean {
+        const assembly = AstUtils.getContainerOfType(path, ast.isAssembly);
+        const available = new Set((assembly?.parameters ?? []).map(parameter => parameter.name));
+        const bindings = this.getAssemblyTemplateBindings(assembly);
+        let valid = true;
+        for (const segment of this.pathService.getPathSegments(path)) {
+            const namedSegment = ast.isPathMember(segment) ? segment.segment : segment;
+            if (!ast.isPathNamedSegment(namedSegment)) {
+                continue;
+            }
+            for (const templateName of this.identifierPatternService.getSegmentTemplateNames(namedSegment)) {
+                if (!available.has(templateName)) {
+                    valid = false;
+                    accept('error', `The placeholder '{${templateName}}' shall resolve to a Template Argument of the enclosing Assembly.`, {
+                        node: namedSegment
+                    });
+                }
+            }
+            const pattern = this.identifierPatternService.getSegmentPattern(namedSegment);
+            const concreteText = this.identifierPatternService.substitute(pattern, bindings);
+            if (this.identifierPatternService.hasTemplate(pattern) && concreteText !== undefined && !isValidExpandedL2Identifier(concreteText)) {
+                valid = false;
+                accept('error', `The expanded path segment '${concreteText}' is not valid for SMP Level 2.`, {
+                    node: namedSegment
+                });
+            }
+        }
+        return valid;
+    }
+
+    protected getAssemblyTemplateBindings(assembly: ast.Assembly | undefined): Map<string, string> {
+        const bindings = new Map<string, string>();
+        for (const parameter of assembly?.parameters ?? []) {
+            if (ast.isStringParameter(parameter) && parameter.value !== undefined) {
+                bindings.set(parameter.name, parameter.value.startsWith('"') && parameter.value.endsWith('"')
+                    ? parameter.value.slice(1, -1)
+                    : parameter.value);
+            } else if (ast.isInt32Parameter(parameter) && parameter.value !== undefined) {
+                bindings.set(parameter.name, parameter.value.toString());
+            }
+        }
+        return bindings;
     }
 }
