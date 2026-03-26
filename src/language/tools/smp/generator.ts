@@ -74,6 +74,12 @@ export class SmpGenerator implements XsmpGenerator {
             Metadata: element.attributes.map(this.convertMetadata, this),
         };
     }
+    protected convertGeneratedNamedElement(id: string, name: string): Elements.NamedElement {
+        return {
+            '@Id': id,
+            '@Name': name,
+        };
+    }
     protected convertMetadata(element: ast.Metadata): Elements.Metadata {
         return this.convertAttribute(element as ast.Attribute);
     }
@@ -939,70 +945,95 @@ export class SmpGenerator implements XsmpGenerator {
             Activity: task.elements.map(this.convertActivity, this)
         };
     }
+    private getSiblingTypeIndex<T extends AstNode & { $type: string }>(element: T, siblings: readonly T[]): number {
+        let index = 0;
+        for (const sibling of siblings) {
+            if (sibling.$type === element.$type) {
+                index++;
+            }
+            if (sibling === element) {
+                return index;
+            }
+        }
+        return 1;
+    }
+    private getGeneratedActivityName(activity: ast.Activity): string {
+        const task = AstUtils.getContainerOfType(activity, ast.isTask);
+        const index = task ? this.getSiblingTypeIndex(activity, task.elements) : (activity.$containerIndex ?? 0) + 1;
+        return `${activity.$type}${index}`;
+    }
+    private convertGeneratedActivityElement(activity: ast.Activity): Elements.NamedElement {
+        const task = AstUtils.getContainerOfType(activity, ast.isTask);
+        const name = this.getGeneratedActivityName(activity);
+        return this.convertGeneratedNamedElement(task ? `${this.getId(task)}.${name}` : name, name);
+    }
+    private getGeneratedEventName(event: ast.Event): string {
+        const schedule = AstUtils.getContainerOfType(event, ast.isSchedule);
+        const events = schedule?.elements.filter(ast.isEvent) ?? [];
+        const index = events.length > 0 ? this.getSiblingTypeIndex(event, events) : (event.$containerIndex ?? 0) + 1;
+        return `${event.$type}${index}`;
+    }
+    private convertGeneratedEventElement(event: ast.Event): Elements.NamedElement {
+        const schedule = AstUtils.getContainerOfType(event, ast.isSchedule);
+        const name = this.getGeneratedEventName(event);
+        return this.convertGeneratedNamedElement(schedule ? `${this.getId(schedule)}.${name}` : name, name);
+    }
     convertActivity(activity: ast.Activity): Schedule.Activity {
         switch (activity.$type) {
             case ast.CallOperation:
                 return {
+                    ...this.convertGeneratedActivityElement(activity),
                     '@xsi:type': 'Schedule:CallOperation',
-                    '@Id': "this.getId(element)",
-                    '@Name': "element.name",
                     OperationPath: (activity as ast.CallOperation).operationPath,
                     Parameter: (activity as ast.CallOperation).parameters.map(this.convertParameterValue, this)
                 } as Schedule.CallOperation;
             case ast.EmitGlobalEvent:
                 return {
-                    '@xsi:type': 'Schedule:CallOperation',
-                    '@Id': "this.getId(element)",
-                    '@Name': "element.name",
+                    ...this.convertGeneratedActivityElement(activity),
+                    '@xsi:type': 'Schedule:EmitGlobalEvent',
                     EventName: (activity as ast.EmitGlobalEvent).eventName,
                     Synchronous: !(activity as ast.EmitGlobalEvent).asynchronous
                 } as Schedule.EmitGlobalEvent;
             case ast.ExecuteTask:
                 return {
+                    ...this.convertGeneratedActivityElement(activity),
                     '@xsi:type': 'Schedule:ExecuteTask',
-                    '@Id': "this.getId(element)",
-                    '@Name': "element.name",
                     Root: (activity as ast.ExecuteTask).root,
                     Task: this.convertXlink((activity as ast.ExecuteTask).task, activity),
                     Argument: (activity as ast.ExecuteTask).parameter.map(this.convertTemplateArgument, this),
                 } as Schedule.ExecuteTask;
             case ast.SetProperty:
                 return {
+                    ...this.convertGeneratedActivityElement(activity),
                     '@xsi:type': 'Schedule:SetProperty',
-                    '@Id': "this.getId(element)",
-                    '@Name': "element.name",
                     PropertyPath: (activity as ast.SetProperty).propertyPath,
                     Value: this.convertValue((activity as ast.SetProperty).value),
                 } as Schedule.SetProperty;
             case ast.Transfer:
                 return {
+                    ...this.convertGeneratedActivityElement(activity),
                     '@xsi:type': 'Schedule:Transfer',
-                    '@Id': "this.getId(element)",
-                    '@Name': "element.name",
                     OutputFieldPath: (activity as ast.Transfer).outputFieldPath,
                     InputFieldPath: (activity as ast.Transfer).inputFieldPath,
                 } as Schedule.Transfer;
             case ast.Trigger:
                 return {
+                    ...this.convertGeneratedActivityElement(activity),
                     '@xsi:type': 'Schedule:Trigger',
-                    '@Id': "this.getId(element)",
-                    '@Name': "element.name",
                     EntryPoint: (activity as ast.Trigger).entryPoint,
                 } as Schedule.Trigger;
             default:
                 return {
+                    ...this.convertGeneratedActivityElement(activity),
                     '@xsi:type': 'Schedule:Activity',
-                    '@Id': "this.getId(element)",
-                    '@Name': "element.name",
                 } as Schedule.Activity;
         }
     }
 
     private convertEventBase(event: ast.Event): Schedule.Event {
         return {
+            ...this.convertGeneratedEventElement(event),
             '@xsi:type': `Schedule:${event.$type}`,
-            '@Id': "this.getId(element)",
-            '@Name': "element.name",
             Task: this.convertXlink(event.task, event),
             "@CycleTime": event.cycleTime,
             "@RepeatCount": event.repeatCount,
@@ -1031,6 +1062,14 @@ export class SmpGenerator implements XsmpGenerator {
                     ...this.convertEventBase(event),
                     '@ZuluTime': (event as ast.ZuluEvent).zuluTime,
                 } as Schedule.ZuluEvent;
+            case ast.GlobalEventTriggeredEvent:
+                return {
+                    ...this.convertEventBase(event),
+                    '@StartEvent': (event as ast.GlobalEventTriggeredEvent).startEvent,
+                    '@StopEvent': (event as ast.GlobalEventTriggeredEvent).stopEvent,
+                    '@TimeKind': (event as ast.GlobalEventTriggeredEvent).timeKind,
+                    '@Delay': (event as ast.GlobalEventTriggeredEvent).delay,
+                } as Schedule.GlobalEventTriggeredEvent;
             default:
                 return this.convertEventBase(event);
         }
@@ -1069,4 +1108,3 @@ export class SmpGenerator implements XsmpGenerator {
 
     }
 }
-

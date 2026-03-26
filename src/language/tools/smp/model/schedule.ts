@@ -84,5 +84,6 @@ export interface ZuluEvent extends Event {
 export interface GlobalEventTriggeredEvent extends Event {
   '@StartEvent': string;
   '@StopEvent'?: string;
+  '@TimeKind'?: string;
   '@Delay'?: string;
 }

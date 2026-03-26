@@ -1,0 +1,17 @@
+schedule TestSchedule
+
+task Main
+{
+    call /Sim/Comp.op(value=1i32)
+    async emit "Tick"
+    execute Main at /AssemblyRoot
+    property /Sim/Comp.flag = true
+    transfer /Sim/Comp.out -> /Sim/Comp.in
+    trig /Sim/Comp.ep
+}
+
+event Main mission "PT1S" cycle "PT2S" repeat 3
+event Main epoch "2025-01-01T00:00:00Z"
+event Main simulation "PT3S"
+event Main zulu "2025-01-01T01:00:00Z"
+event Main on "BootCompleted" until "ShutdownRequested" using mission delay "PT5S" cycle "PT30S" repeat 4

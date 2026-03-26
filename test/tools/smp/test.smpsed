@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Schedule:Schedule xmlns:Elements="http://www.ecss.nl/smp/2019/Core/Elements" xmlns:Types="http://www.ecss.nl/smp/2019/Core/Types" xmlns:LinkBase="http://www.ecss.nl/smp/2025/Smdl/LinkBase" xmlns:Assembly="http://www.ecss.nl/smp/2025/Smdl/Assembly" xmlns:Schedule="http://www.ecss.nl/smp/2025/Smdl/Schedule" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" Id="TestSchedule" Name="TestSchedule">
+  <Task Id="Main" Name="Main">
+    <Activity Id="Main.CallOperation1" Name="CallOperation1" xsi:type="Schedule:CallOperation">
+      <OperationPath>/Sim/Comp.op</OperationPath>
+      <Parameter Parameter="value">
+        <Value xsi:type="Types:Int32Value" Value="1"/>
+      </Parameter>
+    </Activity>
+    <Activity Id="Main.EmitGlobalEvent1" Name="EmitGlobalEvent1" xsi:type="Schedule:EmitGlobalEvent">
+      <EventName>Tick</EventName>
+      <Synchronous>false</Synchronous>
+    </Activity>
+    <Activity Id="Main.ExecuteTask1" Name="ExecuteTask1" xsi:type="Schedule:ExecuteTask">
+      <Root>/AssemblyRoot</Root>
+      <Task xlink:title="Main" xlink:href="#Main"/>
+    </Activity>
+    <Activity Id="Main.SetProperty1" Name="SetProperty1" xsi:type="Schedule:SetProperty">
+      <PropertyPath>/Sim/Comp.flag</PropertyPath>
+      <Value xsi:type="Types:BoolValue" Value="true"/>
+    </Activity>
+    <Activity Id="Main.Transfer1" Name="Transfer1" xsi:type="Schedule:Transfer">
+      <OutputFieldPath>/Sim/Comp.out</OutputFieldPath>
+      <InputFieldPath>/Sim/Comp.in</InputFieldPath>
+    </Activity>
+    <Activity Id="Main.Trigger1" Name="Trigger1" xsi:type="Schedule:Trigger">
+      <EntryPoint>/Sim/Comp.ep</EntryPoint>
+    </Activity>
+  </Task>
+  <Event Id="TestSchedule.MissionEvent1" Name="MissionEvent1" xsi:type="Schedule:MissionEvent" CycleTime="PT2S" RepeatCount="3" MissionTime="PT1S">
+    <Task xlink:title="Main" xlink:href="#Main"/>
+  </Event>
+  <Event Id="TestSchedule.EpochEvent1" Name="EpochEvent1" xsi:type="Schedule:EpochEvent" CycleTime="PT0S" EpochTime="2025-01-01T00:00:00Z">
+    <Task xlink:title="Main" xlink:href="#Main"/>
+  </Event>
+  <Event Id="TestSchedule.SimulationEvent1" Name="SimulationEvent1" xsi:type="Schedule:SimulationEvent" CycleTime="PT0S" SimulationTime="PT3S">
+    <Task xlink:title="Main" xlink:href="#Main"/>
+  </Event>
+  <Event Id="TestSchedule.ZuluEvent1" Name="ZuluEvent1" xsi:type="Schedule:ZuluEvent" CycleTime="PT0S" ZuluTime="2025-01-01T01:00:00Z">
+    <Task xlink:title="Main" xlink:href="#Main"/>
+  </Event>
+  <Event Id="TestSchedule.GlobalEventTriggeredEvent1" Name="GlobalEventTriggeredEvent1" xsi:type="Schedule:GlobalEventTriggeredEvent" CycleTime="PT30S" RepeatCount="4" StartEvent="BootCompleted" StopEvent="ShutdownRequested" TimeKind="mission" Delay="PT5S">
+    <Task xlink:title="Main" xlink:href="#Main"/>
+  </Event>
+</Schedule:Schedule>

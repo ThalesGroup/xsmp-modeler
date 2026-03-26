@@ -509,11 +509,17 @@ interface Event {
     repeatCount?: bigint
 }
 
+type TimeKind = TimeKind_Simulation | TimeKind_Mission | TimeKind_Epoch | TimeKind_Zulu;
+type TimeKind_Simulation = 'simulation';
+type TimeKind_Mission = 'mission';
+type TimeKind_Epoch = 'epoch';
+type TimeKind_Zulu = 'zulu';
+
 interface GlobalEventTriggeredEvent extends Event {
-    delay?:bigint
+    delay?:string
     startEvent:string
     stopEvent?:string
-    //timeKind
+    timeKind?:TimeKind
 }
 
 interface MissionEvent extends Event {

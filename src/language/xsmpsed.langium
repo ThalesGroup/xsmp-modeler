@@ -57,9 +57,20 @@ Int32Argument returns Int32Argument:
 EmitGlobalEvent returns EmitGlobalEvent:
     asynchronous?='async'? 'emit' eventName=STRING;
 
+TimeKind returns string:
+    'mission' | 'epoch' | 'simulation' | 'zulu';
+
 Event returns Event:
-    MissionEvent | EpochEvent | SimulationEvent | ZuluEvent // | GlobalEventTriggeredEvent
+    MissionEvent | EpochEvent | SimulationEvent | ZuluEvent | GlobalEventTriggeredEvent
 ;
+
+GlobalEventTriggeredEvent returns GlobalEventTriggeredEvent:
+    'event'
+    task=[Task:QualifiedName] 'on' startEvent=STRING
+    ('until' stopEvent=STRING)?
+    ('using' timeKind=TimeKind)?
+    ('delay' delay=STRING)?
+    ('cycle' cycleTime=STRING ('repeat' repeatCount=INT)?)?;
 
 MissionEvent returns MissionEvent:
     'event'
@@ -157,4 +168,4 @@ hidden terminal SL_COMMENT: /\/\/[^\n\r]*/;
 
 
 ValidID returns string:
-    ID | 'string' | 'int32' | 'schedule'|'task'|'call'|'property'|'transfer'|'trig'|'execute'|'async'|'emit'|'mission'|'epoch'|'simulation'|'zulu'|'event';
+    ID | 'string' | 'int32' | 'schedule'|'task'|'call'|'property'|'transfer'|'trig'|'execute'|'async'|'emit'|'mission'|'epoch'|'simulation'|'zulu'|'event'|'on'|'until'|'using'|'delay';

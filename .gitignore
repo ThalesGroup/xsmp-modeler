@@ -10,3 +10,4 @@ coverage/
 sonar-report.xml
 *.vsix
 *.tgz
+spec/
