@@ -3,7 +3,7 @@ import { EmptyFileSystem, type LangiumDocument } from "langium";
 import { expandToString as s } from "langium/generate";
 import { clearDocuments, parseHelper } from "langium/test";
 import { createXsmpServices } from "../../src/language/xsmp-module.js";
-import * as ast from "../../src/language/generated/ast.js";
+import * as ast from "../../src/language/generated/ast-partial.js";
 
 
 let services: ReturnType<typeof createXsmpServices>;

@@ -1,6 +1,6 @@
 import type { AstNode } from 'langium';
 import { AstUtils, WorkspaceCache } from 'langium';
-import * as ast from '../generated/ast.js';
+import * as ast from '../generated/ast-partial.js';
 import type { XsmpSharedServices } from '../xsmp-module.js';
 import type { XsmpPathService } from './xsmp-path-service.js';
 import type { IdentifierPatternService, TemplateBindings } from './identifier-pattern-service.js';
@@ -12,6 +12,9 @@ import {
     type XsmpTypedPathResolver
 } from './xsmp-typed-path-resolver.js';
 import * as XsmpUtils from '../utils/xsmp-utils.js';
+
+type RecoverableType = ast.Type;
+type RecoverableComponent = ast.Component;
 
 export interface L2PathResolution<T extends ast.NamedElement = ast.NamedElement> {
     active: boolean;
@@ -87,19 +90,23 @@ export class Xsmpl2PathResolver {
         this.taskExecutionContextStackCache = new WorkspaceCache<ast.Task, readonly ast.Component[] | undefined>(services);
     }
 
-    getFieldCandidatesForType(type: ast.Type | undefined): readonly ast.Field[] {
+    getFieldCandidatesForType(type: RecoverableType | undefined): readonly ast.Field[] {
         return this.typedPathResolver.getFieldCandidatesForType(type);
     }
 
-    getComponentPathMembers(component: ast.Component | undefined): ReadonlyArray<ast.Container | ast.Reference> {
+    getComponentPathMembers(component: RecoverableComponent | undefined): ReadonlyArray<ast.Container | ast.Reference> {
         return this.typedPathResolver.getComponentPathMembers(component);
     }
 
-    getNamedSegmentCandidates(segment: ast.PathNamedSegment): readonly ast.NamedElement[] {
+    getComponentMembersByKind(component: RecoverableComponent | undefined, kinds: readonly MemberKind[]): readonly ast.NamedElement[] {
+        return this.getComponentMembers(component as ast.Component | undefined, kinds);
+    }
+
+    getNamedSegmentCandidates(segment: ast.PathNamedSegment | undefined): readonly ast.NamedElement[] {
         return this.getNamedSegmentContext(segment).candidates;
     }
 
-    getNamedSegmentTarget(segment: ast.PathNamedSegment): ast.NamedElement | undefined {
+    getNamedSegmentTarget(segment: ast.PathNamedSegment | undefined): ast.NamedElement | undefined {
         const { candidates, bindings } = this.getNamedSegmentContext(segment);
         return this.resolveNamedSegmentTarget(segment, candidates, bindings);
     }
@@ -125,7 +132,10 @@ export class Xsmpl2PathResolver {
         return this.getLocalNamedReferenceContext(reference).candidates;
     }
 
-    getLocalNamedReferenceTarget(reference: ast.LocalNamedReference): ast.NamedElement | undefined {
+    getLocalNamedReferenceTarget(reference: ast.LocalNamedReference | undefined): ast.NamedElement | undefined {
+        if (!reference) {
+            return undefined;
+        }
         const { candidates } = this.getLocalNamedReferenceContext(reference);
         const target = reference.reference?.ref;
         if (target && candidates.includes(target)) {
@@ -135,10 +145,13 @@ export class Xsmpl2PathResolver {
         return referenceText ? candidates.find(candidate => candidate.name === referenceText) : undefined;
     }
 
-    protected getNamedSegmentContext(segment: ast.PathNamedSegment): {
+    protected getNamedSegmentContext(segment: ast.PathNamedSegment | undefined): {
         candidates: readonly ast.NamedElement[];
         bindings?: TemplateBindings;
     } {
+        if (!segment) {
+            return { candidates: [] };
+        }
         const path = AstUtils.getContainerOfType(segment, ast.isPath);
         if (!path) {
             return { candidates: [] };
@@ -201,11 +214,14 @@ export class Xsmpl2PathResolver {
         return { candidates: [] };
     }
 
-    protected getLocalNamedReferenceContext(reference: ast.LocalNamedReference): {
+    protected getLocalNamedReferenceContext(reference: ast.LocalNamedReference | undefined): {
         candidates: readonly ast.NamedElement[];
         component?: ast.Component;
         bindings?: TemplateBindings;
     } {
+        if (!reference) {
+            return { candidates: [] };
+        }
         const container = reference.$container;
 
         if (ast.isSubInstance(container) && container.container === reference) {
@@ -314,7 +330,7 @@ export class Xsmpl2PathResolver {
         const parent = ast.isComponentLinkBase(linkBase.$container) ? linkBase.$container : undefined;
         const parentStack = parent ? this.getComponentLinkBaseComponentStack(parent) : this.getRootLinkBaseComponentStack(linkBase);
         const bindings = this.getLinkBaseTemplateBindings(linkBase);
-        const resolution = parentStack ? this.typedPathResolver.resolveComponentPath(linkBase.name, parentStack, bindings) : undefined;
+        const resolution = parentStack && linkBase.name ? this.typedPathResolver.resolveComponentPath(linkBase.name, parentStack, bindings) : undefined;
         return resolution?.finalStack;
     }
 
@@ -331,7 +347,7 @@ export class Xsmpl2PathResolver {
         }
 
         const configuration = AstUtils.getContainerOfType(fieldValue, ast.isAssemblyComponentConfiguration);
-        if (configuration) {
+        if (configuration?.name) {
             const target = this.getAssemblyComponentPathResolution(configuration.name);
             return this.typedFieldResolutionToL2(
                 this.typedPathResolver.resolveFieldPath(path, target.finalComponent, componentModeFieldPathMessages, target.finalBindings),
@@ -352,7 +368,7 @@ export class Xsmpl2PathResolver {
         bindings?: TemplateBindings;
     } {
         const configuration = AstUtils.getContainerOfType(node, ast.isAssemblyComponentConfiguration);
-        if (configuration) {
+        if (configuration?.name) {
             const resolution = this.getAssemblyComponentPathResolution(configuration.name);
             return {
                 component: resolution.finalComponent,
@@ -376,6 +392,9 @@ export class Xsmpl2PathResolver {
         bindings?: TemplateBindings;
     } {
         const path = side === 'owner' ? link.ownerPath : link.clientPath;
+        if (!path) {
+            return {};
+        }
         if (AstUtils.getContainerOfType(link, ast.isModelInstance)) {
             const resolution = this.getAssemblyLinkPathResolution(path);
             return {
@@ -542,6 +561,15 @@ export class Xsmpl2PathResolver {
                     namedSegments,
                 };
             }
+            if (!ast.isPathNamedSegment(actualSegment)) {
+                return {
+                    active: true,
+                    invalidMessage: 'Assembly instance paths shall only contain child instance names.',
+                    invalidNode: actualSegment,
+                    namedSegments,
+                    segmentBindings,
+                };
+            }
 
             const candidates = currentNode.children.map(child => child.instance);
             namedSegments.set(actualSegment, candidates);
@@ -640,6 +668,17 @@ export class Xsmpl2PathResolver {
                         segmentBindings,
                     };
                 }
+            if (!ast.isPathNamedSegment(actualSegment)) {
+                return {
+                    active: true,
+                    finalComponent: currentNode.component,
+                    finalBindings: currentNode.bindings,
+                    invalidMessage: 'This path kind shall only use named path segments.',
+                    invalidNode: actualSegment,
+                    namedSegments,
+                    segmentBindings,
+                };
+            }
 
             const isLast = index === segments.length - 1;
             if (isLast) {
@@ -750,6 +789,26 @@ export class Xsmpl2PathResolver {
                     segmentBindings,
                 };
             }
+            if (!ast.isPathNamedSegment(actualSegment)) {
+                return {
+                    active: true,
+                    invalidMessage: 'Field paths shall start with a Field.',
+                    invalidNode: actualSegment,
+                    namedSegments,
+                    segmentBindings,
+                };
+            }
+            if (!ast.isPathNamedSegment(actualSegment)) {
+                return {
+                    active: true,
+                    finalComponent: currentNode.component,
+                    finalBindings: currentNode.bindings,
+                    invalidMessage: 'Field paths shall start with a Field.',
+                    invalidNode: actualSegment,
+                    namedSegments,
+                    segmentBindings,
+                };
+            }
 
             const child = this.resolveAssemblyChild(actualSegment, currentNode.children, currentNode.bindings);
             const fieldCandidates = this.getComponentMembers(currentNode.component, [requiredKind]) as ast.Field[];
@@ -783,7 +842,7 @@ export class Xsmpl2PathResolver {
                     segments,
                     index + 1,
                     resolvedField,
-                    resolvedField.type.ref,
+                    resolvedField.type?.ref,
                     (fieldSegment, candidates) => namedSegments.set(fieldSegment, candidates),
                     'Field paths shall only use field names, "." member access and array indices.',
                     (segmentText) => `The path segment '${segmentText}' requires a Structure-typed parent value.`,
@@ -916,7 +975,7 @@ export class Xsmpl2PathResolver {
     }
 
     protected getAssemblyNodeForAssemblyInstance(instance: ast.AssemblyInstance | undefined): AssemblyNode | undefined {
-        const assembly = instance && ast.isAssembly(instance.assembly.ref) ? instance.assembly.ref : undefined;
+        const assembly = instance && ast.isAssembly(instance.assembly?.ref) ? instance.assembly.ref : undefined;
         return this.getAssemblyNode(assembly?.model, assembly ? this.createTemplateBindings(assembly.parameters, instance?.arguments ?? []) : undefined);
     }
 
@@ -928,13 +987,19 @@ export class Xsmpl2PathResolver {
             if (!member) {
                 continue;
             }
-            const childNode = ast.isModelInstance(subInstance.instance)
-                ? this.getAssemblyNode(subInstance.instance, bindings)
-                : ast.isAssemblyInstance(subInstance.instance)
-                    ? this.getAssemblyNodeForAssemblyInstance(subInstance.instance)
-                    : undefined;
-            if (childNode) {
-                children.push({ member, instance: subInstance.instance, node: childNode });
+            const instance = subInstance.instance;
+            if (ast.isModelInstance(instance)) {
+                const childNode = this.getAssemblyNode(instance, bindings);
+                if (childNode) {
+                    children.push({ member, instance, node: childNode });
+                }
+                continue;
+            }
+            if (ast.isAssemblyInstance(instance)) {
+                const childNode = this.getAssemblyNodeForAssemblyInstance(instance);
+                if (childNode) {
+                    children.push({ member, instance, node: childNode });
+                }
             }
         }
         return { component, bindings, children };
@@ -1024,16 +1089,19 @@ export class Xsmpl2PathResolver {
             return undefined;
         }
         if (ast.isField(element) || ast.isProperty(element) || ast.isEventSink(element) || ast.isEventSource(element)) {
-            return element.type.ref;
+            return element.type?.ref;
         }
         return undefined;
     }
 
     protected resolveNamedSegmentTarget<T extends ast.NamedElement>(
-        segment: ast.PathNamedSegment,
+        segment: ast.PathNamedSegment | undefined,
         candidates: readonly T[],
         bindings?: TemplateBindings,
     ): T | undefined {
+        if (!segment) {
+            return undefined;
+        }
         if (ast.isConcretePathNamedSegment(segment)) {
             const linked = segment.reference?.ref;
             if (linked && candidates.includes(linked as T)) {
@@ -1042,18 +1110,21 @@ export class Xsmpl2PathResolver {
             const refText = segment.reference?.$refText;
             return refText ? candidates.find(candidate => candidate.name === refText) : undefined;
         }
-        const matches = this.identifierPatternService.matchCandidates(segment, candidates, candidate => candidate.name, bindings).matches;
+        const matches = this.identifierPatternService.matchCandidates(segment, candidates, candidate => candidate.name ?? '', bindings).matches;
         return matches.length === 1 ? matches[0] : undefined;
     }
 
     protected resolveAssemblyChild(
-        segment: ast.PathNamedSegment,
+        segment: ast.PathNamedSegment | undefined,
         children: readonly AssemblyNodeChild[],
         bindings: TemplateBindings | undefined,
     ): AssemblyNodeChild | readonly AssemblyNodeChild[] | undefined {
+        if (!segment) {
+            return undefined;
+        }
         const segmentText = this.pathService.getSegmentText(segment);
         const matches = children.filter(child =>
-            this.identifierPatternService.matches(this.identifierPatternService.getSegmentPattern(segment), child.instance.name, bindings)
+            this.identifierPatternService.matches(this.identifierPatternService.getSegmentPattern(segment), child.instance.name ?? '', bindings)
             || child.member.name === segmentText
         );
         if (matches.length === 1) {
@@ -1062,29 +1133,29 @@ export class Xsmpl2PathResolver {
         return matches.length > 1 ? matches : undefined;
     }
 
-    protected getTemplateBindingsForPath(node: AstNode): TemplateBindings | undefined {
+    protected getTemplateBindingsForPath(node: AstNode | undefined): TemplateBindings | undefined {
         return this.getAssemblyTemplateBindings(node)
             ?? this.getScheduleTemplateBindings(node)
             ?? this.getLinkBaseTemplateBindings(node);
     }
 
-    protected getAssemblyTemplateBindings(node: AstNode): TemplateBindings | undefined {
+    protected getAssemblyTemplateBindings(node: AstNode | undefined): TemplateBindings | undefined {
         const assembly = AstUtils.getContainerOfType(node, ast.isAssembly);
         return assembly ? this.createTemplateBindings(assembly.parameters) : undefined;
     }
 
-    protected getScheduleTemplateBindings(node: AstNode): TemplateBindings | undefined {
+    protected getScheduleTemplateBindings(node: AstNode | undefined): TemplateBindings | undefined {
         const schedule = AstUtils.getContainerOfType(node, ast.isSchedule);
         return schedule ? this.createTemplateBindings(schedule.parameters) : undefined;
     }
 
-    protected getLinkBaseTemplateBindings(node: AstNode): TemplateBindings | undefined {
+    protected getLinkBaseTemplateBindings(node: AstNode | undefined): TemplateBindings | undefined {
         const linkBase = AstUtils.getContainerOfType(node, ast.isLinkBase);
         const assembly = ast.isAssembly(linkBase?.assembly?.ref) ? linkBase.assembly.ref : undefined;
         return assembly ? this.createTemplateBindings(assembly.parameters) : undefined;
     }
 
-    protected getRootLinkBaseComponentStack(node: AstNode): readonly ast.Component[] | undefined {
+    protected getRootLinkBaseComponentStack(node: AstNode | undefined): readonly ast.Component[] | undefined {
         const linkBase = AstUtils.getContainerOfType(node, ast.isLinkBase);
         const assembly = ast.isAssembly(linkBase?.assembly?.ref) ? linkBase.assembly.ref : undefined;
         const component = this.getModelComponent(assembly?.model);
@@ -1098,12 +1169,12 @@ export class Xsmpl2PathResolver {
         const bindings = new Map<string, string>();
         for (const parameter of parameters) {
             const value = this.getTemplateParameterValue(parameter);
-            if (value !== undefined) {
+            if (parameter.name && value !== undefined) {
                 bindings.set(parameter.name, value);
             }
         }
         for (const argument of argumentsList) {
-            const name = argument.parameter.ref?.name;
+            const name = argument.parameter?.ref?.name;
             const value = this.getTemplateArgumentValue(argument);
             if (name && value !== undefined) {
                 bindings.set(name, value);
@@ -1127,7 +1198,7 @@ export class Xsmpl2PathResolver {
             return this.normalizeTemplateString(argument.value);
         }
         if (ast.isInt32Argument(argument)) {
-            return argument.value.toString();
+            return argument.value?.toString();
         }
         return undefined;
     }

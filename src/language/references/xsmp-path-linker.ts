@@ -6,7 +6,7 @@ import {
     isAstNode,
     isAstNodeDescription
 } from 'langium';
-import * as ast from '../generated/ast.js';
+import * as ast from '../generated/ast-partial.js';
 
 const path_ref_resolving = Symbol('path_ref_resolving');
 

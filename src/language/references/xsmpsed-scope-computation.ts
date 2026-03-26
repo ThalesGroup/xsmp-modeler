@@ -1,5 +1,5 @@
 import type { AstNode, AstNodeDescription, AstNodeDescriptionProvider, LangiumDocument, PrecomputedScopes, ScopeComputation } from 'langium';
-import * as ast from '../generated/ast.js';
+import * as ast from '../generated/ast-partial.js';
 import { Cancellation, MultiMap } from 'langium';
 import type { XsmpServices } from '../xsmp-module.js';
 

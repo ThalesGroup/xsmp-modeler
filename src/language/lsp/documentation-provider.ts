@@ -1,5 +1,5 @@
 import { type AstNode, JSDocDocumentationProvider } from 'langium';
-import * as ast from '../generated/ast.js';
+import * as ast from '../generated/ast-partial.js';
 import { type DocumentationHelper } from '../utils/documentation-helper.js';
 import type { XsmpServices } from '../xsmp-module.js';
 

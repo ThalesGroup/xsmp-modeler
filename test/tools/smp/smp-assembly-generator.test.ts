@@ -3,7 +3,7 @@ import { EmptyFileSystem, type LangiumDocument, URI } from 'langium';
 import { expandToString as s } from 'langium/generate';
 import { clearDocuments, parseHelper } from 'langium/test';
 import { createXsmpServices } from '../../../src/language/xsmp-module.js';
-import { Assembly, Catalogue, Project, isAssembly } from '../../../src/language/generated/ast.js';
+import { Assembly, Catalogue, Project, isAssembly } from '../../../src/language/generated/ast-partial.js';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';

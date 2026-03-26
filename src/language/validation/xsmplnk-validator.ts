@@ -1,5 +1,5 @@
 import { AstUtils, type AstNode, type ValidationAcceptor, type ValidationChecks } from 'langium';
-import * as ast from '../generated/ast.js';
+import * as ast from '../generated/ast-partial.js';
 import type { XsmplnkServices } from '../xsmplnk-module.js';
 import { checkName } from './name-validator-utils.js';
 import type { Xsmpl2PathResolver } from '../references/xsmpl2-path-resolver.js';
@@ -49,9 +49,10 @@ export class XsmplnkValidator {
     }
 
     checkComponentLinkBase(linkBase: ast.ComponentLinkBase, accept: ValidationAcceptor): void {
-        if (!linkBase.name.unsafe) {
-            if (this.checkPathTemplateParameters(linkBase.name, accept)) {
-                const resolution = this.pathResolver.getLinkBaseComponentPathResolution(linkBase.name);
+        const path = linkBase.name;
+        if (path && !path.unsafe) {
+            if (this.checkPathTemplateParameters(path, accept)) {
+                const resolution = this.pathResolver.getLinkBaseComponentPathResolution(path);
                 this.acceptPathError(resolution.invalidMessage, resolution.invalidNode, accept);
                 if (resolution.active && !resolution.invalidMessage && !resolution.finalComponent) {
                     accept('error', 'The Component Link Base path shall resolve to a typed Component.', {
@@ -79,7 +80,9 @@ export class XsmplnkValidator {
 
     checkInterfaceLink(link: ast.InterfaceLink, accept: ValidationAcceptor): void {
         this.checkLinkPaths(link, accept);
-        this.checkInterfaceReference(link, link.reference, 'reference', 'Owner', 'Client', accept);
+        if (link.reference) {
+            this.checkInterfaceReference(link, link.reference, 'reference', 'Owner', 'Client', accept);
+        }
         if (link.backReference) {
             this.checkInterfaceReference(link, link.backReference, 'backReference', 'Client', 'Owner', accept);
         }
@@ -90,7 +93,10 @@ export class XsmplnkValidator {
         this.checkLinkPath(link.clientPath, accept);
     }
 
-    private checkLinkPath(path: ast.Path, accept: ValidationAcceptor): void {
+    private checkLinkPath(path: ast.Path | undefined, accept: ValidationAcceptor): void {
+        if (!path) {
+            return;
+        }
         if (path.unsafe) {
             return;
         }
@@ -120,7 +126,7 @@ export class XsmplnkValidator {
             });
             return;
         }
-        const expectedType = ast.isReferenceType(target.interface.ref) ? target.interface.ref : undefined;
+        const expectedType = ast.isReferenceType(target.interface?.ref) ? target.interface.ref : undefined;
         const oppositeContext = this.pathResolver.getInterfaceLinkEndpointContext(link, property === 'reference' ? 'client' : 'owner');
         if (expectedType && oppositeContext.component && !this.isCompatibleReferenceTarget(expectedType, oppositeContext.component)) {
             accept('error', `The selected reference shall be compatible with the ${targetSide} Component.`, {
@@ -180,6 +186,9 @@ export class XsmplnkValidator {
     private getAssemblyTemplateBindings(assembly: ast.Assembly): Map<string, string> {
         const bindings = new Map<string, string>();
         for (const parameter of assembly.parameters) {
+            if (!parameter.name) {
+                continue;
+            }
             if (ast.isStringParameter(parameter) && parameter.value !== undefined) {
                 bindings.set(parameter.name, parameter.value.startsWith('"') && parameter.value.endsWith('"')
                     ? parameter.value.slice(1, -1)

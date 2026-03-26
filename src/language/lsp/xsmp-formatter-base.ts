@@ -1,6 +1,6 @@
 import type { AstNode } from 'langium';
 import { AbstractFormatter, Formatting, type NodeFormatter } from 'langium/lsp';
-import type * as ast from '../generated/ast.js';
+import type * as ast from '../generated/ast-partial.js';
 
 export abstract class XsmpFormatterBase extends AbstractFormatter {
     protected formatTypeAnnotation<T extends AstNode>(formatter: NodeFormatter<T>): void {

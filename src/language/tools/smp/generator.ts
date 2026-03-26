@@ -380,7 +380,7 @@ export class SmpGenerator implements XsmpGenerator {
 
     protected convertStructureValue(type: ast.Structure, expression: ast.CollectionLiteral): Types.StructureValue {
         const fields = this.attrHelper.getAllFields(type).toArray();
-        return { '@xsi:type': 'Types:StructureValue', FieldValue: expression.elements.map((e, index) => this.convertTypedValue(fields.at(index)?.type.ref, e), this) };
+        return { '@xsi:type': 'Types:StructureValue', FieldValue: expression.elements.map((e, index) => this.convertTypedValue(fields.at(index)?.type?.ref as ast.Type | undefined, e), this) };
     }
 
     protected convertAttributeType(attributeType: ast.AttributeType): Types.AttributeType {
@@ -701,14 +701,14 @@ export class SmpGenerator implements XsmpGenerator {
         if (!resolution.active || resolution.invalidMessage) {
             return undefined;
         }
-        return resolution.finalType;
+        return resolution.finalType as ast.Type | undefined;
     }
 
     protected getStructureFieldType(type: ast.Type | undefined, fieldName: string): ast.Type | undefined {
         if (!ast.isStructure(type)) {
             return undefined;
         }
-        return this.cfgPathResolver.getFieldCandidatesForType(type).find(field => field.name === fieldName)?.type.ref;
+        return this.cfgPathResolver.getFieldCandidatesForType(type).find(field => field.name === fieldName)?.type?.ref as ast.Type | undefined;
     }
 
     protected convertUnsuffixedIntValue(value: ast.IntValue, expectedType: ast.Type | undefined): Types.Value {
@@ -745,8 +745,8 @@ export class SmpGenerator implements XsmpGenerator {
 
         const nextPositionalField = (): ast.Field | undefined => {
             while (positionalIndex < fields.length) {
-                const field = fields[positionalIndex++];
-                if (!usedFields.has(field.name)) {
+                const field = fields[positionalIndex++] as ast.Field;
+                if (field.name && !usedFields.has(field.name)) {
                     return field;
                 }
             }
@@ -755,12 +755,12 @@ export class SmpGenerator implements XsmpGenerator {
 
         return value.elements.map(element => {
             if (ast.isCfgStructureFieldValue(element)) {
-                const field = fieldsByName.get(element.field);
-                if (field && !usedFields.has(field.name)) {
+                const field = (element.field ? fieldsByName.get(element.field) : undefined) as ast.Field | undefined;
+                if (field?.name && !usedFields.has(field.name)) {
                     usedFields.add(field.name);
                 }
                 return {
-                    ...this.convertValue(element.value, element.unsafe ? undefined : field?.type.ref),
+                    ...this.convertValue(element.value, element.unsafe ? undefined : field?.type.ref as ast.Type | undefined),
                     '@Field': element.field,
                 } as Types.Value;
             }

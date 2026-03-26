@@ -5,6 +5,7 @@ export const InvalidFieldName = 'invalid-field-name';
 export const MissingValue = 'missing-value';
 export const MissingUuid = 'missing-uuid';
 export const DuplicatedUuid = 'duplicated-uuid';
+export const DuplicatedTypeName = 'duplicated-type-name';
 export const InvalidUuid = 'invalid-uuid';
 export const IllegalModifier = 'illegal-modifier';
 export const InvalidModifier = 'invalid-modifier';

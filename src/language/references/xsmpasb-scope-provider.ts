@@ -13,7 +13,7 @@ import type {
     URI
 } from 'langium';
 import { AstUtils, DocumentCache, EMPTY_SCOPE, StreamScope, WorkspaceCache, stream } from 'langium';
-import * as ast from '../generated/ast.js';
+import * as ast from '../generated/ast-partial.js';
 import type { Xsmpl2PathResolver } from './xsmpl2-path-resolver.js';
 import type { ProjectManager } from '../workspace/project-manager.js';
 import type { XsmpServices } from '../xsmp-module.js';
@@ -53,7 +53,7 @@ export class XsmpasbScopeProvider implements ScopeProvider {
             return this.getLocalNamedReferenceScope(context.container);
         }
         if (ast.isTemplateArgument(context.container) && context.property === 'parameter') {
-            const assembly = ast.isAssemblyInstance(context.container.$container) && ast.isAssembly(context.container.$container.assembly.ref)
+            const assembly = ast.isAssemblyInstance(context.container.$container) && ast.isAssembly(context.container.$container.assembly?.ref)
                 ? context.container.$container.assembly.ref
                 : undefined;
             return assembly ? this.createTemplateScope(assembly.parameters) : EMPTY_SCOPE;

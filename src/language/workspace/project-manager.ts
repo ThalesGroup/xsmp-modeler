@@ -2,7 +2,7 @@ import { AstUtils, DocumentState, UriUtils, WorkspaceCache } from 'langium';
 import type { LangiumDocument, LangiumDocuments, LangiumSharedCoreServices, Stream, URI } from 'langium';
 import * as ast from '../generated/ast-partial.js';
 import { isBuiltinLibrary } from '../builtins.js';
-import { isSource } from '../generated/ast.js';
+import { isSource } from '../generated/ast-partial.js';
 import { isSameOrContainedPath } from '../utils/path-utils.js';
 
 export const SmpStandards: string[] = ['ECSS_SMP_2020', 'ECSS_SMP_2025'];

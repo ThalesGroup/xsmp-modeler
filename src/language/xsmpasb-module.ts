@@ -13,6 +13,7 @@ import { XsmpasbScopeComputation } from './references/xsmpasb-scope-computation.
 import { XsmpasbValidator } from './validation/xsmpasb-validator.js';
 import { XsmpasbScopeProvider } from './references/xsmpasb-scope-provider.js';
 import { XsmpPathCodeActionProvider } from './lsp/xsmp-path-code-action.js';
+import { XsmpasbCompletionProvider } from './lsp/xsmpasb-completion-provider.js';
 
 /**
  * Declaration of Xsmp services.
@@ -46,6 +47,7 @@ export const XsmpasbModule: Module<XsmpasbServices, PartialLangiumServices & Xsm
     lsp: {
         Formatter: () => new XsmpasbFormatter(),
         DocumentSymbolProvider: (services) => new XsmpDocumentSymbolProvider(services),
+        CompletionProvider: (services) => new XsmpasbCompletionProvider(services),
         CodeActionProvider: () => new XsmpPathCodeActionProvider(),
         RenameProvider: (services) => new XsmpRenameProvider(services),
     },

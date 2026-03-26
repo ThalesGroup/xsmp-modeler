@@ -4,7 +4,7 @@ import { EmptyFileSystem, type LangiumDocument, URI } from 'langium';
 import { CodeActionKind, MarkupContent, TextEdit, type CodeAction, type LocationLink, type Range, type TextDocumentPositionParams } from 'vscode-languageserver';
 import type { CodeActionParams } from 'vscode-languageserver-protocol';
 import { createXsmpServices } from '../../src/language/xsmp-module.js';
-import { Assembly, Catalogue, LinkBase, Project, Schedule } from '../../src/language/generated/ast.js';
+import { Assembly, Catalogue, LinkBase, Project, Schedule } from '../../src/language/generated/ast-partial.js';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';

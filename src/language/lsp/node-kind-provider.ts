@@ -2,7 +2,7 @@ import type { AstNode, AstNodeDescription } from 'langium';
 import { isAstNodeDescription } from 'langium';
 import type { NodeKindProvider } from 'langium/lsp';
 import { CompletionItemKind, SymbolKind } from 'vscode-languageserver';
-import * as ast from '../generated/ast.js';
+import * as ast from '../generated/ast-partial.js';
 
 export class XsmpNodeKindProvider implements NodeKindProvider {
     getCompletionItemKind(node: AstNode | AstNodeDescription): CompletionItemKind {

@@ -1,5 +1,5 @@
 import { AstUtils, DefaultReferences, type AstNode, type CstNode } from 'langium';
-import * as ast from '../generated/ast.js';
+import * as ast from '../generated/ast-partial.js';
 import type { XsmpServices } from '../xsmp-module.js';
 
 export class XsmpReferences extends DefaultReferences {

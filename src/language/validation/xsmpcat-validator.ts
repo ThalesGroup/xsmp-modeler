@@ -423,7 +423,7 @@ export class XsmpcatValidator {
             accept('error', 'Duplicated Type name.', {
                 node: type,
                 property: 'name',
-                data: diagnosticData(IssueCodes.DuplicatedUuid),
+                data: diagnosticData(IssueCodes.DuplicatedTypeName),
                 relatedInformation: duplicates.filter(d => d.node !== type).map(d => ({ location: Location.create(d.documentUri.toString(), d.nameSegment!.range), message: d.name }))
             });
         }

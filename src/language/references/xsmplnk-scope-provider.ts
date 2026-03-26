@@ -10,7 +10,7 @@ import type {
     URI
 } from 'langium';
 import { AstUtils, EMPTY_SCOPE, MapScope, StreamScope, WorkspaceCache, stream } from 'langium';
-import * as ast from '../generated/ast.js';
+import * as ast from '../generated/ast-partial.js';
 import type { Xsmpl2PathResolver } from './xsmpl2-path-resolver.js';
 import type { ProjectManager } from '../workspace/project-manager.js';
 import type { XsmplnkServices } from '../xsmplnk-module.js';

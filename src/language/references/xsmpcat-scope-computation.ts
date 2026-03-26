@@ -1,5 +1,5 @@
 import type { AstNode, AstNodeDescription, AstNodeDescriptionProvider, LangiumDocument, PrecomputedScopes, ScopeComputation } from 'langium';
-import * as ast from '../generated/ast.js';
+import * as ast from '../generated/ast-partial.js';
 import { Cancellation, MultiMap, interruptAndCheck } from 'langium';
 import * as XsmpUtils from '../utils/xsmp-utils.js';
 import { VisibilityKind } from '../utils/visibility-kind.js';

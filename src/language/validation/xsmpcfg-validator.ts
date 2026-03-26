@@ -1,7 +1,8 @@
 import type { AstNode, ValidationAcceptor, ValidationChecks } from 'langium';
 import { diagnosticData } from 'langium';
-import * as ast from '../generated/ast.js';
+import * as ast from '../generated/ast-partial.js';
 import type { XsmpcfgServices } from '../xsmpcfg-module.js';
+import type { XsmpAddedSharedServices } from '../xsmp-module.js';
 import type { XsmpPathService } from '../references/xsmp-path-service.js';
 import type { XsmpcfgPathResolver } from '../references/xsmpcfg-path-resolver.js';
 import { checkName } from './name-validator-utils.js';
@@ -23,11 +24,15 @@ export function registerXsmpcfgValidationChecks(services: XsmpcfgServices) {
     registry.register(checks, validator, 'fast');
 }
 
+type XsmpcfgValidationServices = {
+    shared: Pick<XsmpAddedSharedServices, 'CfgPathResolver' | 'PathService'>;
+};
+
 export class XsmpcfgValidator {
     protected readonly pathResolver: XsmpcfgPathResolver;
     protected readonly pathService: XsmpPathService;
 
-    constructor(services: XsmpcfgServices) {
+    constructor(services: XsmpcfgValidationServices | XsmpcfgServices) {
         this.pathResolver = services.shared.CfgPathResolver;
         this.pathService = services.shared.PathService;
     }
@@ -38,6 +43,9 @@ export class XsmpcfgValidator {
 
     checkComponentConfiguration(configuration: ast.ComponentConfiguration, accept: ValidationAcceptor): void {
         const path = configuration.name;
+        if (!path) {
+            return;
+        }
         if (path.unsafe) {
             return;
         }
@@ -69,7 +77,7 @@ export class XsmpcfgValidator {
             this.acceptPathError(resolution.invalidMessage, resolution.invalidNode, accept);
             return;
         }
-        if (resolution.finalType) {
+        if (resolution.finalType && fieldValue.value) {
             this.checkValueAgainstType(fieldValue.value, resolution.finalType, accept);
         }
     }
@@ -220,7 +228,7 @@ export class XsmpcfgValidator {
             accept('error', `The array value shall not contain more than ${maxSize} item(s).`, { node: value, data: diagnosticData('xsmpcfg.array.size') });
         }
 
-        if (!type.itemType.ref) {
+        if (!type.itemType?.ref) {
             return;
         }
 
@@ -239,14 +247,14 @@ export class XsmpcfgValidator {
         }
 
         const fields = this.pathResolver.getFieldCandidatesForType(type);
-        const fieldsByName = new Map(fields.map(field => [field.name, field] as const));
+        const fieldsByName = new Map(fields.filter((field): field is ast.Field & { name: string } => !!field.name).map(field => [field.name, field] as const));
         const usedFields = new Set<string>();
         let positionalIndex = 0;
 
         const nextPositionalField = (): ast.Field | undefined => {
             while (positionalIndex < fields.length) {
                 const field = fields[positionalIndex++];
-                if (!usedFields.has(field.name)) {
+                if (field.name && !usedFields.has(field.name)) {
                     return field;
                 }
             }
@@ -255,21 +263,23 @@ export class XsmpcfgValidator {
 
         for (const element of value.elements) {
             if (ast.isCfgStructureFieldValue(element)) {
-                const field = fieldsByName.get(element.field);
+                const field = element.field ? fieldsByName.get(element.field) : undefined;
                 if (!field) {
                     if (!element.unsafe) {
                         accept('error', `The structure field '${element.field}' does not exist on type ${XsmpUtils.fqn(type)}.`, { node: element });
                     }
                     continue;
                 }
-                if (usedFields.has(field.name)) {
+                if (field.name && usedFields.has(field.name)) {
                     if (!element.unsafe) {
                         accept('error', `The structure field '${field.name}' shall not be initialized more than once.`, { node: element });
                     }
                     continue;
                 }
-                usedFields.add(field.name);
-                if (!element.unsafe && field.type.ref) {
+                if (field.name) {
+                    usedFields.add(field.name);
+                }
+                if (!element.unsafe && field.type?.ref && element.value) {
                     this.checkValueAgainstType(element.value, field.type.ref, accept);
                 }
                 continue;
@@ -280,8 +290,10 @@ export class XsmpcfgValidator {
                 accept('error', `The structure value shall not contain more values than the fields of ${XsmpUtils.fqn(type)}.`, { node: element });
                 continue;
             }
-            usedFields.add(field.name);
-            if (field.type.ref) {
+            if (field.name) {
+                usedFields.add(field.name);
+            }
+            if (field.type?.ref) {
                 this.checkValueAgainstType(element, field.type.ref, accept);
             }
         }
@@ -364,7 +376,7 @@ export class XsmpcfgValidator {
     protected getIntegralLiteralValue(value: ast.Value): bigint | undefined {
         if (ast.isIntValue(value) || ast.isInt8Value(value) || ast.isInt16Value(value) || ast.isInt32Value(value) || ast.isInt64Value(value)
             || ast.isUInt8Value(value) || ast.isUInt16Value(value) || ast.isUInt32Value(value) || ast.isUInt64Value(value)) {
-            return BigInt(value.value);
+            return value.value !== undefined ? BigInt(value.value) : undefined;
         }
         return undefined;
     }
@@ -398,13 +410,13 @@ export class XsmpcfgValidator {
             const structureType = ast.isStructureValue(container.$container)
                 ? this.getExpectedTypeForValue(container.$container)
                 : undefined;
-            return ast.isStructure(structureType)
+            return ast.isStructure(structureType) && container.field
                 ? this.getNamedStructureFieldType(structureType, container.field)
                 : undefined;
         }
         if (ast.isArrayValue(container)) {
             const arrayType = this.getExpectedTypeForValue(container);
-            return ast.isArrayType(arrayType) ? arrayType.itemType.ref : undefined;
+            return ast.isArrayType(arrayType) ? arrayType.itemType?.ref : undefined;
         }
         if (ast.isStructureValue(container)) {
             const structureType = this.getExpectedTypeForValue(container);
@@ -428,19 +440,19 @@ export class XsmpcfgValidator {
     }
 
     protected getNamedStructureFieldType(type: ast.Structure, fieldName: string): ast.Type | undefined {
-        return this.pathResolver.getFieldCandidatesForType(type).find(field => field.name === fieldName)?.type.ref;
+        return this.pathResolver.getFieldCandidatesForType(type).find(field => field.name === fieldName)?.type?.ref;
     }
 
     protected getPositionalStructureFieldType(structureValue: ast.StructureValue, target: ast.Value, type: ast.Structure): ast.Type | undefined {
         const fields = this.pathResolver.getFieldCandidatesForType(type);
-        const fieldsByName = new Map(fields.map(field => [field.name, field] as const));
+        const fieldsByName = new Map(fields.filter((field): field is ast.Field & { name: string } => !!field.name).map(field => [field.name, field] as const));
         const usedFields = new Set<string>();
         let positionalIndex = 0;
 
         const nextPositionalField = (): ast.Field | undefined => {
             while (positionalIndex < fields.length) {
                 const field = fields[positionalIndex++];
-                if (!usedFields.has(field.name)) {
+                if (field.name && !usedFields.has(field.name)) {
                     return field;
                 }
             }
@@ -449,8 +461,8 @@ export class XsmpcfgValidator {
 
         for (const element of structureValue.elements) {
             if (ast.isCfgStructureFieldValue(element)) {
-                const field = fieldsByName.get(element.field);
-                if (field && !usedFields.has(field.name)) {
+                const field = element.field ? fieldsByName.get(element.field) : undefined;
+                if (field?.name && !usedFields.has(field.name)) {
                     usedFields.add(field.name);
                 }
                 continue;
@@ -461,9 +473,11 @@ export class XsmpcfgValidator {
                 return undefined;
             }
             if (element === target) {
-                return field.type.ref;
+                return field.type?.ref;
             }
-            usedFields.add(field.name);
+            if (field.name) {
+                usedFields.add(field.name);
+            }
         }
 
         return undefined;

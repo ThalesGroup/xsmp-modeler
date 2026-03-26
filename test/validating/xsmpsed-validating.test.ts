@@ -2,7 +2,7 @@ import { afterEach, beforeAll, describe, expect, test } from 'vitest';
 import { clearDocuments, parseHelper, type ParseHelperOptions } from 'langium/test';
 import { EmptyFileSystem, type LangiumDocument, URI } from 'langium';
 import { createXsmpServices } from '../../src/language/xsmp-module.js';
-import { Catalogue, Project, Schedule, isSchedule } from '../../src/language/generated/ast.js';
+import { Catalogue, Project, Schedule, isSchedule } from '../../src/language/generated/ast-partial.js';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';

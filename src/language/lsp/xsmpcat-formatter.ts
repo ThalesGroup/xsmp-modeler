@@ -1,7 +1,7 @@
 import { type AstNode } from 'langium';
 import type { NodeFormatter } from 'langium/lsp';
 import { AbstractFormatter, Formatting } from 'langium/lsp';
-import * as ast from '../generated/ast.js';
+import * as ast from '../generated/ast-partial.js';
 
 export class XsmpcatFormatter extends AbstractFormatter {
 

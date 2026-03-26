@@ -1,7 +1,7 @@
 import { AstUtils, CstUtils, GrammarUtils, type AstNode, type MaybePromise } from 'langium';
 import { AbstractTypeHierarchyProvider, type NodeKindProvider } from 'langium/lsp';
 import { type TypeHierarchyItem } from 'vscode-languageserver';
-import * as ast from '../generated/ast.js';
+import * as ast from '../generated/ast-partial.js';
 import type { XsmpcatServices } from '../xsmpcat-module.js';
 import type { XsmpNodeInfoProvider } from './node-info-provider.js';
 
@@ -43,7 +43,7 @@ export class XsmpcatTypeHierarchyProvider extends AbstractTypeHierarchyProvider 
     protected getXsmpTypeHierarchyItem(targetNode: ast.Type): TypeHierarchyItem {
         const document = AstUtils.getDocument(targetNode);
         return {
-            name: targetNode.name,
+            name: targetNode.name ?? '<anonymous>',
             range: targetNode.$cstNode!.range,
             selectionRange: GrammarUtils.findNodeForProperty(targetNode.$cstNode, 'name')!.range,
             uri: document.uri.toString(),

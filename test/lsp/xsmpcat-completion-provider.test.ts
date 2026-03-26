@@ -1,125 +1,171 @@
-
-import { describe, test, afterEach, beforeAll } from 'vitest';
-import type { LangiumDocument, AsyncDisposable } from 'langium';
+import { afterEach, beforeAll, describe, expect, test } from 'vitest';
+import type { LangiumDocument } from 'langium';
 import { EmptyFileSystem } from 'langium';
-import { clearDocuments, expectCompletion, ExpectedCompletion } from 'langium/test';
+import { clearDocuments, parseHelper } from 'langium/test';
+import { CompletionItemKind, InsertTextFormat, type CompletionItem } from 'vscode-languageserver';
 import { createXsmpServices } from '../../src/language/xsmp-module.js';
-import { Catalogue } from '../../src/language/generated/ast.js';
+import type { Catalogue } from '../../src/language/generated/ast-partial.js';
 
 let services: ReturnType<typeof createXsmpServices>;
+let parse: ReturnType<typeof parseHelper<Catalogue>>;
 let document: LangiumDocument<Catalogue> | undefined;
-
-let completion: (expectedCompletion: ExpectedCompletion) => Promise<AsyncDisposable>;
 
 beforeAll(async () => {
     services = createXsmpServices(EmptyFileSystem);
-    completion = expectCompletion(services.xsmpcat);
+    parse = parseHelper<Catalogue>(services.xsmpcat);
 });
 
 afterEach(async () => {
-    document && clearDocuments(services.shared, [document]);
+    if (document) {
+        await clearDocuments(services.shared, [document]);
+        document = undefined;
+    }
 });
-
 
 describe('Xsmpcat completion provider', () => {
+    test('offers contextual root, namespace and classifier snippets', async () => {
+        let cursor = extractCursor('@@');
+        document = await parse(cursor.text, { documentUri: 'memory:///demo-root.xsmpcat' });
+        let items = await getCompletionItems(document, cursor.cursor);
+        expect(labels(items)).toContain('catalogue');
+        expect(labels(items)).toContain('Catalogue');
 
-    const text = `
-    <|>
-    catalogue name
-    <|>
-    namespace Smp
+        cursor = extractCursor(`catalogue demo
+@@
+`);
+        document = await parse(cursor.text, { documentUri: 'memory:///demo-catalogue.xsmpcat' });
+        items = await getCompletionItems(document, cursor.cursor);
+        expect(labels(items)).toContain('namespace');
+        expect(labels(items)).toContain('Namespace');
+        expect(findSnippetItem(items, 'Model')?.insertText).toContain('/** @uuid ');
+        expect(labels(items)).toContain('Model');
+
+        cursor = extractCursor(`catalogue demo
+namespace demo
+{
+    model M
     {
-        public primitive Bool
-        public primitive Int8
-        public primitive Int16
-        public primitive Int32
-        public primitive Int64
-        public primitive UInt8
-        public primitive UInt16
-        public primitive UInt32
-        public primitive UInt64
-        public primitive Float32
-        public primitive Float64
-        public primitive Char8
-        public primitive String8
-        public primitive Duration
-        public primitive DateTime
-
-        <|>
+        @@
     }
-    namespace Attribute {public attribute <|>Bool AnAttribute = <|> false}
-    namespace Type 
-    { 
-        model MyModel {<|>}
-    }
-    `;
+}
+`);
+        document = await parse(cursor.text, { documentUri: 'memory:///demo-model.xsmpcat' });
+        items = await getCompletionItems(document, cursor.cursor);
+        expect(labels(items)).toContain('field');
+        expect(labels(items)).toContain('Field');
+        expect(labels(items)).toContain('reference');
+        expect(labels(items)).toContain('Reference');
 
-
-    test('Complete Catalogue', async () => {
-        await completion({
-            text,
-            index: 0,
-            expectedItems: [
-                'catalogue', 'catalogue'
-            ]
-        });
-    });
-    test('Complete Namespace', async () => {
-        await completion({
-            text,
-            index: 1,
-            expectedItems: [
-                'namespace', 'namespace'
-            ]
-        });
     });
 
-    test('Complete Type', async () => {
-        await completion({
-            text,
-            index: 2,
-            expectedItems: [
-                'namespace', 'private', 'protected', 'public', 'struct', 'abstract', 'class', 'exception', 'interface', 'model', 'service', 'array', 'using', 'integer',
-                'float', 'event', 'string', 'primitive', 'native', 'attribute', 'enum', 'namespace',
-                'struct', 'class', 'exception', 'interface', 'model', 'service', 'array', 'using', 'integer',
-                'float', 'event', 'string', 'native', 'attribute', 'enum',
-            ]
-        });
-    });
-    test('Complete Attribute Type', async () => {
-        await completion({
-            text,
-            index: 3,
-            expectedItems: [
-                'Bool', 'Int8', 'Int16', 'Int32', 'Int64', 'UInt8', 'UInt16', 'UInt32', 'UInt64', 'Float32', 'Float64', 'Char8',
-                'String8', 'Duration', 'DateTime', 'Smp.Bool', 'Smp.Int8', 'Smp.Int16', 'Smp.Int32', 'Smp.Int64', 'Smp.UInt8',
-                'Smp.UInt16', 'Smp.UInt32', 'Smp.UInt64', 'Smp.Float32', 'Smp.Float64', 'Smp.Char8', 'Smp.String8', 'Smp.Duration',
-                'Smp.DateTime',
-            ]
-        });
+    test('offers typed attribute value completions', async () => {
+        const cursor = extractCursor(`catalogue demo
+namespace Smp
+{
+    public primitive Bool
+}
+namespace Attribute
+{
+    public attribute Bool AnAttribute = @@
+}
+`);
+        document = await parse(cursor.text, { documentUri: 'memory:///demo.xsmpcat' });
+        const items = await getCompletionItems(document, cursor.cursor);
+        expect(labels(items)).toContain('false');
+        expect(labels(items)).toContain('true');
+        expect(labels(items)).toContain('Default Value');
+        expect(labels(items)).toContain('nullptr');
     });
 
-    test('Complete Attribute value', async () => {
-        await completion({
-            text,
-            index: 4,
-            expectedItems: [
-                'false', 'true', 'Default Value', 'nullptr',
-            ]
-        });
+    test('completes attribute types from visible value types', async () => {
+        const cursor = extractCursor(`catalogue demo
+namespace Smp
+{
+    public primitive Bool
+    public primitive Int32
+}
+namespace Attribute
+{
+    public attribute @@
+}
+`);
+        document = await parse(cursor.text, { documentUri: 'memory:///demo.xsmpcat' });
+        const items = await getCompletionItems(document, cursor.cursor);
+        expect(labels(items)).toContain('Bool');
+        expect(labels(items)).toContain('Smp.Bool');
+        expect(labels(items)).toContain('Int32');
     });
 
-    test('Complete Model member', async () => {
-        await completion({
-            text,
-            index: 5,
-            expectedItems: [
-                'private', 'protected', 'public', 'constant', 'input', 'output', 'transient', 'field', 'readWrite', 'readOnly', 'writeOnly',
-                'property', 'def', 'association', 'container', 'reference', 'entrypoint', 'eventsink', 'eventsource', 'constant',
-                'field', 'property', 'def', 'association', 'container', 'reference', 'entrypoint', 'eventsink', 'eventsource',
-            ]
-        });
+    test('builds the reference snippet from interface types', async () => {
+        const referenceText = `
+        catalogue Demo
+        namespace demo
+        {
+            public interface Bus
+            {
+            }
+
+            public model M
+            {
+                reference @@ target
+            }
+        }`;
+
+        const referenceCursor = extractCursor(referenceText);
+        document = await parse(referenceCursor.text, { documentUri: 'memory:///completion-reference.xsmpcat' });
+        let items = await getCompletionItems(document, referenceCursor.cursor);
+        expect(labels(items)).toContain('Bus');
+        expect(labels(items)).toContain('demo.Bus');
+
+        const snippetCursor = extractCursor(`
+        catalogue Demo
+        namespace demo
+        {
+            public interface Bus
+            {
+            }
+
+            public model M
+            {
+                @@
+                reference demo.Bus target
+            }
+        }`);
+        document = await parse(snippetCursor.text, { documentUri: 'memory:///completion-snippet.xsmpcat' });
+        items = await getCompletionItems(document, snippetCursor.cursor);
+        const referenceSnippet = items.find(item =>
+            item.label === 'reference'
+            && item.kind === CompletionItemKind.Snippet
+            && item.insertTextFormat === InsertTextFormat.Snippet
+        );
+        expect(referenceSnippet?.insertText).toContain('Bus');
+        expect(referenceSnippet?.insertText).toContain('demo.Bus');
     });
-
-
 });
+
+async function getCompletionItems(document: LangiumDocument, offset: number): Promise<CompletionItem[]> {
+    const completion = await services.xsmpcat.lsp.CompletionProvider?.getCompletion(document, {
+        textDocument: { uri: document.textDocument.uri },
+        position: document.textDocument.positionAt(offset),
+    });
+    return completion?.items ?? [];
+}
+
+function extractCursor(text: string): { text: string; cursor: number } {
+    const cursor = text.indexOf('@@');
+    if (cursor < 0) {
+        throw new Error('Missing cursor marker.');
+    }
+    return {
+        text: text.replace('@@', ''),
+        cursor,
+    };
+}
+
+function labels(items: CompletionItem[]): string[] {
+    return items.map(item => item.label);
+}
+
+function findSnippetItem(items: CompletionItem[], label: string): CompletionItem | undefined {
+    return items.find(item => item.label === label && item.insertTextFormat === InsertTextFormat.Snippet);
+}

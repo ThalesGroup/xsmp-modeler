@@ -1,5 +1,5 @@
 import { AstUtils, type AstNode, type ValidationAcceptor } from 'langium';
-import * as ast from '../generated/ast.js';
+import * as ast from '../generated/ast-partial.js';
 import type { IdentifierPatternService } from '../references/identifier-pattern-service.js';
 
 export function collectUsedTemplateParameterNames(

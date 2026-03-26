@@ -4,7 +4,7 @@ import { expandToString as s } from "langium/generate";
 import { parseHelper } from "langium/test";
 import { create as createXml } from 'xmlbuilder2';
 import { createXsmpServices } from "../../../src/language/xsmp-module.js";
-import { Schedule, isSchedule } from "../../../src/language/generated/ast.js";
+import { Schedule, isSchedule } from "../../../src/language/generated/ast-partial.js";
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';

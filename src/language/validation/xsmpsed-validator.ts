@@ -1,5 +1,5 @@
 import { AstUtils, type AstNode, type ValidationAcceptor, type ValidationChecks } from 'langium';
-import * as ast from '../generated/ast.js';
+import * as ast from '../generated/ast-partial.js';
 import type { XsmpsedServices } from '../xsmpsed-module.js';
 import {
     checkNonNegativeBigInt,
@@ -146,12 +146,13 @@ export class XsmpsedValidator {
         }
         const resolution = this.pathResolver.getScheduleActivityPathResolution(execute.root);
         this.acceptPathError(resolution.invalidMessage, resolution.invalidNode, accept);
-        const expectedComponent = execute.task.ref ? this.pathResolver.getEffectiveTaskExecutionContext(execute.task.ref) : undefined;
+        const expectedTask = execute.task?.ref;
+        const expectedComponent = expectedTask ? this.pathResolver.getEffectiveTaskExecutionContext(expectedTask) : undefined;
         if (!resolution.active || resolution.invalidMessage || !resolution.finalComponent || !expectedComponent) {
             return;
         }
         if (resolution.finalComponent !== expectedComponent && !XsmpUtils.isBaseOfComponent(expectedComponent, resolution.finalComponent)) {
-            accept('error', `The root path shall resolve to a Component compatible with the execution context of task ${execute.task.$refText}.`, {
+            accept('error', `The root path shall resolve to a Component compatible with the execution context of task ${execute.task?.$refText ?? '<unknown>'}.`, {
                 node: execute,
                 property: 'root'
             });
@@ -185,7 +186,7 @@ export class XsmpsedValidator {
 
     private checkEventBase(event: ast.Event, accept: ValidationAcceptor): void {
         const schedule = AstUtils.getContainerOfType(event, ast.isSchedule);
-        const taskSchedule = event.task.ref ? AstUtils.getContainerOfType(event.task.ref, ast.isSchedule) : undefined;
+        const taskSchedule = event.task?.ref ? AstUtils.getContainerOfType(event.task.ref, ast.isSchedule) : undefined;
         if (schedule && taskSchedule && schedule !== taskSchedule) {
             accept('error', 'An Event shall be associated with a Task defined in the same Schedule.', {
                 node: event,
@@ -214,7 +215,10 @@ export class XsmpsedValidator {
         }
     }
 
-    private checkActivityPath(path: ast.Path, accept: ValidationAcceptor): void {
+    private checkActivityPath(path: ast.Path | undefined, accept: ValidationAcceptor): void {
+        if (!path) {
+            return;
+        }
         if (path.unsafe) {
             return;
         }
@@ -258,6 +262,9 @@ export class XsmpsedValidator {
     private getScheduleTemplateBindings(schedule: ast.Schedule | undefined): Map<string, string> {
         const bindings = new Map<string, string>();
         for (const parameter of schedule?.parameters ?? []) {
+            if (!parameter.name) {
+                continue;
+            }
             if (ast.isStringParameter(parameter) && parameter.value !== undefined) {
                 bindings.set(parameter.name, parameter.value.startsWith('"') && parameter.value.endsWith('"')
                     ? parameter.value.slice(1, -1)

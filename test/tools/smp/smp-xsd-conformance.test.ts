@@ -10,7 +10,7 @@ import {
   LinkBase,
   Project,
   Schedule,
-} from '../../../src/language/generated/ast.js';
+} from '../../../src/language/generated/ast-partial.js';
 import { assertXmlConformsToXsd, hasXmllint, type SmpStandard } from './xsd-test-utils.js';
 import * as fs from 'node:fs';
 import * as os from 'node:os';

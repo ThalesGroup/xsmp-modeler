@@ -3,7 +3,7 @@ import type { CodeActionProvider } from 'langium/lsp';
 import { CodeActionKind, TextEdit, type Diagnostic } from 'vscode-languageserver';
 import type { CodeActionParams } from 'vscode-languageserver-protocol';
 import type { CodeAction, Command, Range } from 'vscode-languageserver-types';
-import * as ast from '../generated/ast.js';
+import * as ast from '../generated/ast-partial.js';
 
 export class XsmpPathCodeActionProvider implements CodeActionProvider {
 

@@ -1,6 +1,6 @@
 import { type LangiumDocument } from 'langium';
 import { DefaultFoldingRangeProvider, type FoldingRangeAcceptor } from 'langium/lsp';
-import * as ast from '../generated/ast.js';
+import * as ast from '../generated/ast-partial.js';
 
 export class XsmpcatFoldingRangeProvider extends DefaultFoldingRangeProvider {
     protected override collectFolding(document: LangiumDocument, acceptor: FoldingRangeAcceptor): void {

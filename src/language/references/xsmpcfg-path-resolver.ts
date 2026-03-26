@@ -1,5 +1,5 @@
 import { AstUtils, WorkspaceCache } from 'langium';
-import * as ast from '../generated/ast.js';
+import * as ast from '../generated/ast-partial.js';
 import type { XsmpSharedServices } from '../xsmp-module.js';
 import {
     componentModeFieldPathMessages,
@@ -7,6 +7,8 @@ import {
     type TypedFieldPathResolution,
     type XsmpTypedPathResolver
 } from './xsmp-typed-path-resolver.js';
+
+type RecoverableType = ast.Type;
 
 export type CfgComponentPathResolution = TypedComponentPathResolution;
 export type CfgFieldPathResolution = TypedFieldPathResolution;
@@ -24,7 +26,10 @@ export class XsmpcfgPathResolver {
         this.typedPathResolver = services.TypedPathResolver;
     }
 
-    getNamedSegmentCandidates(segment: ast.PathNamedSegment): readonly ast.NamedElement[] {
+    getNamedSegmentCandidates(segment: ast.PathNamedSegment | undefined): readonly ast.NamedElement[] {
+        if (!segment) {
+            return [];
+        }
         const path = AstUtils.getContainerOfType(segment, ast.isPath);
         if (!path) {
             return [];
@@ -47,7 +52,7 @@ export class XsmpcfgPathResolver {
         return this.fieldPathCache.get(path, () => this.computeFieldPathResolution(path));
     }
 
-    getFieldCandidatesForType(type: ast.Type | undefined): readonly ast.Field[] {
+    getFieldCandidatesForType(type: RecoverableType | undefined): readonly ast.Field[] {
         return this.typedPathResolver.getFieldCandidatesForType(type);
     }
 
@@ -55,7 +60,7 @@ export class XsmpcfgPathResolver {
         const parent = ast.isComponentConfiguration(configuration.$container) ? configuration.$container : undefined;
         const parentStack = parent ? this.getConfigurationComponentStack(parent) : undefined;
         const explicitComponent = ast.isComponent(configuration.component?.ref) ? configuration.component.ref : undefined;
-        const resolution = parentStack ? this.typedPathResolver.resolveComponentPath(configuration.name, parentStack) : undefined;
+        const resolution = parentStack && configuration.name ? this.typedPathResolver.resolveComponentPath(configuration.name, parentStack) : undefined;
 
         if (explicitComponent) {
             if (resolution?.finalStack && resolution.finalStack.length > 0) {

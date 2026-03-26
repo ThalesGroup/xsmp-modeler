@@ -1,8 +1,15 @@
 import type { AstNode } from 'langium';
-import * as ast from '../generated/ast.js';
+import * as ast from '../generated/ast-partial.js';
 import type { XsmpSharedServices } from '../xsmp-module.js';
 import type { IdentifierPatternService, TemplateBindings } from './identifier-pattern-service.js';
 import type { XsmpPathService } from './xsmp-path-service.js';
+
+type RecoverableType = ast.Type;
+type RecoverableComponent = ast.Component;
+type RecoverableNamedElement = ast.NamedElement;
+type RecoverablePathElement = ast.PathElement;
+type RecoverablePathSegment = ast.PathSegment;
+type RecoverablePathNamedSegment = ast.PathNamedSegment;
 
 export interface TypedComponentPathResolution {
     active: boolean;
@@ -87,29 +94,29 @@ export class XsmpTypedPathResolver {
         this.identifierPatternService = services.IdentifierPatternService;
     }
 
-    getFieldCandidatesForType(type: ast.Type | undefined): readonly ast.Field[] {
+    getFieldCandidatesForType(type: RecoverableType | undefined): readonly ast.Field[] {
         const result = new Map<string, ast.Field>();
-        this.collectFieldMembers(type, result, new Set<ast.Type>());
+        this.collectFieldMembers(type as ast.Type | undefined, result, new Set<ast.Type>());
         return [...result.values()];
     }
 
-    getComponentPathMembers(component: ast.Component | undefined): ReadonlyArray<ast.Container | ast.Reference> {
+    getComponentPathMembers(component: RecoverableComponent | undefined): ReadonlyArray<ast.Container | ast.Reference> {
         const result = new Map<string, ast.Container | ast.Reference>();
-        this.collectComponentPathMembers(component, result, new Set<ast.Type>());
+        this.collectComponentPathMembers(component as ast.Type | undefined, result, new Set<ast.Type>());
         return [...result.values()];
     }
 
-    getChildComponentForPathMember(member: ast.NamedElement): ast.Component | undefined {
+    getChildComponentForPathMember(member: RecoverableNamedElement): ast.Component | undefined {
         if (ast.isContainer(member)) {
             if (ast.isComponent(member.defaultComponent?.ref)) {
                 return member.defaultComponent.ref;
             }
-            if (ast.isComponent(member.type.ref)) {
+            if (ast.isComponent(member.type?.ref)) {
                 return member.type.ref;
             }
             return undefined;
         }
-        if (ast.isReference(member) && ast.isComponent(member.interface.ref)) {
+        if (ast.isReference(member) && ast.isComponent(member.interface?.ref)) {
             return member.interface.ref;
         }
         return undefined;
@@ -166,6 +173,9 @@ export class XsmpTypedPathResolver {
                 stack.pop();
                 currentComponent = stack.at(-1);
                 parentStackForUntypedTarget = undefined;
+                continue;
+            }
+            if (!ast.isPathNamedSegment(actualSegment)) {
                 continue;
             }
 
@@ -265,7 +275,7 @@ export class XsmpTypedPathResolver {
             segments,
             1,
             firstField,
-            firstField.type.ref,
+            firstField.type?.ref,
             (segment, candidates) => namedSegments.set(segment, candidates),
             messages.pathRuleMessage,
             messages.structureRequiredMessage,
@@ -333,6 +343,15 @@ export class XsmpTypedPathResolver {
                 stack.pop();
                 currentComponent = stack.at(-1);
                 continue;
+            }
+            if (!ast.isPathNamedSegment(actualSegment)) {
+                return {
+                    active: true,
+                    finalComponent: currentComponent,
+                    invalidMessage: options.containerOrReferenceMessage(this.pathService.getSegmentText(actualSegment)),
+                    invalidNode: actualSegment,
+                    namedSegments,
+                };
             }
 
             const isLast = index === segments.length - 1;
@@ -431,6 +450,15 @@ export class XsmpTypedPathResolver {
                 currentComponent = stack.at(-1);
                 continue;
             }
+            if (!ast.isPathNamedSegment(actualSegment)) {
+                return {
+                    active: true,
+                    finalComponent: currentComponent,
+                    invalidMessage: options.containerOrReferenceMessage(this.pathService.getSegmentText(actualSegment)),
+                    invalidNode: actualSegment,
+                    namedSegments,
+                };
+            }
 
             const childCandidates = this.getComponentPathMembers(currentComponent);
             const fieldCandidates = options.getFinalCandidates(currentComponent);
@@ -453,7 +481,7 @@ export class XsmpTypedPathResolver {
                     segments,
                     index + 1,
                     resolvedField,
-                    resolvedField.type.ref,
+                    resolvedField.type?.ref,
                     (fieldSegment, candidates) => namedSegments.set(fieldSegment, candidates),
                     options.pathRuleMessage,
                     options.structureRequiredMessage,
@@ -490,11 +518,11 @@ export class XsmpTypedPathResolver {
     }
 
     resolveFieldTail(
-        segments: Array<ast.PathElement | ast.PathSegment>,
+        segments: Array<RecoverablePathElement | RecoverablePathSegment>,
         startIndex: number,
         initialField: ast.Field,
         initialType: ast.Type | undefined,
-        setNamedSegmentCandidates: (segment: ast.PathNamedSegment, candidates: readonly ast.Field[]) => void,
+        setNamedSegmentCandidates: (segment: RecoverablePathNamedSegment, candidates: readonly ast.Field[]) => void,
         pathRuleMessage: string,
         structureRequiredMessage: (segmentText: string) => string,
         structureFieldMessage: (segmentText: string) => string,
@@ -513,7 +541,7 @@ export class XsmpTypedPathResolver {
                         invalidNode: segment,
                     };
                 }
-                currentType = currentType.itemType.ref;
+                currentType = currentType.itemType?.ref;
                 continue;
             }
 
@@ -544,9 +572,17 @@ export class XsmpTypedPathResolver {
                     invalidNode: ast.isPathMember(segment) ? segment.segment : actualSegment,
                 };
             }
+            if (!ast.isPathNamedSegment(segment.segment)) {
+                return {
+                    finalField,
+                    finalType: currentType,
+                    invalidMessage: pathRuleMessage,
+                    invalidNode: segment.segment,
+                };
+            }
 
             const candidates = this.getFieldCandidatesForType(currentType);
-            setNamedSegmentCandidates(segment.segment as ast.PathNamedSegment, candidates);
+            setNamedSegmentCandidates(segment.segment, candidates);
             if (candidates.length === 0) {
                 return {
                     finalField,
@@ -556,7 +592,7 @@ export class XsmpTypedPathResolver {
                 };
             }
 
-            const resolvedField = this.resolveNamedElement(segment.segment as ast.PathNamedSegment, candidates);
+            const resolvedField = this.resolveNamedElement(segment.segment, candidates);
             if (!resolvedField) {
                 return {
                     finalField,
@@ -566,7 +602,7 @@ export class XsmpTypedPathResolver {
                 };
             }
             finalField = resolvedField;
-            currentType = finalField.type.ref;
+            currentType = finalField.type?.ref;
         }
 
         return {
@@ -576,7 +612,7 @@ export class XsmpTypedPathResolver {
     }
 
     protected hasTraversableChild(
-        segment: ast.PathNamedSegment,
+        segment: RecoverablePathNamedSegment,
         candidates: ReadonlyArray<ast.Container | ast.Reference>,
         bindings?: TemplateBindings,
     ): boolean {
@@ -584,7 +620,7 @@ export class XsmpTypedPathResolver {
         return Boolean(child && this.getChildComponentForPathMember(child));
     }
 
-    resolveNamedElement<T extends ast.NamedElement>(segment: ast.PathNamedSegment, candidates: readonly T[], bindings?: TemplateBindings): T | undefined {
+    resolveNamedElement<T extends ast.NamedElement>(segment: RecoverablePathNamedSegment, candidates: readonly T[], bindings?: TemplateBindings): T | undefined {
         if (ast.isConcretePathNamedSegment(segment)) {
             const linked = segment.reference?.ref;
             if (linked && candidates.includes(linked as T)) {

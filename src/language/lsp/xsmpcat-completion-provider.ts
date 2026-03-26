@@ -1,40 +1,30 @@
 import type { AstNodeDescription, MaybePromise, ReferenceInfo, Stream } from 'langium';
 import { AstUtils, GrammarAST } from 'langium';
-import type { CompletionAcceptor, CompletionContext, CompletionValueItem, NextFeature } from 'langium/lsp';
-import { DefaultCompletionProvider } from 'langium/lsp';
-import type { MarkupContent } from 'vscode-languageserver';
-import { CompletionItemKind, CompletionItemTag, InsertTextFormat } from 'vscode-languageserver';
-import * as os from 'os';
+import type { CompletionAcceptor, CompletionContext, NextFeature } from 'langium/lsp';
+import { randomUUID } from 'node:crypto';
 import * as ast from '../generated/ast-partial.js';
-import * as XsmpUtils from '../utils/xsmp-utils.js';
-import type { XsmpcatServices } from '../xsmpcat-module.js';
-import type { XsmpTypeProvider } from '../references/type-provider.js';
 import * as Solver from '../utils/solver.js';
 import { PTK } from '../utils/primitive-type-kind.js';
 import { VisibilityKind } from '../utils/visibility-kind.js';
-import { type DocumentationHelper } from '../utils/documentation-helper.js';
-import { type AttributeHelper } from '../utils/attribute-helper.js';
-import { expandToString as s } from 'langium/generate';
+import * as XsmpUtils from '../utils/xsmp-utils.js';
+import type { XsmpcatServices } from '../xsmpcat-module.js';
+import { XsmpCompletionProviderBase } from './xsmp-completion-provider-base.js';
 
-export class XsmpcatCompletionProvider extends DefaultCompletionProvider {
-
-    protected readonly typeProvider: XsmpTypeProvider;
-    protected readonly docHelper: DocumentationHelper;
-    protected readonly attrHelper: AttributeHelper;
+export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
+    private readonly floatRegex = /^(Smp\.)?Float(32|64)$/;
+    private readonly intRegex = /^(Smp\.)?U?Int(8|16|32|64)$/;
 
     constructor(services: XsmpcatServices) {
         super(services);
-        this.typeProvider = services.shared.TypeProvider;
-        this.docHelper = services.shared.DocumentationHelper;
-        this.attrHelper = services.shared.AttributeHelper;
     }
 
-    private isValidAttributeType(desc: AstNodeDescription, attribute: ast.Attribute): boolean {
-        if (!ast.isAttributeType(desc.node)) { return false; }
+    protected isValidAttributeType(desc: AstNodeDescription, attribute: ast.Attribute): boolean {
+        if (!ast.isAttributeType(desc.node)) {
+            return false;
+        }
 
-        const usages = this.docHelper.getUsages(desc.node),
-            elementType = XsmpUtils.getNodeType(attribute.$container);
-
+        const usages = this.docHelper.getUsages(desc.node);
+        const elementType = XsmpUtils.getNodeType(attribute.$container);
         if (!usages?.find(u => ast.reflection.isSubtype(elementType, u.toString()))) {
             return false;
         }
@@ -45,217 +35,567 @@ export class XsmpcatCompletionProvider extends DefaultCompletionProvider {
         return XsmpUtils.isTypeVisibleFrom(attribute, desc.node);
     }
 
-    private isValidNamedElementReference(desc: AstNodeDescription, expression: ast.Expression): boolean {
+    protected isValidNamedElementReference(desc: AstNodeDescription, expression: ast.Expression): boolean {
         const type = this.typeProvider.getType(expression);
         if (!type) {
             return false;
         }
-
         if (ast.isEnumeration(type)) {
             return desc.node?.$container === type;
         }
         return ast.isConstant(desc.node) && XsmpUtils.isConstantVisibleFrom(expression, desc.node);
-
     }
 
-    private readonly floatRegex = /^(Smp\.)?Float(32|64)$/;
-    private readonly intRegex = /^(Smp\.)?U?Int(8|16|32|64)$/;
-    public getFilter(refInfo: ReferenceInfo,): ((desc: AstNodeDescription) => boolean) | undefined {
-
+    protected getFilter(refInfo: ReferenceInfo): ((desc: AstNodeDescription) => boolean) | undefined {
         const refId = `${refInfo.container.$type}:${refInfo.property}`;
         switch (refId) {
             case 'Attribute:type':
-                return (desc) => this.isValidAttributeType(desc, refInfo.container as ast.Attribute);
+                return desc => this.isValidAttributeType(desc, refInfo.container as ast.Attribute);
             case 'Class:base':
-                return (desc) => ast.isClass(desc.node) && !XsmpUtils.isBaseOfClass(refInfo.container as ast.Class, desc.node) && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node);
+                return desc => ast.isClass(desc.node)
+                    && !XsmpUtils.isBaseOfClass(refInfo.container as ast.Class, desc.node)
+                    && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node);
             case 'Interface:base':
-                return (desc) => ast.isInterface(desc.node) && !XsmpUtils.isBaseOfInterface(refInfo.container as ast.Interface, desc.node) &&
-                    !(refInfo.container as ast.Interface).base.some(i => i.ref === desc.node) && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node);
+                return desc => ast.isInterface(desc.node)
+                    && !XsmpUtils.isBaseOfInterface(refInfo.container as ast.Interface, desc.node)
+                    && !(refInfo.container as ast.Interface).base.some(i => i.ref === desc.node)
+                    && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node);
             case 'Model:interface':
             case 'Service:interface':
-                return (desc) => ast.isInterface(desc.node) && !(refInfo.container as ast.Component).interface.some(i => i.ref === desc.node) && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node);
-            case 'Reference_:interface':
-                return (desc) => ast.isInterface(desc.node);
+                return desc => ast.isInterface(desc.node)
+                    && !(refInfo.container as ast.Component).interface.some(i => i.ref === desc.node)
+                    && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node);
+            case 'Reference:interface':
+                return desc => ast.isInterface(desc.node) && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node);
             case 'Model:base':
-                return (desc) => ast.isModel(desc.node) && !XsmpUtils.isBaseOfComponent(refInfo.container as ast.Component, desc.node) && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node);
+                return desc => ast.isModel(desc.node)
+                    && !XsmpUtils.isBaseOfComponent(refInfo.container as ast.Component, desc.node)
+                    && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node);
             case 'Service:base':
-                return (desc) => ast.isService(desc.node) && !XsmpUtils.isBaseOfComponent(refInfo.container as ast.Component, desc.node) && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node);
+                return desc => ast.isService(desc.node)
+                    && !XsmpUtils.isBaseOfComponent(refInfo.container as ast.Component, desc.node)
+                    && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node);
             case 'ArrayType:itemType':
-                return (desc) => ast.isValueType(desc.node) && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node) && !XsmpUtils.isRecursiveType(refInfo.container as ast.ArrayType, desc.node);
+                return desc => ast.isValueType(desc.node)
+                    && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node)
+                    && !XsmpUtils.isRecursiveType(refInfo.container as ast.ArrayType, desc.node);
             case 'ValueReference:type':
             case 'AttributeType:type':
-                return (desc) => ast.isValueType(desc.node) && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node);
+                return desc => ast.isValueType(desc.node) && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node);
             case 'Field:type':
-                return (desc) => ast.isValueType(desc.node) && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node) && !XsmpUtils.isRecursiveType((refInfo.container as ast.Field).$container, desc.node);
+                return desc => ast.isValueType(desc.node)
+                    && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node)
+                    && !XsmpUtils.isRecursiveType((refInfo.container as ast.Field).$container, desc.node);
             case 'Property:attachedField':
-                return (desc) => ast.isField(desc.node) && (desc.node.$container === refInfo.container.$container || XsmpUtils.getRealVisibility(desc.node) !== VisibilityKind.private);
+                return desc => ast.isField(desc.node)
+                    && (desc.node.$container === refInfo.container.$container || XsmpUtils.getRealVisibility(desc.node) !== VisibilityKind.private);
             case 'Integer:primitiveType':
-                return (desc) => desc.type === ast.PrimitiveType && this.intRegex.test(desc.name) && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
+                return desc => desc.type === ast.PrimitiveType
+                    && this.intRegex.test(desc.name)
+                    && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
             case 'Float:primitiveType':
-                return (desc) => desc.type === ast.PrimitiveType && this.floatRegex.test(desc.name) && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
+                return desc => desc.type === ast.PrimitiveType
+                    && this.floatRegex.test(desc.name)
+                    && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
             case 'EventType:eventArgs':
             case 'Constant:type':
-                return (desc) => ast.reflection.isSubtype(desc.type, ast.SimpleType) && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
+                return desc => ast.reflection.isSubtype(desc.type, ast.SimpleType)
+                    && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
             case 'Parameter:type':
             case 'ReturnParameter:type':
             case 'Association:type':
             case 'Property:type':
-                return (desc) => ast.reflection.isSubtype(desc.type, ast.LanguageType) && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
+                return desc => ast.reflection.isSubtype(desc.type, ast.LanguageType)
+                    && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
             case 'Container:type':
-                return (desc) => ast.reflection.isSubtype(desc.type, ast.ReferenceType) && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
+                return desc => ast.reflection.isSubtype(desc.type, ast.ReferenceType)
+                    && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
             case 'Container:defaultComponent':
-                return (desc) => ast.reflection.isSubtype(desc.type, ast.Component) && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
+                return desc => ast.reflection.isSubtype(desc.type, ast.Component)
+                    && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
             case 'EventSink:type':
             case 'EventSource:type':
-                return (desc) => ast.EventType === desc.type && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
+                return desc => ast.EventType === desc.type && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
             case 'Operation:raisedException':
-                return (desc) => ast.Exception === desc.type && !(refInfo.container as ast.Operation).raisedException.some(e => e.ref === desc.node) && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
+                return desc => ast.Exception === desc.type
+                    && !(refInfo.container as ast.Operation).raisedException.some(e => e.ref === desc.node)
+                    && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
             case 'Property:getRaises':
-                return (desc) => ast.Exception === desc.type && !(refInfo.container as ast.Property).getRaises.some(e => e.ref === desc.node) && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
+                return desc => ast.Exception === desc.type
+                    && !(refInfo.container as ast.Property).getRaises.some(e => e.ref === desc.node)
+                    && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
             case 'Property:setRaises':
-                return (desc) => ast.Exception === desc.type && !(refInfo.container as ast.Property).setRaises.some(e => e.ref === desc.node) && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
+                return desc => ast.Exception === desc.type
+                    && !(refInfo.container as ast.Property).setRaises.some(e => e.ref === desc.node)
+                    && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
             case 'Exception:base':
-                return (desc) => ast.isException(desc.node) && !XsmpUtils.isBaseOfClass(refInfo.container as ast.Class, desc.node) && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
+                return desc => ast.isException(desc.node)
+                    && !XsmpUtils.isBaseOfClass(refInfo.container as ast.Class, desc.node)
+                    && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node as ast.Type);
             case 'EntryPoint:input':
-                return (desc) => ast.isField(desc.node) && XsmpUtils.isInput(desc.node) && (desc.node.$container === refInfo.container.$container || XsmpUtils.getRealVisibility(desc.node) !== VisibilityKind.private);
+                return desc => ast.isField(desc.node)
+                    && XsmpUtils.isInput(desc.node)
+                    && (desc.node.$container === refInfo.container.$container || XsmpUtils.getRealVisibility(desc.node) !== VisibilityKind.private);
             case 'EntryPoint:output':
-                return (desc) => ast.isField(desc.node) && XsmpUtils.isOutput(desc.node) && (desc.node.$container === refInfo.container.$container || XsmpUtils.getRealVisibility(desc.node) !== VisibilityKind.private);
+                return desc => ast.isField(desc.node)
+                    && XsmpUtils.isOutput(desc.node)
+                    && (desc.node.$container === refInfo.container.$container || XsmpUtils.getRealVisibility(desc.node) !== VisibilityKind.private);
             case 'NamedElementReference:value':
-                return (desc) => this.isValidNamedElementReference(desc, refInfo.container as ast.Expression);
+                return desc => this.isValidNamedElementReference(desc, refInfo.container as ast.Expression);
             default:
                 return undefined;
         }
-
     }
 
-    /**
-     * Filter elements
-     *
-     * @param refInfo Information about the reference for which the candidates are requested.
-     * @param _context Information about the completion request including document, cursor position, token under cursor, etc.
-     * @returns A stream of all elements being valid for the given reference.
-     */
-    protected override getReferenceCandidates(refInfo: ReferenceInfo, _context: CompletionContext): Stream<AstNodeDescription> {
-
+    protected override getReferenceCandidates(refInfo: ReferenceInfo, context: CompletionContext): Stream<AstNodeDescription> {
         const filter = this.getFilter(refInfo);
         if (filter) {
-            return super.getReferenceCandidates(refInfo, _context).filter(filter);
+            return super.getReferenceCandidates(refInfo, context).filter(filter);
         }
-        return super.getReferenceCandidates(refInfo, _context);
+        return super.getReferenceCandidates(refInfo, context);
     }
 
-    protected override createReferenceCompletionItem(nodeDescription: AstNodeDescription): CompletionValueItem {
-        const kind = this.nodeKindProvider.getCompletionItemKind(nodeDescription),
-            documentation = this.getReferenceDocumentation(nodeDescription);
+    protected override createReferenceCompletionItem(nodeDescription: AstNodeDescription) {
+        const item = super.createReferenceCompletionItem(nodeDescription);
         return {
-            nodeDescription,
-            kind,
-            documentation,
-            tags: this.getCompletionTags(nodeDescription),
-            detail: nodeDescription.type,
-            sortText: nodeDescription.name.split('.').length.toString().padStart(4, '0')
-        };
-    }
-    getCompletionTags(nodeDescription: AstNodeDescription): CompletionItemTag[] | undefined {
-        if (ast.isNamedElement(nodeDescription.node) && this.docHelper.IsDeprecated(nodeDescription.node))
-            return [CompletionItemTag.Deprecated];
-        return undefined;
-    }
-
-    protected getKeywordDocumentation(keyword: GrammarAST.Keyword): MarkupContent | string | undefined {
-
-        const documentationText = this.documentationProvider.getDocumentation(keyword);
-        if (!documentationText) {
-            return undefined;
-        }
-        return { kind: 'markdown', value: documentationText };
-    }
-
-    protected override completionForKeyword(context: CompletionContext, keyword: GrammarAST.Keyword, acceptor: CompletionAcceptor): MaybePromise<void> {
-        if (!this.filterKeyword(context, keyword)) {
-            return;
-        }
-        acceptor(context, {
-            label: keyword.value,
-            documentation: this.getKeywordDocumentation(keyword),
-            kind: this.getKeywordCompletionItemKind(keyword),
-            detail: 'Keyword',
-            sortText: '0000'
-        });
-        this.createSnippets(context, keyword, acceptor);
-
-    }
-    protected createKeywordSnippet(keyword: GrammarAST.Keyword, text: string, detail: string, preselect = false): CompletionValueItem {
-        return {
-            label: keyword.value,
-            insertText: text,
-            insertTextFormat: InsertTextFormat.Snippet,
-            documentation: this.documentationProvider.getDocumentation(keyword),
-            kind: CompletionItemKind.Snippet,
-            detail: detail,
-            preselect: preselect,
-            sortText: '1000'
+            ...item,
+            sortText: nodeDescription.name.split('.').length.toString().padStart(4, '0'),
         };
     }
 
-    protected override  completionForCrossReference(context: CompletionContext, next: NextFeature<GrammarAST.CrossReference>, acceptor: CompletionAcceptor): MaybePromise<void> {
+    protected override completionForCrossReference(context: CompletionContext, next: NextFeature<GrammarAST.CrossReference>, acceptor: CompletionAcceptor): MaybePromise<void> {
+        super.completionForCrossReference(context, next, acceptor);
+
         const assignment = AstUtils.getContainerOfType(next.feature, GrammarAST.isAssignment);
         let { node } = context;
-        if (assignment && node) {
-            if (next.type) {
-                // When `type` is set, it indicates that we have just entered a new parser rule.
-                // The cross reference that we're trying to complete is on a new element that doesn't exist yet.
-                // So we create a new synthetic element with the correct type information.
-                node = {
-                    $type: next.type,
-                    $container: node,
-                    $containerProperty: next.property
-                };
-                AstUtils.assignMandatoryProperties(this.astReflection, node);
-            }
-            const refInfo: ReferenceInfo = {
-                reference: {
-                    $refText: ''
-                },
-                container: node,
-                property: assignment.feature
+        if (!assignment || !node) {
+            return;
+        }
+
+        if (next.type) {
+            node = {
+                $type: next.type,
+                $container: node,
+                $containerProperty: next.property,
             };
-            try {
-                for (const candidate of this.getReferenceCandidates(refInfo, context)) {
-                    acceptor(context, this.createReferenceCompletionItem(candidate));
-                }
-            } catch (err) {
-                console.error(err);
-            }
+            AstUtils.assignMandatoryProperties(this.astReflection, node);
+        }
 
-            if (node.$type === 'NamedElementReference' && assignment.feature === 'value') {
+        if (node.$type !== ast.NamedElementReference || assignment.feature !== 'value') {
+            return;
+        }
 
-                const type = this.typeProvider.getType(node);
-                if (type) {
-                    acceptor(context, {
-                        label: 'Default Value',
-                        insertText: this.getDefaultValueForType(type),
-                        kind: CompletionItemKind.Value,
-                        detail: `Default value for ${type.$type} ${XsmpUtils.fqn(type)}.`,
-                        sortText: '0000'
-                    });
-                }
+        const type = this.typeProvider.getType(node as ast.Expression);
+        if (type) {
+            for (const item of this.getXsmpcatValueCompletions(type)) {
+                acceptor(context, item);
             }
         }
+        acceptor(context, this.createValueItem('nullptr', 'nullptr', 'Null pointer / null reference expression.'));
     }
-    getDefaultValueForType(type: ast.Type | undefined): string {
+
+    protected override createEnrichedReferenceCompletionItem(
+        refInfo: ReferenceInfo,
+        _context: CompletionContext,
+        nodeDescription: AstNodeDescription,
+    ) {
+        const refId = `${refInfo.container.$type}:${refInfo.property}`;
+        switch (refId) {
+            case 'Field:type':
+                return this.createTypedMemberSnippet(nodeDescription, 'field', 'Field Definition');
+            case 'Constant:type':
+                return this.createTypedMemberSnippet(nodeDescription, 'constant', 'Constant Definition', true);
+            case 'Property:type':
+                return this.createTypedMemberSnippet(nodeDescription, 'property', 'Property Definition');
+            case 'Association:type':
+                return this.createTypedMemberSnippet(nodeDescription, 'association', 'Association Definition');
+            case 'Container:type':
+                return this.createTypedMemberSnippet(nodeDescription, 'container', 'Container Definition', false, '[*]');
+            case 'Reference:interface':
+                return this.createTypedMemberSnippet(nodeDescription, 'reference', 'Reference Definition', false, '[*]');
+            case 'EventSink:type':
+                return this.createTypedMemberSnippet(nodeDescription, 'eventsink', 'Event Sink Definition');
+            case 'EventSource:type':
+                return this.createTypedMemberSnippet(nodeDescription, 'eventsource', 'Event Source Definition');
+            case 'ValueReference:type':
+                return this.createReferenceLikeItem(nodeDescription, `${this.createPlaceholder(1, 'Name')} = ${nodeDescription.name}*`, 'Value reference definition.');
+            case 'ArrayType:itemType':
+                return this.createReferenceLikeItem(nodeDescription, `${nodeDescription.name}[${this.createPlaceholder(1, '1')}]`, 'Array definition.');
+            case 'Property:attachedField':
+            case 'EntryPoint:input':
+            case 'EntryPoint:output':
+                return this.createReferenceLikeItem(nodeDescription, nodeDescription.name, nodeDescription.type);
+            default:
+                return undefined;
+        }
+    }
+
+    protected override createKeywordSnippets(context: CompletionContext, keyword: GrammarAST.Keyword, acceptor: CompletionAcceptor): void {
+        switch (keyword.value) {
+            case 'catalogue':
+                acceptor(context, this.createKeywordSnippet(keyword, 'catalogue ${1:foundation_catalogue}\n$0', 'Catalogue Definition'));
+                break;
+            case 'namespace':
+                acceptor(context, this.createKeywordSnippet(keyword, 'namespace ${1:demo}\n{\n\t$0\n}', 'Namespace Definition'));
+                break;
+            case 'struct':
+                acceptor(context, this.createTypeKeywordSnippet(keyword, 'struct ${1:Name}\n{\n\t$0\n}', 'Structure Definition'));
+                break;
+            case 'class':
+                acceptor(context, this.createTypeKeywordSnippet(keyword, 'class ${1:Name}\n{\n\t$0\n}', 'Class Definition'));
+                break;
+            case 'exception':
+                acceptor(context, this.createTypeKeywordSnippet(keyword, 'exception ${1:Name}\n{\n\t$0\n}', 'Exception Definition'));
+                break;
+            case 'interface':
+                acceptor(context, this.createTypeKeywordSnippet(keyword, 'interface ${1:Name}\n{\n\t$0\n}', 'Interface Definition'));
+                break;
+            case 'model':
+                acceptor(context, this.createTypeKeywordSnippet(keyword, 'model ${1:Name}\n{\n\t$0\n}', 'Model Definition'));
+                break;
+            case 'service':
+                acceptor(context, this.createTypeKeywordSnippet(keyword, 'service ${1:Name}\n{\n\t$0\n}', 'Service Definition'));
+                break;
+            case 'array':
+                acceptor(context, this.createTypeKeywordSnippet(
+                    keyword,
+                    `array ${this.createPlaceholder(1, 'Name')} = ${this.createChoicePlaceholder(2, this.getCrossReferenceNames(context, ast.ArrayType, 'itemType'), 'Smp.Float64')}[${this.createPlaceholder(3, '1')}]`,
+                    'Array Definition'
+                ));
+                break;
+            case 'using':
+                acceptor(context, this.createTypeKeywordSnippet(
+                    keyword,
+                    `using ${this.createPlaceholder(1, 'Name')} = ${this.createChoicePlaceholder(2, this.getCrossReferenceNames(context, ast.ValueReference, 'type'), 'Smp.Float64')}*`,
+                    'Value Reference Definition'
+                ));
+                break;
+            case 'integer':
+                acceptor(context, this.createTypeKeywordSnippet(keyword, 'integer ${1:Name} extends ${2:Smp.Int32}', 'Integer Definition'));
+                break;
+            case 'float':
+                acceptor(context, this.createTypeKeywordSnippet(keyword, 'float ${1:Name} extends ${2:Smp.Float64}', 'Float Definition'));
+                break;
+            case 'event':
+                acceptor(context, this.createTypeKeywordSnippet(keyword, 'event ${1:Name}', 'Event Type Definition'));
+                break;
+            case 'string':
+                acceptor(context, this.createTypeKeywordSnippet(keyword, 'string ${1:Name}[${2:32}]', 'String Definition'));
+                break;
+            case 'primitive':
+                acceptor(context, this.createTypeKeywordSnippet(keyword, 'primitive ${1:Name}', 'Primitive Type Definition'));
+                break;
+            case 'native':
+                acceptor(context, this.createTypeKeywordSnippet(keyword, 'native ${1:Name}', 'Native Type Definition'));
+                break;
+            case 'attribute':
+                acceptor(context, this.createTypeKeywordSnippet(
+                    keyword,
+                    `attribute ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.AttributeType, 'type'), 'Smp.Bool')} ${this.createPlaceholder(2, 'Name')} = ${this.createPlaceholder(3, 'false')}`,
+                    'Attribute Type Definition'
+                ));
+                break;
+            case 'enum':
+                acceptor(context, this.createTypeKeywordSnippet(keyword, 'enum ${1:Name}\n{\n\t${2:Literal} = ${3:0}\n}', 'Enumeration Definition'));
+                break;
+            case 'constant':
+                acceptor(context, this.createKeywordSnippet(
+                    keyword,
+                    `constant ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Constant, 'type'), 'Smp.Int32')} ${this.createPlaceholder(2, 'name')} = ${this.createPlaceholder(3, '0')}`,
+                    'Constant Definition'
+                ));
+                break;
+            case 'field':
+                acceptor(context, this.createKeywordSnippet(
+                    keyword,
+                    `field ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Field, 'type'), 'Smp.Int32')} ${this.createPlaceholder(2, 'name')}`,
+                    'Field Definition'
+                ));
+                break;
+            case 'property':
+                acceptor(context, this.createKeywordSnippet(
+                    keyword,
+                    `property ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Property, 'type'), 'Smp.Int32')} ${this.createPlaceholder(2, 'name')}`,
+                    'Property Definition'
+                ));
+                break;
+            case 'def':
+                acceptor(context, this.createKeywordSnippet(keyword, 'def void ${1:name}($0)', 'Operation Definition'));
+                break;
+            case 'association':
+                acceptor(context, this.createKeywordSnippet(
+                    keyword,
+                    `association ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Association, 'type'), 'demo.Type')} ${this.createPlaceholder(2, 'name')}`,
+                    'Association Definition'
+                ));
+                break;
+            case 'container':
+                acceptor(context, this.createKeywordSnippet(
+                    keyword,
+                    `container ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Container, 'type'), 'demo.Component')}[*] ${this.createPlaceholder(2, 'name')}`,
+                    'Container Definition'
+                ));
+                break;
+            case 'reference':
+                acceptor(context, this.createKeywordSnippet(
+                    keyword,
+                    `reference ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Reference, 'interface'), 'demo.Interface')}[*] ${this.createPlaceholder(2, 'name')}`,
+                    'Reference Definition'
+                ));
+                break;
+            case 'entrypoint':
+                acceptor(context, this.createKeywordSnippet(keyword, 'entrypoint ${1:name}', 'Entry Point Definition'));
+                break;
+            case 'eventsink':
+                acceptor(context, this.createKeywordSnippet(
+                    keyword,
+                    `eventsink ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.EventSink, 'type'), 'demo.Event')} ${this.createPlaceholder(2, 'name')}`,
+                    'Event Sink Definition'
+                ));
+                break;
+            case 'eventsource':
+                acceptor(context, this.createKeywordSnippet(
+                    keyword,
+                    `eventsource ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.EventSource, 'type'), 'demo.Event')} ${this.createPlaceholder(2, 'name')}`,
+                    'Event Source Definition'
+                ));
+                break;
+        }
+    }
+
+    protected override addContextualCompletions(context: CompletionContext, _next: NextFeature, acceptor: CompletionAcceptor): void {
+        this.addStandaloneCompletions(context, acceptor);
+    }
+
+    protected override addStandaloneCompletions(context: CompletionContext, acceptor: CompletionAcceptor): void {
+        this.addStatementSnippets(context, acceptor);
+    }
+
+    protected addStatementSnippets(context: CompletionContext, acceptor: CompletionAcceptor): void {
+        if (!this.isAtStatementStart(context)) {
+            return;
+        }
+
+        if (context.document.textDocument.getText().trim().length === 0) {
+            acceptor(context, this.createSnippetItem('Catalogue', 'catalogue ${1:foundation_catalogue}\n$0', 'Catalogue Definition'));
+            return;
+        }
+
+        const catalogue = this.getRecoveryContainerOfType(context, ast.isCatalogue);
+        const enumeration = this.getRecoveryContainerOfType(context, ast.isEnumeration);
+        const structure = this.getRecoveryContainerOfType(context, ast.isStructure);
+        const classifier = this.getRecoveryContainerOfType(context, ast.isWithBody);
+
+        if (!catalogue) {
+            acceptor(context, this.createSnippetItem('Catalogue', 'catalogue ${1:foundation_catalogue}\n$0', 'Catalogue Definition'));
+            return;
+        }
+
+        if (enumeration) {
+            acceptor(context, this.createSnippetItem('Enumeration Literal', '${1:Literal} = ${2:0}', 'Enumeration Literal'));
+            return;
+        }
+
+        if (structure && !ast.isClass(structure) && !ast.isException(structure) && !ast.isModel(structure) && !ast.isService(structure)) {
+            acceptor(context, this.createSnippetItem(
+                'Field',
+                `field ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Field, 'type'), 'Smp.Int32')} ${this.createPlaceholder(2, 'name')}`,
+                'Field Definition'
+            ));
+            acceptor(context, this.createSnippetItem(
+                'Constant',
+                `constant ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Constant, 'type'), 'Smp.Int32')} ${this.createPlaceholder(2, 'name')} = ${this.createPlaceholder(3, '0')}`,
+                'Constant Definition'
+            ));
+            return;
+        }
+
+        if (classifier) {
+            this.addClassifierMemberSnippets(context, classifier, acceptor);
+            return;
+        }
+
+        this.addTypeDefinitionSnippets(context, acceptor);
+    }
+
+    protected addTypeDefinitionSnippets(context: CompletionContext, acceptor: CompletionAcceptor): void {
+        acceptor(context, this.createSnippetItem('Namespace', 'namespace ${1:demo}\n{\n\t$0\n}', 'Namespace Definition'));
+        acceptor(context, this.createTypeSnippetItem('Structure', 'struct ${1:Name}\n{\n\t$0\n}', 'Structure Definition'));
+        acceptor(context, this.createTypeSnippetItem('Class', 'class ${1:Name}\n{\n\t$0\n}', 'Class Definition'));
+        acceptor(context, this.createTypeSnippetItem('Exception', 'exception ${1:Name}\n{\n\t$0\n}', 'Exception Definition'));
+        acceptor(context, this.createTypeSnippetItem('Interface', 'interface ${1:Name}\n{\n\t$0\n}', 'Interface Definition'));
+        acceptor(context, this.createTypeSnippetItem('Model', 'model ${1:Name}\n{\n\t$0\n}', 'Model Definition'));
+        acceptor(context, this.createTypeSnippetItem('Service', 'service ${1:Name}\n{\n\t$0\n}', 'Service Definition'));
+        acceptor(context, this.createTypeSnippetItem(
+            'Array',
+            `array ${this.createPlaceholder(1, 'Name')} = ${this.createChoicePlaceholder(2, this.getCrossReferenceNames(context, ast.ArrayType, 'itemType'), 'Smp.Float64')}[${this.createPlaceholder(3, '1')}]`,
+            'Array Definition'
+        ));
+        acceptor(context, this.createTypeSnippetItem(
+            'Value Reference',
+            `using ${this.createPlaceholder(1, 'Name')} = ${this.createChoicePlaceholder(2, this.getCrossReferenceNames(context, ast.ValueReference, 'type'), 'Smp.Float64')}*`,
+            'Value Reference Definition'
+        ));
+        acceptor(context, this.createTypeSnippetItem('Integer', 'integer ${1:Name} extends ${2:Smp.Int32}', 'Integer Definition'));
+        acceptor(context, this.createTypeSnippetItem('Float', 'float ${1:Name} extends ${2:Smp.Float64}', 'Float Definition'));
+        acceptor(context, this.createTypeSnippetItem('Event Type', 'event ${1:Name}', 'Event Type Definition'));
+        acceptor(context, this.createTypeSnippetItem('String', 'string ${1:Name}[${2:32}]', 'String Definition'));
+        acceptor(context, this.createTypeSnippetItem('Primitive', 'primitive ${1:Name}', 'Primitive Type Definition'));
+        acceptor(context, this.createTypeSnippetItem('Native', 'native ${1:Name}', 'Native Type Definition'));
+        acceptor(context, this.createTypeSnippetItem(
+            'Attribute Type',
+            `attribute ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.AttributeType, 'type'), 'Smp.Bool')} ${this.createPlaceholder(2, 'Name')} = ${this.createPlaceholder(3, 'false')}`,
+            'Attribute Type Definition'
+        ));
+        acceptor(context, this.createTypeSnippetItem('Enumeration', 'enum ${1:Name}\n{\n\t${2:Literal} = ${3:0}\n}', 'Enumeration Definition'));
+    }
+
+    protected createTypeKeywordSnippet(keyword: GrammarAST.Keyword, insertText: string, detail: string) {
+        return this.createKeywordSnippet(keyword, `${this.createUuidComment()}\n${insertText}`, detail);
+    }
+
+    protected createTypeSnippetItem(label: string, insertText: string, detail: string) {
+        return this.createSnippetItem(label, `${this.createUuidComment()}\n${insertText}`, detail);
+    }
+
+    protected createUuidComment(): string {
+        return `/** @uuid ${randomUUID()} */`;
+    }
+
+    protected addClassifierMemberSnippets(context: CompletionContext, classifier: ast.WithBody, acceptor: CompletionAcceptor): void {
+        acceptor(context, this.createSnippetItem(
+            'Constant',
+            `constant ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Constant, 'type'), 'Smp.Int32')} ${this.createPlaceholder(2, 'name')} = ${this.createPlaceholder(3, '0')}`,
+            'Constant Definition'
+        ));
+
+        if (ast.isStructure(classifier) || ast.isClass(classifier) || ast.isException(classifier) || ast.isModel(classifier) || ast.isService(classifier)) {
+            acceptor(context, this.createSnippetItem(
+                'Field',
+                `field ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Field, 'type'), 'Smp.Int32')} ${this.createPlaceholder(2, 'name')}`,
+                'Field Definition'
+            ));
+        }
+
+        if (!ast.isStructure(classifier)) {
+            acceptor(context, this.createSnippetItem(
+                'Property',
+                `property ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Property, 'type'), 'Smp.Int32')} ${this.createPlaceholder(2, 'name')}`,
+                'Property Definition'
+            ));
+            acceptor(context, this.createSnippetItem('Operation', 'def void ${1:name}($0)', 'Operation Definition'));
+        }
+
+        if (ast.isClass(classifier) || ast.isException(classifier) || ast.isModel(classifier) || ast.isService(classifier)) {
+            acceptor(context, this.createSnippetItem(
+                'Association',
+                `association ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Association, 'type'), 'demo.Type')} ${this.createPlaceholder(2, 'name')}`,
+                'Association Definition'
+            ));
+        }
+
+        if (ast.isModel(classifier) || ast.isService(classifier)) {
+            acceptor(context, this.createSnippetItem(
+                'Container',
+                `container ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Container, 'type'), 'demo.Component')}[*] ${this.createPlaceholder(2, 'name')}`,
+                'Container Definition'
+            ));
+            acceptor(context, this.createSnippetItem(
+                'Reference',
+                `reference ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Reference, 'interface'), 'demo.Interface')}[*] ${this.createPlaceholder(2, 'name')}`,
+                'Reference Definition'
+            ));
+            acceptor(context, this.createSnippetItem('Entry Point', 'entrypoint ${1:name}', 'Entry Point Definition'));
+            acceptor(context, this.createSnippetItem(
+                'Event Sink',
+                `eventsink ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.EventSink, 'type'), 'demo.Event')} ${this.createPlaceholder(2, 'name')}`,
+                'Event Sink Definition'
+            ));
+            acceptor(context, this.createSnippetItem(
+                'Event Source',
+                `eventsource ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.EventSource, 'type'), 'demo.Event')} ${this.createPlaceholder(2, 'name')}`,
+                'Event Source Definition'
+            ));
+        }
+    }
+
+    protected createTypedMemberSnippet(
+        nodeDescription: AstNodeDescription,
+        keyword: string,
+        detail: string,
+        withValue = false,
+        suffix = '',
+    ) {
+        if (!nodeDescription.name) {
+            return undefined;
+        }
+        const type = ast.isType(nodeDescription.node) ? nodeDescription.node : undefined;
+        const defaultValue = withValue ? (this.getXsmpcatDefaultValueForType(type) || '0') : undefined;
+        const tail = withValue ? ` = ${this.createPlaceholder(2, defaultValue ?? '0')}` : '';
+        return this.createReferenceLikeItem(
+            nodeDescription,
+            `${keyword} ${nodeDescription.name}${suffix} ${this.createPlaceholder(1, 'name')}${tail}`,
+            detail
+        );
+    }
+
+    protected getXsmpcatValueCompletions(type: ast.Type): Array<ReturnType<XsmpCompletionProviderBase['createValueItem']>> {
+        const items: Array<ReturnType<XsmpCompletionProviderBase['createValueItem']>> = [];
+        if (ast.isEnumeration(type)) {
+            for (const literal of type.literal) {
+                const literalName = XsmpUtils.fqn(literal);
+                items.push(this.createValueItem(literalName, literalName, `Enumeration literal of ${XsmpUtils.fqn(type)}.`));
+            }
+        }
+
+        switch (XsmpUtils.getPTK(type)) {
+            case PTK.Bool:
+                items.push(this.createValueItem('false', 'false', `Boolean value for ${XsmpUtils.fqn(type)}.`));
+                items.push(this.createValueItem('true', 'true', `Boolean value for ${XsmpUtils.fqn(type)}.`));
+                break;
+            case PTK.Char8:
+                items.push(this.createValueItem("'\\0'", "'\\0'", `Character value for ${XsmpUtils.fqn(type)}.`));
+                break;
+            case PTK.String8:
+                items.push(this.createValueItem('""', '""', `String value for ${XsmpUtils.fqn(type)}.`));
+                break;
+            case PTK.Duration:
+                items.push(this.createValueItem('"PT0S"', '"PT0S"', `Duration value for ${XsmpUtils.fqn(type)}.`));
+                break;
+            case PTK.DateTime:
+                items.push(this.createValueItem('"1970-01-01T00:00:00Z"', '"1970-01-01T00:00:00Z"', `DateTime value for ${XsmpUtils.fqn(type)}.`));
+                break;
+            case PTK.Float32:
+            case PTK.Float64:
+                items.push(this.createValueItem('$PI', '$PI', 'Built-in constant PI.'));
+                items.push(this.createValueItem('$E', '$E', 'Built-in constant E.'));
+                break;
+        }
+
+        const defaultValue = this.getXsmpcatDefaultValueForType(type);
+        if (defaultValue) {
+            items.push(this.createValueItem('Default Value', defaultValue, `Default value for ${XsmpUtils.fqn(type)}.`));
+        }
+        return items;
+    }
+
+    protected getXsmpcatDefaultValueForType(type: ast.Type | undefined): string {
         if (!type) {
             return '';
         }
 
         if (ast.isArrayType(type)) {
             const value = Solver.getValueAs(type.size, PTK.Int64)?.integralValue(PTK.Int64)?.getValue();
-            return value ? `{${new Array(Number(value)).fill(this.getDefaultValueForType(type.itemType?.ref)).join(', ')}}` : '{}';
+            return value
+                ? `{${new Array(Number(value)).fill(this.getXsmpcatDefaultValueForType(type.itemType?.ref)).join(', ')}}`
+                : '{}';
         }
         if (ast.isStructure(type)) {
-            return `{${this.attrHelper.getAllFields(type).map(f => `.${f.name} = ${this.getDefaultValueForType((f as ast.Field).type?.ref)}`).join(', ')}}`;
+            return `{${this.attrHelper.getAllFields(type).map(field => {
+                const currentField = field as ast.Field;
+                return `.${currentField.name} = ${this.getXsmpcatDefaultValueForType(currentField.type?.ref)}`;
+            }).join(', ')}}`;
         }
-
         if (ast.isEnumeration(type)) {
             return type.literal.length > 0 ? XsmpUtils.fqn(type.literal[0]) : '0';
         }
@@ -287,185 +627,8 @@ export class XsmpcatCompletionProvider extends DefaultCompletionProvider {
                 return '"1970-01-01T00:00:00Z"';
             case PTK.Duration:
                 return '"PT0S"';
-        }
-        return '';
-    }
-
-    protected getCrossReferences(context: CompletionContext, type: string, property: string): string {
-
-        const refInfo: ReferenceInfo = {
-            reference: {
-                $refText: ''
-            },
-            container: {
-                $container: context.node,
-                $type: type,
-
-            },
-            property
-        };
-
-        return this.getReferenceCandidates(refInfo, context).map(c => c.name).join(',');
-
-    }
-    protected createSnippets(context: CompletionContext, keyword: GrammarAST.Keyword, acceptor: CompletionAcceptor): void {
-        switch (keyword.value) {
-            case 'array': return acceptor(context, this.createKeywordSnippet(keyword, s`
-                /** @uuid $UUID */
-                array \${1:name} = \${2|${this.getCrossReferences(context, 'ArrayType', 'itemType')}|}[\${3:0}]
-                `, 'Array Definition'
-            ));
-            case 'association': return acceptor(context, this.createKeywordSnippet(keyword,
-                `association \${1|${this.getCrossReferences(context, 'Association', 'type')}|} \${2:name}`
-                , 'Association Definition'
-            ));
-            case 'catalogue': return acceptor(context, this.createKeywordSnippet(keyword, s`
-                /**
-                * Specifies the SMP Component Model as Catalogue.
-                *
-                * @creator ${os.userInfo().username}
-                * @date ${new Date(Date.now()).toISOString()}
-                */
-                catalogue \${1:name}
-                `, 'Catalogue Definition'
-            ));
-            case 'class': return acceptor(context, this.createKeywordSnippet(keyword, s`
-                /** @uuid $UUID */
-                class \${1:name}
-                {
-                    $0
-                }`, 'Class Definition'
-            ));
-            case 'constant': return acceptor(context, this.createKeywordSnippet(keyword,
-                `constant \${1|${this.getCrossReferences(context, 'Constant', 'type')}|} \${2:name} = \${3:value}`
-                , 'Constant Definition'
-            ));
-            case 'container': return acceptor(context, this.createKeywordSnippet(keyword,
-                `container \${1|${this.getCrossReferences(context, 'Container', 'type')}|}[*] \${2:name}`
-                , 'Container Definition'
-            ));
-            case 'def': return acceptor(context, this.createKeywordSnippet(keyword,
-                'def void ${1:name} ($0)'
-                , 'Operation Definition'
-            ));
-            case 'entrypoint': return acceptor(context, this.createKeywordSnippet(keyword,
-                'entrypoint ${1:name}'
-                , 'EntryPoint Definition'
-            ));
-            case 'enum': return acceptor(context, this.createKeywordSnippet(keyword, s`
-                /** @uuid $UUID */
-                enum \${1:name}
-                {
-                    \${2:literal} = \${3:0}
-                }`, 'Enumeration Definition'
-            ));
-            case 'event': return acceptor(context, this.createKeywordSnippet(keyword, s`
-                /** @uuid $UUID */
-                event \${1:name}`
-                , 'Event Definition'
-            ));
-            case 'eventsink': return acceptor(context, this.createKeywordSnippet(keyword,
-                `eventsink \${1|${this.getCrossReferences(context, 'EventSink', 'type')}|} \${2:name}`
-                , 'EventSink Definition'
-            ));
-            case 'eventsource': return acceptor(context, this.createKeywordSnippet(keyword,
-                `eventsource \${1|${this.getCrossReferences(context, 'EventSource', 'type')}|} \${2:name}`
-                , 'EventSource Definition'
-            ));
-            case 'exception': return acceptor(context, this.createKeywordSnippet(keyword, s`
-                /** @uuid $UUID */
-                exception \${1:name} 
-                {
-                    $0
-                }`, 'Exception Definition'
-            ));
-            case 'field': return acceptor(context, this.createKeywordSnippet(keyword,
-                `field \${1|${this.getCrossReferences(context, 'Field', 'type')}|} \${2:name}`
-                , 'Field Definition'
-            ));
-            case 'integer': return acceptor(context, this.createKeywordSnippet(keyword, s`
-                /** @uuid $UUID */
-                integer \${1:name}`
-                , 'Integer Definition'
-            ));
-            case 'float': return acceptor(context, this.createKeywordSnippet(keyword, s`
-                /** @uuid $UUID */
-                float \${1:name}`
-                , 'Float Definition'
-            ));
-            case 'interface': return acceptor(context, this.createKeywordSnippet(keyword, s`
-                /** @uuid $UUID */
-                interface \${1:name} 
-                {
-                    $0
-                }`, 'Interface Definition'
-            ));
-            case 'model': return acceptor(context, this.createKeywordSnippet(keyword, s`
-                /** @uuid $UUID */
-                model \${1:name}
-                {
-                    $0
-                }`, 'Model Definition'
-            ));
-            case 'namespace': return acceptor(context, this.createKeywordSnippet(keyword, s`
-                namespace \${1:name}
-                {
-                    $0
-                } // namespace \${1:name}`
-                , 'Namespace Definition'
-            ));
-            case 'property': return acceptor(context, this.createKeywordSnippet(keyword,
-                `property \${1|${this.getCrossReferences(context, 'Property', 'type')}|} \${2:name}`
-                , 'Property Definition'
-            ));
-            case 'reference': return acceptor(context, this.createKeywordSnippet(keyword,
-                `reference \${1|${this.getCrossReferences(context, 'Reference_', 'interface')}|}[*] \${2:name}`
-                , 'ArrReferenceay Definition'
-            ));
-            case 'service': return acceptor(context, this.createKeywordSnippet(keyword, s`
-                /** @uuid $UUID */
-                service \${1:name}
-                {
-                    $0
-                }`, 'Service Definition'
-            ));
-            case 'string': return acceptor(context, this.createKeywordSnippet(keyword, s`
-                /** @uuid $UUID */
-                string \${1:name}[\${2:0}]`
-                , 'String Definition'
-            ));
-            case 'struct': return acceptor(context, this.createKeywordSnippet(keyword, s`
-                /** @uuid $UUID */
-                struct \${1:name}
-                {
-                    $0
-                }`
-                , 'Structure Definition'
-            ));
-            case 'using': return acceptor(context, this.createKeywordSnippet(keyword, s`
-                /** @uuid $UUID */
-                using \${1:name} = \${2|${this.getCrossReferences(context, 'ValueReference', 'type')}|}*`
-                , 'ValueReference Definition'
-            ));
-            case 'native': return acceptor(context, this.createKeywordSnippet(keyword, s`
-                /** 
-                 * @type native_type
-                 * @location native_location
-                 * @namespace native_namespace
-                 * @uuid $UUID
-                 */
-                native \${1:name}`
-                , 'NativeType Definition'
-            ));
-            case 'attribute': return acceptor(context, this.createKeywordSnippet(keyword, s`
-                /** 
-                 * // @allowMultiple
-                 * @usage ...
-                 * @uuid $UUID
-                 */
-                attribute \${1|${this.getCrossReferences(context, 'AttributeType', 'type')}|} \${2:name} = \${3:value}0`
-                , 'AttributeType Definition'
-            ));
+            default:
+                return '';
         }
     }
 }

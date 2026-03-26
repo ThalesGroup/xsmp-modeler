@@ -3,7 +3,7 @@ import { EmptyFileSystem, type LangiumDocument } from "langium";
 import { expandToString as s } from "langium/generate";
 import { parseHelper } from "langium/test";
 import { createXsmpServices } from "../../src/language/xsmp-module.js";
-import { Catalogue, isCatalogue } from "../../src/language/generated/ast.js";
+import { Catalogue, isCatalogue } from "../../src/language/generated/ast-partial.js";
 
 let services: ReturnType<typeof createXsmpServices>;
 let parse:    ReturnType<typeof parseHelper<Catalogue>>;

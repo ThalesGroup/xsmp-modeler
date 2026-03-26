@@ -1,7 +1,7 @@
 import { type AstNode, AstUtils, GrammarUtils, type MaybePromise } from 'langium';
 import { AbstractTypeDefinitionProvider } from 'langium/lsp';
 import { type CancellationToken, LocationLink } from 'vscode-languageserver';
-import * as ast from '../generated/ast.js';
+import * as ast from '../generated/ast-partial.js';
 
 export class XsmpcatTypeDefinitionProvider extends AbstractTypeDefinitionProvider {
 

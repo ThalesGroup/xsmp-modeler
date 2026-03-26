@@ -1,7 +1,7 @@
 import { interruptAndCheck, type AstNode, Cancellation, type LangiumDocument, type MaybePromise, type WorkspaceLock } from 'langium';
 import type { DocumentSymbolProvider, NodeKindProvider } from 'langium/lsp';
 import type { DocumentSymbol, DocumentSymbolParams } from 'vscode-languageserver';
-import * as ast from '../generated/ast.js';
+import * as ast from '../generated/ast-partial.js';
 import type { XsmpPathService } from '../references/xsmp-path-service.js';
 import type { XsmpNodeInfoProvider } from './node-info-provider.js';
 import { type AttributeHelper } from '../utils/attribute-helper.js';
@@ -173,15 +173,15 @@ export class XsmpDocumentSymbolProvider implements DocumentSymbolProvider {
             .sort((left, right) => (left.$cstNode?.offset ?? Number.MAX_SAFE_INTEGER) - (right.$cstNode?.offset ?? Number.MAX_SAFE_INTEGER));
     }
 
-    protected getReferenceText(reference: { $refText?: string, ref?: { name?: string } }): string {
-        return reference.ref?.name ?? reference.$refText ?? '<unknown>';
+    protected getReferenceText(reference: { $refText?: string, ref?: { name?: string } } | undefined): string {
+        return reference?.ref?.name ?? reference?.$refText ?? '<unknown>';
     }
 
     protected formatArgumentList(parameters: Array<string | undefined>): string {
         return `(${parameters.filter((parameter): parameter is string => parameter !== undefined).join(', ')})`;
     }
 
-    protected quote(value: string): string {
+    protected quote(value: string | undefined): string {
         return `"${value}"`;
     }
 }

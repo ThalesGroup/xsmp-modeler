@@ -1,6 +1,6 @@
 import type { AstNode } from 'langium';
 import { Formatting, type NodeFormatter } from 'langium/lsp';
-import * as ast from '../generated/ast.js';
+import * as ast from '../generated/ast-partial.js';
 import { XsmpFormatterBase } from './xsmp-formatter-base.js';
 
 export class XsmpsedFormatter extends XsmpFormatterBase {

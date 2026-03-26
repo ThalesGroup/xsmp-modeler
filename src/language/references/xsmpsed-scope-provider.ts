@@ -1,5 +1,5 @@
 import type { AstNode, AstNodeDescription, AstNodeDescriptionProvider, AstReflection, IndexManager, ReferenceInfo, Scope, ScopeOptions, ScopeProvider, Stream, URI } from 'langium';
-import * as ast from '../generated/ast.js';
+import * as ast from '../generated/ast-partial.js';
 import { AstUtils, EMPTY_SCOPE, MapScope, StreamScope, WorkspaceCache, stream } from 'langium';
 import type { Xsmpl2PathResolver } from './xsmpl2-path-resolver.js';
 import type { ProjectManager } from '../workspace/project-manager.js';
@@ -55,7 +55,7 @@ export class XsmpsedScopeProvider implements ScopeProvider {
         const referenceType = this.reflection.getReferenceType(context);
         if (ast.isTemplateArgument(context.container) && context.property === 'parameter') {
             const task = (context.container.$container as ast.ExecuteTask).task;
-            const schedule = AstUtils.getContainerOfType(task.ref, ast.isSchedule);
+            const schedule = task?.ref ? AstUtils.getContainerOfType(task.ref, ast.isSchedule) : undefined;
             return schedule ? this.createScopeForNodes(schedule.parameters, EMPTY_SCOPE) : EMPTY_SCOPE;
         }
 

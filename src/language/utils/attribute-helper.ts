@@ -1,8 +1,7 @@
 
 import type { AstNode, Stream } from 'langium';
 import { WorkspaceCache, stream } from 'langium';
-import * as astPartial from '../generated/ast-partial.js';
-import * as ast from '../generated/ast.js';
+import * as ast from '../generated/ast-partial.js';
 import { type XsmpSharedServices } from '../xsmp-module.js';
 import { fqn, getRealVisibility } from './xsmp-utils.js';
 import * as Solver from './solver.js';
@@ -20,14 +19,14 @@ export type Attributes = 'Attributes.Static'
     | 'Attributes.NoConstructor' | 'Attributes.NoDestructor'
     | 'Attributes.SimpleArray' | 'Attributes.Operator' | 'Attributes.View' | string;
 
-function kind(parameter: astPartial.Parameter | astPartial.ReturnParameter): ArgKind {
-    if (astPartial.isReferenceType(parameter.type?.ref)) {
-        if (astPartial.isParameter(parameter) && (parameter.direction === undefined || parameter.direction === 'in')) {
+function kind(parameter: ast.Parameter | ast.ReturnParameter): ArgKind {
+    if (ast.isReferenceType(parameter.type?.ref)) {
+        if (ast.isParameter(parameter) && (parameter.direction === undefined || parameter.direction === 'in')) {
             return ArgKind.BY_REF;
         }
         return ArgKind.BY_PTR;
     }
-    if ((astPartial.isNativeType(parameter.type?.ref) || astPartial.isValueType(parameter.type?.ref)) && astPartial.isParameter(parameter) && (parameter.direction === 'inout' || parameter.direction === 'out')) {
+    if ((ast.isNativeType(parameter.type?.ref) || ast.isValueType(parameter.type?.ref)) && ast.isParameter(parameter) && (parameter.direction === 'inout' || parameter.direction === 'out')) {
         return ArgKind.BY_PTR;
     }
     return ArgKind.BY_VALUE;
@@ -42,35 +41,39 @@ export class AttributeHelper {
     constructor(services: XsmpSharedServices) {
         this.cache = new WorkspaceCache(services);
     }
-    attribute(element: astPartial.NamedElement | astPartial.ReturnParameter, id: Attributes): astPartial.Attribute | undefined {
-        return this.cache.get({ key: id, node: element }, () => element.attributes.find(a => (a as astPartial.Attribute).type?.ref && fqn((a as ast.Attribute).type.ref) === id)) as astPartial.Attribute | undefined;
+    attribute(element: ast.NamedElement | ast.ReturnParameter, id: Attributes): ast.Attribute | undefined {
+        return this.cache.get({ key: id, node: element }, () =>
+            element.attributes.find((attribute): attribute is ast.Attribute =>
+                ast.isAttribute(attribute) && !!attribute.type?.ref && fqn(attribute.type.ref) === id
+            )
+        ) as ast.Attribute | undefined;
     }
-    isAttributeTrue(attribute: astPartial.Attribute | undefined): boolean | undefined {
+    isAttributeTrue(attribute: ast.Attribute | undefined): boolean | undefined {
         if (!attribute) {
             return undefined;
         }
         if (attribute.value) {
             return Solver.getValue(attribute.value)?.boolValue()?.getValue();
         }
-        if (astPartial.isAttributeType(attribute.type?.ref)) {
+        if (ast.isAttributeType(attribute.type?.ref)) {
             return Solver.getValue(attribute.type.ref.default)?.boolValue()?.getValue();
         }
         return undefined;
     }
 
-    attributeBoolValue(element: astPartial.NamedElement | astPartial.ReturnParameter, id: Attributes): boolean | undefined {
+    attributeBoolValue(element: ast.NamedElement | ast.ReturnParameter, id: Attributes): boolean | undefined {
         return this.isAttributeTrue(this.attribute(element, id));
     }
 
-    isConstructor(element: astPartial.NamedElement | astPartial.ReturnParameter): boolean {
+    isConstructor(element: ast.NamedElement | ast.ReturnParameter): boolean {
         return this.cache.get({ key: 'isConstructor', node: element }, () =>
             this.attributeBoolValue(element, 'Attributes.Constructor') ?? false
         ) as boolean;
     }
-    operatorKind(op: astPartial.Operation): OperatorKind {
+    operatorKind(op: ast.Operation): OperatorKind {
         return this.cache.get({ key: 'isConstructor', node: op }, () => {
             const attr = this.attribute(op, 'Attributes.Operator');
-            if (!attr?.value || !astPartial.isAttributeType(attr.type?.ref) || !attr.type.ref.type?.ref) {
+            if (!attr?.value || !ast.isAttributeType(attr.type?.ref) || !attr.type.ref.type?.ref) {
                 return OperatorKind.NONE;
             }
 
@@ -102,85 +105,85 @@ export class AttributeHelper {
             }
         });
     }
-    isFailure(element: astPartial.Field): boolean {
+    isFailure(element: ast.Field): boolean {
         return this.cache.get({ key: 'isFailure', node: element }, () =>
             this.attributeBoolValue(element, 'Attributes.Failure') ?? false
         ) as boolean;
     }
-    isForcible(element: astPartial.Field): boolean {
+    isForcible(element: ast.Field): boolean {
         return this.cache.get({ key: 'isForcible', node: element }, () =>
             this.attributeBoolValue(element, 'Attributes.Forcible') ?? false
         ) as boolean;
     }
-    isStatic(element: astPartial.Operation | astPartial.Property | astPartial.Field | astPartial.Association): boolean {
+    isStatic(element: ast.Operation | ast.Property | ast.Field | ast.Association): boolean {
         return this.cache.get({ key: 'isStatic', node: element }, () =>
             !this.isConstructor(element) && (this.attributeBoolValue(element, 'Attributes.Static') ?? false)
         ) as boolean;
     }
-    isAbstract(element: astPartial.Operation | astPartial.Property): boolean {
+    isAbstract(element: ast.Operation | ast.Property): boolean {
         return this.cache.get({ key: 'isAbstract', node: element }, () =>
-            !this.isStatic(element) && (astPartial.isInterface(element.$container) || (this.attributeBoolValue(element, 'Attributes.Abstract') ?? false))
+            !this.isStatic(element) && (ast.isInterface(element.$container) || (this.attributeBoolValue(element, 'Attributes.Abstract') ?? false))
         ) as boolean;
     }
-    isVirtual(element: astPartial.Operation | astPartial.Property): boolean {
+    isVirtual(element: ast.Operation | ast.Property): boolean {
         return this.cache.get({ key: 'isVirtual', node: element }, () =>
-            !this.isConstructor(element) && (this.isAbstract(element) || (this.attributeBoolValue(element, 'Attributes.Virtual') ?? (astPartial.isReferenceType(element.$container) && !this.isStatic(element))))
+            !this.isConstructor(element) && (this.isAbstract(element) || (this.attributeBoolValue(element, 'Attributes.Virtual') ?? (ast.isReferenceType(element.$container) && !this.isStatic(element))))
         ) as boolean;
     }
 
-    isMutable(element: astPartial.Field | astPartial.Association): boolean {
+    isMutable(element: ast.Field | ast.Association): boolean {
         return this.cache.get({ key: 'isMutable', node: element }, () =>
             this.attributeBoolValue(element, 'Attributes.Mutable') ?? false
         ) as boolean;
     }
-    isConst(element: astPartial.Parameter | astPartial.ReturnParameter | astPartial.Association | astPartial.Operation | astPartial.Property): boolean {
+    isConst(element: ast.Parameter | ast.ReturnParameter | ast.Association | ast.Operation | ast.Property): boolean {
         return this.cache.get({ key: 'isConst', node: element }, () => {
             if (this.isConstructor(element)) {
                 return false;
             }
-            return this.attributeBoolValue(element, 'Attributes.Const') ?? (astPartial.isParameter(element) && (!element.direction || element.direction === 'in') && !astPartial.isValueType(element.type?.ref));
+            return this.attributeBoolValue(element, 'Attributes.Const') ?? (ast.isParameter(element) && (!element.direction || element.direction === 'in') && !ast.isValueType(element.type?.ref));
         }) as boolean;
     }
-    isConstGetter(element: astPartial.Property): boolean {
+    isConstGetter(element: ast.Property): boolean {
         return this.cache.get({ key: 'isConstGetter', node: element }, () => this.attributeBoolValue(element, 'Attributes.ConstGetter') ?? false) as boolean;
     }
 
-    isByPointer(element: astPartial.Parameter | astPartial.ReturnParameter | astPartial.Association | astPartial.Property): boolean {
+    isByPointer(element: ast.Parameter | ast.ReturnParameter | ast.Association | ast.Property): boolean {
         return this.cache.get({ key: 'isByPointer', node: element }, () => {
             const value = this.attributeBoolValue(element, 'Attributes.ByPointer');
             switch (element.$type) {
-                case astPartial.Association: return value ?? astPartial.isReferenceType(element.type?.ref);
-                case astPartial.Property: return value ?? (astPartial.isReferenceType(element.type?.ref) && !this.isByReference(element));
-                case astPartial.Parameter:
-                case astPartial.ReturnParameter:
+                case ast.Association: return value ?? ast.isReferenceType(element.type?.ref);
+                case ast.Property: return value ?? (ast.isReferenceType(element.type?.ref) && !this.isByReference(element));
+                case ast.Parameter:
+                case ast.ReturnParameter:
                     return value ?? (kind(element) === ArgKind.BY_PTR && !(this.attributeBoolValue(element, 'Attributes.ByReference') ?? false));
             }
         }) as boolean;
 
     }
-    isByReference(element: astPartial.Parameter | astPartial.ReturnParameter | astPartial.Property): boolean {
+    isByReference(element: ast.Parameter | ast.ReturnParameter | ast.Property): boolean {
         return this.cache.get({ key: 'isByReference', node: element }, () => {
             const value = this.attributeBoolValue(element, 'Attributes.ByReference');
             switch (element.$type) {
-                case astPartial.Property: return value ?? false;
-                case astPartial.Parameter:
-                case astPartial.ReturnParameter:
+                case ast.Property: return value ?? false;
+                case ast.Parameter:
+                case ast.ReturnParameter:
                     return value ?? (kind(element) === ArgKind.BY_REF && !(this.attributeBoolValue(element, 'Attributes.ByPointer') ?? false));
             }
         }) as boolean;
     }
 
-    isSimpleArray(element: astPartial.ArrayType): boolean {
+    isSimpleArray(element: ast.ArrayType): boolean {
         return this.cache.get({ key: 'isSimpleArray', node: element }, () =>
             this.attributeBoolValue(element, 'Attributes.SimpleArray') ?? false
         ) as boolean;
     }
-    getViewKind(node: astPartial.Property | astPartial.Field | astPartial.Operation | astPartial.EntryPoint): ViewKind | undefined {
+    getViewKind(node: ast.Property | ast.Field | ast.Operation | ast.EntryPoint): ViewKind | undefined {
         return this.cache.get({ key: 'getViewKind', node: node }, () =>
             this.computeViewKind(node)
         ) as ViewKind | undefined;
     }
-    private computeViewKind(node: astPartial.NamedElement): ViewKind | undefined {
+    private computeViewKind(node: ast.NamedElement): ViewKind | undefined {
         const expr = Solver.getValue(this.attribute(node, 'Attributes.View')?.value);
         if (!expr) {
             return undefined;
@@ -215,9 +218,9 @@ export class AttributeHelper {
      *          the input Operation
      * @return the signature
      */
-    getSignature(element: astPartial.NamedElement): string | undefined {
-        if (astPartial.Operation === element.$type) {
-            return `${element.name}(${(element as astPartial.Operation).parameter.map(p => this.getParameterSignature(p), this).join(', ')})`;
+    getSignature(element: ast.NamedElement): string | undefined {
+        if (ast.Operation === element.$type) {
+            return `${element.name}(${(element as ast.Operation).parameter.map(p => this.getParameterSignature(p), this).join(', ')})`;
         }
         return element.name;
     }
@@ -228,7 +231,7 @@ export class AttributeHelper {
      *          the input Parameter
      * @return the signature of the parameter
      */
-    getParameterSignature(p: astPartial.Parameter): string {
+    getParameterSignature(p: ast.Parameter): string {
         let signature = '';
         if (this.isConst(p)) {
             signature += 'const ';
@@ -242,7 +245,7 @@ export class AttributeHelper {
         }
         return signature;
     }
-    getAllFields(element: astPartial.Structure | ast.Structure): Stream<ast.Field> {
+    getAllFields(element: ast.Structure): Stream<ast.Field> {
         // Return non static and public fields from element's base if any and current element
         const result = stream(element.elements).filter(ast.isField).filter(f => !this.isStatic(f) && getRealVisibility(f) === VisibilityKind.public);
         if (ast.isClass(element) && ast.isStructure(element.base)) {

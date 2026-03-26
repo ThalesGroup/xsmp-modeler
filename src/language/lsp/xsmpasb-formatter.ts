@@ -1,6 +1,6 @@
 import type { AstNode } from 'langium';
 import { Formatting, type NodeFormatter } from 'langium/lsp';
-import * as ast from '../generated/ast.js';
+import * as ast from '../generated/ast-partial.js';
 import { XsmpFormatterBase } from './xsmp-formatter-base.js';
 
 export class XsmpasbFormatter extends XsmpFormatterBase {
@@ -36,7 +36,7 @@ export class XsmpasbFormatter extends XsmpFormatterBase {
         this.formatSeparatedAngleList(formatter);
         formatter.property('name').prepend(Formatting.oneSpace());
         formatter.property('name').append(Formatting.newLine({ allowMore: true }));
-        formatter.nodes(...node.configurations, node.model).prepend(Formatting.noIndent());
+        formatter.nodes(...node.configurations, ...node.model ? [node.model] : []).prepend(Formatting.noIndent());
     }
 
     protected formatComponentConfiguration(node: ast.AssemblyComponentConfiguration, formatter: NodeFormatter<ast.AssemblyComponentConfiguration>): void {

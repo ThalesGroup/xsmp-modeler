@@ -4,7 +4,7 @@ import { expandToString as s } from "langium/generate";
 import { parseHelper } from "langium/test";
 import type { Diagnostic } from "vscode-languageserver-types";
 import { createXsmpServices } from "../../src/language/xsmp-module.js";
-import { Catalogue, isCatalogue, } from "../../src/language/generated/ast.js";
+import { Catalogue, isCatalogue, } from "../../src/language/generated/ast-partial.js";
 import * as path from 'path';
 import * as fs from 'fs';
 

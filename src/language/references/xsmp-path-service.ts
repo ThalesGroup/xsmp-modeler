@@ -1,6 +1,11 @@
-import * as ast from '../generated/ast.js';
+import * as partialAst from '../generated/ast-partial.js';
 import type { XsmpSharedServices } from '../xsmp-module.js';
 import type { IdentifierPatternService } from './identifier-pattern-service.js';
+
+type RecoverablePath = partialAst.Path;
+type RecoverablePathSegment = partialAst.PathSegment;
+type RecoverablePathNamedSegment = partialAst.PathNamedSegment;
+type RecoverableLocalNamedReference = partialAst.LocalNamedReference;
 
 export class XsmpPathService {
     protected readonly identifierPatternService: IdentifierPatternService;
@@ -9,7 +14,7 @@ export class XsmpPathService {
         this.identifierPatternService = services.IdentifierPatternService;
     }
 
-    stringifyPath(path: ast.Path | undefined, includeUnsafe = false): string | undefined {
+    stringifyPath(path: RecoverablePath | undefined, includeUnsafe = false): string | undefined {
         if (!path) {
             return undefined;
         }
@@ -24,16 +29,16 @@ export class XsmpPathService {
             text += this.stringifyPathSegment(path.head);
         }
         for (const element of path.elements) {
-            if (ast.isPathMember(element)) {
+            if (partialAst.isPathMember(element) && element.segment) {
                 text += `${element.separator}${this.stringifyPathSegment(element.segment)}`;
-            } else if (ast.isPathIndex(element)) {
+            } else if (partialAst.isPathIndex(element)) {
                 text += `[${element.index}]`;
             }
         }
         return text;
     }
 
-    stringifyLocalNamedReference(reference: ast.LocalNamedReference | undefined, includeUnsafe = true): string | undefined {
+    stringifyLocalNamedReference(reference: RecoverableLocalNamedReference | undefined, includeUnsafe = true): string | undefined {
         if (!reference) {
             return undefined;
         }
@@ -44,8 +49,8 @@ export class XsmpPathService {
         return includeUnsafe && reference.unsafe ? `unsafe ${text}` : text;
     }
 
-    getPathSegments(path: ast.Path): Array<ast.PathElement | ast.PathSegment> {
-        const segments: Array<ast.PathElement | ast.PathSegment> = [];
+    getPathSegments<T extends RecoverablePath>(path: T): Array<NonNullable<T['head']> | T['elements'][number]> {
+        const segments: Array<NonNullable<T['head']> | T['elements'][number]> = [];
         if (path.head) {
             segments.push(path.head);
         }
@@ -53,38 +58,47 @@ export class XsmpPathService {
         return segments;
     }
 
-    hasParentTraversal(path: ast.Path | undefined): boolean {
-        return path ? this.getPathSegments(path).some(segment => ast.isPathParentSegment(ast.isPathMember(segment) ? segment.segment : segment)) : false;
+    hasParentTraversal(path: RecoverablePath | undefined): boolean {
+        return path ? this.getPathSegments(path).some(segment => partialAst.isPathParentSegment(partialAst.isPathMember(segment) ? segment.segment : segment)) : false;
     }
 
-    isAbsolute(path: ast.Path | undefined): boolean {
+    isAbsolute(path: RecoverablePath | undefined): boolean {
         return path?.absolute ?? false;
     }
 
-    getSegmentText(segment: ast.PathNamedSegment | ast.PathSegment): string {
-        if (ast.isConcretePathNamedSegment(segment)) {
+    getSegmentText(segment: RecoverablePathNamedSegment | RecoverablePathSegment | undefined): string {
+        if (!segment) {
+            return '';
+        }
+        if (partialAst.isConcretePathNamedSegment(segment)) {
             return this.getLocalNamedReferenceText(segment);
         }
-        if (ast.isPatternPathNamedSegment(segment)) {
+        if (partialAst.isPatternPathNamedSegment(segment)) {
             return this.identifierPatternService.stringifyPattern(segment.pattern) ?? '';
         }
-        if (ast.isPathParentSegment(segment)) {
+        if (partialAst.isPathParentSegment(segment)) {
             return '..';
         }
         return '.';
     }
 
-    protected stringifyPathSegment(segment: ast.PathSegment): string {
-        if (ast.isPathNamedSegment(segment)) {
+    protected stringifyPathSegment(segment: RecoverablePathSegment | undefined): string {
+        if (!segment) {
+            return '';
+        }
+        if (partialAst.isPathNamedSegment(segment)) {
             return this.getSegmentText(segment);
         }
-        if (ast.isPathParentSegment(segment)) {
+        if (partialAst.isPathParentSegment(segment)) {
             return '..';
         }
         return '.';
     }
 
-    getLocalNamedReferenceText(reference: ast.LocalNamedReference): string {
+    getLocalNamedReferenceText(reference: RecoverableLocalNamedReference | undefined): string {
+        if (!reference) {
+            return '';
+        }
         return reference.reference?.ref?.name ?? reference.reference?.$refText ?? reference.strReference ?? '';
     }
 }

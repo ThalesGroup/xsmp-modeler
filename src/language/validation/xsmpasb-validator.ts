@@ -1,5 +1,5 @@
 import { AstUtils, type ValidationAcceptor, type ValidationChecks } from 'langium';
-import * as ast from '../generated/ast.js';
+import * as ast from '../generated/ast-partial.js';
 import type { XsmpasbServices } from '../xsmpasb-module.js';
 import { checkNoParentTraversal, checkRelativePath, isAbsolutePath, isValidExpandedL2Identifier } from './l2-validator-utils.js';
 import { checkName } from './name-validator-utils.js';
@@ -9,7 +9,6 @@ import { PTK } from '../utils/primitive-type-kind.js';
 import * as Solver from '../utils/solver.js';
 import * as XsmpUtils from '../utils/xsmp-utils.js';
 import { XsmpcfgValidator } from './xsmpcfg-validator.js';
-import type { XsmpcfgServices } from '../xsmpcfg-module.js';
 import { collectUsedTemplateParameterNames, warnUnusedTemplateParameters } from './template-parameter-validator-utils.js';
 
 export function registerXsmpasbValidationChecks(services: XsmpasbServices) {
@@ -39,7 +38,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
     protected readonly identifierPatternService: IdentifierPatternService;
 
     constructor(services: XsmpasbServices) {
-        super(services as unknown as XsmpcfgServices);
+        super(services);
         this.l2PathResolver = services.shared.L2PathResolver;
         this.identifierPatternService = services.shared.IdentifierPatternService;
     }
@@ -74,6 +73,9 @@ export class XsmpasbValidator extends XsmpcfgValidator {
         const seen = new Set<string>();
         for (const subInstance of model.elements.filter(ast.isSubInstance)) {
             const instance = subInstance.instance;
+            if (!instance) {
+                continue;
+            }
             const instanceName = instance.name;
             if (!instanceName) {
                 continue;
@@ -97,7 +99,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
     }
 
     checkSubInstance(subInstance: ast.SubInstance, accept: ValidationAcceptor): void {
-        if (subInstance.container.unsafe) {
+        if (!subInstance.container || subInstance.container.unsafe) {
             return;
         }
         const container = this.l2PathResolver.getLocalNamedReferenceTarget(subInstance.container);
@@ -108,8 +110,8 @@ export class XsmpasbValidator extends XsmpcfgValidator {
             });
             return;
         }
-        const expectedType = container.type.ref;
-        const instanceType = this.getSubInstanceComponent(subInstance.instance);
+        const expectedType = container.type?.ref;
+        const instanceType = subInstance.instance ? this.getSubInstanceComponent(subInstance.instance) : undefined;
         if (ast.isReferenceType(expectedType) && instanceType && !XsmpUtils.isBaseOfReferenceType(expectedType, instanceType)) {
             accept('error', 'The type of the sub-instance shall be compatible with the selected Container.', {
                 node: subInstance,
@@ -133,7 +135,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
     }
 
     checkAssemblyComponentConfiguration(configuration: ast.AssemblyComponentConfiguration, accept: ValidationAcceptor): void {
-        if (configuration.name.unsafe) {
+        if (!configuration.name || configuration.name.unsafe) {
             return;
         }
         if (!this.checkAssemblyPathTemplateParameters(configuration.name, accept)) {
@@ -149,7 +151,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
     }
 
     checkGlobalEventHandler(handler: ast.GlobalEventHandler, accept: ValidationAcceptor): void {
-        if (handler.entryPoint.unsafe) {
+        if (!handler.entryPoint || handler.entryPoint.unsafe) {
             return;
         }
         const entryPoint = this.l2PathResolver.getLocalNamedReferenceTarget(handler.entryPoint);
@@ -177,7 +179,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
         }
         const resolution = this.l2PathResolver.getAssemblyFieldPathResolution(fieldValue.field);
         this.acceptPathError(resolution.invalidMessage, resolution.invalidNode, accept);
-        if (resolution.active && !resolution.invalidMessage && resolution.finalType) {
+        if (resolution.active && !resolution.invalidMessage && resolution.finalType && fieldValue.value) {
             this.checkAssemblyValueAgainstType(fieldValue.value, resolution.finalType, accept);
         }
     }
@@ -192,15 +194,18 @@ export class XsmpasbValidator extends XsmpcfgValidator {
 
     checkInterfaceLink(link: ast.InterfaceLink, accept: ValidationAcceptor): void {
         this.checkLinkPaths(link, accept);
-        this.checkInterfaceReference(link.reference, 'reference', 'Owner', 'Client', accept);
+        if (link.reference) {
+            this.checkInterfaceReference(link.reference, 'reference', 'Owner', 'Client', accept);
+        }
         if (link.backReference) {
             this.checkInterfaceReference(link.backReference, 'backReference', 'Client', 'Owner', accept);
         }
     }
 
     checkOperationCall(call: ast.OperationCall, accept: ValidationAcceptor): void {
-        if (!call.operation.unsafe) {
-            const operation = this.l2PathResolver.getLocalNamedReferenceTarget(call.operation);
+        const operationRef = call.operation;
+        if (operationRef && !operationRef.unsafe) {
+            const operation = this.l2PathResolver.getLocalNamedReferenceTarget(operationRef);
             if (!ast.isOperation(operation)) {
                 accept('error', 'The selected operation shall resolve to an Operation of the current Component.', {
                     node: call,
@@ -226,10 +231,11 @@ export class XsmpasbValidator extends XsmpcfgValidator {
     }
 
     checkPropertyValue(property: ast.PropertyValue, accept: ValidationAcceptor): void {
-        if (property.property.unsafe) {
+        const propertyRef = property.property;
+        if (!propertyRef || propertyRef.unsafe) {
             return;
         }
-        const target = this.l2PathResolver.getLocalNamedReferenceTarget(property.property);
+        const target = this.l2PathResolver.getLocalNamedReferenceTarget(propertyRef);
         if (!ast.isProperty(target)) {
             accept('error', 'The selected property shall resolve to a Property of the current Component.', {
                 node: property,
@@ -243,13 +249,13 @@ export class XsmpasbValidator extends XsmpcfgValidator {
                 property: 'property'
             });
         }
-        if (target.type.ref) {
+        if (target.type?.ref && property.value) {
             this.checkAssemblyValueAgainstType(property.value, target.type.ref, accept);
         }
     }
 
     private checkOperationParameters(call: ast.OperationCall, operation: ast.Operation, accept: ValidationAcceptor): void {
-        const parameters = new Map(operation.parameter.map(parameter => [parameter.name, parameter]));
+        const parameters = new Map(operation.parameter.filter((parameter): parameter is ast.Parameter & { name: string } => !!parameter.name).map(parameter => [parameter.name, parameter]));
         for (let index = 0; index < call.parameters.length; index++) {
             const parameter = call.parameters[index];
             if (!parameter.parameter) {
@@ -264,7 +270,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
                 });
                 continue;
             }
-            if (target.type.ref) {
+            if (target.type?.ref && parameter.value) {
                 this.checkAssemblyValueAgainstType(parameter.value, target.type.ref, accept);
             }
         }
@@ -297,7 +303,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
             });
             return;
         }
-        const expectedType = ast.isReferenceType(target.interface.ref) ? target.interface.ref : undefined;
+        const expectedType = ast.isReferenceType(target.interface?.ref) ? target.interface.ref : undefined;
         const oppositeContext = this.l2PathResolver.getInterfaceLinkEndpointContext(link, property === 'reference' ? 'client' : 'owner');
         if (expectedType && oppositeContext.component && !XsmpUtils.isBaseOfReferenceType(expectedType, oppositeContext.component)) {
             accept('error', `The selected reference shall be compatible with the ${targetSide} Component.`, {
@@ -311,17 +317,20 @@ export class XsmpasbValidator extends XsmpcfgValidator {
         if (ast.isModelInstance(instance)) {
             return ast.isComponent(instance.implementation?.ref) ? instance.implementation.ref : undefined;
         }
-        const assembly = ast.isAssembly(instance.assembly.ref) ? instance.assembly.ref : undefined;
-        return assembly && ast.isComponent(assembly.model.implementation?.ref) ? assembly.model.implementation.ref : undefined;
+        const assembly = ast.isAssembly(instance.assembly?.ref) ? instance.assembly.ref : undefined;
+        return assembly && ast.isComponent(assembly.model?.implementation?.ref) ? assembly.model.implementation.ref : undefined;
     }
 
     private checkLinkPath(
         link: ast.Link,
-        path: ast.Path,
+        path: ast.Path | undefined,
         property: 'ownerPath' | 'clientPath',
         absoluteMessage: string,
         accept: ValidationAcceptor,
     ): void {
+        if (!path) {
+            return;
+        }
         if (path.unsafe) {
             return;
         }
@@ -441,7 +450,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
             accept('error', `The array value shall not contain more than ${maxSize} item(s).`, { node: value });
         }
 
-        if (!type.itemType.ref) {
+        if (!type.itemType?.ref) {
             return;
         }
 
@@ -464,7 +473,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
         const nextPositionalField = (): ast.Field | undefined => {
             while (positionalIndex < fields.length) {
                 const field = fields[positionalIndex++];
-                if (!usedFields.has(field.name)) {
+                if (field.name && !usedFields.has(field.name)) {
                     return field;
                 }
             }
@@ -480,8 +489,10 @@ export class XsmpasbValidator extends XsmpcfgValidator {
                     }
                     continue;
                 }
-                usedFields.add(field.name);
-                if (!element.field.unsafe && field.type.ref) {
+                if (field.name) {
+                    usedFields.add(field.name);
+                }
+                if (!element.field.unsafe && field.type?.ref && element.value) {
                     this.checkAssemblyValueAgainstType(element.value, field.type.ref, accept);
                 }
                 continue;
@@ -492,8 +503,10 @@ export class XsmpasbValidator extends XsmpcfgValidator {
                 accept('error', `The structure value shall not contain more values than the fields of ${XsmpUtils.fqn(type)}.`, { node: element });
                 continue;
             }
-            usedFields.add(field.name);
-            if (field.type.ref) {
+            if (field.name) {
+                usedFields.add(field.name);
+            }
+            if (field.type?.ref) {
                 this.checkAssemblyValueAgainstType(element, field.type.ref, accept);
             }
         }
@@ -528,14 +541,14 @@ export class XsmpasbValidator extends XsmpcfgValidator {
             return undefined;
         }
 
-        let currentType = field.type.ref;
+        let currentType = field.type?.ref;
         for (let index = 1; index < segments.length; index++) {
             const segment = segments[index];
             if (ast.isPathIndex(segment)) {
                 if (!currentType || !ast.isArrayType(currentType)) {
                     return undefined;
                 }
-                currentType = currentType.itemType.ref;
+                currentType = currentType.itemType?.ref;
                 continue;
             }
             if (!ast.isPathMember(segment) || segment.separator !== '.' || ast.isPathParentSegment(segment.segment) || ast.isPathSelfSegment(segment.segment)) {
@@ -548,7 +561,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
             if (!field) {
                 return undefined;
             }
-            currentType = field.type.ref;
+            currentType = field.type?.ref;
         }
 
         return field;
@@ -564,7 +577,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
             const refText = segment.reference?.$refText;
             return refText ? candidates.find(candidate => candidate.name === refText) : undefined;
         }
-        const matches = this.identifierPatternService.matchCandidates(segment, candidates, candidate => candidate.name, undefined).matches;
+        const matches = this.identifierPatternService.matchCandidates(segment, candidates, candidate => candidate.name ?? '', undefined).matches;
         return matches.length === 1 ? matches[0] : undefined;
     }
 
@@ -634,6 +647,9 @@ export class XsmpasbValidator extends XsmpcfgValidator {
     protected getAssemblyTemplateBindings(assembly: ast.Assembly | undefined): Map<string, string> {
         const bindings = new Map<string, string>();
         for (const parameter of assembly?.parameters ?? []) {
+            if (!parameter.name) {
+                continue;
+            }
             if (ast.isStringParameter(parameter) && parameter.value !== undefined) {
                 bindings.set(parameter.name, parameter.value.startsWith('"') && parameter.value.endsWith('"')
                     ? parameter.value.slice(1, -1)

@@ -1,6 +1,6 @@
 
 import type { AstNode, AstNodeDescription, AstReflection, IndexManager, LangiumDocument, Reference, ReferenceInfo, Scope, ScopeProvider, URI } from 'langium';
-import * as ast from '../generated/ast.js';
+import * as ast from '../generated/ast-partial.js';
 import { AstUtils, DocumentCache, EMPTY_SCOPE, WorkspaceCache } from 'langium';
 import type { XsmpTypeProvider } from './type-provider.js';
 import type { ProjectManager } from '../workspace/project-manager.js';
