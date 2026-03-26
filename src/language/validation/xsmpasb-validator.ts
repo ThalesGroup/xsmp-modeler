@@ -86,8 +86,11 @@ export class XsmpasbValidator {
     }
 
     checkFieldValue(fieldValue: ast.FieldValue, accept: ValidationAcceptor): void {
+        if (typeof fieldValue.field !== 'string') {
+            return;
+        }
         checkNoParentTraversal(accept, fieldValue, fieldValue.field, 'field');
-        if (fieldValue.field?.startsWith('/')) {
+        if (fieldValue.field.startsWith('/')) {
             accept('error', 'Field paths in an Assembly shall be relative to the current component instance.', {
                 node: fieldValue,
                 property: 'field'

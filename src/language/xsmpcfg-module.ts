@@ -7,14 +7,17 @@ import type { XsmpServices } from './xsmp-module.js';
 import { XsmpDocumentationProvider } from './lsp/documentation-provider.js';
 import { XsmpRenameProvider } from './lsp/xsmp-rename-provider.js';
 import { XsmpcfgFormatter } from './lsp/xsmpcfg-formatter.js';
+import { XsmpcfgLinker } from './references/xsmpcfg-linker.js';
 import { XsmpcfgScopeComputation } from './references/xsmpcfg-scope-computation.js';
+import { XsmpcfgScopeProvider } from './references/xsmpcfg-scope-provider.js';
+import { XsmpcfgValidator } from './validation/xsmpcfg-validator.js';
 
 /**
  * Declaration of Xsmp services.
  */
 export interface XsmpcfgAddedServices {
     readonly validation: {
-       // readonly XsmpcfgValidator: XsmpcfgValidator
+        readonly XsmpcfgValidator: XsmpcfgValidator
     },
 }
 
@@ -30,10 +33,12 @@ export type XsmpcfgServices = XsmpServices & XsmpcfgAddedServices
  */
 export const XsmpcfgModule: Module<XsmpcfgServices, PartialLangiumServices & XsmpcfgAddedServices> = {
     references: {
-      //  ScopeProvider: (services) => new XsmpasbScopeProvider(services),
+        Linker: (services) => new XsmpcfgLinker(services),
+        ScopeProvider: (services) => new XsmpcfgScopeProvider(services),
         ScopeComputation: (services) => new XsmpcfgScopeComputation(services),
     },
     validation: {
+        XsmpcfgValidator: (services) => new XsmpcfgValidator(services),
     },
     lsp: {
         Formatter: () => new XsmpcfgFormatter(),

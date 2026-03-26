@@ -2,6 +2,7 @@ import { interruptAndCheck, type AstNode, Cancellation, type LangiumDocument, ty
 import type { DocumentSymbolProvider, NodeKindProvider } from 'langium/lsp';
 import type { DocumentSymbol, DocumentSymbolParams } from 'vscode-languageserver';
 import * as ast from '../generated/ast.js';
+import type { XsmpcfgPathResolver } from '../references/xsmpcfg-path-resolver.js';
 import type { XsmpNodeInfoProvider } from './node-info-provider.js';
 import { type AttributeHelper } from '../utils/attribute-helper.js';
 import type { XsmpServices } from '../xsmp-module.js';
@@ -12,12 +13,14 @@ export class XsmpDocumentSymbolProvider implements DocumentSymbolProvider {
     protected readonly nodeInfoProvider: XsmpNodeInfoProvider;
     protected readonly workspaceManager: WorkspaceLock;
     protected readonly attrHelper: AttributeHelper;
+    protected readonly pathResolver: XsmpcfgPathResolver;
 
     constructor(services: XsmpServices) {
         this.nodeKindProvider = services.shared.lsp.NodeKindProvider;
         this.nodeInfoProvider = services.shared.lsp.NodeInfoProvider;
         this.workspaceManager = services.shared.workspace.WorkspaceLock;
         this.attrHelper = services.shared.AttributeHelper;
+        this.pathResolver = services.shared.CfgPathResolver;
     }
 
     getSymbols(document: LangiumDocument, _params: DocumentSymbolParams, cancelToken = Cancellation.CancellationToken.None): MaybePromise<DocumentSymbol[]> {
@@ -66,13 +69,15 @@ export class XsmpDocumentSymbolProvider implements DocumentSymbolProvider {
                 return `configure ${(node as ast.AssemblyComponentConfiguration).name}`;
             case ast.ComponentConfiguration: {
                 const configuration = node as ast.ComponentConfiguration;
-                return configuration.component?.$refText ? `${configuration.name}: ${configuration.component.$refText}` : configuration.name;
+                const path = this.pathResolver.stringifyCfgPath(configuration.name) ?? '';
+                return configuration.component?.$refText ? `${path}: ${configuration.component.$refText}` : path;
             }
             case ast.ComponentLinkBase:
                 return (node as ast.ComponentLinkBase).name;
             case ast.ConfigurationUsage: {
                 const usage = node as ast.ConfigurationUsage;
-                return `include ${this.getReferenceText(usage.configuration)}${usage.path ? ` at ${usage.path}` : ''}`;
+                const includePath = this.pathResolver.stringifyCfgPath(usage.path);
+                return `include ${this.getReferenceText(usage.configuration)}${includePath ? ` at ${includePath}` : ''}`;
             }
             case ast.GlobalEventHandler: {
                 const handler = node as ast.GlobalEventHandler;
@@ -103,7 +108,7 @@ export class XsmpDocumentSymbolProvider implements DocumentSymbolProvider {
             case ast.SetProperty:
                 return `property ${(node as ast.SetProperty).propertyPath}`;
             case ast.FieldValue:
-                return (node as ast.FieldValue).field;
+                return this.pathResolver.stringifyConfigurablePath((node as ast.FieldValue).field);
             case ast.Trigger:
                 return `trig ${(node as ast.Trigger).entryPoint}`;
             case ast.Transfer: {

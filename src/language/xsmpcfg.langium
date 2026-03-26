@@ -17,7 +17,7 @@ ComponentConfiguration returns ComponentConfiguration:
 
 ConfigurationUsage returns ConfigurationUsage:
     'include' configuration=[Configuration:ValidID]
-    ('at' 'unsafe'? path=CfgPath)?;
+    ('at' path=CfgPath)?;
 
 
 ValidID returns string:
@@ -30,20 +30,23 @@ Value returns Value:
     SimpleValue | ArrayValue | StructureValue;
 
 FieldValue returns FieldValue:
-    'unsafe'? field=CfgPath '=' value=Value;
+    field=CfgPath '=' value=Value;
 
-OptFieldValue returns FieldValue:
-    ('unsafe'? field=CfgPath '=')? value=Value;
+CfgStructureValueElement returns Value:
+    CfgStructureFieldValue | Value;
+
+CfgStructureFieldValue returns CfgStructureFieldValue:
+    unsafe?='unsafe'? field=ValidID '=' value=Value;
 
 ArrayValue returns ArrayValue:
     '[' (elements+=Value (','elements+=Value)*)? ']';
 
 StructureValue returns StructureValue:
-    '{' (elements+=OptFieldValue (','elements+=OptFieldValue)*)? '}';
+    '{' (elements+=CfgStructureValueElement (','elements+=CfgStructureValueElement)*)? '}';
 
 SimpleValue returns SimpleValue:
     Int8Value | Int16Value | Int32Value | Int64Value | UInt8Value | UInt16Value | UInt32Value | UInt64Value 
-    | EnumerationValue | BoolValue | Float32Value | Float64Value | Char8Value | String8Value | DurationValue |DateTimeValue;
+    | EnumerationValue | BoolValue | Float32Value | Float64Value | FloatValue | IntValue | Char8Value | String8Value | DurationValue |DateTimeValue;
 
 Int8Value returns Int8Value:
     value=INT'i8';
@@ -74,6 +77,12 @@ Float32Value returns Float32Value:
 Float64Value returns Float64Value:
     value=FLOATING_LITERAL'f64';
 
+FloatValue returns FloatValue:
+    value=FLOATING_LITERAL;
+
+IntValue returns IntValue:
+    value=INT;
+
 Char8Value returns Char8Value:
     value=CHAR;
 
@@ -87,12 +96,35 @@ DateTimeValue returns DateTimeValue:
     value=DATETIME_STRING;
 
 
-CfgPath returns string:
-    ('/'? Segment (('.'|'/') Segment | '[' INT ']')* | '/');
+CfgPath returns CfgPath:
+    {CfgPath}
+    unsafe?='unsafe'?
+    (absolute?='/' head=CfgPathSegment elements+=CfgPathElement*
+    | head=CfgPathSegment elements+=CfgPathElement*);
 
+CfgPathElement returns CfgPathElement:
+    CfgPathMember | CfgPathIndex;
 
-Segment returns string:
-    ValidID | '..'|'.';
+CfgPathMember returns CfgPathMember:
+    separator=CfgPathSeparator segment=CfgPathSegment;
+
+CfgPathIndex returns CfgPathIndex:
+    '[' index=INT ']';
+
+CfgPathSegment returns CfgPathSegment:
+    CfgNamedSegment | CfgParentSegment | CfgSelfSegment;
+
+CfgNamedSegment returns CfgNamedSegment:
+    reference=[NamedElement:ValidID];
+
+CfgParentSegment returns CfgParentSegment:
+    {CfgParentSegment} '..';
+
+CfgSelfSegment returns CfgSelfSegment:
+    {CfgSelfSegment} '.';
+
+CfgPathSeparator returns string:
+    '.' | '/';
 
 hidden terminal WS: /\s+/;
 terminal DATETIME_STRING: /"[^"]*"dt/;
@@ -113,4 +145,3 @@ terminal INT returns bigint: /[+-]?(0|[1-9]\d*)/;
 
 hidden terminal ML_COMMENT: /\/\*[\s\S]*?\*\//;
 hidden terminal SL_COMMENT: /\/\/[^\n\r]*/;
-

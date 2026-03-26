@@ -1,0 +1,11 @@
+configuration Demo
+/Root: demo.Root
+{
+    include Other at unsafe child
+    ratio = 1.5
+    state = { count = 1, values = [1, 2] }
+    child
+    {
+        value = 2
+    }
+}

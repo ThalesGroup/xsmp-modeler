@@ -6,6 +6,9 @@ import { XsmpFormatterBase } from './xsmp-formatter-base.js';
 export class XsmpcfgFormatter extends XsmpFormatterBase {
     protected override format(node: AstNode): void {
         switch (node.$type) {
+            case ast.CfgPath: return this.formatCfgPath(node as ast.CfgPath, this.getNodeFormatter(node));
+            case ast.CfgPathMember: return this.formatCfgPathMember(node as ast.CfgPathMember, this.getNodeFormatter(node));
+            case ast.CfgStructureFieldValue: return this.formatCfgStructureFieldValue(node as ast.CfgStructureFieldValue, this.getNodeFormatter(node));
             case ast.Configuration: return this.formatConfiguration(node as ast.Configuration, this.getNodeFormatter(node));
             case ast.ComponentConfiguration: return this.formatComponentConfiguration(node as ast.ComponentConfiguration, this.getNodeFormatter(node));
             case ast.ConfigurationUsage: return this.formatConfigurationUsage(node as ast.ConfigurationUsage, this.getNodeFormatter(node));
@@ -18,22 +21,47 @@ export class XsmpcfgFormatter extends XsmpFormatterBase {
     protected formatConfiguration(node: ast.Configuration, formatter: NodeFormatter<ast.Configuration>): void {
         formatter.keyword('configuration').prepend(Formatting.noIndent()).append(Formatting.oneSpace());
         formatter.property('name').append(Formatting.newLine({ allowMore: true }));
-        formatter.nodes(...node.elements).prepend(Formatting.noIndent());
+    }
+
+    protected formatCfgPath(node: ast.CfgPath, formatter: NodeFormatter<ast.CfgPath>): void {
+        if (node.unsafe) {
+            formatter.keyword('unsafe').append(Formatting.oneSpace());
+        }
+        if (node.absolute) {
+            formatter.keyword('/').append(Formatting.noSpace());
+        }
+        formatter.keyword('..').surround(Formatting.noSpace());
+        formatter.keyword('.').surround(Formatting.noSpace());
+        formatter.keyword('[').append(Formatting.noSpace());
+        formatter.keyword(']').prepend(Formatting.noSpace());
+    }
+
+    protected formatCfgPathMember(node: ast.CfgPathMember, formatter: NodeFormatter<ast.CfgPathMember>): void {
+        formatter.property('separator').surround(Formatting.noSpace());
     }
 
     protected formatComponentConfiguration(node: ast.ComponentConfiguration, formatter: NodeFormatter<ast.ComponentConfiguration>): void {
+        if (ast.isConfiguration(node.$container)) {
+            formatter.property('name').prepend(Formatting.newLine({ allowMore: true }));
+        }
         formatter.keyword(':').prepend(Formatting.noSpace()).append(Formatting.oneSpace());
+        formatter.nodes(...node.elements).prepend(Formatting.newLine({ allowMore: true }));
         this.formatBody(formatter);
     }
 
     protected formatConfigurationUsage(node: ast.ConfigurationUsage, formatter: NodeFormatter<ast.ConfigurationUsage>): void {
         formatter.keyword('include').append(Formatting.oneSpace());
         formatter.keyword('at').surround(Formatting.oneSpace());
-        formatter.keyword('unsafe').append(Formatting.oneSpace());
     }
 
     protected formatFieldValue(node: ast.FieldValue, formatter: NodeFormatter<ast.FieldValue>): void {
-        formatter.keyword('unsafe').append(Formatting.oneSpace());
+        this.formatAssignment(formatter);
+    }
+
+    protected formatCfgStructureFieldValue(node: ast.CfgStructureFieldValue, formatter: NodeFormatter<ast.CfgStructureFieldValue>): void {
+        if (node.unsafe) {
+            formatter.keyword('unsafe').append(Formatting.oneSpace());
+        }
         this.formatAssignment(formatter);
     }
 

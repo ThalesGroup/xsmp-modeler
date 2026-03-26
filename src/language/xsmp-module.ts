@@ -17,6 +17,7 @@ import { XsmpNodeKindProvider } from './lsp/node-kind-provider.js';
 import { XsmpDocumentGenerator } from './workspace/document-generator.js';
 import { XsmpDocumentUpdateHandler } from './lsp/document-update-handler.js';
 import { XsmpTypeProvider } from './references/type-provider.js';
+import { XsmpcfgPathResolver } from './references/xsmpcfg-path-resolver.js';
 import { XsmpNodeInfoProvider } from './lsp/node-info-provider.js';
 import { DocumentationHelper } from './utils/documentation-helper.js';
 import { AttributeHelper } from './utils/attribute-helper.js';
@@ -32,6 +33,7 @@ import type { XsmplnkServices } from './xsmplnk-module.js';
 import { XsmplnkModule } from './xsmplnk-module.js';
 import type { XsmpsedServices } from './xsmpsed-module.js';
 import { XsmpsedModule } from './xsmpsed-module.js';
+import { registerXsmpcfgValidationChecks } from './validation/xsmpcfg-validator.js';
 
 export type XsmpServices = LangiumServices & { shared: XsmpSharedServices; }
 /**
@@ -98,6 +100,7 @@ export function createXsmpServices(context: DefaultSharedModuleContext): {
         XsmpcfgModule
     );
     shared.ServiceRegistry.register(xsmpcfg);
+    registerXsmpcfgValidationChecks(xsmpcfg);
 
     // XSMP LinkBase
     const xsmplnk = inject(
@@ -128,6 +131,7 @@ export function createXsmpServices(context: DefaultSharedModuleContext): {
  * Declaration of custom shared services
  */
 export interface XsmpAddedSharedServices {
+    readonly CfgPathResolver: XsmpcfgPathResolver,
     readonly DocumentGenerator: XsmpDocumentGenerator,
     readonly TypeProvider: XsmpTypeProvider,
     readonly lsp: {
@@ -147,6 +151,7 @@ export type XsmpSharedServices = LangiumSharedServices & XsmpAddedSharedServices
 
 export const XsmpSharedModule: Module<XsmpSharedServices, DeepPartial<XsmpSharedServices>> = {
     AttributeHelper: (services) => new AttributeHelper(services),
+    CfgPathResolver: (services) => new XsmpcfgPathResolver(services),
     DocumentGenerator: (services) => new XsmpDocumentGenerator(services),
     DocumentationHelper: (services) => new DocumentationHelper(services),
     TypeProvider: (services) => new XsmpTypeProvider(services),

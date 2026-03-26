@@ -26,15 +26,18 @@ import { type AttributeHelper } from '../../utils/attribute-helper.js';
 import { getCopyrightNotice } from '../../generator/copyright-notice-provider.js';
 import { xsmpVersion } from '../../version.js';
 import type { ProjectManager } from '../../workspace/project-manager.js';
+import type { XsmpcfgPathResolver } from '../../references/xsmpcfg-path-resolver.js';
 
 export class SmpGenerator implements XsmpGenerator {
 
     protected readonly docHelper: DocumentationHelper;
     protected readonly attrHelper: AttributeHelper;
+    protected readonly cfgPathResolver: XsmpcfgPathResolver;
     protected readonly projectManager: ProjectManager;
     protected readonly smdlGenFolder = 'smdl-gen';
 
     constructor(services: XsmpSharedServices) {
+        this.cfgPathResolver = services.CfgPathResolver;
         this.docHelper = services.DocumentationHelper;
         this.attrHelper = services.AttributeHelper;
         this.projectManager = services.workspace.ProjectManager;
@@ -680,21 +683,103 @@ export class SmpGenerator implements XsmpGenerator {
     }
     convertComponentConfiguration(component: ast.ComponentConfiguration): Configuration.ComponentConfiguration {
         return {
-            '@Path': component.name,
+            '@Path': this.cfgPathResolver.stringifyCfgPath(component.name),
             Include: component.elements.filter(ast.isConfigurationUsage).map(this.convertConfigurationUsage, this),
             Component: component.elements.filter(ast.isComponentConfiguration).map(this.convertComponentConfiguration, this),
-            FieldValue: component.elements.filter(ast.isValue).map(this.convertValue, this),
+            FieldValue: component.elements.filter(ast.isFieldValue).map(value => this.convertValue(value)),
         };
     }
 
-    convertValue(value: ast.Value): Types.Value {
+    protected getResolvedConfigurationFieldType(fieldValue: ast.FieldValue): ast.Type | undefined {
+        if (!ast.isCfgPath(fieldValue.field) || fieldValue.field.unsafe) {
+            return undefined;
+        }
+        const resolution = this.cfgPathResolver.getFieldPathResolution(fieldValue.field);
+        if (!resolution.active || resolution.invalidMessage) {
+            return undefined;
+        }
+        return resolution.finalType;
+    }
+
+    protected getStructureFieldType(type: ast.Type | undefined, fieldName: string): ast.Type | undefined {
+        if (!ast.isStructure(type)) {
+            return undefined;
+        }
+        return this.cfgPathResolver.getFieldCandidatesForType(type).find(field => field.name === fieldName)?.type.ref;
+    }
+
+    protected convertUnsuffixedIntValue(value: ast.IntValue, expectedType: ast.Type | undefined): Types.Value {
+        switch (XsmpUtils.getPTK(expectedType)) {
+            case PTK.Int8: return { '@xsi:type': 'Types:Int8Value', '@Value': value.value } as Types.Int8Value;
+            case PTK.Int16: return { '@xsi:type': 'Types:Int16Value', '@Value': value.value } as Types.Int16Value;
+            case PTK.Int32: return { '@xsi:type': 'Types:Int32Value', '@Value': value.value } as Types.Int32Value;
+            case PTK.Int64: return { '@xsi:type': 'Types:Int64Value', '@Value': value.value } as Types.Int64Value;
+            case PTK.UInt8: return { '@xsi:type': 'Types:UInt8Value', '@Value': value.value } as Types.UInt8Value;
+            case PTK.UInt16: return { '@xsi:type': 'Types:UInt16Value', '@Value': value.value } as Types.UInt16Value;
+            case PTK.UInt32: return { '@xsi:type': 'Types:UInt32Value', '@Value': value.value } as Types.UInt32Value;
+            case PTK.UInt64: return { '@xsi:type': 'Types:UInt64Value', '@Value': value.value } as Types.UInt64Value;
+            default: return { '@xsi:type': 'Types:Value' } as Types.Value;
+        }
+    }
+
+    protected convertUnsuffixedFloatValue(value: ast.FloatValue, expectedType: ast.Type | undefined): Types.Value {
+        switch (XsmpUtils.getPTK(expectedType)) {
+            case PTK.Float32: return { '@xsi:type': 'Types:Float32Value', '@Value': parseFloat(value.value) } as Types.Float32Value;
+            case PTK.Float64: return { '@xsi:type': 'Types:Float64Value', '@Value': parseFloat(value.value) } as Types.Float64Value;
+            default: return { '@xsi:type': 'Types:Value' } as Types.Value;
+        }
+    }
+
+    protected convertStructureElements(value: ast.StructureValue, expectedType: ast.Type | undefined): Types.Value[] {
+        if (!ast.isStructure(expectedType)) {
+            return value.elements.map(element => this.convertValue(element));
+        }
+
+        const fields = this.cfgPathResolver.getFieldCandidatesForType(expectedType);
+        const fieldsByName = new Map(fields.map(field => [field.name, field] as const));
+        const usedFields = new Set<string>();
+        let positionalIndex = 0;
+
+        const nextPositionalField = (): ast.Field | undefined => {
+            while (positionalIndex < fields.length) {
+                const field = fields[positionalIndex++];
+                if (!usedFields.has(field.name)) {
+                    return field;
+                }
+            }
+            return undefined;
+        };
+
+        return value.elements.map(element => {
+            if (ast.isCfgStructureFieldValue(element)) {
+                const field = fieldsByName.get(element.field);
+                if (field && !usedFields.has(field.name)) {
+                    usedFields.add(field.name);
+                }
+                return {
+                    ...this.convertValue(element.value, element.unsafe ? undefined : field?.type.ref),
+                    '@Field': element.field,
+                } as Types.Value;
+            }
+
+            const field = nextPositionalField();
+            if (field) {
+                usedFields.add(field.name);
+            }
+            return this.convertValue(element, field?.type.ref);
+        });
+    }
+
+    convertValue(value: ast.Value, expectedType?: ast.Type): Types.Value {
         switch (value.$type) {
             case ast.BoolValue: return { '@xsi:type': 'Types:BoolValue', '@Value': (value as ast.BoolValue).value } as Types.BoolValue;
             case ast.Char8Value: return { '@xsi:type': 'Types:Char8Value', '@Value': (value as ast.Char8Value).value } as Types.Char8Value;
             case ast.DateTimeValue: return { '@xsi:type': 'Types:DateTimeValue', '@Value': (value as ast.DateTimeValue).value.slice(1, -3) } as Types.DateTimeValue;
             case ast.DurationValue: return { '@xsi:type': 'Types:DurationValue', '@Value': (value as ast.DurationValue).value.slice(1, -2) } as Types.DurationValue;
+            case ast.FloatValue: return this.convertUnsuffixedFloatValue(value as ast.FloatValue, expectedType);
             case ast.Float32Value: return { '@xsi:type': 'Types:Float32Value', '@Value': parseFloat((value as ast.Float32Value).value) } as Types.Float32Value;
             case ast.Float64Value: return { '@xsi:type': 'Types:Float64Value', '@Value': parseFloat((value as ast.Float64Value).value) } as Types.Float64Value;
+            case ast.IntValue: return this.convertUnsuffixedIntValue(value as ast.IntValue, expectedType);
             case ast.Int8Value: return { '@xsi:type': 'Types:Int8Value', '@Value': BigInt((value as ast.Int8Value).value) } as Types.Int8Value;
             case ast.Int16Value: return { '@xsi:type': 'Types:Int16Value', '@Value': (value as ast.Int16Value).value } as Types.Int16Value;
             case ast.Int32Value: return { '@xsi:type': 'Types:Int32Value', '@Value': (value as ast.Int32Value).value } as Types.Int32Value;
@@ -714,16 +799,30 @@ export class SmpGenerator implements XsmpGenerator {
                 return { '@xsi:type': 'Types:EnumerationValue', '@Value': this.toEnumerationValue(literalValue), '@Literal': Solver.getValue(literalValue)?.enumerationLiteral()?.getValue().name } as Types.EnumerationValue;
             }
             case ast.String8Value: return { '@xsi:type': 'Types:String8Value', '@Value': (value as ast.String8Value).value } as Types.String8Value;
-            case ast.ArrayValue: return { '@xsi:type': 'Types:ArrayValue', ItemValue: (value as ast.ArrayValue).elements.map(this.convertValue, this) } as Types.ArrayValue;
-            case ast.StructureValue: return { '@xsi:type': 'Types:StructureValue', FieldValue: (value as ast.ArrayValue).elements.map(this.convertValue, this) } as Types.StructureValue;
-            case ast.FieldValue: return { ...this.convertValue((value as ast.FieldValue).value), '@Field': (value as ast.FieldValue).field };
+            case ast.ArrayValue: {
+                const itemType = ast.isArrayType(expectedType) ? expectedType.itemType.ref : undefined;
+                return { '@xsi:type': 'Types:ArrayValue', ItemValue: (value as ast.ArrayValue).elements.map(element => this.convertValue(element, itemType)) } as Types.ArrayValue;
+            }
+            case ast.StructureValue:
+                return { '@xsi:type': 'Types:StructureValue', FieldValue: this.convertStructureElements(value as ast.StructureValue, expectedType) } as Types.StructureValue;
+            case ast.CfgStructureFieldValue: {
+                const fieldValue = value as ast.CfgStructureFieldValue;
+                return {
+                    ...this.convertValue(fieldValue.value, fieldValue.unsafe ? undefined : this.getStructureFieldType(expectedType, fieldValue.field)),
+                    '@Field': fieldValue.field
+                };
+            }
+            case ast.FieldValue: return {
+                ...this.convertValue((value as ast.FieldValue).value, this.getResolvedConfigurationFieldType(value as ast.FieldValue)),
+                '@Field': this.cfgPathResolver.stringifyConfigurablePath((value as ast.FieldValue).field)
+            };
             default: return { '@xsi:type': 'Types:Value' } as Types.Value;
         }
     }
 
     convertConfigurationUsage(include: ast.ConfigurationUsage): Configuration.ConfigurationUsage {
         return {
-            '@Path': include.path,
+            '@Path': this.cfgPathResolver.stringifyCfgPath(include.path),
             Configuration: this.convertXlink(include.configuration, include),
         };
     }
@@ -832,7 +931,7 @@ export class SmpGenerator implements XsmpGenerator {
             Assembly: model.elements.filter(ast.isSubInstance).filter(i => ast.isAssemblyInstance(i.instance)).map(this.convertAssemblyInstance, this),
             Model: model.elements.filter(ast.isSubInstance).filter(i => ast.isModelInstance(i.instance)).map(this.convertSubModelInstance, this),
             Link: model.elements.filter(ast.isLink).map(this.convertLink, this),
-            FieldValue: model.elements.filter(ast.isFieldValue).map(this.convertValue, this),
+            FieldValue: model.elements.filter(ast.isFieldValue).map(value => this.convertValue(value)),
             Invocation: model.elements.filter(ast.isInvocation).map(this.convertInvocation, this),
             GlobalEventHandler: model.elements.filter(ast.isGlobalEventHandler).map(this.convertGlobalEventHandler, this),
 

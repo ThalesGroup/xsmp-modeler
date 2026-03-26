@@ -17,9 +17,40 @@ interface Metadata {
 interface Value {
 }
 
+type ConfigurablePath = string | CfgPath
+
+interface CfgPath {
+    unsafe: boolean
+    absolute: boolean
+    head?: CfgPathSegment
+    elements: CfgPathElement[]
+}
+type CfgPathSegment = CfgNamedSegment | CfgParentSegment | CfgSelfSegment
+type CfgPathElement = CfgPathMember | CfgPathIndex
+
+interface CfgNamedSegment {
+    reference?: @NamedElement
+}
+interface CfgParentSegment {
+}
+interface CfgSelfSegment {
+}
+interface CfgPathMember {
+    separator: string
+    segment: CfgPathSegment
+}
+interface CfgPathIndex {
+    index: bigint
+}
+
 interface FieldValue extends Value {
     value:Value
-    field?: string
+    field?: ConfigurablePath
+}
+interface CfgStructureFieldValue extends Value {
+    unsafe: boolean
+    value: Value
+    field: string
 }
 interface SimpleValue extends Value {
 }
@@ -54,6 +85,9 @@ interface UInt32Value extends SimpleValue {
 interface UInt64Value extends SimpleValue {
     value: bigint
 }
+interface IntValue extends SimpleValue {
+    value: bigint
+}
 interface EnumerationValue extends SimpleValue {
     value?: bigint
     reference?:@EnumerationLiteral
@@ -62,6 +96,9 @@ interface Float32Value extends SimpleValue {
     value: string
 }
 interface Float64Value extends SimpleValue {
+    value: string
+}
+interface FloatValue extends SimpleValue {
     value: string
 }
 interface Char8Value extends SimpleValue {
@@ -453,13 +490,13 @@ interface Configuration extends Document {
 
 
 interface ComponentConfiguration {
-    name: string
+    name: CfgPath
     elements: (ConfigurationUsage|ComponentConfiguration|Value)[]
     component?: @Component
 }
 
 interface ConfigurationUsage {
-    path?: string
+    path?: CfgPath
     configuration: @Configuration
 }
 
