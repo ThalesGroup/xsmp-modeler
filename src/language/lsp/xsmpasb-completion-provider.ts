@@ -1,41 +1,39 @@
-import { AstUtils, type GrammarAST } from 'langium';
-import type { AstNodeDescription, ReferenceInfo } from 'langium';
+import { AstUtils, type GrammarAST, type ReferenceInfo } from 'langium';
+import type { AstNodeDescription } from 'langium';
 import type { CompletionAcceptor, CompletionContext, NextFeature } from 'langium/lsp';
+import type { CompletionItem } from 'vscode-languageserver';
 import * as ast from '../generated/ast-partial.js';
 import type { XsmpasbServices } from '../xsmpasb-module.js';
 import * as XsmpUtils from '../utils/xsmp-utils.js';
 import { XsmpCompletionProviderBase } from './xsmp-completion-provider-base.js';
 
 export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
+    protected readonly snippetOnlyKeywords = new Set([
+        'assembly',
+        'configure',
+        'subscribe',
+        'property',
+        'call',
+        'event',
+        'field',
+        'interface',
+    ]);
+
     constructor(services: XsmpasbServices) {
         super(services);
+    }
+
+    protected override completionForKeyword(context: CompletionContext, keyword: GrammarAST.Keyword, acceptor: CompletionAcceptor) {
+        if (this.snippetOnlyKeywords.has(keyword.value)) {
+            return;
+        }
+        return super.completionForKeyword(context, keyword, acceptor);
     }
 
     protected override createKeywordSnippets(context: CompletionContext, keyword: GrammarAST.Keyword, acceptor: CompletionAcceptor): void {
         switch (keyword.value) {
             case 'assembly':
                 acceptor(context, this.createKeywordSnippet(keyword, 'assembly ${1:Name}\n$0', 'Assembly Definition'));
-                break;
-            case 'configure':
-                acceptor(context, this.createKeywordSnippet(keyword, 'configure ${1:path}\n{\n\t$0\n}', 'Component Configuration'));
-                break;
-            case 'subscribe':
-                acceptor(context, this.createKeywordSnippet(keyword, 'subscribe ${1:entryPoint} -> "${2:GlobalEvent}"', 'Global Event Subscription'));
-                break;
-            case 'property':
-                acceptor(context, this.createKeywordSnippet(keyword, 'property ${1:name} = ${2:value}', 'Property Value'));
-                break;
-            case 'call':
-                acceptor(context, this.createKeywordSnippet(keyword, 'call ${1:name}($0)', 'Operation Call'));
-                break;
-            case 'event':
-                acceptor(context, this.createSnippetItem('event link', 'event link ${1:owner} -> ${2:client}', 'Event Link'));
-                break;
-            case 'field':
-                acceptor(context, this.createSnippetItem('field link', 'field link ${1:owner} -> ${2:client}', 'Field Link'));
-                break;
-            case 'interface':
-                acceptor(context, this.createSnippetItem('interface link', 'interface link ${1:sourcePath} -> ${2:client}${3::${4:backReference}}', 'Interface Link'));
                 break;
         }
     }
@@ -47,10 +45,29 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
     protected override addStandaloneCompletions(context: CompletionContext, acceptor: CompletionAcceptor): void {
         this.addStatementSnippets(context, acceptor);
         this.addModelStructureCompletions(context, acceptor);
+        this.addInstanceTypeCompletions(context, acceptor);
         this.addConfigurableFieldCompletions(context, acceptor);
         this.addComponentConfigurationInvocationCompletions(context, acceptor);
         this.addLocalReferenceCompletions(context, acceptor);
         this.addTypedValueCompletions(context, acceptor);
+    }
+
+    protected override addFallbackStandaloneCompletions(context: CompletionContext, acceptor: CompletionAcceptor): void {
+        if (this.isModelImplementationTypePosition(context) || this.isSubInstanceTypePosition(context)) {
+            this.addInstanceTypeCompletions(context, acceptor);
+            return;
+        }
+        this.addStandaloneCompletions(context, acceptor);
+    }
+
+    protected override filterCompletionItems(context: CompletionContext, items: CompletionItem[]): CompletionItem[] {
+        if (this.isModelImplementationTypePosition(context)) {
+            return items.filter(item => item.detail === 'Component implementation type.');
+        }
+        if (this.isSubInstanceTypePosition(context)) {
+            return items.filter(item => item.detail === 'Component implementation type.' || item.detail === 'Assembly type.');
+        }
+        return items;
     }
 
     protected override createEnrichedReferenceCompletionItem(
@@ -123,21 +140,48 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
             }
         }
 
+        if (refInfo.property === ast.ModelInstance.implementation && ast.isComponent(nodeDescription.node)) {
+            return this.createReferenceLikeItem(
+                nodeDescription,
+                nodeDescription.name,
+                'Component implementation type.'
+            );
+        }
+
+        if (refInfo.property === ast.AssemblyInstance.assembly && ast.isAssembly(nodeDescription.node)) {
+            return this.createReferenceLikeItem(
+                nodeDescription,
+                nodeDescription.name,
+                'Assembly type.'
+            );
+        }
+
         return undefined;
     }
 
     protected addStatementSnippets(context: CompletionContext, acceptor: CompletionAcceptor): void {
-        if (!this.isAtStatementStart(context)) {
+        if (!this.isAtStatementPrefix(context)) {
             return;
         }
 
-        const assembly = this.getRecoveryContainerOfType(context, ast.isAssembly);
-        const model = this.getRecoveryContainerOfType(context, ast.isModelInstance);
-        const componentConfiguration = this.getRecoveryContainerOfType(context, ast.isAssemblyComponentConfiguration);
+        const model = this.getCurrentBlockModel(context);
+        const componentConfiguration = this.getCurrentBlockComponentConfiguration(context);
+        const assembly = !model && !componentConfiguration
+            ? this.getRecoveryContainerOfType(context, ast.isAssembly)
+            : undefined;
         const components = this.getCrossReferenceNames(context, ast.ModelInstance, ast.ModelInstance.implementation);
         const assemblies = this.getCrossReferenceNames(context, ast.AssemblyInstance, ast.AssemblyInstance.assembly);
         const configurations = this.getCrossReferenceNames(context, ast.AssemblyInstance, ast.AssemblyInstance.configuration);
         const linkBases = this.getCrossReferenceNames(context, ast.AssemblyInstance, ast.AssemblyInstance.linkBase);
+
+        if (!assembly && !model && !componentConfiguration) {
+            acceptor(context, this.createSnippetItem(
+                'Assembly',
+                'assembly ${1:Name}\n$0',
+                'Assembly Definition'
+            ));
+            return;
+        }
 
         if (componentConfiguration) {
             acceptor(context, this.createSnippetItem('Subscribe', 'subscribe ${1:entryPoint} -> "${2:GlobalEvent}"', 'Global Event Subscription'));
@@ -178,8 +222,7 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
     }
 
     protected addConfigurableFieldCompletions(context: CompletionContext, acceptor: CompletionAcceptor): void {
-        const linePrefix = this.getLinePrefix(context);
-        if (!this.isAtStatementStart(context) && !/^\s*[\w./{}]*$/.test(linePrefix)) {
+        if (!this.isAtStatementPrefix(context)) {
             return;
         }
         const component = this.getCurrentComponent(context);
@@ -200,11 +243,60 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
         }
     }
 
-    protected addModelStructureCompletions(context: CompletionContext, acceptor: CompletionAcceptor): void {
-        if (!this.isAtStatementStart(context)) {
+    protected addInstanceTypeCompletions(context: CompletionContext, acceptor: CompletionAcceptor): void {
+        const isModelImplementationType = this.isModelImplementationTypePosition(context);
+        const isSubInstanceType = this.isSubInstanceTypePosition(context);
+        if (!isModelImplementationType && !isSubInstanceType) {
             return;
         }
-        const model = this.getRecoveryContainerOfType(context, ast.isModelInstance);
+
+        const expectedType = isSubInstanceType ? this.getExpectedSubInstanceType(context) : undefined;
+
+        for (const candidate of this.getReferenceCandidateDescriptions(context, ast.ModelInstance, ast.ModelInstance.implementation)) {
+            if (!ast.isComponent(candidate.node)) {
+                continue;
+            }
+            if (expectedType && !XsmpUtils.isBaseOfReferenceType(expectedType, candidate.node)) {
+                continue;
+            }
+            acceptor(context, this.createContextualValueItem(
+                context,
+                candidate.name,
+                candidate.name,
+                'Component implementation type.',
+                this.getReferenceDocumentation(candidate)
+            ));
+        }
+
+        if (!isSubInstanceType) {
+            return;
+        }
+
+        for (const candidate of this.getReferenceCandidateDescriptions(context, ast.AssemblyInstance, ast.AssemblyInstance.assembly)) {
+            if (!ast.isAssembly(candidate.node)) {
+                continue;
+            }
+            const rootComponent = ast.isComponent(candidate.node.model?.implementation?.ref)
+                ? candidate.node.model.implementation.ref
+                : undefined;
+            if (expectedType && rootComponent && !XsmpUtils.isBaseOfReferenceType(expectedType, rootComponent)) {
+                continue;
+            }
+            acceptor(context, this.createContextualValueItem(
+                context,
+                candidate.name,
+                candidate.name,
+                'Assembly type.',
+                this.getReferenceDocumentation(candidate)
+            ));
+        }
+    }
+
+    protected addModelStructureCompletions(context: CompletionContext, acceptor: CompletionAcceptor): void {
+        if (!this.isAtStatementPrefix(context)) {
+            return;
+        }
+        const model = this.getCurrentBlockModel(context);
         const component = model && ast.isComponent(model.implementation?.ref) ? model.implementation.ref : undefined;
         if (!component) {
             return;
@@ -246,10 +338,10 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
     }
 
     protected addComponentConfigurationInvocationCompletions(context: CompletionContext, acceptor: CompletionAcceptor): void {
-        if (!this.isAtStatementStart(context)) {
+        if (!this.isAtStatementPrefix(context)) {
             return;
         }
-        const componentConfiguration = this.getRecoveryContainerOfType(context, ast.isAssemblyComponentConfiguration);
+        const componentConfiguration = this.getCurrentBlockComponentConfiguration(context);
         const component = componentConfiguration ? this.getCurrentComponent(context) : undefined;
         if (!component) {
             return;
@@ -393,13 +485,61 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
     }
 
     protected getCurrentComponent(context: CompletionContext): ast.Component | undefined {
-        const model = this.getRecoveryContainerOfType(context, ast.isModelInstance);
+        const model = this.getCurrentBlockModel(context);
         const implementation = model?.implementation?.ref;
         if (ast.isComponent(implementation)) {
             return implementation;
         }
-        const configuration = this.getRecoveryContainerOfType(context, ast.isAssemblyComponentConfiguration);
+        const configuration = this.getCurrentBlockComponentConfiguration(context);
         const resolution = configuration?.name ? this.l2PathResolver.getAssemblyComponentPathResolution(configuration.name) : undefined;
         return resolution?.finalComponent;
+    }
+
+    protected getCurrentBlockModel(context: CompletionContext): ast.ModelInstance | undefined {
+        return this.findContainingTextBlockNode(context, ast.isModelInstance);
+    }
+
+    protected getCurrentBlockComponentConfiguration(context: CompletionContext): ast.AssemblyComponentConfiguration | undefined {
+        return this.findContainingTextBlockNode(context, ast.isAssemblyComponentConfiguration);
+    }
+
+    protected isSubInstanceTypePosition(context: CompletionContext): boolean {
+        const linePrefix = this.getLinePrefix(context);
+        return /^\s*(?:[_a-zA-Z]\w*|\{[_a-zA-Z]\w*\}\w*)(?:[_a-zA-Z0-9{}]*|\{[_a-zA-Z]\w*\}\w*)*\s*\+=\s*(?:[_a-zA-Z]\w*|\{[_a-zA-Z]\w*\}\w*)(?:[_a-zA-Z0-9{}]*|\{[_a-zA-Z]\w*\}\w*)*\s*:\s*[\w.]*$/.test(linePrefix);
+    }
+
+    protected isModelImplementationTypePosition(context: CompletionContext): boolean {
+        const linePrefix = this.getLinePrefix(context);
+        return /^\s*(?:[_a-zA-Z]\w*|\{[_a-zA-Z]\w*\}\w*)(?:[_a-zA-Z0-9{}]*|\{[_a-zA-Z]\w*\}\w*)*\s*:\s*[\w.]*$/.test(linePrefix)
+            && !linePrefix.includes('+=');
+    }
+
+    protected getExpectedSubInstanceType(context: CompletionContext): ast.ReferenceType | undefined {
+        const subInstance = this.getRecoveryContainerOfType(context, ast.isSubInstance);
+        const parentModel = subInstance ? AstUtils.getContainerOfType(subInstance, ast.isModelInstance) : undefined;
+        const parentComponent = parentModel && ast.isComponent(parentModel.implementation?.ref)
+            ? parentModel.implementation.ref
+            : undefined;
+        const container = subInstance && parentComponent
+            ? this.l2PathResolver.getSubInstanceContainerForCompletion(subInstance, parentComponent)
+            : undefined;
+        return ast.isReferenceType(container?.type?.ref) ? container.type.ref : undefined;
+    }
+
+    protected getReferenceCandidateDescriptions(
+        context: CompletionContext,
+        type: string | { readonly $type: string },
+        property: string,
+    ): AstNodeDescription[] {
+        const container = this.getRecoveryAstNode(context);
+        const refInfo: ReferenceInfo = {
+            reference: { $refText: '', ref: undefined },
+            container: {
+                $container: container,
+                $type: typeof type === 'string' ? type : type.$type,
+            },
+            property,
+        };
+        return [...this.getReferenceCandidates(refInfo, context)];
     }
 }

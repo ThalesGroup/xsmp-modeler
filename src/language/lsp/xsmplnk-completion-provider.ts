@@ -6,8 +6,22 @@ import type { XsmplnkServices } from '../xsmplnk-module.js';
 import { XsmpCompletionProviderBase } from './xsmp-completion-provider-base.js';
 
 export class XsmplnkCompletionProvider extends XsmpCompletionProviderBase {
+    protected readonly snippetOnlyKeywords = new Set([
+        'link',
+        'event',
+        'field',
+        'interface',
+    ]);
+
     constructor(services: XsmplnkServices) {
         super(services);
+    }
+
+    protected override completionForKeyword(context: CompletionContext, keyword: GrammarAST.Keyword, acceptor: CompletionAcceptor) {
+        if (this.snippetOnlyKeywords.has(keyword.value)) {
+            return;
+        }
+        return super.completionForKeyword(context, keyword, acceptor);
     }
 
     protected override createKeywordSnippets(context: CompletionContext, keyword: GrammarAST.Keyword, acceptor: CompletionAcceptor): void {
@@ -21,15 +35,6 @@ export class XsmplnkCompletionProvider extends XsmpCompletionProviderBase {
                 ));
                 break;
             }
-            case 'event':
-                acceptor(context, this.createSnippetItem('event link', 'event link ${1:owner} -> ${2:client}', 'Event Link'));
-                break;
-            case 'field':
-                acceptor(context, this.createSnippetItem('field link', 'field link ${1:owner} -> ${2:client}', 'Field Link'));
-                break;
-            case 'interface':
-                acceptor(context, this.createSnippetItem('interface link', 'interface link ${1:sourcePath} -> ${2:client}${3::${4:backReference}}', 'Interface Link'));
-                break;
         }
     }
 
@@ -41,7 +46,14 @@ export class XsmplnkCompletionProvider extends XsmpCompletionProviderBase {
         const linkBase = this.getRecoveryContainerOfType(context, ast.isLinkBase);
         const componentLinkBase = this.getRecoveryContainerOfType(context, ast.isComponentLinkBase);
 
-        if (this.isAtStatementStart(context) && componentLinkBase) {
+        if (this.isAtStatementPrefix(context) && !linkBase && !componentLinkBase) {
+            const assemblies = this.getCrossReferenceNames(context, ast.LinkBase, ast.LinkBase.assembly);
+            acceptor(context, this.createSnippetItem(
+                'Link Base',
+                `link ${this.createPlaceholder(1, 'Name')}${assemblies.length > 0 ? ` for ${this.createChoicePlaceholder(2, assemblies, 'Assembly')}` : ''}\n$0`,
+                'Link Base Definition'
+            ));
+        } else if (this.isAtStatementPrefix(context) && componentLinkBase) {
             acceptor(context, this.createSnippetItem(
                 'Component Link Base',
                 `${this.createPlaceholder(1, 'path')}\n{\n\t$0\n}`,
@@ -50,7 +62,7 @@ export class XsmplnkCompletionProvider extends XsmpCompletionProviderBase {
             acceptor(context, this.createSnippetItem('Event Link', 'event link ${1:owner} -> ${2:client}', 'Event Link'));
             acceptor(context, this.createSnippetItem('Field Link', 'field link ${1:owner} -> ${2:client}', 'Field Link'));
             acceptor(context, this.createSnippetItem('Interface Link', 'interface link ${1:sourcePath} -> ${2:client}${3::${4:backReference}}', 'Interface Link'));
-        } else if (this.isAtStatementStart(context) && linkBase) {
+        } else if (this.isAtStatementPrefix(context) && linkBase) {
             acceptor(context, this.createSnippetItem(
                 'Root Component Link Base',
                 '/\n{\n\t$0\n}',
@@ -78,7 +90,7 @@ export class XsmplnkCompletionProvider extends XsmpCompletionProviderBase {
     }
 
     protected addComponentLinkBaseCompletions(context: CompletionContext, acceptor: CompletionAcceptor): void {
-        if (!this.isAtStatementStart(context)) {
+        if (!this.isAtStatementPrefix(context)) {
             return;
         }
         const componentLinkBase = this.getRecoveryContainerOfType(context, ast.isComponentLinkBase);

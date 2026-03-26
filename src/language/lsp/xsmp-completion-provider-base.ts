@@ -56,18 +56,44 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
     override async getCompletion(document: LangiumDocument, params: CompletionParams, cancelToken?: CancellationToken) {
         const completion = await super.getCompletion(document, params, cancelToken);
         const items = completion?.items ?? [];
-        const context = this.createStandaloneContext(document, params);
-        const acceptor: CompletionAcceptor = (completionContext, value) => {
-            const completionItem = this.fillCompletionItem(completionContext, value);
-            if (completionItem) {
-                items.push(completionItem);
+        const context = items.length === 0
+            ? this.createFallbackStandaloneContext(document, params)
+            : this.createStandaloneContext(document, params);
+        if (context) {
+            const acceptor: CompletionAcceptor = (completionContext, value) => {
+                const completionItem = this.fillCompletionItem(completionContext, value);
+                if (completionItem) {
+                    items.push(completionItem);
+                }
+            };
+            if (items.length === 0) {
+                this.addFallbackStandaloneCompletions(context, acceptor);
+            } else {
+                this.addStandaloneCompletions(context, acceptor);
             }
-        };
-        this.addStandaloneCompletions(context, acceptor);
-        return CompletionList.create(this.deduplicateItems(items), true);
+        }
+        const filterContext = this.createFallbackStandaloneContext(document, params);
+        return CompletionList.create(this.filterCompletionItems(filterContext, this.deduplicateItems(items)), true);
     }
 
-    protected createStandaloneContext(document: LangiumDocument, params: CompletionParams): CompletionContext {
+    protected createStandaloneContext(document: LangiumDocument, params: CompletionParams): CompletionContext | undefined {
+        const offset = document.textDocument.offsetAt(params.position);
+        if ([...this.buildContexts(document, params.position)].length > 0) {
+            return undefined;
+        }
+        return {
+            document,
+            textDocument: document.textDocument,
+            features: [],
+            offset,
+            position: params.position,
+            tokenOffset: offset,
+            tokenEndOffset: offset,
+            node: document.parseResult.value,
+        };
+    }
+
+    protected createFallbackStandaloneContext(document: LangiumDocument, params: CompletionParams): CompletionContext {
         const offset = document.textDocument.offsetAt(params.position);
         const context = [...this.buildContexts(document, params.position)].at(-1);
         if (context) {
@@ -109,6 +135,7 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
             documentation,
             tags: this.getCompletionTags(nodeDescription),
             detail: nodeDescription.type,
+            filterText: nodeDescription.name,
             sortText: this.createSortText('1000', nodeDescription.name),
         };
     }
@@ -181,6 +208,7 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
             documentation: this.getKeywordDocumentation(keyword),
             kind: this.getKeywordCompletionItemKind(keyword),
             detail: 'Keyword',
+            filterText: keyword.value,
             sortText: this.createSortText('4000', keyword.value),
         });
         this.createKeywordSnippets(context, keyword, acceptor);
@@ -206,6 +234,14 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
         // implemented by subclasses
     }
 
+    protected addFallbackStandaloneCompletions(context: CompletionContext, acceptor: CompletionAcceptor): void {
+        this.addStandaloneCompletions(context, acceptor);
+    }
+
+    protected filterCompletionItems(_context: CompletionContext, items: CompletionItem[]): CompletionItem[] {
+        return items;
+    }
+
     protected createSnippetItem(label: string, insertText: string, detail: string, documentation?: MarkupContent | string, sortText = '3000'): CompletionValueItem {
         return {
             label,
@@ -214,6 +250,7 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
             documentation,
             kind: CompletionItemKind.Snippet,
             detail,
+            filterText: label,
             sortText: this.createSortText(sortText, label),
         };
     }
@@ -229,6 +266,7 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
             documentation,
             kind: CompletionItemKind.Value,
             detail,
+            filterText: label,
             sortText: this.createSortText('2000', label),
             insertTextFormat: this.isSnippetInsertText(insertText) ? InsertTextFormat.Snippet : undefined,
         };
@@ -241,6 +279,7 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
             documentation,
             kind: CompletionItemKind.Value,
             detail,
+            filterText: label,
             sortText: this.createSortText('2000', label),
             insertTextFormat: this.isSnippetInsertText(insertText) ? InsertTextFormat.Snippet : undefined,
         };
@@ -260,6 +299,7 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
             documentation: this.getReferenceDocumentation(nodeDescription),
             tags: this.getCompletionTags(nodeDescription),
             detail,
+            filterText: nodeDescription.name,
             sortText: this.createSortText('1000', nodeDescription.name),
         };
     }
@@ -342,6 +382,12 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
         return this.findContainingNode(context, predicate) ?? AstUtils.getContainerOfType(this.getRecoveryAstNode(context), predicate);
     }
 
+    protected getRecoveryBlockContainerOfType<T extends AstNode>(context: CompletionContext, predicate: (node: AstNode) => node is T): T | undefined {
+        return this.findContainingNode(context, predicate)
+            ?? this.findContainingTextBlockNode(context, predicate)
+            ?? AstUtils.getContainerOfType(this.getRecoveryAstNode(context), predicate);
+    }
+
     protected findContainingNode<T extends AstNode>(context: CompletionContext, predicate: (node: AstNode) => node is T): T | undefined {
         const root = context.document.parseResult.value;
         let bestNode: T | undefined;
@@ -361,8 +407,170 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
         return bestNode;
     }
 
+    protected findContainingTextBlockNode<T extends AstNode>(context: CompletionContext, predicate: (node: AstNode) => node is T): T | undefined {
+        const root = context.document.parseResult.value;
+        const text = context.textDocument.getText();
+        let bestNode: T | undefined;
+        let bestSpan = Number.POSITIVE_INFINITY;
+        for (const node of AstUtils.streamAst(root).concat([root])) {
+            if (!predicate(node) || !node.$cstNode) {
+                continue;
+            }
+            const openBrace = this.findNodeBodyOpenBrace(text, node.$cstNode.offset);
+            if (openBrace < 0 || openBrace > context.offset) {
+                continue;
+            }
+            const closeBrace = this.findMatchingClosingBrace(text, openBrace);
+            if (closeBrace < 0 || context.offset > closeBrace) {
+                continue;
+            }
+            const span = closeBrace - openBrace;
+            if (span < bestSpan) {
+                bestSpan = span;
+                bestNode = node;
+            }
+        }
+        return bestNode;
+    }
+
+    protected findNodeBodyOpenBrace(text: string, start: number): number {
+        let inString = false;
+        let inLineComment = false;
+        let inBlockComment = false;
+        for (let index = start; index < text.length; index++) {
+            const char = text[index];
+            const next = text[index + 1];
+            if (inLineComment) {
+                if (char === '\n') {
+                    inLineComment = false;
+                }
+                continue;
+            }
+            if (inBlockComment) {
+                if (char === '*' && next === '/') {
+                    inBlockComment = false;
+                    index++;
+                }
+                continue;
+            }
+            if (inString) {
+                if (char === '\\') {
+                    index++;
+                } else if (char === '"') {
+                    inString = false;
+                }
+                continue;
+            }
+            if (char === '/' && next === '/') {
+                inLineComment = true;
+                index++;
+                continue;
+            }
+            if (char === '/' && next === '*') {
+                inBlockComment = true;
+                index++;
+                continue;
+            }
+            if (char === '"') {
+                inString = true;
+                continue;
+            }
+            const templatePlaceholderEnd = this.findTemplatePlaceholderEnd(text, index);
+            if (templatePlaceholderEnd >= 0) {
+                index = templatePlaceholderEnd;
+                continue;
+            }
+            if (char === '{') {
+                return index;
+            }
+            if (char === ';') {
+                return -1;
+            }
+        }
+        return -1;
+    }
+
+    protected findMatchingClosingBrace(text: string, openBrace: number): number {
+        let depth = 0;
+        let inString = false;
+        let inLineComment = false;
+        let inBlockComment = false;
+        for (let index = openBrace; index < text.length; index++) {
+            const char = text[index];
+            const next = text[index + 1];
+            if (inLineComment) {
+                if (char === '\n') {
+                    inLineComment = false;
+                }
+                continue;
+            }
+            if (inBlockComment) {
+                if (char === '*' && next === '/') {
+                    inBlockComment = false;
+                    index++;
+                }
+                continue;
+            }
+            if (inString) {
+                if (char === '\\') {
+                    index++;
+                } else if (char === '"') {
+                    inString = false;
+                }
+                continue;
+            }
+            if (char === '/' && next === '/') {
+                inLineComment = true;
+                index++;
+                continue;
+            }
+            if (char === '/' && next === '*') {
+                inBlockComment = true;
+                index++;
+                continue;
+            }
+            if (char === '"') {
+                inString = true;
+                continue;
+            }
+            const templatePlaceholderEnd = this.findTemplatePlaceholderEnd(text, index);
+            if (templatePlaceholderEnd >= 0) {
+                index = templatePlaceholderEnd;
+                continue;
+            }
+            if (char === '{') {
+                depth++;
+            } else if (char === '}') {
+                depth--;
+                if (depth === 0) {
+                    return index;
+                }
+            }
+        }
+        return -1;
+    }
+
+    protected findTemplatePlaceholderEnd(text: string, start: number): number {
+        if (text[start] !== '{') {
+            return -1;
+        }
+        let index = start + 1;
+        if (!/[_a-zA-Z]/.test(text[index] ?? '')) {
+            return -1;
+        }
+        index++;
+        while (/[\w]/.test(text[index] ?? '')) {
+            index++;
+        }
+        return text[index] === '}' ? index : -1;
+    }
+
     protected isAtStatementStart(context: CompletionContext): boolean {
         return this.getLinePrefix(context).trim().length === 0;
+    }
+
+    protected isAtStatementPrefix(context: CompletionContext): boolean {
+        return /^\s*[\w./{}]*$/.test(this.getLinePrefix(context));
     }
 
     protected isAfterEquals(context: CompletionContext): boolean {

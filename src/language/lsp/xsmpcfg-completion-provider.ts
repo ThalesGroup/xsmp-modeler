@@ -7,8 +7,20 @@ import * as XsmpUtils from '../utils/xsmp-utils.js';
 import { XsmpCompletionProviderBase } from './xsmp-completion-provider-base.js';
 
 export class XsmpcfgCompletionProvider extends XsmpCompletionProviderBase {
+    protected readonly snippetOnlyKeywords = new Set([
+        'configuration',
+        'include',
+    ]);
+
     constructor(services: XsmpcfgServices) {
         super(services);
+    }
+
+    protected override completionForKeyword(context: CompletionContext, keyword: GrammarAST.Keyword, acceptor: CompletionAcceptor) {
+        if (this.snippetOnlyKeywords.has(keyword.value)) {
+            return;
+        }
+        return super.completionForKeyword(context, keyword, acceptor);
     }
 
     protected override createKeywordSnippets(context: CompletionContext, keyword: GrammarAST.Keyword, acceptor: CompletionAcceptor): void {
@@ -16,16 +28,6 @@ export class XsmpcfgCompletionProvider extends XsmpCompletionProviderBase {
             case 'configuration':
                 acceptor(context, this.createKeywordSnippet(keyword, 'configuration ${1:Name}\n$0', 'Configuration Definition'));
                 break;
-            case 'include': {
-                const configurations = this.getCrossReferenceNames(context, ast.ConfigurationUsage, ast.ConfigurationUsage.configuration);
-                acceptor(context, this.createKeywordSnippet(
-                    keyword,
-                    `include ${this.createChoicePlaceholder(1, configurations, 'Configuration')}${this.createPlaceholder(2, ' at path')}`,
-                    'Configuration Include',
-                    'include'
-                ));
-                break;
-            }
         }
     }
 
@@ -69,7 +71,7 @@ export class XsmpcfgCompletionProvider extends XsmpCompletionProviderBase {
     }
 
     protected addStatementSnippets(context: CompletionContext, acceptor: CompletionAcceptor): void {
-        if (!this.isAtStatementStart(context)) {
+        if (!this.isAtStatementPrefix(context)) {
             return;
         }
 
@@ -77,6 +79,15 @@ export class XsmpcfgCompletionProvider extends XsmpCompletionProviderBase {
         const componentConfiguration = this.getRecoveryContainerOfType(context, ast.isComponentConfiguration);
         const components = this.getCrossReferenceNames(context, ast.ComponentConfiguration, ast.ComponentConfiguration.component);
         const configurations = this.getCrossReferenceNames(context, ast.ConfigurationUsage, ast.ConfigurationUsage.configuration);
+
+        if (!configuration && !componentConfiguration) {
+            acceptor(context, this.createSnippetItem(
+                'Configuration',
+                'configuration ${1:Name}\n$0',
+                'Configuration Definition'
+            ));
+            return;
+        }
 
         if (componentConfiguration) {
             acceptor(context, this.createSnippetItem(
@@ -107,8 +118,7 @@ export class XsmpcfgCompletionProvider extends XsmpCompletionProviderBase {
     }
 
     protected addConfigurableFieldCompletions(context: CompletionContext, acceptor: CompletionAcceptor): void {
-        const linePrefix = this.getLinePrefix(context);
-        if (!this.isAtStatementStart(context) && !/^\s*[\w./{}]*$/.test(linePrefix)) {
+        if (!this.isAtStatementPrefix(context)) {
             return;
         }
         const configuration = this.getRecoveryContainerOfType(context, ast.isComponentConfiguration);
@@ -136,7 +146,7 @@ export class XsmpcfgCompletionProvider extends XsmpCompletionProviderBase {
     }
 
     protected addNestedComponentConfigurationCompletions(context: CompletionContext, acceptor: CompletionAcceptor): void {
-        if (!this.isAtStatementStart(context)) {
+        if (!this.isAtStatementPrefix(context)) {
             return;
         }
         const configuration = this.getRecoveryContainerOfType(context, ast.isComponentConfiguration);

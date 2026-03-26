@@ -6,44 +6,33 @@ import type { XsmpsedServices } from '../xsmpsed-module.js';
 import { XsmpCompletionProviderBase } from './xsmp-completion-provider-base.js';
 
 export class XsmpsedCompletionProvider extends XsmpCompletionProviderBase {
+    protected readonly snippetOnlyKeywords = new Set([
+        'schedule',
+        'task',
+        'event',
+        'call',
+        'property',
+        'transfer',
+        'trig',
+        'execute',
+        'emit',
+    ]);
+
     constructor(services: XsmpsedServices) {
         super(services);
+    }
+
+    protected override completionForKeyword(context: CompletionContext, keyword: GrammarAST.Keyword, acceptor: CompletionAcceptor) {
+        if (this.snippetOnlyKeywords.has(keyword.value)) {
+            return;
+        }
+        return super.completionForKeyword(context, keyword, acceptor);
     }
 
     protected override createKeywordSnippets(context: CompletionContext, keyword: GrammarAST.Keyword, acceptor: CompletionAcceptor): void {
         switch (keyword.value) {
             case 'schedule':
                 acceptor(context, this.createKeywordSnippet(keyword, 'schedule ${1:Name}\n$0', 'Schedule Definition'));
-                break;
-            case 'task': {
-                const components = this.getCrossReferenceNames(context, ast.Task, ast.Task.component);
-                acceptor(context, this.createKeywordSnippet(
-                    keyword,
-                    `task ${this.createPlaceholder(1, 'Name')}${components.length > 0 ? ` on ${this.createChoicePlaceholder(2, components, 'demo.Component')}` : ''}\n{\n\t$0\n}`,
-                    'Task Definition'
-                ));
-                break;
-            }
-            case 'event':
-                this.addEventSnippets(context, acceptor);
-                break;
-            case 'call':
-                acceptor(context, this.createKeywordSnippet(keyword, 'call ${1:operation}($0)', 'Operation Call'));
-                break;
-            case 'property':
-                acceptor(context, this.createKeywordSnippet(keyword, 'property ${1:path} = ${2:value}', 'Property Value'));
-                break;
-            case 'transfer':
-                acceptor(context, this.createKeywordSnippet(keyword, 'transfer ${1:output} -> ${2:input}', 'Field Transfer'));
-                break;
-            case 'trig':
-                acceptor(context, this.createKeywordSnippet(keyword, 'trig ${1:path}', 'Entry Point Trigger'));
-                break;
-            case 'execute':
-                acceptor(context, this.createKeywordSnippet(keyword, 'execute ${1:Task} at ${2:path}', 'Execute Task'));
-                break;
-            case 'emit':
-                acceptor(context, this.createKeywordSnippet(keyword, 'emit "${1:GlobalEvent}"', 'Emit Global Event'));
                 break;
         }
     }
@@ -113,11 +102,16 @@ export class XsmpsedCompletionProvider extends XsmpCompletionProviderBase {
     }
 
     protected addStatementSnippets(context: CompletionContext, acceptor: CompletionAcceptor): void {
-        if (!this.isAtStatementStart(context)) {
+        if (!this.isAtStatementPrefix(context)) {
             return;
         }
         const schedule = this.getRecoveryContainerOfType(context, ast.isSchedule);
         const task = this.getRecoveryContainerOfType(context, ast.isTask);
+
+        if (!schedule && !task) {
+            acceptor(context, this.createSnippetItem('Schedule', 'schedule ${1:Name}\n$0', 'Schedule Definition'));
+            return;
+        }
 
         if (task) {
             acceptor(context, this.createSnippetItem('Operation Call', 'call ${1:operation}($0)', 'Operation Call'));
@@ -146,7 +140,7 @@ export class XsmpsedCompletionProvider extends XsmpCompletionProviderBase {
     }
 
     protected addTaskStatementCompletions(context: CompletionContext, acceptor: CompletionAcceptor): void {
-        if (!this.isAtStatementStart(context)) {
+        if (!this.isAtStatementPrefix(context)) {
             return;
         }
         const task = this.getRecoveryContainerOfType(context, ast.isTask);

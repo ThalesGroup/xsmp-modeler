@@ -99,6 +99,7 @@ describe('XSMP DSL completion providers', () => {
         const snippetItems = await getCompletionItems(services.xsmpcfg.lsp.CompletionProvider!, snippetDocument, snippetCursor.cursor);
         expect(labels(snippetItems)).toContain('Root Component Configuration');
         expect(labels(snippetItems)).toContain('Include Configuration');
+        expect(labels(snippetItems)).not.toContain('configuration');
 
         const fieldCursor = extractCursor(`configuration Demo
 /Root: demo.Root
@@ -163,6 +164,72 @@ Root: demo.Root
         expect(labels(snippetItems)).toContain('child += Child: demo.Child');
         expect(labels(snippetItems)).toContain('field link outValue -> child.inValue');
 
+        const prefixedCursor = extractCursor(`assembly Demo
+Root: demo.Root
+{
+    ch@@
+}
+`);
+        const { assemblyDocument: prefixedDocument } = await parseWorkspace({
+            assembly: prefixedCursor.text,
+        });
+        const prefixedItems = await getCompletionItems(services.xsmpasb.lsp.CompletionProvider!, prefixedDocument, prefixedCursor.cursor);
+        expect(labels(prefixedItems)).toContain('child += Child: demo.Child');
+
+        const lastPrefixedCursor = extractCursor(`assembly Demo
+Root: demo.Root
+{
+    child += Child: demo.Child
+
+    ch@@
+}
+`);
+        const { assemblyDocument: lastPrefixedDocument } = await parseWorkspace({
+            assembly: lastPrefixedCursor.text,
+        });
+        const lastPrefixedItems = await getCompletionItems(services.xsmpasb.lsp.CompletionProvider!, lastPrefixedDocument, lastPrefixedCursor.cursor);
+        expect(labels(lastPrefixedItems)).toContain('child += Child: demo.Child');
+
+        const templatedLastPrefixedCursor = extractCursor(`assembly <Lane = "Ops"> Demo
+Root{Lane}: demo.Root
+{
+    child += Child: demo.Child
+ch@@
+}
+`);
+        const { assemblyDocument: templatedLastPrefixedDocument } = await parseWorkspace({
+            assembly: templatedLastPrefixedCursor.text,
+        });
+        const templatedLastPrefixedItems = await getCompletionItems(
+            services.xsmpasb.lsp.CompletionProvider!,
+            templatedLastPrefixedDocument,
+            templatedLastPrefixedCursor.cursor
+        );
+        expect(labels(templatedLastPrefixedItems)).toContain('child += Child: demo.Child');
+
+        const outsideBlockCursor = extractCursor(`assembly <Lane = "Ops"> Demo
+Root{Lane}: demo.Root
+{
+    child += Child: demo.Child
+}
+
+@@
+`);
+        const { assemblyDocument: outsideBlockDocument } = await parseWorkspace({
+            assembly: outsideBlockCursor.text,
+        });
+        const outsideBlockItems = await getCompletionItems(
+            services.xsmpasb.lsp.CompletionProvider!,
+            outsideBlockDocument,
+            outsideBlockCursor.cursor
+        );
+        expect(labels(outsideBlockItems)).toContain('Configure Instance');
+        expect(labels(outsideBlockItems)).toContain('Root Model Instance');
+        expect(labels(outsideBlockItems)).not.toContain('assembly');
+        expect(labels(outsideBlockItems)).not.toContain('Sub Model Instance');
+        expect(labels(outsideBlockItems)).not.toContain('Field Link');
+        expect(labels(outsideBlockItems)).not.toContain('child += Child: demo.Child');
+
         const callCursor = extractCursor(`assembly Demo
 Root: demo.Root
 {
@@ -212,6 +279,57 @@ configure /
         expect(labels(configureItems)).toContain('call apply');
         expect(labels(configureItems)).not.toContain('Root Model Instance');
         expect(labels(configureItems)).not.toContain('Configure Instance');
+
+        const subInstanceTypeCursor = extractCursor(`assembly Demo
+Root: demo.Root
+{
+    child += Child: @@
+}
+`);
+        const { assemblyDocument: subInstanceTypeDocument } = await parseWorkspace({
+            assembly: subInstanceTypeCursor.text,
+        });
+        const subInstanceTypeItems = await getCompletionItems(services.xsmpasb.lsp.CompletionProvider!, subInstanceTypeDocument, subInstanceTypeCursor.cursor);
+        expect(labels(subInstanceTypeItems)).toContain('demo.Child');
+
+        const templatedSubInstanceTypeCursor = extractCursor(`assembly <Lane = "Ops"> Demo
+Root: demo.Root
+{
+    child += Logger{Lane}: @@
+}
+`);
+        const { assemblyDocument: templatedSubInstanceTypeDocument } = await parseWorkspace({
+            assembly: templatedSubInstanceTypeCursor.text,
+        });
+        const templatedSubInstanceTypeItems = await getCompletionItems(services.xsmpasb.lsp.CompletionProvider!, templatedSubInstanceTypeDocument, templatedSubInstanceTypeCursor.cursor);
+        expect(labels(templatedSubInstanceTypeItems)).toContain('demo.Child');
+
+        const rootTypeCursor = extractCursor(`assembly Demo
+Root: @@
+{
+}
+`);
+        const { assemblyDocument: rootTypeDocument } = await parseWorkspace({
+            assembly: rootTypeCursor.text,
+        });
+        const rootTypeItems = await getCompletionItems(services.xsmpasb.lsp.CompletionProvider!, rootTypeDocument, rootTypeCursor.cursor);
+        expect(labels(rootTypeItems)).toContain('demo.Root');
+        expect(labels(rootTypeItems)).not.toContain('Sub Model Instance');
+        expect(labels(rootTypeItems)).not.toContain('Field Link');
+        expect(labels(rootTypeItems)).not.toContain('Root Model Instance');
+
+        const templatedRootTypeCursor = extractCursor(`assembly <Lane = "Ops", BusMember = "avionics"> Demo
+Scenario{Lane}: @@
+{
+}
+`);
+        const { assemblyDocument: templatedRootTypeDocument } = await parseWorkspace({
+            assembly: templatedRootTypeCursor.text,
+        });
+        const templatedRootTypeItems = await getCompletionItems(services.xsmpasb.lsp.CompletionProvider!, templatedRootTypeDocument, templatedRootTypeCursor.cursor);
+        expect(labels(templatedRootTypeItems)).toContain('demo.Root');
+        expect(labels(templatedRootTypeItems)).not.toContain('Lane');
+        expect(labels(templatedRootTypeItems)).not.toContain('BusMember');
     });
 
     test('xsmplnk offers link snippets and typed reference completion', async () => {
@@ -224,6 +342,7 @@ configure /
         });
         const snippetItems = await getCompletionItems(services.xsmplnk.lsp.CompletionProvider!, snippetDocument, snippetCursor.cursor);
         expect(labels(snippetItems)).toContain('Root Component Link Base');
+        expect(labels(snippetItems)).not.toContain('link');
 
         const nestedCursor = extractCursor(`link Demo for DemoAsm
 /
@@ -273,6 +392,7 @@ configure /
         expect(labels(snippetItems)).toContain('Task');
         expect(labels(snippetItems)).toContain('Event Epoch');
         expect(labels(snippetItems)).toContain('Event Global Trigger');
+        expect(labels(snippetItems)).not.toContain('schedule');
 
         const callCursor = extractCursor(`schedule Demo
 task Main on demo.Root

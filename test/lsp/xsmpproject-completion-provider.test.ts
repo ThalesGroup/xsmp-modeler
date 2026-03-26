@@ -26,8 +26,8 @@ describe('Xsmpproject completion provider', () => {
         documents.push(rootDocument);
 
         const rootItems = await getCompletionItems(rootDocument, 0);
-        expect(labels(rootItems)).toContain('project');
         expect(labels(rootItems)).toContain('Project');
+        expect(labels(rootItems)).not.toContain('project');
         expect(findSnippetItem(rootItems, 'Project')?.insertText).toContain('source "');
 
         const projectText = `project "MissionDemo" using "ECSS_SMP_2025"

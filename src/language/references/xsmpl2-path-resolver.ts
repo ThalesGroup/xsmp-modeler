@@ -1240,6 +1240,10 @@ export class Xsmpl2PathResolver {
             .find((candidate): candidate is ast.Container => ast.isContainer(candidate) && candidate.name === containerName);
     }
 
+    getSubInstanceContainerForCompletion(subInstance: ast.SubInstance, component: ast.Component | undefined): ast.Container | undefined {
+        return this.getSubInstanceContainer(subInstance, component);
+    }
+
     protected getComponentMembers(component: ast.Component | undefined, kinds: readonly MemberKind[]): readonly ast.NamedElement[] {
         const result = new Map<string, ast.NamedElement>();
         this.collectComponentMembers(component, result, new Set<ast.Type>(), kinds);

@@ -27,16 +27,16 @@ describe('Xsmpcat completion provider', () => {
         let cursor = extractCursor('@@');
         document = await parse(cursor.text, { documentUri: 'memory:///demo-root.xsmpcat' });
         let items = await getCompletionItems(document, cursor.cursor);
-        expect(labels(items)).toContain('catalogue');
         expect(labels(items)).toContain('Catalogue');
+        expect(labels(items)).not.toContain('catalogue');
 
         cursor = extractCursor(`catalogue demo
 @@
 `);
         document = await parse(cursor.text, { documentUri: 'memory:///demo-catalogue.xsmpcat' });
         items = await getCompletionItems(document, cursor.cursor);
-        expect(labels(items)).toContain('namespace');
         expect(labels(items)).toContain('Namespace');
+        expect(labels(items)).not.toContain('namespace');
         expect(findSnippetItem(items, 'Model')?.insertText).toContain('/** @uuid ');
         expect(labels(items)).toContain('Model');
 
@@ -51,10 +51,10 @@ namespace demo
 `);
         document = await parse(cursor.text, { documentUri: 'memory:///demo-model.xsmpcat' });
         items = await getCompletionItems(document, cursor.cursor);
-        expect(labels(items)).toContain('field');
         expect(labels(items)).toContain('Field');
-        expect(labels(items)).toContain('reference');
         expect(labels(items)).toContain('Reference');
+        expect(labels(items)).not.toContain('field');
+        expect(labels(items)).not.toContain('reference');
 
     });
 
@@ -134,7 +134,7 @@ namespace Attribute
         document = await parse(snippetCursor.text, { documentUri: 'memory:///completion-snippet.xsmpcat' });
         items = await getCompletionItems(document, snippetCursor.cursor);
         const referenceSnippet = items.find(item =>
-            item.label === 'reference'
+            item.label === 'Reference'
             && item.kind === CompletionItemKind.Snippet
             && item.insertTextFormat === InsertTextFormat.Snippet
         );

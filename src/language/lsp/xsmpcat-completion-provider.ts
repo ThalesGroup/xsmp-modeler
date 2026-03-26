@@ -13,9 +13,46 @@ import { XsmpCompletionProviderBase } from './xsmp-completion-provider-base.js';
 export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
     private readonly floatRegex = /^(Smp\.)?Float(32|64)$/;
     private readonly intRegex = /^(Smp\.)?U?Int(8|16|32|64)$/;
+    private readonly snippetOnlyKeywords = new Set([
+        'catalogue',
+        'namespace',
+        'struct',
+        'class',
+        'exception',
+        'interface',
+        'model',
+        'service',
+        'array',
+        'using',
+        'integer',
+        'float',
+        'event',
+        'string',
+        'primitive',
+        'native',
+        'attribute',
+        'enum',
+        'constant',
+        'field',
+        'property',
+        'def',
+        'association',
+        'container',
+        'reference',
+        'entrypoint',
+        'eventsink',
+        'eventsource',
+    ]);
 
     constructor(services: XsmpcatServices) {
         super(services);
+    }
+
+    protected override completionForKeyword(context: CompletionContext, keyword: GrammarAST.Keyword, acceptor: CompletionAcceptor): MaybePromise<void> {
+        if (this.snippetOnlyKeywords.has(keyword.value)) {
+            return;
+        }
+        return super.completionForKeyword(context, keyword, acceptor);
     }
 
     protected isReferenceProperty(refInfo: ReferenceInfo, type: string | { readonly $type: string }, property: string): boolean {

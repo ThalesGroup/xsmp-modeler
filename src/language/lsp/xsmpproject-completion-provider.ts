@@ -8,10 +8,24 @@ import { SmpStandards, type ProjectManager } from '../workspace/project-manager.
 
 export class XsmpprojectCompletionProvider extends XsmpCompletionProviderBase {
     protected readonly projectManager: ProjectManager;
+    protected readonly snippetOnlyKeywords = new Set([
+        'project',
+        'profile',
+        'tool',
+        'dependency',
+        'source',
+    ]);
 
     constructor(services: XsmpprojectServices) {
         super(services);
         this.projectManager = services.shared.workspace.ProjectManager;
+    }
+
+    protected override completionForKeyword(context: CompletionContext, keyword: GrammarAST.Keyword, acceptor: CompletionAcceptor): MaybePromise<void> {
+        if (this.snippetOnlyKeywords.has(keyword.value)) {
+            return;
+        }
+        return super.completionForKeyword(context, keyword, acceptor);
     }
 
     protected isReferenceProperty(refInfo: ReferenceInfo, type: string | { readonly $type: string }, property: string): boolean {
