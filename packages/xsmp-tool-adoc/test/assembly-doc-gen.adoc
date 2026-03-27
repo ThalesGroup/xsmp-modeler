@@ -1,0 +1,142 @@
+= Demo Assembly
+
+++++
+Demo assembly covering configure blocks, statements and links.
+++++
+
+.DemoAssembly's information
+[%autowidth.stretch]
+|===
+.^h|Kind |Assembly
+.^h|Name |DemoAssembly
+.^h|Date |2026-03-27T08:10:00Z
+.^h|Creator |test-suite
+.^h|Version |1.0
+|===
+
+== Template Parameters
+
+.Template parameters
+[%autowidth.stretch]
+|===
+|Name |Type |Default
+
+|Lane
+|string
+|ops
+|===
+== Configure Blocks
+
+=== Configure child
+
+++++
+Applies local child defaults before startup.
+++++
+
+.Configure child's information
+[%autowidth.stretch]
+|===
+.^h|Path |child
+|===
+
+==== Statements
+
+.Statements
+[%autowidth.stretch]
+|===
+|Kind |Target |Details |Description
+
+|field
+|outValue
+|1
+|Child output seed.
+|property
+|state
+|2
+|Local property initialization.
+|call
+|reset
+|
+|Child reset call.
+|subscribe
+|tick
+|"CycleStart"
+|Child cycle subscription.
+|===
+
+== Root Model Instance
+
+=== Model Instance Root
+
+++++
+Root demo model instance.
+++++
+
+.Root's information
+[%autowidth.stretch]
+|===
+.^h|Name |Root
+.^h|Implementation |demo::Root
+|===
+
+==== Statements
+
+.Statements
+[%autowidth.stretch]
+|===
+|Kind |Target |Details |Description
+
+|field
+|countState
+|4
+|Initial state count.
+|property
+|count
+|3
+|Public property initialization.
+|call
+|apply
+|nextCount = 5, nextRatio = 1.5
+|Startup apply call.
+|subscribe
+|run
+|"MissionStart"
+|Root startup subscription.
+|===
+==== Links
+
+.Links
+[%autowidth.stretch]
+|===
+|Kind |Owner |Reference |Client |Back Reference |Description
+
+|field
+|outValue
+|
+|child.inValue
+|
+|Output field routing.
+|event
+|outbound
+|
+|child.inbound
+|
+|Event propagation.
+|interface
+|.
+|logger
+|child
+|backLogger
+|Logger publication.
+|===
+==== Model Instance Child{Lane}
+
+
+.Child{Lane}'s information
+[%autowidth.stretch]
+|===
+.^h|Name |Child{Lane}
+.^h|Container |child
+.^h|Implementation |demo::Child
+|===
+

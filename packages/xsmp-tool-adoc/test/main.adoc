@@ -2,6 +2,8 @@
 :toc:
 :pdf-themesdir: {docdir}
 
-= Catalogue document
+= XSMP document set
 
-include::Test-gen.adoc[]
+This AsciiDoc entry point is intentionally minimal.
+
+Generated documentation files are written to `adoc-gen/` next to the XSMP project root and can be included here as needed.

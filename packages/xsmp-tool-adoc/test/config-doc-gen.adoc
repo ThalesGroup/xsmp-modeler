@@ -1,0 +1,80 @@
+= Demo Configuration
+
+++++
+Root configuration for the demo system.
+++++
+
+.DemoConfig's information
+[%autowidth.stretch]
+|===
+.^h|Kind |Configuration
+.^h|Name |DemoConfig
+.^h|Date |2026-03-27T08:05:00Z
+.^h|Creator |test-suite
+.^h|Version |1.0
+|===
+
+== Component Configurations
+
+=== Component /root
+
+++++
+Root component configuration.
+++++
+
+.Component /root's information
+[%autowidth.stretch]
+|===
+.^h|Path |/root
+.^h|Type |demo::Root
+|===
+
+==== Includes
+
+.Includes
+[%autowidth.stretch]
+|===
+|Configuration |Path |Description
+
+|ChildPreset
+|child
+|Shared child calibration.
+|===
+==== Field Values
+
+.Field Values
+[%autowidth.stretch]
+|===
+|Field |Value |Description
+
+|state
+|{ nested = { count = 3 }, enabled = true, values = [1, 2] }
+|Complex structured state.
+|countState
+|4
+|Direct field override.
+|===
+==== Component child
+
+++++
+Nested child configuration.
+++++
+
+.Component child's information
+[%autowidth.stretch]
+|===
+.^h|Path |child
+.^h|Type |demo::Child
+|===
+
+===== Field Values
+
+.Field Values
+[%autowidth.stretch]
+|===
+|Field |Value |Description
+
+|outValue
+|7
+|Output seed.
+|===

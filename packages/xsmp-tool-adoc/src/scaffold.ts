@@ -12,9 +12,11 @@ export async function scaffoldAdocProject(context: XsmpContributionScaffoldConte
 :toc:
 :pdf-themesdir: {docdir}
 
-= Catalogue document
+= XSMP document set
 
-include::${context.projectIdentifier}-gen.adoc[]
+This AsciiDoc entry point is intentionally minimal.
+
+Generated documentation files are written to \`adoc-gen/\` next to the XSMP project root and can be included here as needed.
 `.trimStart());
 
     await context.writeFile(path.join(themesDir, 'default.yml'), `

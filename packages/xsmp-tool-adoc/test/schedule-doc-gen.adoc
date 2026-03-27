@@ -1,0 +1,137 @@
+= Demo Schedule
+
+++++
+Demo schedule exercising all supported activity kinds.
+++++
+
+.DemoSchedule's information
+[%autowidth.stretch]
+|===
+.^h|Kind |Schedule
+.^h|Name |DemoSchedule
+.^h|Date |2026-03-27T08:20:00Z
+.^h|Creator |test-suite
+.^h|Version |1.0
+.^h|Epoch |2025-01-01T00:00:00Z
+.^h|Mission Start |2025-01-01T00:00:00Z
+|===
+
+== Template Parameters
+
+.Template parameters
+[%autowidth.stretch]
+|===
+|Name |Type |Default
+
+|RootMember
+|string
+|child
+|===
+== Tasks
+
+=== Task Dispatch
+
+++++
+Root orchestration task.
+++++
+
+.Dispatch's information
+[%autowidth.stretch]
+|===
+.^h|Name |Dispatch
+.^h|Component |demo::Root
+|===
+
+==== Activities
+
+.Dispatch's activities
+[%autowidth.stretch]
+|===
+|Kind |Target |Details |Description
+
+|property
+|count
+|2
+|Property update.
+|call
+|apply
+|nextCount = 3, nextRatio = 1.5
+|Apply call.
+|transfer
+|outValue
+|to child.inValue
+|Data transfer.
+|trig
+|run
+|
+|Root trigger.
+|execute
+|ChildTick
+|child
+|Child task execution.
+|emit
+|"MissionReady"
+|async
+|Mission-ready emission.
+|===
+=== Task ChildTick
+
+++++
+Child execution task.
+++++
+
+.ChildTick's information
+[%autowidth.stretch]
+|===
+.^h|Name |ChildTick
+.^h|Component |demo::Child
+|===
+
+==== Activities
+
+.ChildTick's activities
+[%autowidth.stretch]
+|===
+|Kind |Target |Details |Description
+
+|trig
+|tick
+|
+|Child trigger.
+|===
+== Events
+
+.Events
+[%autowidth.stretch]
+|===
+|Task |Kind |Anchor |Delay |Cycle |Repeat |Description
+
+|Dispatch
+|mission event
+|mission PT15S
+|
+|PT0S
+|
+|Mission-relative start.
+|ChildTick
+|global eventtriggeredevent
+|on "MissionReady" using epoch
+|PT10S
+|PT1M
+|2
+|Event-driven child follow-up.
+|ChildTick
+|simulation event
+|simulation PT20S
+|
+|PT0S
+|
+|Simulation-time child pulse.
+|ChildTick
+|zulu event
+|zulu 2025-01-01T00:01:00Z
+|
+|PT0S
+|
+|Absolute child pulse.
+|===

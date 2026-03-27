@@ -1,0 +1,57 @@
+= Demo Link Base
+
+++++
+Demo link base for the root model wiring.
+++++
+
+.DemoLinks's information
+[%autowidth.stretch]
+|===
+.^h|Kind |Link Base
+.^h|Name |DemoLinks
+.^h|Date |2026-03-27T08:15:00Z
+.^h|Creator |test-suite
+.^h|Version |1.0
+.^h|Assembly |DemoAssembly
+|===
+
+== Component Link Blocks
+
+=== Component /
+
+++++
+Root link definitions.
+++++
+
+.Component /'s information
+[%autowidth.stretch]
+|===
+.^h|Path |/
+|===
+
+==== Links
+
+.Links
+[%autowidth.stretch]
+|===
+|Kind |Owner |Reference |Client |Back Reference |Description
+
+|field
+|outValue
+|
+|child.inValue
+|
+|Output field routing.
+|event
+|outbound
+|
+|child.inbound
+|
+|Event propagation.
+|interface
+|.
+|logger
+|child
+|backLogger
+|Logger publication.
+|===

@@ -8,6 +8,7 @@ Use `adoc` when you want:
 
 - generated AsciiDoc documentation alongside your XSMP project
 - documentation scaffolding created by the wizard
+- one generated AsciiDoc file per supported XSMP source document
 
 ## How to enable it
 
@@ -21,13 +22,27 @@ tool 'adoc'
 
 The tool contributes:
 
-- generation of AsciiDoc outputs
+- generation of AsciiDoc outputs for:
+  - `xsmpcat`
+  - `xsmpcfg`
+  - `xsmpasb`
+  - `xsmplnk`
+  - `xsmpsed`
 - wizard templates for a `doc/` folder and theme files
 
 Typical wizard-created files include:
 
 - `doc/<project-identifier>.adoc`
 - `doc/themes/default.yml`
+
+Generated outputs are written to `adoc-gen/` in the project root.
+
+Each source document produces one file named from the source file basename:
+
+- `mission_catalogue.xsmpcat` -> `adoc-gen/mission_catalogue-gen.adoc`
+- `mission_schedule.xsmpsed` -> `adoc-gen/mission_schedule-gen.adoc`
+
+The scaffolded `doc/<project-identifier>.adoc` file stays intentionally minimal and does not automatically include generated outputs. Add the `include::...[]` statements that fit your publishing flow.
 
 ## Typical project snippet
 
@@ -39,4 +54,4 @@ tool 'adoc'
 
 ## Expected result
 
-With `adoc` enabled, XSMP generation can produce user-facing documentation assets that fit into an AsciiDoc publishing flow.
+With `adoc` enabled, XSMP generation can produce user-facing documentation assets that fit into an AsciiDoc publishing flow, while leaving document aggregation under your control.
