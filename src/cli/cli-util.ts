@@ -25,6 +25,11 @@ export interface CliCommandOptions {
     workspaceRoot?: string;
 }
 
+export interface CliImportCommandOptions {
+    output?: string;
+    force?: boolean;
+}
+
 export interface CliProjectInput {
     readonly projectFile: string;
     readonly projectDir: string;
@@ -68,10 +73,15 @@ export function createConsoleIo(): CliIo {
     };
 }
 
-export async function loadCliProjectContext(inputPath: string, options: CliCommandOptions = {}): Promise<CliProjectContext> {
-    const input = await resolveCliProjectInput(inputPath, options.workspaceRoot);
+export async function createCliServices() {
     const services = createXsmpServices(NodeFileSystem);
     await services.shared.ContributionRegistry.ready;
+    return services;
+}
+
+export async function loadCliProjectContext(inputPath: string, options: CliCommandOptions = {}): Promise<CliProjectContext> {
+    const input = await resolveCliProjectInput(inputPath, options.workspaceRoot);
+    const services = await createCliServices();
 
     const folders = await discoverWorkspaceFolders(input.workspaceRoot, input.projectDir);
     await services.shared.workspace.WorkspaceManager.initializeWorkspace(folders);

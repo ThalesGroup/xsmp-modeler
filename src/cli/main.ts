@@ -1,13 +1,16 @@
 import { Cancellation } from 'langium';
 import { Command, CommanderError } from 'commander';
+import { SmpImportService } from '../contributions/tools/smp/import/index.js';
 import { xsmpVersion } from '../language/version.js';
 import {
     CliError,
     collectDiagnostics,
     collectMissingDependencyDiagnostics,
     createCliDiagnostic,
+    createCliServices,
     createConsoleIo,
     type CliCommandOptions,
+    type CliImportCommandOptions,
     type CliIo,
     hasErrors,
     loadCliProjectContext,
@@ -22,6 +25,8 @@ export async function runCli(argv: readonly string[] = process.argv, io: CliIo =
         exitCode = await validateCommand(inputPath, options, io);
     }, async (inputPath, options) => {
         exitCode = await generateCommand(inputPath, options, io);
+    }, async (inputPath, options) => {
+        exitCode = await importSmpCommand(inputPath, options, io);
     });
 
     try {
@@ -41,8 +46,9 @@ export async function runCli(argv: readonly string[] = process.argv, io: CliIo =
 }
 
 type CliAction = (inputPath: string, options: CliCommandOptions) => Promise<void>;
+type CliImportAction = (inputPath: string, options: CliImportCommandOptions) => Promise<void>;
 
-function createProgram(io: CliIo, onValidate: CliAction, onGenerate: CliAction): Command {
+function createProgram(io: CliIo, onValidate: CliAction, onGenerate: CliAction, onImportSmp: CliImportAction): Command {
     const program = new Command();
     program
         .name('xsmpproject-cli')
@@ -68,6 +74,14 @@ function createProgram(io: CliIo, onValidate: CliAction, onGenerate: CliAction):
         .option('-w, --workspace-root <dir>', 'workspace root to scan for xsmp.project dependencies')
         .description('validate the target XSMP project, then run its active tool/profile generators')
         .action(onGenerate);
+
+    program
+        .command('import-smp')
+        .argument('<path>', 'SMP XML file (.smpcat, .smpcfg, .smplnk, .smpasb, or .smpsed)')
+        .option('-o, --output <path>', 'output XSMP source path')
+        .option('-f, --force', 'overwrite the output file if it already exists')
+        .description('import SMP XML back into canonical XSMP source')
+        .action(onImportSmp);
 
     return program;
 }
@@ -95,6 +109,22 @@ async function generateCommand(inputPath: string, options: CliCommandOptions, io
 
     await context.services.shared.DocumentGenerator.generateProject(context.targetProject, Cancellation.CancellationToken.None);
     io.stdout(`Generated outputs for project "${context.targetProject.name}".\n`);
+    return 0;
+}
+
+async function importSmpCommand(inputPath: string, options: CliImportCommandOptions, io: CliIo): Promise<number> {
+    const services = await createCliServices();
+    await services.shared.workspace.WorkspaceManager.initializeWorkspace([]);
+    const importer = new SmpImportService(services.shared);
+    const result = await importer.importFile({
+        inputPath,
+        outputPath: options.output,
+        overwrite: options.force ?? false,
+    });
+    io.stdout(`Imported ${result.kind} to ${result.outputPath}\n`);
+    for (const warning of result.warnings) {
+        io.stderr(`warning ${warning}\n`);
+    }
     return 0;
 }
 

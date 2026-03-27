@@ -297,6 +297,11 @@
                 "title": "Generate All Projects"
             },
             {
+                "command": "xsmp.importSmp",
+                "category": "Xsmp",
+                "title": "Import SMP File"
+            },
+            {
                 "command": "xsmp.registerContributor",
                 "category": "Xsmp",
                 "title": "Register a contributor",
@@ -403,6 +408,11 @@
                     "command": "xsmp.newFile",
                     "group": "navigation@100",
                     "when": "resourceScheme == file && !explorerResourceIsFolder"
+                },
+                {
+                    "command": "xsmp.importSmp",
+                    "group": "navigation@101",
+                    "when": "resourceScheme == file && (resourceExtname == .smpcat || resourceExtname == .smpcfg || resourceExtname == .smplnk || resourceExtname == .smpasb || resourceExtname == .smpsed)"
                 }
             ]
         }
@@ -417,6 +427,7 @@
         "onCommand:xsmp.newSchedule",
         "onCommand:xsmp.generate",
         "onCommand:xsmp.generateAll",
+        "onCommand:xsmp.importSmp",
         "onLanguage:xsmpproject",
         "onLanguage:xsmpcat",
         "onLanguage:xsmpasb",

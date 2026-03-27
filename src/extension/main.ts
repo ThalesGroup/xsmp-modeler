@@ -5,7 +5,7 @@ import satisfies from 'semver/functions/satisfies.js';
 import { LanguageClient, TransportKind } from 'vscode-languageclient/node.js';
 import { builtInScheme } from 'xsmp';
 import { createProjectWizard, createXsmpStarterFileWizard } from 'xsmp/wizard';
-import { GenerateAllProjects, GenerateProject, GetServerFileContentRequest, RegisterContributions } from 'xsmp/lsp';
+import { GenerateAllProjects, GenerateProject, GetServerFileContentRequest, ImportSmpFile, RegisterContributions } from 'xsmp/lsp';
 import type { XsmpProjectGenerationReport } from 'xsmp/lsp';
 import type {
     XsmpContributionRegistrationReport,
@@ -14,6 +14,7 @@ import type {
 } from 'xsmp/contributions';
 import { xsmpExtensionApiVersion } from 'xsmp';
 import { registerEmbeddedDocumentation } from './embedded-documentation.js';
+import { getDefaultImportedXsmpPath } from '../contributions/tools/smp/import/index.js';
 
 let client: LanguageClient | undefined;
 let contributionOutputChannel: vscode.OutputChannel | undefined;
@@ -72,6 +73,51 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         vscode.commands.registerCommand('xsmp.generateAll', async () => {
             const report = await getClient().sendRequest(GenerateAllProjects);
             reportProjectGeneration(report, 'XSMP workspace generation completed.');
+        })
+    );
+    context.subscriptions.push(
+        vscode.commands.registerCommand('xsmp.importSmp', async (uri?: vscode.Uri) => {
+            const targetUri = await resolveImportSmpTarget(uri);
+            if (!targetUri) {
+                void vscode.window.showErrorMessage('Open or select an SMP XML file (.smpcat, .smpcfg, .smplnk, .smpasb, or .smpsed) before importing.');
+                return;
+            }
+
+            const outputUri = vscode.Uri.file(getDefaultImportedXsmpPath(targetUri.fsPath));
+            let overwrite = false;
+            if (await fileExists(outputUri)) {
+                const answer = await vscode.window.showWarningMessage(
+                    `The file '${path.basename(outputUri.fsPath)}' already exists. Overwrite it?`,
+                    { modal: true },
+                    'Overwrite',
+                );
+                if (answer !== 'Overwrite') {
+                    return;
+                }
+                overwrite = true;
+            }
+
+            try {
+                const result = await getClient().sendRequest(ImportSmpFile, {
+                    uri: targetUri.toString(),
+                    outputUri: outputUri.toString(),
+                    force: overwrite,
+                });
+                for (const warning of result.warnings) {
+                    logContributionMessage(`SMP import warning: ${warning}`);
+                }
+                const document = await vscode.workspace.openTextDocument(vscode.Uri.file(result.outputPath));
+                await vscode.window.showTextDocument(document, { preview: false });
+                if (result.warnings.length > 0) {
+                    void vscode.window.showWarningMessage(`Imported SMP file with ${result.warnings.length} warning(s). See "XSMP Contributions" for details.`);
+                } else {
+                    void vscode.window.showInformationMessage(`Imported SMP file to '${path.basename(result.outputPath)}'.`);
+                }
+            } catch (error) {
+                logContributionMessage(`Failed to import SMP XML from ${targetUri.toString()}.`);
+                logContributionError(error);
+                void vscode.window.showErrorMessage('SMP import failed. See "XSMP Contributions" for details.');
+            }
         })
     );
     context.subscriptions.push(
@@ -250,6 +296,30 @@ function shouldGenerateOnSave(document: vscode.TextDocument): boolean {
     }
 
     return vscode.workspace.getConfiguration('xsmp').get<boolean>('generateOnSave', true);
+}
+
+async function resolveImportSmpTarget(uri?: vscode.Uri): Promise<vscode.Uri | undefined> {
+    const candidate = uri ?? vscode.window.activeTextEditor?.document.uri;
+    if (!candidate || candidate.scheme !== 'file') {
+        return undefined;
+    }
+    if (!candidate.fsPath.endsWith('.smpcat')
+        && !candidate.fsPath.endsWith('.smpcfg')
+        && !candidate.fsPath.endsWith('.smplnk')
+        && !candidate.fsPath.endsWith('.smpasb')
+        && !candidate.fsPath.endsWith('.smpsed')) {
+        return undefined;
+    }
+    return candidate;
+}
+
+async function fileExists(uri: vscode.Uri): Promise<boolean> {
+    try {
+        await vscode.workspace.fs.stat(uri);
+        return true;
+    } catch {
+        return false;
+    }
 }
 
 function reportAutomaticProjectGeneration(report: XsmpProjectGenerationReport, document: vscode.TextDocument): void {

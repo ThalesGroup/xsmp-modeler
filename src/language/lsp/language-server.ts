@@ -1,5 +1,6 @@
 import { DefaultLanguageServer } from 'langium/lsp';
 import { RequestType, RequestType0 } from 'vscode-languageserver';
+import { SmpImportService, type SmpImportResult } from '../../contributions/tools/smp/import/index.js';
 import type {
     XsmpContributionKind,
     XsmpContributionRegistrationReport,
@@ -23,6 +24,7 @@ export const GetContributionWizardPrompts = new RequestType<XsmpProjectWizardPro
 export const ScaffoldProject = new RequestType<XsmpProjectScaffoldRequest, XsmpContributionScaffoldResult, void>('xsmp/scaffoldProject');
 export const GenerateProject = new RequestType<string | null, XsmpProjectGenerationReport, void>('xsmp/generateProject');
 export const GenerateAllProjects = new RequestType0<XsmpProjectGenerationReport, void>('xsmp/generateAllProjects');
+export const ImportSmpFile = new RequestType<{ uri: string; outputUri?: string | null; force?: boolean }, SmpImportResult, void>('xsmp/importSmpFile');
 
 export class XsmpLanguageServer extends DefaultLanguageServer {
 
@@ -72,6 +74,16 @@ export class XsmpLanguageServer extends DefaultLanguageServer {
             const projects = sharedServices.workspace.ProjectManager.getProjects().toArray()
                 .sort((left, right) => (left.name ?? '').localeCompare(right.name ?? ''));
             return await sharedServices.DocumentGenerator.generateValidatedProjects(projects, Cancellation.CancellationToken.None);
+        });
+
+        this.services.lsp.Connection?.onRequest(ImportSmpFile, async (request) => {
+            const sharedServices = this.services as XsmpSharedServices;
+            const importer = new SmpImportService(sharedServices);
+            return await importer.importFile({
+                inputPath: URI.parse(request.uri).fsPath,
+                outputPath: request.outputUri ? URI.parse(request.outputUri).fsPath : undefined,
+                overwrite: request.force ?? false,
+            });
         });
     }
 

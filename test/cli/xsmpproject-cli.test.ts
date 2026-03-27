@@ -21,6 +21,7 @@ describe('XSMP CLI', () => {
         expect(result.exitCode).toBe(0);
         expect(result.stdout).toContain('validate');
         expect(result.stdout).toContain('generate');
+        expect(result.stdout).toContain('import-smp');
     });
 
     test('validates a project directory successfully', async () => {
@@ -255,6 +256,96 @@ namespace app
         expect(result.exitCode).toBe(1);
         expect(result.stdout).toContain('1 errors, 0 warnings');
         expect(fs.existsSync(path.join(projectDir, 'smdl-gen'))).toBe(false);
+    });
+
+    test('imports an SMP catalogue next to the XML input', async () => {
+        const inputPath = path.join(tempDir, 'demo.smpcat');
+        fs.copyFileSync(path.join(__dirname, '..', 'tools', 'smp', 'test.smpcat'), inputPath);
+
+        const result = await runCliWithOutput(['import-smp', inputPath]);
+
+        expect(result.exitCode).toBe(0);
+        expect(result.stdout).toContain('Imported catalogue');
+        expect(fs.existsSync(path.join(tempDir, 'demo.xsmpcat'))).toBe(true);
+    });
+
+    test('imports an SMP configuration to an explicit output path', async () => {
+        const inputPath = path.join(tempDir, 'demo.smpcfg');
+        const outputPath = path.join(tempDir, 'generated', 'demo.xsmpcfg');
+        fs.copyFileSync(path.join(__dirname, '..', 'tools', 'smp', 'test.smpcfg'), inputPath);
+
+        const result = await runCliWithOutput(['import-smp', inputPath, '--output', outputPath]);
+
+        expect(result.exitCode).toBe(0);
+        expect(fs.existsSync(outputPath)).toBe(true);
+    });
+
+    test('imports an SMP link base next to the XML input', async () => {
+        const inputPath = path.join(tempDir, 'demo.smplnk');
+        fs.copyFileSync(path.join(__dirname, '..', 'tools', 'smp', 'test.smplnk'), inputPath);
+
+        const result = await runCliWithOutput(['import-smp', inputPath]);
+
+        expect(result.exitCode).toBe(0);
+        expect(result.stdout).toContain('Imported linkbase');
+        expect(fs.existsSync(path.join(tempDir, 'demo.xsmplnk'))).toBe(true);
+    });
+
+    test('imports an SMP assembly next to the XML input', async () => {
+        const inputPath = path.join(tempDir, 'demo.smpasb');
+        fs.copyFileSync(path.join(__dirname, '..', 'tools', 'smp', 'test.smpasb'), inputPath);
+
+        const result = await runCliWithOutput(['import-smp', inputPath]);
+
+        expect(result.exitCode).toBe(0);
+        expect(result.stdout).toContain('Imported assembly');
+        expect(fs.existsSync(path.join(tempDir, 'demo.xsmpasb'))).toBe(true);
+    });
+
+    test('imports an SMP schedule next to the XML input', async () => {
+        const inputPath = path.join(tempDir, 'demo.smpsed');
+        fs.copyFileSync(path.join(__dirname, '..', 'tools', 'smp', 'test.smpsed'), inputPath);
+
+        const result = await runCliWithOutput(['import-smp', inputPath]);
+
+        expect(result.exitCode).toBe(0);
+        expect(result.stdout).toContain('Imported schedule');
+        expect(fs.existsSync(path.join(tempDir, 'demo.xsmpsed'))).toBe(true);
+    });
+
+    test('refuses to overwrite imported output without --force', async () => {
+        const inputPath = path.join(tempDir, 'demo.smpcat');
+        const outputPath = path.join(tempDir, 'demo.xsmpcat');
+        fs.copyFileSync(path.join(__dirname, '..', 'tools', 'smp', 'test.smpcat'), inputPath);
+        fs.writeFileSync(outputPath, 'existing');
+
+        const result = await runCliWithOutput(['import-smp', inputPath]);
+
+        expect(result.exitCode).toBe(2);
+        expect(result.stderr).toContain('Refusing to overwrite existing file');
+        expect(fs.readFileSync(outputPath, 'utf-8')).toBe('existing');
+    });
+
+    test('overwrites imported output with --force', async () => {
+        const inputPath = path.join(tempDir, 'demo.smpcat');
+        const outputPath = path.join(tempDir, 'demo.xsmpcat');
+        fs.copyFileSync(path.join(__dirname, '..', 'tools', 'smp', 'test.smpcat'), inputPath);
+        fs.writeFileSync(outputPath, 'existing');
+
+        const result = await runCliWithOutput(['import-smp', inputPath, '--force']);
+
+        expect(result.exitCode).toBe(0);
+        expect(fs.readFileSync(outputPath, 'utf-8')).not.toBe('existing');
+    });
+
+    test('reports unsupported SMP XML kinds from the CLI', async () => {
+        const inputPath = path.join(tempDir, 'demo.smppkg');
+        fs.copyFileSync(path.join(__dirname, '..', 'tools', 'smp', 'test.smppkg'), inputPath);
+
+        const result = await runCliWithOutput(['import-smp', inputPath]);
+
+        expect(result.exitCode).toBe(2);
+        expect(result.stderr).toContain('Unsupported SMP XML root');
     });
 });
 
