@@ -1,0 +1,10 @@
+/**
+ * Recommended profile for projects targeting the [XSMP-SDK](https://github.com/ThalesGroup/xsmp-sdk).
+ *
+ * It configures the XSMP SDK-oriented project layout and generation workflow used to build and test SMP simulators with XSMP Modeler.
+ *
+ * Documentation:
+ * - [XSMP-SDK User Guide](https://thalesgroup.github.io/xsmp-sdk/)
+ * - [XSMP-SDK Repository](https://github.com/ThalesGroup/xsmp-sdk)
+ */
+profile 'xsmp-sdk'

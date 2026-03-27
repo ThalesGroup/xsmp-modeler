@@ -1,0 +1,12 @@
+{
+    "extends": "../../tsconfig.json",
+    "compilerOptions": {
+        "paths": {},
+        "rootDir": "src",
+        "outDir": "lib",
+        "tsBuildInfoFile": "./.tsbuildinfo/xsmp.src.tsbuildinfo"
+    },
+    "include": [
+        "src/**/*.ts"
+    ]
+}

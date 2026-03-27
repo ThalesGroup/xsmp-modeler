@@ -1,0 +1,47 @@
+{
+    "name": "xsmp-tas-mdk",
+    "displayName": "XSMP TAS-MDK",
+    "description": "TAS MDK profile for XSMP Modeler.",
+    "version": "1.97.0",
+    "publisher": "ydaveluy",
+    "author": "ydaveluy",
+    "homepage": "https://github.com/thalesgroup/xsmp-modeler",
+    "repository": "https://github.com/thalesgroup/xsmp-modeler.git",
+    "type": "module",
+    "private": true,
+    "license": "MIT",
+    "bugs": "https://github.com/thalesgroup/xsmp-modeler/issues",
+    "categories": [
+        "Programming Languages"
+    ],
+    "keywords": [
+        "XSMP",
+        "TAS-MDK",
+        "modeling"
+    ],
+    "engines": {
+        "vscode": "^1.82.0",
+        "node": ">=20.10.0"
+    },
+    "extensionDependencies": [
+        "ydaveluy.xsmp-modeler"
+    ],
+    "contributes": {
+        "xsmp": [
+            {
+                "descriptor": "./lib/tas-mdk.xsmpprofile",
+                "handler": "./lib/contributor.js",
+                "apiVersion": "^1.0.0",
+                "deprecatedAliases": [
+                    "org.eclipse.xsmp.profile.tas-mdk"
+                ]
+            }
+        ]
+    },
+    "files": [
+        "LICENSE",
+        "lib/**",
+        "package.json",
+        "README.md"
+    ]
+}

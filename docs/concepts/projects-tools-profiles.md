@@ -35,6 +35,22 @@ source 'smdl'
 
 All XSMP modeling files usually live in that directory.
 
+Source folders can also contain SMP XML source files with these extensions:
+
+- `.smpcat`
+- `.smpcfg`
+- `.smplnk`
+- `.smpasb`
+- `.smpsed`
+
+When such files are placed in a project source folder, XSMP Modeler imports them automatically into an in-memory XSMP representation so they can participate in navigation, validation, cross references, and generation just like regular XSMP source files.
+
+Important rules:
+
+- only SMP files inside declared project source folders are considered
+- SMP files under generated output folders such as `smdl-gen` are ignored
+- if both `name.smpcat` and `name.xsmpcat` exist in the same source folder, the real XSMP file takes precedence
+
 ## Dependencies
 
 `dependency '<project-name>'` links one project to another by project name.

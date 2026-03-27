@@ -1,0 +1,4 @@
+/**
+ * AsciiDoc tool
+ */
+tool 'adoc'

@@ -1,0 +1,15 @@
+{
+    "extends": "../../tsconfig.json",
+    "compilerOptions": {
+        "paths": {},
+        "rootDir": "src",
+        "outDir": "lib",
+        "tsBuildInfoFile": "./.tsbuildinfo/xsmp-profile-esa-cdk.src.tsbuildinfo"
+    },
+    "references": [
+        { "path": "../xsmp/tsconfig.src.json" }
+    ],
+    "include": [
+        "src/**/*.ts"
+    ]
+}

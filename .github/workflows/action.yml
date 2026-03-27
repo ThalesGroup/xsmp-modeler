@@ -24,18 +24,31 @@ jobs:
     - name: Use Node.js
       uses: actions/setup-node@v6
       with:
-        node-version: '20'
-    - name: Build
+        node-version: '20.10.0'
+    - name: Generate Langium sources
       shell: bash
       run: |
         npm ci
         npm run langium:generate:production
+        git diff --exit-code
+    - name: Lint
+      shell: bash
+      run: |
+        npm run lint
+    - name: Build
+      shell: bash
+      run: |
         npm run build
     - name: Test
       if: success() || failure()
       shell: bash
       run: |
         npm run coverage
+    - name: Package VS Code extension
+      shell: bash
+      run: |
+        npm run package -w xsmp-modeler -- --no-dependencies
+        npm run package:vscode -w @xsmp/profile-tas-mdk
     - name: SonarQube Scan
       uses: SonarSource/sonarqube-scan-action@v7.0.0
       env:
@@ -46,10 +59,11 @@ jobs:
         args: >
           -Dsonar.projectKey=ydaveluy_xsmp-modeler
           -Dsonar.organization=ydaveluy
-          -Dsonar.sources=src/ 
-          -Dsonar.exclusions=src/language/generated/*,out/**
+          -Dsonar.sources=packages/
+          -Dsonar.exclusions=**/generated/**,**/out/**,**/lib/**,**/.types/**
           -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
           -Dsonar.coverage.exclusions=**/*.test.*
-          -Dsonar.tests=test/
+          -Dsonar.tests=packages/
+          -Dsonar.test.inclusions=packages/*/test/**/*.test.ts
           -Dsonar.links.scm=https://github.com/ydaveluy/xsmp-modeler
           -Dsonar.links.issue=https://github.com/ydaveluy/xsmp-modeler/issues

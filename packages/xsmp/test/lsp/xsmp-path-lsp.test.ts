@@ -1,0 +1,403 @@
+import { afterEach, beforeAll, describe, expect, test } from 'vitest';
+import { clearDocuments, parseHelper } from 'langium/test';
+import { EmptyFileSystem, type LangiumDocument, URI } from 'langium';
+import type { CodeActionProvider, DefinitionProvider } from 'langium/lsp';
+import { CodeAction, CodeActionKind, MarkupContent, TextEdit, type LocationLink, type Range, type TextDocumentPositionParams } from 'vscode-languageserver';
+import type { CodeActionParams } from 'vscode-languageserver-protocol';
+import { createXsmpServices } from 'xsmp';
+import { Assembly, Catalogue, LinkBase, Project, Schedule } from 'xsmp/ast-partial';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+
+let services: ReturnType<typeof createXsmpServices>;
+let parseProject: ReturnType<typeof parseHelper<Project>>;
+let parseCatalogue: ReturnType<typeof parseHelper<Catalogue>>;
+let parseAssembly: ReturnType<typeof parseHelper<Assembly>>;
+let parseLinkBase: ReturnType<typeof parseHelper<LinkBase>>;
+let parseSchedule: ReturnType<typeof parseHelper<Schedule>>;
+const documents: LangiumDocument[] = [];
+const tempDirs: string[] = [];
+
+const assemblyCatalogueSource = `catalogue Demo
+
+namespace demo
+{
+    public model Child
+    {
+        /** child count */
+        field Smp.Int32 [[count]]
+    }
+
+    public model Root
+    {
+        container Child child = demo.Child
+    }
+}
+`;
+
+const linkBaseCatalogueSource = `catalogue Demo
+
+namespace demo
+{
+    public model Child
+    {
+        /** child input */
+        input field Smp.Int32 [[inValue]]
+        output field Smp.Int32 outValue
+    }
+
+    public model Root
+    {
+        output field Smp.Int32 outValue
+        container Child child = demo.Child
+    }
+}
+`;
+
+const scheduleCatalogueSource = `catalogue Demo
+
+namespace demo
+{
+    public model Child
+    {
+        /** child reset */
+        public def void [[reset]]()
+    }
+
+    public model Root
+    {
+        container Child child = demo.Child
+    }
+}
+`;
+
+beforeAll(async () => {
+    services = createXsmpServices(EmptyFileSystem);
+    parseProject = parseHelper<Project>(services.xsmpproject);
+    parseCatalogue = parseHelper<Catalogue>(services.xsmpcat);
+    const doParseAssembly = parseHelper<Assembly>(services.xsmpasb);
+    const doParseLinkBase = parseHelper<LinkBase>(services.xsmplnk);
+    const doParseSchedule = parseHelper<Schedule>(services.xsmpsed);
+    parseAssembly = (input, options) => doParseAssembly(input, { validation: true, ...options });
+    parseLinkBase = (input, options) => doParseLinkBase(input, { validation: true, ...options });
+    parseSchedule = (input, options) => doParseSchedule(input, { validation: true, ...options });
+
+    await services.shared.workspace.WorkspaceManager.initializeWorkspace([]);
+});
+
+afterEach(async () => {
+    if (documents.length > 0) {
+        await clearDocuments(services.shared, documents.splice(0));
+    }
+    while (tempDirs.length > 0) {
+        fs.rmSync(tempDirs.pop()!, { recursive: true, force: true });
+    }
+});
+
+describe('XSMP Path LSP', () => {
+    test('supports definition and hover on typed assembly paths', async () => {
+        const catalogue = extractRange(assemblyCatalogueSource);
+        const assemblyPath = extractCursor(`assembly Demo
+
+configure child
+{
+    co@@unt = 1i32
+}
+
+Root: demo.Root
+{
+    child += Child: demo.Child
+}
+`);
+
+        const { catalogueDocument, document } = await parseAssemblyWorkspace(catalogue.text, assemblyPath.text);
+        const locations = await getDefinitions(services.xsmpasb.lsp.DefinitionProvider, document, assemblyPath.cursor);
+
+        expectLocation(locations, catalogueDocument, catalogue.range);
+
+        const hover = await services.xsmpasb.lsp.HoverProvider?.getHoverContent(document, positionParams(document, assemblyPath.cursor));
+        const content = hover && MarkupContent.is(hover.contents) ? hover.contents.value : '';
+        expect(content).toMatch(/child count|count/i);
+    });
+
+    test('supports definition on typed link base paths and avoids false links without anchors', async () => {
+        const catalogue = extractRange(linkBaseCatalogueSource);
+        const linkBasePath = extractCursor(`link Demo for DemoAsm
+
+/
+{
+    field link outValue -> child.in@@Value
+}
+`);
+
+        const { catalogueDocument, document } = await parseLinkBaseWorkspace(catalogue.text, linkBasePath.text, `assembly DemoAsm
+
+Root: demo.Root
+{
+    child += Child: demo.Child
+}
+`);
+        const locations = await getDefinitions(services.xsmplnk.lsp.DefinitionProvider, document, linkBasePath.cursor);
+        expectLocation(locations, catalogueDocument, catalogue.range);
+
+        const untypedPath = extractCursor(`link Demo
+
+Loose
+{
+    field link out@@Value -> inValue
+}
+`);
+        const { document: untypedDocument } = await parseLinkBaseWorkspace(catalogue.text, untypedPath.text);
+        const untypedLocations = await getDefinitions(services.xsmplnk.lsp.DefinitionProvider, untypedDocument, untypedPath.cursor);
+        expect(untypedLocations).toHaveLength(0);
+    });
+
+    test('supports definition and hover on typed schedule paths', async () => {
+        const catalogue = extractRange(scheduleCatalogueSource);
+        const schedulePath = extractCursor(`schedule Demo
+
+task Main on demo.Root
+{
+    call child.re@@set()
+    execute Worker at child
+}
+
+task Worker on demo.Child
+{
+}
+`);
+
+        const { catalogueDocument, document } = await parseScheduleWorkspace(catalogue.text, schedulePath.text);
+        const locations = await getDefinitions(services.xsmpsed.lsp.DefinitionProvider, document, schedulePath.cursor);
+
+        expectLocation(locations, catalogueDocument, catalogue.range);
+
+        const hover = await services.xsmpsed.lsp.HoverProvider?.getHoverContent(document, positionParams(document, schedulePath.cursor));
+        const content = hover && MarkupContent.is(hover.contents) ? hover.contents.value : '';
+        expect(content).toMatch(/child reset|reset/i);
+    });
+
+    test('supports template parameter navigation and concretized definition on templated schedule paths', async () => {
+        const catalogue = extractRange(scheduleCatalogueSource);
+        const scheduleText = `schedule <Target = "child", Tail = "set"> Demo
+
+task Main on demo.Root
+{
+    call {Target}.re{Tail}()
+}
+`;
+
+        const parameterOffset = scheduleText.indexOf('Target = "child"');
+        const placeholderOffset = scheduleText.indexOf('{Target}') + 2;
+        const targetOffset = scheduleText.indexOf('re{Tail}') + 1;
+        expect(parameterOffset).toBeGreaterThanOrEqual(0);
+        expect(placeholderOffset).toBeGreaterThanOrEqual(0);
+        expect(targetOffset).toBeGreaterThanOrEqual(0);
+
+        const { catalogueDocument, document } = await parseScheduleWorkspace(catalogue.text, scheduleText);
+
+        const parameterLocations = await getDefinitions(services.xsmpsed.lsp.DefinitionProvider, document, placeholderOffset);
+        expectLocation(parameterLocations, document, [parameterOffset, parameterOffset + 'Target'.length]);
+
+        const targetLocations = await getDefinitions(services.xsmpsed.lsp.DefinitionProvider, document, targetOffset);
+        expectLocation(targetLocations, catalogueDocument, catalogue.range);
+    });
+
+    test('supports template parameter navigation inside templated instance names', async () => {
+        const catalogue = extractRange(assemblyCatalogueSource);
+        const assemblyText = `assembly <Index = 1, Suffix = "Tail"> Demo
+
+Root: demo.Root
+{
+    child += Unit{Index}_{Suffix}: demo.Child
+}
+`;
+
+        const indexDefinitionOffset = assemblyText.indexOf('Index = 1');
+        const indexPlaceholderOffset = assemblyText.indexOf('{Index}_') + 2;
+        const suffixDefinitionOffset = assemblyText.indexOf('Suffix = "Tail"');
+        const suffixPlaceholderOffset = assemblyText.indexOf('{Suffix}') + 2;
+        expect(indexDefinitionOffset).toBeGreaterThanOrEqual(0);
+        expect(indexPlaceholderOffset).toBeGreaterThanOrEqual(0);
+        expect(suffixDefinitionOffset).toBeGreaterThanOrEqual(0);
+        expect(suffixPlaceholderOffset).toBeGreaterThanOrEqual(0);
+
+        const { document } = await parseAssemblyWorkspace(catalogue.text, assemblyText);
+
+        const indexLocations = await getDefinitions(services.xsmpasb.lsp.DefinitionProvider, document, indexPlaceholderOffset);
+        expectLocation(indexLocations, document, [indexDefinitionOffset, indexDefinitionOffset + 'Index'.length]);
+
+        const suffixLocations = await getDefinitions(services.xsmpasb.lsp.DefinitionProvider, document, suffixPlaceholderOffset);
+        expectLocation(suffixLocations, document, [suffixDefinitionOffset, suffixDefinitionOffset + 'Suffix'.length]);
+    });
+
+    test('offers a quick fix to declare invalid assembly paths as unsafe', async () => {
+        const catalogue = extractRange(assemblyCatalogueSource);
+        const assemblyPath = extractCursor(`assembly Demo
+
+configure @@missing
+{
+    count = 1i32
+}
+
+Root: demo.Root
+{
+    child += Child: demo.Child
+}
+`);
+
+        const { document } = await parseAssemblyWorkspace(catalogue.text, assemblyPath.text);
+        expect(document.diagnostics?.some(diagnostic => diagnostic.message.includes('missing'))).toBe(true);
+
+        const actions = await getCodeActions(services.xsmpasb.lsp.CodeActionProvider, document);
+        expect(actions).toHaveLength(1);
+        expect(actions[0].title).toBe('Declare as `unsafe`.');
+        expect(actions[0].edit?.changes?.[document.textDocument.uri]).toEqual([
+            TextEdit.insert(document.textDocument.positionAt(assemblyPath.cursor), 'unsafe ')
+        ]);
+    });
+});
+
+async function parseAssemblyWorkspace(catalogueText: string, assemblyText: string): Promise<{
+    catalogueDocument: LangiumDocument<Catalogue>;
+    document: LangiumDocument<Assembly>;
+}> {
+    const { catalogueDocument, tempDir } = await parseProjectAndCatalogue(catalogueText);
+    const document = await parseAssembly(assemblyText, {
+        documentUri: URI.file(path.join(tempDir, 'src', 'demo.xsmpasb')).toString(),
+    });
+    documents.push(document);
+    expect(document.parseResult.parserErrors).toHaveLength(0);
+    return { catalogueDocument, document };
+}
+
+async function parseLinkBaseWorkspace(catalogueText: string, linkBaseText: string, assemblyText?: string): Promise<{
+    catalogueDocument: LangiumDocument<Catalogue>;
+    document: LangiumDocument<LinkBase>;
+}> {
+    const { catalogueDocument, tempDir } = await parseProjectAndCatalogue(catalogueText);
+    const assemblyDocument = assemblyText
+        ? await parseAssembly(assemblyText, {
+            documentUri: URI.file(path.join(tempDir, 'src', 'demo.xsmpasb')).toString(),
+        })
+        : undefined;
+    const document = await parseLinkBase(linkBaseText, {
+        documentUri: URI.file(path.join(tempDir, 'src', 'demo.xsmplnk')).toString(),
+    });
+    documents.push(...(assemblyDocument ? [assemblyDocument] : []), document);
+    expect(assemblyDocument?.parseResult.parserErrors ?? []).toHaveLength(0);
+    expect(document.parseResult.parserErrors).toHaveLength(0);
+    return { catalogueDocument, document };
+}
+
+async function parseScheduleWorkspace(catalogueText: string, scheduleText: string): Promise<{
+    catalogueDocument: LangiumDocument<Catalogue>;
+    document: LangiumDocument<Schedule>;
+}> {
+    const { catalogueDocument, tempDir } = await parseProjectAndCatalogue(catalogueText);
+    const document = await parseSchedule(scheduleText, {
+        documentUri: URI.file(path.join(tempDir, 'src', 'demo.xsmpsed')).toString(),
+    });
+    documents.push(document);
+    expect(document.parseResult.parserErrors).toHaveLength(0);
+    return { catalogueDocument, document };
+}
+
+async function parseProjectAndCatalogue(catalogueText: string): Promise<{
+    catalogueDocument: LangiumDocument<Catalogue>;
+    tempDir: string;
+}> {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-path-lsp-'));
+    tempDirs.push(tempDir);
+
+    const projectDocument = await parseProject(
+        `project "Demo" using "ECSS_SMP_2025"
+source "src"
+`,
+        { documentUri: URI.file(path.join(tempDir, 'xsmp.project')).toString() }
+    );
+    const catalogueDocument = await parseCatalogue(catalogueText, {
+        documentUri: URI.file(path.join(tempDir, 'src', 'demo.xsmpcat')).toString(),
+    });
+
+    documents.push(projectDocument, catalogueDocument);
+    expect(projectDocument.parseResult.parserErrors).toHaveLength(0);
+    expect(catalogueDocument.parseResult.parserErrors).toHaveLength(0);
+
+    return { catalogueDocument, tempDir };
+}
+
+async function getDefinitions(
+    provider: DefinitionProvider | undefined,
+    document: LangiumDocument,
+    offset: number,
+): Promise<LocationLink[]> {
+    return await provider?.getDefinition(document, positionParams(document, offset)) ?? [];
+}
+
+async function getCodeActions(
+    provider: CodeActionProvider | undefined,
+    document: LangiumDocument,
+): Promise<CodeAction[]> {
+    const diagnostics = document.diagnostics ?? [];
+    const params: CodeActionParams = {
+        textDocument: { uri: document.textDocument.uri },
+        range: diagnostics[0]?.range ?? {
+            start: document.textDocument.positionAt(0),
+            end: document.textDocument.positionAt(0),
+        },
+        context: {
+            diagnostics,
+            only: [CodeActionKind.QuickFix],
+        },
+    };
+    const actions = await provider?.getCodeActions(document, params) ?? [];
+    return actions.filter((action): action is CodeAction => CodeAction.is(action));
+}
+
+function positionParams(document: LangiumDocument, offset: number): TextDocumentPositionParams {
+    return {
+        textDocument: { uri: document.textDocument.uri },
+        position: document.textDocument.positionAt(offset),
+    };
+}
+
+function expectLocation(locations: LocationLink[], targetDocument: LangiumDocument, rangeOffsets: [number, number]): void {
+    expect(locations).toHaveLength(1);
+    expect(locations[0].targetUri).toBe(targetDocument.textDocument.uri);
+    expect(locations[0].targetSelectionRange).toEqual(toRange(targetDocument, rangeOffsets));
+}
+
+function toRange(document: LangiumDocument, offsets: [number, number]): Range {
+    return {
+        start: document.textDocument.positionAt(offsets[0]),
+        end: document.textDocument.positionAt(offsets[1]),
+    };
+}
+
+function extractRange(text: string): { range: [number, number]; text: string } {
+    const startMarker = '[[';
+    const endMarker = ']]';
+    const start = text.indexOf(startMarker);
+    const end = text.indexOf(endMarker);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const withoutStart = text.slice(0, start) + text.slice(start + startMarker.length);
+    const adjustedEnd = end - startMarker.length;
+    const cleaned = withoutStart.slice(0, adjustedEnd) + withoutStart.slice(adjustedEnd + endMarker.length);
+    return {
+        range: [start, adjustedEnd],
+        text: cleaned,
+    };
+}
+
+function extractCursor(text: string): { cursor: number; text: string } {
+    const marker = '@@';
+    const cursor = text.indexOf(marker);
+    expect(cursor).toBeGreaterThanOrEqual(0);
+    return {
+        cursor,
+        text: text.slice(0, cursor) + text.slice(cursor + marker.length),
+    };
+}

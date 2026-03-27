@@ -1,0 +1,92 @@
+{
+    "name": "xsmp",
+    "version": "1.97.0",
+    "description": "XSMP core language and runtime library.",
+    "type": "module",
+    "license": "MIT",
+    "files": [
+        "lib"
+    ],
+    "exports": {
+        ".": {
+            "types": "./lib/index.d.ts",
+            "import": "./lib/index.js"
+        },
+        "./ast": {
+            "types": "./lib/generated/ast.d.ts",
+            "import": "./lib/generated/ast.js"
+        },
+        "./ast-partial": {
+            "types": "./lib/generated/ast-partial.d.ts",
+            "import": "./lib/generated/ast-partial.js"
+        },
+        "./contributions": {
+            "types": "./lib/contributions/index.d.ts",
+            "import": "./lib/contributions/index.js"
+        },
+        "./grammar": {
+            "types": "./lib/generated/grammar.d.ts",
+            "import": "./lib/generated/grammar.js"
+        },
+        "./generator": {
+            "types": "./lib/generator/index.d.ts",
+            "import": "./lib/generator/index.js"
+        },
+        "./generator/cpp": {
+            "types": "./lib/generator/cpp/index.d.ts",
+            "import": "./lib/generator/cpp/index.js"
+        },
+        "./lsp": {
+            "types": "./lib/lsp/index.d.ts",
+            "import": "./lib/lsp/index.js"
+        },
+        "./references": {
+            "types": "./lib/references/index.d.ts",
+            "import": "./lib/references/index.js"
+        },
+        "./smp": {
+            "types": "./lib/smp/index.d.ts",
+            "import": "./lib/smp/index.js"
+        },
+        "./smp/*": {
+            "types": "./lib/smp/*.d.ts",
+            "import": "./lib/smp/*.js"
+        },
+        "./utils": {
+            "types": "./lib/utils/index.d.ts",
+            "import": "./lib/utils/index.js"
+        },
+        "./validation": {
+            "types": "./lib/validation/index.d.ts",
+            "import": "./lib/validation/index.js"
+        },
+        "./wizard": {
+            "types": "./lib/wizard/index.d.ts",
+            "import": "./lib/wizard/index.js"
+        },
+        "./wizard/templates": {
+            "types": "./lib/wizard/templates.d.ts",
+            "import": "./lib/wizard/templates.js"
+        },
+        "./workspace": {
+            "types": "./lib/workspace/index.d.ts",
+            "import": "./lib/workspace/index.js"
+        }
+    },
+    "scripts": {
+        "langium:generate": "shx rm -f src/generated/ast-partial.ts && langium generate && node ./scripts/generate-partial-ast.mjs",
+        "langium:generate:production": "shx rm -f src/generated/ast-partial.ts && langium generate --mode=production && node ./scripts/generate-partial-ast.mjs",
+        "build": "tsc -p tsconfig.src.json && npm run build:assets",
+        "build:assets": "node ../../scripts/package-assets.mjs xsmp-builtins",
+        "watch": "tsc --watch -p tsconfig.src.json",
+        "lint": "eslint src",
+        "test": "cd ../.. && npm run build && vitest run packages/xsmp/test --config vitest.config.ts"
+    },
+    "dependencies": {
+        "langium": "4.2.0",
+        "p-limit": "^7.3.0",
+        "semver": "^7.7.4",
+        "vscode-languageserver": "~9.0.1",
+        "xmlbuilder2": "^4.0.3"
+    }
+}

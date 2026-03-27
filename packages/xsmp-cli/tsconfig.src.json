@@ -1,0 +1,21 @@
+{
+    "extends": "../../tsconfig.json",
+    "compilerOptions": {
+        "paths": {},
+        "rootDir": "src",
+        "outDir": "lib",
+        "tsBuildInfoFile": "./.tsbuildinfo/xsmp-cli.src.tsbuildinfo"
+    },
+    "references": [
+        { "path": "../xsmp/tsconfig.src.json" },
+        { "path": "../xsmp-tool-smp/tsconfig.src.json" },
+        { "path": "../xsmp-tool-adoc/tsconfig.src.json" },
+        { "path": "../xsmp-tool-python/tsconfig.src.json" },
+        { "path": "../xsmp-profile-xsmp-sdk/tsconfig.src.json" },
+        { "path": "../xsmp-profile-esa-cdk/tsconfig.src.json" },
+        { "path": "../xsmp-profile-tas-mdk/tsconfig.src.json" }
+    ],
+    "include": [
+        "src/**/*.ts"
+    ]
+}

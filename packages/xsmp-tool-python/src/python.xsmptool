@@ -1,0 +1,10 @@
+/**
+ * Python bindings and test scaffolding for projects using the recommended [XSMP-SDK](https://github.com/ThalesGroup/xsmp-sdk) profile.
+ *
+ * This tool is designed to work with `profile 'xsmp-sdk'` and follows the XSMP SDK workflow for generated Python support and Python-based tests.
+ *
+ * Documentation:
+ * - [XSMP-SDK Quickstart](https://thalesgroup.github.io/xsmp-sdk/quickstart.html)
+ * - [XSMP-SDK Repository](https://github.com/ThalesGroup/xsmp-sdk)
+ */
+tool 'python'

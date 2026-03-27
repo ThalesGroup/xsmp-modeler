@@ -24,7 +24,7 @@ The published documentation covers:
 
 ## Sponsors
 
-<a href="https://cnes.fr"><img src="icons/logo_cnes.png" align="center" height="121" width="142" alt="Cnes"></a>
+<a href="https://cnes.fr"><img src="packages/xsmp-vscode/icons/logo_cnes.png" align="center" height="121" width="142" alt="Cnes"></a>
 
 ## License
 

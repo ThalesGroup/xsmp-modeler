@@ -1,42 +1,56 @@
 {
     "compilerOptions": {
-        "target": "ES2017",
-        "module": "Node16",
-        "lib": ["ESNext"],
+        "target": "ES2023",
+        "module": "NodeNext",
+        "moduleResolution": "NodeNext",
+        "lib": ["ES2023", "DOM"],
+        "declaration": true,
+        "declarationMap": true,
         "sourceMap": true,
-        "outDir": "out",
-        "tsBuildInfoFile": ".tsbuildinfo/extension.tsbuildinfo",
-        "baseUrl": ".",
-        "paths": {
-            "xsmp": ["src/index.ts"],
-            "xsmp/ast": ["src/ast/index.ts"],
-            "xsmp/ast-partial": ["src/ast-partial/index.ts"],
-            "xsmp/contributions": ["src/contributions/index.ts"],
-            "xsmp/grammar": ["src/grammar/index.ts"],
-            "xsmp/generator": ["src/generator/index.ts"],
-            "xsmp/generator/cpp": ["src/generator/cpp/index.ts"],
-            "xsmp/lsp": ["src/lsp/index.ts"],
-            "xsmp/references": ["src/references/index.ts"],
-            "xsmp/utils": ["src/utils/index.ts"],
-            "xsmp/validation": ["src/validation/index.ts"],
-            "xsmp/wizard": ["src/wizard/index.ts"],
-            "xsmp/workspace": ["src/workspace/index.ts"]
-        },
+        "composite": true,
         "strict": true,
         "noUnusedLocals": true,
         "noImplicitReturns": true,
         "noImplicitOverride": true,
-        "moduleResolution": "Node16",
         "esModuleInterop": true,
+        "resolveJsonModule": true,
         "skipLibCheck": true,
         "forceConsistentCasingInFileNames": true,
-        "noEmit": true
+        "moduleDetection": "force",
+        "baseUrl": ".",
+        "paths": {
+            "xsmp": ["packages/xsmp/src/index.ts"],
+            "xsmp/ast": ["packages/xsmp/src/generated/ast.ts"],
+            "xsmp/ast-partial": ["packages/xsmp/src/generated/ast-partial.ts"],
+            "xsmp/contributions": ["packages/xsmp/src/contributions/index.ts"],
+            "xsmp/grammar": ["packages/xsmp/src/generated/grammar.ts"],
+            "xsmp/generator": ["packages/xsmp/src/generator/index.ts"],
+            "xsmp/generator/cpp": ["packages/xsmp/src/generator/cpp/index.ts"],
+            "xsmp/lsp": ["packages/xsmp/src/lsp/index.ts"],
+            "xsmp/references": ["packages/xsmp/src/references/index.ts"],
+            "xsmp/smp": ["packages/xsmp/src/smp/index.ts"],
+            "xsmp/smp/*": ["packages/xsmp/src/smp/*.ts"],
+            "xsmp/utils": ["packages/xsmp/src/utils/index.ts"],
+            "xsmp/validation": ["packages/xsmp/src/validation/index.ts"],
+            "xsmp/wizard": ["packages/xsmp/src/wizard/index.ts"],
+            "xsmp/wizard/templates": ["packages/xsmp/src/wizard/templates.ts"],
+            "xsmp/workspace": ["packages/xsmp/src/workspace/index.ts"],
+            "@xsmp/cli": ["packages/xsmp-cli/src/index.ts"],
+            "@xsmp/tool-smp": ["packages/xsmp-tool-smp/src/index.ts"],
+            "@xsmp/tool-adoc": ["packages/xsmp-tool-adoc/src/index.ts"],
+            "@xsmp/tool-python": ["packages/xsmp-tool-python/src/index.ts"],
+            "@xsmp/profile-xsmp-sdk": ["packages/xsmp-profile-xsmp-sdk/src/index.ts"],
+            "@xsmp/profile-esa-cdk": ["packages/xsmp-profile-esa-cdk/src/index.ts"],
+            "@xsmp/profile-tas-mdk": ["packages/xsmp-profile-tas-mdk/src/index.ts"]
+        }
     },
     "include": [
-        "src/**/*.ts"
+        "**/src/**/*",
+        "**/test/**/*"
     ],
     "exclude": [
-        "out",
-        "node_modules"
+        "**/lib/**/*",
+        "**/out/**/*",
+        "**/node_modules/**/*"
     ]
 }

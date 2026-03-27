@@ -1,0 +1,24 @@
+{
+    "name": "@xsmp/tool-python",
+    "version": "1.97.0",
+    "type": "module",
+    "private": true,
+    "license": "MIT",
+    "exports": {
+        ".": {
+            "types": "./lib/index.d.ts",
+            "import": "./lib/index.js"
+        }
+    },
+    "scripts": {
+        "build": "tsc -p tsconfig.src.json && npm run build:assets",
+        "build:assets": "node ../../scripts/package-assets.mjs package",
+        "watch": "tsc --watch -p tsconfig.src.json",
+        "lint": "eslint src",
+        "test": "cd ../.. && npm run build && vitest run packages/xsmp-tool-python/test --config vitest.config.ts"
+    },
+    "dependencies": {
+        "langium": "4.2.0",
+        "xsmp": "1.97.0"
+    }
+}

@@ -1,0 +1,37 @@
+{
+    "projectName": "Xsmp",
+    "languages": [
+        {
+            "id": "xsmpproject",
+            "grammar": "src/grammar/xsmpproject.langium",
+            "fileExtensions": [".xsmpprofile", ".xsmptool"],
+            "fileNames": ["xsmp.project"]
+        },
+        {
+            "id": "xsmpcat",
+            "grammar": "src/grammar/xsmpcat.langium",
+            "fileExtensions": [".xsmpcat"]
+        },
+        {
+            "id": "xsmpasb",
+            "grammar": "src/grammar/xsmpasb.langium",
+            "fileExtensions": [".xsmpasb"]
+        },
+        {
+            "id": "xsmpcfg",
+            "grammar": "src/grammar/xsmpcfg.langium",
+            "fileExtensions": [".xsmpcfg"]
+        },
+        {
+            "id": "xsmplnk",
+            "grammar": "src/grammar/xsmplnk.langium",
+            "fileExtensions": [".xsmplnk"]
+        },
+        {
+            "id": "xsmpsed",
+            "grammar": "src/grammar/xsmpsed.langium",
+            "fileExtensions": [".xsmpsed"]
+        }
+    ],
+    "out": "src/generated"
+}

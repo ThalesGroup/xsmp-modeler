@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration:Configuration xmlns:Elements="http://www.ecss.nl/smp/2025/Core/Elements" xmlns:Types="http://www.ecss.nl/smp/2025/Core/Types" xmlns:Configuration="http://www.ecss.nl/smp/2025/Smdl/Configuration" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" Id="Demo" Name="Demo">
+  <Component Path="/Root">
+    <Include Path="child">
+      <Configuration xlink:title="Other" xlink:href="#Other"/>
+    </Include>
+    <Component Path="child">
+      <FieldValue xsi:type="Types:Int32Value" Value="2" Field="value"/>
+    </Component>
+    <FieldValue xsi:type="Types:Float64Value" Value="1.5" Field="ratio"/>
+    <FieldValue xsi:type="Types:StructureValue" Field="state">
+      <FieldValue xsi:type="Types:Int32Value" Value="1" Field="count"/>
+      <FieldValue xsi:type="Types:ArrayValue" Field="values">
+        <ItemValue xsi:type="Types:Int32Value" Value="1"/>
+        <ItemValue xsi:type="Types:Int32Value" Value="2"/>
+      </FieldValue>
+    </FieldValue>
+  </Component>
+</Configuration:Configuration>

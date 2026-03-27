@@ -1,0 +1,15 @@
+{
+    "extends": "../../tsconfig.json",
+    "compilerOptions": {
+        "paths": {},
+        "rootDir": "src",
+        "noEmit": true,
+        "tsBuildInfoFile": "./.tsbuildinfo/xsmp-vscode.tsbuildinfo"
+    },
+    "references": [
+        { "path": "../xsmp/tsconfig.src.json" }
+    ],
+    "include": [
+        "src/**/*"
+    ]
+}

@@ -13,6 +13,8 @@ XSMP Modeler uses several related languages, each with a focused role.
 | Link base | `.xsmplnk` | Declare reusable connections |
 | Schedule | `.xsmpsed` | Declare tasks, events and task activities |
 
+In addition to native XSMP source files, the same project source folders can contain SMP XML source files such as `.smpcat`, `.smpcfg`, `.smplnk`, `.smpasb`, and `.smpsed`. When they appear in a declared source folder, XSMP Modeler imports them automatically and treats them as project modeling sources.
+
 ## Typical progression
 
 Most projects are built in this order:

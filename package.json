@@ -1,118 +1,57 @@
 {
-    "name": "xsmp-modeler",
-    "displayName": "XSMP Modeler",
-    "description": "XSMP development framework.",
-    "version": "1.97.0",
-    "publisher": "ydaveluy",
-    "author": "ydaveluy",
-    "homepage": "https://github.com/thalesgroup/xsmp-modeler",
-    "repository": "https://github.com/thalesgroup/xsmp-modeler.git",
-    "type": "module",
-    "exports": {
-        ".": {
-            "types": "./lib/index.d.ts",
-            "import": "./lib/index.js"
-        },
-        "./ast": {
-            "types": "./lib/ast/index.d.ts",
-            "import": "./lib/ast/index.js"
-        },
-        "./ast-partial": {
-            "types": "./lib/ast-partial/index.d.ts",
-            "import": "./lib/ast-partial/index.js"
-        },
-        "./contributions": {
-            "types": "./lib/contributions/index.d.ts",
-            "import": "./lib/contributions/index.js"
-        },
-        "./grammar": {
-            "types": "./lib/grammar/index.d.ts",
-            "import": "./lib/grammar/index.js"
-        },
-        "./generator": {
-            "types": "./lib/generator/index.d.ts",
-            "import": "./lib/generator/index.js"
-        },
-        "./generator/cpp": {
-            "types": "./lib/generator/cpp/index.d.ts",
-            "import": "./lib/generator/cpp/index.js"
-        },
-        "./lsp": {
-            "types": "./lib/lsp/index.d.ts",
-            "import": "./lib/lsp/index.js"
-        },
-        "./references": {
-            "types": "./lib/references/index.d.ts",
-            "import": "./lib/references/index.js"
-        },
-        "./utils": {
-            "types": "./lib/utils/index.d.ts",
-            "import": "./lib/utils/index.js"
-        },
-        "./validation": {
-            "types": "./lib/validation/index.d.ts",
-            "import": "./lib/validation/index.js"
-        },
-        "./wizard": {
-            "types": "./lib/wizard/index.d.ts",
-            "import": "./lib/wizard/index.js"
-        },
-        "./workspace": {
-            "types": "./lib/workspace/index.d.ts",
-            "import": "./lib/workspace/index.js"
-        }
-    },
+    "name": "xsmp-monorepo",
+    "private": true,
     "license": "MIT",
-    "icon": "icons/logo.png",
-    "bugs": "https://github.com/thalesgroup/xsmp-modeler/issues",
-    "categories": [
-        "Programming Languages"
-    ],
-    "keywords": [
-        "SMP",
-        "XSMP",
-        "modeling"
+    "type": "module",
+    "engineStrict": true,
+    "engines": {
+        "node": ">=20.10.0",
+        "npm": ">=10.2.3"
+    },
+    "workspaces": [
+        "packages/xsmp",
+        "packages/xsmp-tool-smp",
+        "packages/xsmp-tool-adoc",
+        "packages/xsmp-tool-python",
+        "packages/xsmp-profile-xsmp-sdk",
+        "packages/xsmp-profile-esa-cdk",
+        "packages/xsmp-profile-tas-mdk",
+        "packages/xsmp-cli",
+        "packages/xsmp-vscode"
     ],
     "scripts": {
-        "clean": "shx rm -rf out/ lib/",
-        "build": "tsc -b tsconfig.json && tsc -p tsconfig.lib.json --noEmit && node esbuild.mjs",
-        "build:api": "tsc -p tsconfig.lib.json",
+        "clean": "shx rm -rf out packages/*/lib packages/*/out packages/*/.tsbuildinfo packages/*/tsconfig.tsbuildinfo packages/xsmp-vscode/*.vsix packages/xsmp-profile-tas-mdk/vscode/lib packages/xsmp-profile-tas-mdk/vscode/*.vsix coverage .vitest",
+        "langium:generate": "npm run langium:generate -w xsmp",
+        "langium:generate:production": "npm run langium:generate:production -w xsmp",
+        "build:workspace": "tsc -b tsconfig.build.json && npm run build:assets && npm run build -w xsmp-modeler && npm run build:vscode -w @xsmp/profile-tas-mdk",
+        "build": "npm run langium:generate:production && npm run build:workspace",
+        "build:assets": "node ./scripts/package-assets.mjs workspace",
+        "watch:tsc": "tsc -b tsconfig.build.json -w",
+        "watch": "concurrently -n tsc,vscode,tas-mdk -c blue,yellow,magenta \"npm run watch:tsc\" \"npm run watch --workspace=xsmp-modeler\" \"npm run watch:vscode -w @xsmp/profile-tas-mdk\"",
         "build:clean": "npm run clean && npm run build",
-        "cli": "npm run build && node ./bin/cli.cjs",
+        "lint": "npm run lint -w xsmp && npm run lint -w @xsmp/tool-smp && npm run lint -w @xsmp/tool-adoc && npm run lint -w @xsmp/tool-python && npm run lint -w @xsmp/profile-xsmp-sdk && npm run lint -w @xsmp/profile-esa-cdk && npm run lint -w @xsmp/profile-tas-mdk && npm run lint -w @xsmp/cli && npm run lint -w xsmp-modeler",
+        "test": "npm run build && npm run test:raw",
+        "test:raw": "vitest run",
+        "coverage": "npm run build && npm run coverage:raw",
+        "coverage:raw": "vitest run --coverage",
         "docs:build": "python3 -m mkdocs build --strict",
         "docs:serve": "python3 -m mkdocs serve",
-        "watch": "concurrently -n tsc,esbuild -c blue,yellow \"tsc -b tsconfig.json --watch\" \"node esbuild.mjs --watch\"",
-        "lint": "eslint src",
-        "langium:generate": "shx rm -f src/language/generated/ast-partial.ts && langium generate && node src/generate-partial-ast.js",
-        "langium:generate:production": "shx rm -f src/language/generated/ast-partial.ts && langium generate --mode=production && node src/generate-partial-ast.js",
-        "langium:watch": "langium generate --watch",
-        "vscode:prepublish": "npm run clean && npm run langium:generate:production && tsc -b tsconfig.json && node esbuild.mjs --minify",
-        "test": "vitest run",
-        "coverage": "vitest run --coverage",
-        "package": "vsce package",
-        "publish": "vsce publish"
-    },
-    "dependencies": {
-        "@types/semver": "^7.7.1",
-        "chalk": "~5.6.2",
-        "commander": "~14.0.3",
-        "langium": "4.2.1",
-        "p-limit": "^7.3.0",
-        "semver": "^7.7.4",
-        "vscode-languageclient": "~9.0.1",
-        "vscode-languageserver": "~9.0.1",
-        "xmlbuilder2": "^4.0.3"
+        "package:modeler": "npm run build && npm run package -w xsmp-modeler -- --no-dependencies",
+        "package:tas-mdk": "npm run build && npm run package:vscode -w @xsmp/profile-tas-mdk",
+        "package": "npm run build && npm run package -w xsmp-modeler -- --no-dependencies && npm run package:vscode -w @xsmp/profile-tas-mdk",
+        "publish": "npm run build && npm run publish -w xsmp-modeler"
     },
     "devDependencies": {
         "@eslint/js": "^10.0.1",
         "@types/node": "^25.5.0",
+        "@types/semver": "^7.7.1",
         "@types/vscode": "~1.82.0",
         "@vitest/coverage-v8": "^4.1.2",
         "@vscode/vsce": "^3.7.1",
         "concurrently": "^9.2.1",
         "esbuild": "^0.27.4",
-        "esbuild-plugin-copy": "^2.1.1",
         "eslint": "^10.1.0",
+        "langium": "4.2.0",
         "langium-cli": "4.2.0",
         "shx": "^0.4.0",
         "typescript": "^5.9.3",
@@ -120,339 +59,7 @@
         "vitest": "^4.1.2"
     },
     "volta": {
-        "node": "18.19.1",
-        "npm": "10.2.4"
-    },
-    "engines": {
-        "vscode": "^1.82.0",
-        "node": ">=18.0.0"
-    },
-    "contributes": {
-        "languages": [
-            {
-                "id": "xsmpproject",
-                "aliases": [
-                    "xsmpproject"
-                ],
-                "extensions": [
-                    ".xsmpprofile",
-                    ".xsmptool"
-                ],
-                "filenames": [
-                    "xsmp.project"
-                ],
-                "configuration": "./xsmpproject-language-configuration.json",
-                "icon": {
-                    "light": "./icons/xsmpproject.png",
-                    "dark": "./icons/xsmpproject.png"
-                }
-            },
-            {
-                "id": "xsmpcat",
-                "aliases": [
-                    "xsmpcat"
-                ],
-                "extensions": [
-                    ".xsmpcat"
-                ],
-                "configuration": "./xsmpcat-language-configuration.json",
-                "icon": {
-                    "light": "./icons/xsmp.png",
-                    "dark": "./icons/xsmp.png"
-                }
-            },
-            {
-                "id": "xsmpasb",
-                "aliases": [
-                    "xsmpasb"
-                ],
-                "extensions": [
-                    ".xsmpasb"
-                ],
-                "configuration": "./xsmpasb-language-configuration.json",
-                "icon": {
-                    "light": "./icons/xsmp.png",
-                    "dark": "./icons/xsmp.png"
-                }
-            },
-            {
-                "id": "xsmpcfg",
-                "aliases": [
-                    "xsmpcfg"
-                ],
-                "extensions": [
-                    ".xsmpcfg"
-                ],
-                "configuration": "./xsmpcfg-language-configuration.json",
-                "icon": {
-                    "light": "./icons/xsmp.png",
-                    "dark": "./icons/xsmp.png"
-                }
-            },
-            {
-                "id": "xsmplnk",
-                "aliases": [
-                    "xsmplnk"
-                ],
-                "extensions": [
-                    ".xsmplnk"
-                ],
-                "configuration": "./xsmplnk-language-configuration.json",
-                "icon": {
-                    "light": "./icons/xsmp.png",
-                    "dark": "./icons/xsmp.png"
-                }
-            },
-            {
-                "id": "xsmpsed",
-                "aliases": [
-                    "xsmpsed"
-                ],
-                "extensions": [
-                    ".xsmpsed"
-                ],
-                "configuration": "./xsmpsed-language-configuration.json",
-                "icon": {
-                    "light": "./icons/xsmp.png",
-                    "dark": "./icons/xsmp.png"
-                }
-            }
-        ],
-        "grammars": [
-            {
-                "language": "xsmpproject",
-                "scopeName": "source.xsmpproject",
-                "path": "syntaxes/xsmpproject.tmLanguage.json"
-            },
-            {
-                "language": "xsmpcat",
-                "scopeName": "source.xsmpcat",
-                "path": "syntaxes/xsmpcat.tmLanguage.json"
-            },
-            {
-                "language": "xsmpasb",
-                "scopeName": "source.xsmpasb",
-                "path": "syntaxes/xsmpasb.tmLanguage.json"
-            },
-            {
-                "language": "xsmpcfg",
-                "scopeName": "source.xsmpcfg",
-                "path": "syntaxes/xsmpcfg.tmLanguage.json"
-            },
-            {
-                "language": "xsmplnk",
-                "scopeName": "source.xsmplnk",
-                "path": "syntaxes/xsmplnk.tmLanguage.json"
-            },
-            {
-                "language": "xsmpsed",
-                "scopeName": "source.xsmpsed",
-                "path": "syntaxes/xsmpsed.tmLanguage.json"
-            }
-        ],
-        "commands": [
-            {
-                "command": "xsmp.wizard",
-                "category": "Xsmp",
-                "title": "Create a new project"
-            },
-            {
-                "command": "xsmp.newFile",
-                "category": "Xsmp",
-                "title": "Create XSMP File"
-            },
-            {
-                "command": "xsmp.newCatalogue",
-                "category": "Xsmp",
-                "title": "Create Catalogue File"
-            },
-            {
-                "command": "xsmp.newConfiguration",
-                "category": "Xsmp",
-                "title": "Create Configuration File"
-            },
-            {
-                "command": "xsmp.newAssembly",
-                "category": "Xsmp",
-                "title": "Create Assembly File"
-            },
-            {
-                "command": "xsmp.newLinkBase",
-                "category": "Xsmp",
-                "title": "Create Link Base File"
-            },
-            {
-                "command": "xsmp.newSchedule",
-                "category": "Xsmp",
-                "title": "Create Schedule File"
-            },
-            {
-                "command": "xsmp.generate",
-                "category": "Xsmp",
-                "title": "Generate Project"
-            },
-            {
-                "command": "xsmp.generateAll",
-                "category": "Xsmp",
-                "title": "Generate All Projects"
-            },
-            {
-                "command": "xsmp.importSmp",
-                "category": "Xsmp",
-                "title": "Import SMP File"
-            },
-            {
-                "command": "xsmp.registerContributor",
-                "category": "Xsmp",
-                "title": "Register a contributor",
-                "enablement": "false"
-            },
-            {
-                "command": "xsmp.openDocumentation",
-                "category": "Xsmp",
-                "title": "Open Embedded Documentation",
-                "enablement": "false"
-            }
-        ],
-        "xsmp": [
-            {
-                "descriptor": "out/contributions/tools/smp/smp.xsmptool",
-                "handler": "out/contributions/tools/smp/contributor.js",
-                "apiVersion": "^1.0.0",
-                "aliases": [
-                    "org.eclipse.xsmp.tool.smp"
-                ]
-            },
-            {
-                "descriptor": "out/contributions/tools/adoc/adoc.xsmptool",
-                "handler": "out/contributions/tools/adoc/contributor.js",
-                "apiVersion": "^1.0.0",
-                "deprecatedAliases": [
-                    "org.eclipse.xsmp.tool.adoc"
-                ]
-            },
-            {
-                "descriptor": "out/contributions/tools/python/python.xsmptool",
-                "handler": "out/contributions/tools/python/contributor.js",
-                "apiVersion": "^1.0.0",
-                "deprecatedAliases": [
-                    "org.eclipse.xsmp.tool.python"
-                ]
-            },
-            {
-                "descriptor": "out/contributions/profiles/xsmp-sdk/xsmp-sdk.xsmpprofile",
-                "handler": "out/contributions/profiles/xsmp-sdk/contributor.js",
-                "apiVersion": "^1.0.0",
-                "deprecatedAliases": [
-                    "org.eclipse.xsmp.profile.xsmp-sdk"
-                ]
-            },
-            {
-                "descriptor": "out/contributions/profiles/esa-cdk/esa-cdk.xsmpprofile",
-                "handler": "out/contributions/profiles/esa-cdk/contributor.js",
-                "apiVersion": "^1.0.0",
-                "aliases": [
-                    "org.eclipse.xsmp.profile.esa-cdk"
-                ]
-            },
-            {
-                "descriptor": "out/contributions/profiles/tas-mdk/tas-mdk.xsmpprofile",
-                "handler": "out/contributions/profiles/tas-mdk/contributor.js",
-                "apiVersion": "^1.0.0"
-            }
-        ],
-        "configurationDefaults": {
-            "editor.tokenColorCustomizations": {
-                "textMateRules": [
-                    {
-                        "scope": "comment.block.documentation.xsmp",
-                        "settings": {
-                            "foreground": "#3F5FBF"
-                        }
-                    },
-                    {
-                        "scope": "comment.block.documentation.tag.xsmp",
-                        "settings": {
-                            "foreground": "#7F9FBF",
-                            "fontStyle": "bold"
-                        }
-                    }
-                ]
-            }
-        },
-        "configuration": {
-            "title": "XSMP",
-            "properties": {
-                "xsmp.generateAllOnStartup": {
-                    "type": "boolean",
-                    "default": false,
-                    "scope": "window",
-                    "markdownDescription": "Automatically run `Xsmp: Generate All Projects` once the XSMP workspace has finished loading at startup."
-                },
-                "xsmp.generateOnSave": {
-                    "type": "boolean",
-                    "default": true,
-                    "scope": "window",
-                    "markdownDescription": "Automatically run `Xsmp: Generate Project` for the active XSMP document when it is saved."
-                }
-            }
-        },
-        "menus": {
-            "explorer/context": [
-                {
-                    "command": "xsmp.newFile",
-                    "group": "navigation@100",
-                    "when": "explorerResourceIsFolder"
-                },
-                {
-                    "command": "xsmp.newFile",
-                    "group": "navigation@100",
-                    "when": "resourceScheme == file && !explorerResourceIsFolder"
-                },
-                {
-                    "command": "xsmp.importSmp",
-                    "group": "navigation@101",
-                    "when": "resourceScheme == file && (resourceExtname == .smpcat || resourceExtname == .smpcfg || resourceExtname == .smplnk || resourceExtname == .smpasb || resourceExtname == .smpsed)"
-                }
-            ]
-        }
-    },
-    "activationEvents": [
-        "onCommand:xsmp.wizard",
-        "onCommand:xsmp.newFile",
-        "onCommand:xsmp.newCatalogue",
-        "onCommand:xsmp.newConfiguration",
-        "onCommand:xsmp.newAssembly",
-        "onCommand:xsmp.newLinkBase",
-        "onCommand:xsmp.newSchedule",
-        "onCommand:xsmp.generate",
-        "onCommand:xsmp.generateAll",
-        "onCommand:xsmp.importSmp",
-        "onLanguage:xsmpproject",
-        "onLanguage:xsmpcat",
-        "onLanguage:xsmpasb",
-        "onLanguage:xsmpcfg",
-        "onLanguage:xsmplnk",
-        "onLanguage:xsmpsed"
-    ],
-    "main": "./out/extension/main.cjs",
-    "bin": {
-        "xsmpproject-cli": "./bin/cli.cjs"
-    },
-    "files": [
-        "out/extension/**",
-        "out/language/**",
-        "out/contributions/**",
-        "out/lib/**",
-        "docs/**",
-        "syntaxes/**",
-        "icons/**",
-        "xsmpcat-language-configuration.json",
-        "xsmpproject-language-configuration.json",
-        "xsmpasb-language-configuration.json",
-        "xsmpcfg-language-configuration.json",
-        "xsmplnk-language-configuration.json",
-        "xsmpsed-language-configuration.json",
-        "LICENSE"
-    ]
+        "node": "20.10.0",
+        "npm": "10.2.3"
+    }
 }

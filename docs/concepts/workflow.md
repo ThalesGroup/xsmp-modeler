@@ -23,6 +23,8 @@ Start modeling in `.xsmpcat` files:
 
 Catalogues are the foundation for everything else.
 
+If you already have SMP XML sources, you can also place `.smpcat`, `.smpcfg`, `.smplnk`, `.smpasb`, or `.smpsed` files directly in a project source folder. XSMP Modeler imports them automatically for editing, validation, and generation workflows. If a real XSMP source file and an SMP source homologue exist side by side, the XSMP file wins.
+
 ## 3. Add runtime documents as needed
 
 Use the other XSMP languages when the project grows:
