@@ -382,6 +382,12 @@
                     "default": false,
                     "scope": "window",
                     "markdownDescription": "Automatically run `Xsmp: Generate All Projects` once the XSMP workspace has finished loading at startup."
+                },
+                "xsmp.generateOnSave": {
+                    "type": "boolean",
+                    "default": true,
+                    "scope": "window",
+                    "markdownDescription": "Automatically run `Xsmp: Generate Project` for the active XSMP document when it is saved."
                 }
             }
         },

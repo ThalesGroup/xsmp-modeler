@@ -1,6 +1,6 @@
 import { inject } from 'langium';
 import type { DeepPartial, Module } from 'langium';
-import { type DefaultSharedModuleContext, type LangiumSharedServices, type LangiumServices, createDefaultModule, createDefaultSharedModule } from 'langium/lsp';
+import { DefaultDocumentUpdateHandler, type DefaultSharedModuleContext, type LangiumSharedServices, type LangiumServices, createDefaultModule, createDefaultSharedModule } from 'langium/lsp';
 import { XsmpGeneratedSharedModule, XsmpasbGeneratedModule, XsmpcatGeneratedModule, XsmpcfgGeneratedModule, XsmplnkGeneratedModule, XsmpprojectGeneratedModule, XsmpsedGeneratedModule } from './generated/module.js';
 import type { XsmpprojectServices } from './xsmpproject-module.js';
 import { XsmpprojectModule } from './xsmpproject-module.js';
@@ -15,7 +15,6 @@ import { XsmpWorkspaceManager } from './workspace/workspace-manager.js';
 import { XsmpIndexManager } from './workspace/index-manager.js';
 import { XsmpNodeKindProvider } from './lsp/node-kind-provider.js';
 import { XsmpDocumentGenerator } from './workspace/document-generator.js';
-import { XsmpDocumentUpdateHandler } from './lsp/document-update-handler.js';
 import { XsmpTypeProvider } from './references/type-provider.js';
 import { XsmpPathService } from './references/xsmp-path-service.js';
 import { IdentifierPatternService } from './references/identifier-pattern-service.js';
@@ -182,7 +181,7 @@ export const XsmpSharedModule: Module<XsmpSharedServices, DeepPartial<XsmpShared
     ContributionRegistry: (services) => new XsmpContributionRegistry(services),
     TypeProvider: (services) => new XsmpTypeProvider(services),
     lsp: {
-        DocumentUpdateHandler: (services) => new XsmpDocumentUpdateHandler(services),
+        DocumentUpdateHandler: (services) => new DefaultDocumentUpdateHandler(services),
         NodeInfoProvider: (services) => new XsmpNodeInfoProvider(services),
         NodeKindProvider: () => new XsmpNodeKindProvider(),
         LanguageServer: (services) => new XsmpLanguageServer(services),

@@ -72,5 +72,5 @@ After the wizard finishes:
 
 1. Edit the generated catalogue.
 2. Add more XSMP files under `smdl/`.
-3. Run `Xsmp: Generate Project` when you want generated outputs.
+3. Save the active XSMP file to trigger generation automatically, or run `Xsmp: Generate Project` manually when needed.
 4. Read [Projects, Tools and Profiles](../concepts/projects-tools-profiles.md) to understand how the project is configured.

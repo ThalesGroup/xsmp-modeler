@@ -55,7 +55,7 @@ xsmpproject-cli validate path/to/project
 
 ## 6. Generate outputs
 
-Use the VS Code commands:
+In VS Code, you can either rely on automatic generation on save when `xsmp.generateOnSave` is enabled or run commands explicitly:
 
 - `Xsmp: Generate Project`
 - `Xsmp: Generate All Projects`

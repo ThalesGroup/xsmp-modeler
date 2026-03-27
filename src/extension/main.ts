@@ -17,6 +17,7 @@ import { registerEmbeddedDocumentation } from './embedded-documentation.js';
 
 let client: LanguageClient | undefined;
 let contributionOutputChannel: vscode.OutputChannel | undefined;
+const xsmpLanguageIds = new Set(['xsmpproject', 'xsmpcat', 'xsmpcfg', 'xsmpasb', 'xsmplnk', 'xsmpsed']);
 
 // This function is called when the extension is activated.
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
@@ -81,6 +82,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         })
     );
     registerEmbeddedDocumentation(context);
+    registerGenerateOnSave(context);
 
     void generateAllOnStartupIfEnabled();
 
@@ -213,6 +215,56 @@ function reportProjectGeneration(report: XsmpProjectGenerationReport, successPre
         : '';
 
     void vscode.window.showWarningMessage(`${generatedDetails}Skipped ${skippedCount} project(s): ${skippedDetails}`);
+}
+
+function registerGenerateOnSave(context: vscode.ExtensionContext): void {
+    context.subscriptions.push(
+        vscode.workspace.onDidSaveTextDocument(async (document) => {
+            if (!shouldGenerateOnSave(document)) {
+                return;
+            }
+
+            try {
+                const report = await getClient().sendRequest(GenerateProject, document.uri.toString());
+                reportAutomaticProjectGeneration(report, document);
+            } catch (error) {
+                logContributionMessage(`Automatic XSMP project generation on save failed for ${document.uri.toString()}.`);
+                logContributionError(error);
+                void vscode.window.showErrorMessage('XSMP generation on save failed. See "XSMP Contributions" for details.');
+            }
+        }),
+    );
+}
+
+function shouldGenerateOnSave(document: vscode.TextDocument): boolean {
+    if (document.isUntitled || document.uri.scheme !== 'file') {
+        return false;
+    }
+    if (!xsmpLanguageIds.has(document.languageId)) {
+        return false;
+    }
+
+    const activeEditor = vscode.window.activeTextEditor;
+    if (!activeEditor || activeEditor.document.uri.toString() !== document.uri.toString()) {
+        return false;
+    }
+
+    return vscode.workspace.getConfiguration('xsmp').get<boolean>('generateOnSave', true);
+}
+
+function reportAutomaticProjectGeneration(report: XsmpProjectGenerationReport, document: vscode.TextDocument): void {
+    if (report.skippedProjects.length === 0) {
+        const generatedProject = report.generatedProjects[0];
+        if (generatedProject) {
+            logContributionMessage(`Generated project '${generatedProject}' after saving ${document.uri.fsPath}.`);
+        }
+        return;
+    }
+
+    const skippedDetails = report.skippedProjects
+        .map((project: XsmpProjectGenerationReport['skippedProjects'][number]) => `${project.projectName} (${project.errorCount} error${project.errorCount === 1 ? '' : 's'})`)
+        .join(', ');
+    void vscode.window.showWarningMessage(`XSMP generation on save skipped ${report.skippedProjects.length} project(s): ${skippedDetails}`);
 }
 
 // This function is called when the extension is deactivated.

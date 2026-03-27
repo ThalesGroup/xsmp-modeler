@@ -46,9 +46,16 @@ The most important commands for daily work are:
 - `Xsmp: Generate Project`
 - `Xsmp: Generate All Projects`
 
-## Optional startup generation
+## Automatic generation options
 
-The extension provides a setting named `xsmp.generateAllOnStartup`.
+The extension provides a setting named `xsmp.generateOnSave`.
+
+- Default: `true`
+- When enabled: VS Code automatically runs **Generate Project** for the active XSMP document when you save it
+
+This is useful when you want generated artifacts to stay in sync while editing.
+
+The extension also provides a setting named `xsmp.generateAllOnStartup`.
 
 - Default: `false`
 - When enabled: VS Code automatically runs **Generate All Projects** after XSMP has loaded the workspace
