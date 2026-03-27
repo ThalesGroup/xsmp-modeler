@@ -9,7 +9,6 @@ import {
 } from './l2-validator-utils.js';
 import { checkName } from './name-validator-utils.js';
 import type { Xsmpl2PathResolver } from '../references/xsmpl2-path-resolver.js';
-import type { IdentifierPatternService } from '../references/identifier-pattern-service.js';
 import * as XsmpUtils from '../utils/xsmp-utils.js';
 import { checkTemplatedL2PathSegments, collectUsedTemplateParameterNames, createTemplateBindings, warnUnusedTemplateParameters } from './template-parameter-validator-utils.js';
 import { XsmpcfgValidator } from './xsmpcfg-validator.js';
@@ -40,12 +39,10 @@ export function registerXsmpsedValidationChecks(services: XsmpsedServices) {
 
 export class XsmpsedValidator extends XsmpcfgValidator {
     protected readonly l2PathResolver: Xsmpl2PathResolver;
-    protected readonly identifierPatternService: IdentifierPatternService;
 
     constructor(services: XsmpsedServices) {
         super(services);
         this.l2PathResolver = services.shared.L2PathResolver;
-        this.identifierPatternService = services.shared.IdentifierPatternService;
     }
 
     checkSchedule(schedule: ast.Schedule, accept: ValidationAcceptor): void {
@@ -65,8 +62,11 @@ export class XsmpsedValidator extends XsmpcfgValidator {
         }
 
         const hasRootParameter = schedule.parameters.some(ast.isStringParameter);
-        const hasRelativePath = schedule.elements.filter(ast.isTask).some(task => task.elements.some(activity => this.activityUsesRelativePath(activity)));
-        if (hasRelativePath && !hasRootParameter) {
+        const hasAnyRelativePath = schedule.elements.filter(ast.isTask).some(task => task.elements.some(activity => this.activityUsesRelativePath(activity)));
+        const hasUnanchoredRelativePath = schedule.elements
+            .filter(ast.isTask)
+            .some(task => !task.context?.ref && task.elements.some(activity => this.activityUsesRelativePath(activity)));
+        if (hasUnanchoredRelativePath && !hasRootParameter) {
             accept('error', 'A Schedule using relative paths shall declare at least one String8 Template Argument for the root path.', {
                 node: schedule,
                 property: ast.Schedule.parameters
@@ -74,7 +74,7 @@ export class XsmpsedValidator extends XsmpcfgValidator {
         }
 
         const usedTemplateNames = collectUsedTemplateParameterNames(schedule, this.identifierPatternService);
-        if (hasRelativePath) {
+        if (hasAnyRelativePath) {
             for (const parameter of schedule.parameters) {
                 if (ast.isStringParameter(parameter) && parameter.name) {
                     usedTemplateNames.add(parameter.name);
@@ -295,22 +295,53 @@ export class XsmpsedValidator extends XsmpcfgValidator {
         return super.getExpectedTypeForValue(value);
     }
 
-    private checkPathTemplateParameters(path: ast.Path, accept: ValidationAcceptor): boolean {
-        const schedule = AstUtils.getContainerOfType(path, ast.isSchedule);
-        const available = new Set((schedule?.parameters ?? []).map(parameter => parameter.name));
+    protected override checkPathTemplateParameters(path: ast.Path, accept: ValidationAcceptor): boolean {
+        const templateContext = this.getPathTemplateContext(path);
+        const available = new Set(templateContext.parameters.map(parameter => parameter.name));
         return checkTemplatedL2PathSegments(
             path,
             available,
-            this.getScheduleTemplateBindings(schedule),
+            templateContext.bindings,
             this.identifierPatternService,
             this.pathService,
             accept,
-            templateName => `The placeholder '{${templateName}}' shall resolve to a Template Argument of the enclosing Schedule.`,
+            templateName => `The placeholder '{${templateName}}' shall resolve to a Template Argument of the ${templateContext.messageContext}.`,
         );
     }
 
-    private getScheduleTemplateBindings(schedule: ast.Schedule | undefined): Map<string, string> {
-        return createTemplateBindings(schedule?.parameters ?? []);
+    protected override getPathTemplateContext(path: ast.Path): {
+        parameters: readonly ast.TemplateParameter[];
+        bindings: Map<string, string>;
+        messageContext: string;
+    } {
+        const schedule = AstUtils.getContainerOfType(path, ast.isSchedule);
+        const task = AstUtils.getContainerOfType(path, ast.isTask);
+        const assembly = ast.isAssembly(task?.context?.ref) ? task.context.ref : undefined;
+        const scheduleBindings = createTemplateBindings(schedule?.parameters ?? []);
+        const assemblyBindings = createTemplateBindings(assembly?.parameters ?? []);
+        const bindings = new Map<string, string>([
+            ...scheduleBindings.entries(),
+            ...assemblyBindings.entries(),
+        ]);
+        if (assembly && schedule?.parameters.length) {
+            return {
+                parameters: [...schedule.parameters, ...assembly.parameters],
+                bindings,
+                messageContext: 'enclosing Schedule or inherited Assembly context',
+            };
+        }
+        if (assembly) {
+            return {
+                parameters: assembly.parameters,
+                bindings,
+                messageContext: 'inherited Assembly context',
+            };
+        }
+        return {
+            parameters: schedule?.parameters ?? [],
+            bindings: scheduleBindings,
+            messageContext: 'enclosing Schedule',
+        };
     }
 
     protected override acceptPathError(message: string | undefined, node: AstNode | undefined, accept: ValidationAcceptor): void {

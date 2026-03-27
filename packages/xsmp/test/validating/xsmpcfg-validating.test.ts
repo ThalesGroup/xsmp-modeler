@@ -2,7 +2,7 @@ import { afterEach, beforeAll, describe, expect, test } from 'vitest';
 import { clearDocuments, parseHelper, type ParseHelperOptions } from 'langium/test';
 import { EmptyFileSystem, type LangiumDocument, URI } from 'langium';
 import { createXsmpServices } from 'xsmp';
-import { Catalogue, Configuration, Project, isConfiguration } from 'xsmp/ast-partial';
+import { Assembly, Catalogue, Configuration, Project, isConfiguration } from 'xsmp/ast-partial';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -12,6 +12,7 @@ let services: ReturnType<typeof createXsmpServices>;
 let parseProject: ReturnType<typeof parseHelper<Project>>;
 let parseCatalogue: ReturnType<typeof parseHelper<Catalogue>>;
 let parseConfiguration: ReturnType<typeof parseHelper<Configuration>>;
+let parseAssembly: ReturnType<typeof parseHelper<Assembly>>;
 const documents: LangiumDocument[] = [];
 const tempDirs: string[] = [];
 
@@ -48,10 +49,18 @@ namespace demo
 }
 `;
 
+const assemblySource = `assembly <Lane = "Ops"> DemoAsm
+Root: demo.Root
+{
+    child += Child{Lane}: demo.Child
+}
+`;
+
 beforeAll(async () => {
     services = createXsmpServices(EmptyFileSystem);
     parseProject = parseHelper<Project>(services.xsmpproject);
     parseCatalogue = parseHelper<Catalogue>(services.xsmpcat);
+    parseAssembly = parseHelper<Assembly>(services.xsmpasb);
     const doParseConfiguration = parseHelper<Configuration>(services.xsmpcfg);
     parseConfiguration = (input: string, options?: ParseHelperOptions) => doParseConfiguration(input, { validation: true, ...options });
 
@@ -188,6 +197,21 @@ describe('Validating Xsmpcfg', () => {
 
         expect(getMessages(document)).toEqual([]);
     });
+
+    test('accepts an assembly context and resolves inherited template parameters in paths', async () => {
+        const document = await parseInProject(`configuration Demo
+/Root: DemoAsm
+{
+    flag = true
+    Child{Lane}
+    {
+        value = 2i32
+    }
+}
+`);
+
+        expect(getMessages(document)).toEqual([]);
+    });
 });
 
 async function parseInProject(source: string): Promise<LangiumDocument<Configuration>> {
@@ -203,6 +227,9 @@ source "src"
     const catalogueDocument = await parseCatalogue(catalogueSource, {
         documentUri: URI.file(path.join(tempDir, 'src', 'demo.xsmpcat')).toString(),
     });
+    const assemblyDocument = await parseAssembly(assemblySource, {
+        documentUri: URI.file(path.join(tempDir, 'src', 'demo.xsmpasb')).toString(),
+    });
     const otherConfigurationDocument = await parseConfiguration(`configuration Other
 /Other
 {
@@ -214,12 +241,13 @@ source "src"
         documentUri: URI.file(path.join(tempDir, 'src', 'demo.xsmpcfg')).toString(),
     });
 
-    documents.push(projectDocument, catalogueDocument, otherConfigurationDocument, configurationDocument);
+    documents.push(projectDocument, catalogueDocument, assemblyDocument, otherConfigurationDocument, configurationDocument);
     expect(projectDocument.parseResult.parserErrors).toHaveLength(0);
     expect(catalogueDocument.parseResult.parserErrors).toHaveLength(0);
+    expect(assemblyDocument.parseResult.parserErrors).toHaveLength(0);
     expect(otherConfigurationDocument.parseResult.parserErrors).toHaveLength(0);
     expect(configurationDocument.parseResult.parserErrors).toHaveLength(0);
-    await rebuildTestDocuments(services, [projectDocument, catalogueDocument, otherConfigurationDocument, configurationDocument]);
+    await rebuildTestDocuments(services, [projectDocument, catalogueDocument, assemblyDocument, otherConfigurationDocument, configurationDocument]);
 
     return configurationDocument;
 }

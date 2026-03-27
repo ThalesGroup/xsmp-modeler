@@ -2,6 +2,7 @@ import { AstUtils, type GrammarAST } from 'langium';
 import type { AstNodeDescription, ReferenceInfo } from 'langium';
 import type { CompletionAcceptor, CompletionContext, NextFeature } from 'langium/lsp';
 import * as ast from '../generated/ast-partial.js';
+import type { IdentifierPatternService } from '../references/identifier-pattern-service.js';
 import type { XsmpsedServices } from '../xsmpsed-module.js';
 import { XsmpCompletionProviderBase } from './xsmp-completion-provider-base.js';
 
@@ -17,9 +18,11 @@ export class XsmpsedCompletionProvider extends XsmpCompletionProviderBase {
         'execute',
         'emit',
     ]);
+    protected readonly identifierPatternService: IdentifierPatternService;
 
     constructor(services: XsmpsedServices) {
         super(services);
+        this.identifierPatternService = services.shared.IdentifierPatternService;
     }
 
     protected override completionForKeyword(context: CompletionContext, keyword: GrammarAST.Keyword, acceptor: CompletionAcceptor) {
@@ -81,12 +84,21 @@ export class XsmpsedCompletionProvider extends XsmpCompletionProviderBase {
             }
         }
 
-        if (refInfo.container.$type === ast.Task.$type && refInfo.property === ast.Task.component && ast.isComponent(nodeDescription.node)) {
-            return this.createReferenceLikeItem(
-                nodeDescription,
-                nodeDescription.name,
-                `Execution context component ${nodeDescription.name}.`
-            );
+        if (refInfo.container.$type === ast.Task.$type && refInfo.property === ast.Task.context) {
+            if (ast.isComponent(nodeDescription.node)) {
+                return this.createReferenceLikeItem(
+                    nodeDescription,
+                    nodeDescription.name,
+                    `Execution context component ${nodeDescription.name}.`
+                );
+            }
+            if (ast.isAssembly(nodeDescription.node)) {
+                return this.createReferenceLikeItem(
+                    nodeDescription,
+                    nodeDescription.name,
+                    `Execution context assembly ${nodeDescription.name}.`
+                );
+            }
         }
 
         if (ast.isExecuteTask(refInfo.container.$container) && refInfo.property === ast.ExecuteTask.task && ast.isTask(nodeDescription.node)) {
@@ -143,8 +155,7 @@ export class XsmpsedCompletionProvider extends XsmpCompletionProviderBase {
             return;
         }
         const task = this.getRecoveryContainerOfType(context, ast.isTask);
-        const executionContext = task?.component?.ref;
-        const localComponent = ast.isComponent(executionContext) ? executionContext : undefined;
+        const localComponent = task ? this.l2PathResolver.getEffectiveTaskExecutionContext(task) : undefined;
         if (!task) {
             return;
         }
@@ -263,10 +274,10 @@ export class XsmpsedCompletionProvider extends XsmpCompletionProviderBase {
     protected addActivityReferenceCompletions(context: CompletionContext, acceptor: CompletionAcceptor): void {
         const linePrefix = this.getLinePrefix(context);
         const task = this.getRecoveryContainerOfType(context, ast.isTask);
-        const executionContext = task?.component?.ref;
-        const localComponent = ast.isComponent(executionContext) ? executionContext : undefined;
+        const localComponent = task ? this.l2PathResolver.getEffectiveTaskExecutionContext(task) : undefined;
 
-        if (localComponent && /^\s*call\s+[\w./{}]*$/.test(linePrefix)) {
+        const callPathPrefix = this.getActivityPathPrefix(linePrefix, 'call');
+        if (localComponent && callPathPrefix !== undefined) {
             for (const candidate of this.getOperations(localComponent)) {
                 if (!candidate.name) {
                     continue;
@@ -278,9 +289,11 @@ export class XsmpsedCompletionProvider extends XsmpCompletionProviderBase {
                     `Operation of ${candidate.$container.name}.`
                 ));
             }
+            this.addAssemblyChildPathCompletions(context, acceptor, task, callPathPrefix, 'Child instance of the current assembly.');
         }
 
-        if (localComponent && /^\s*property\s+[\w./{}]*$/.test(linePrefix)) {
+        const propertyPathPrefix = this.getActivityPathPrefix(linePrefix, 'property');
+        if (localComponent && propertyPathPrefix !== undefined) {
             for (const candidate of this.getProperties(localComponent)) {
                 if (!candidate.name) {
                     continue;
@@ -292,6 +305,12 @@ export class XsmpsedCompletionProvider extends XsmpCompletionProviderBase {
                     `Property of ${candidate.$container.name}.`
                 ));
             }
+            this.addAssemblyChildPathCompletions(context, acceptor, task, propertyPathPrefix, 'Child instance of the current assembly.');
+        }
+
+        const triggerPathPrefix = this.getActivityPathPrefix(linePrefix, 'trig');
+        if (localComponent && triggerPathPrefix !== undefined) {
+            this.addAssemblyChildPathCompletions(context, acceptor, task, triggerPathPrefix, 'Child instance of the current assembly.');
         }
 
         const executeTask = this.getRecoveryContainerOfType(context, ast.isExecuteTask);
@@ -309,6 +328,49 @@ export class XsmpsedCompletionProvider extends XsmpCompletionProviderBase {
             }
         }
     }
+
+    protected addAssemblyChildPathCompletions(
+        context: CompletionContext,
+        acceptor: CompletionAcceptor,
+        task: ast.Task | undefined,
+        pathPrefix: string,
+        detail: string,
+    ): void {
+        if (!task || !this.isTopLevelPathPrefix(pathPrefix)) {
+            return;
+        }
+        for (const candidate of this.getAssemblyChildPathCandidates(task)) {
+            acceptor(context, this.createContextualValueItem(context, candidate, candidate, detail));
+        }
+    }
+
+    protected getAssemblyChildPathCandidates(task: ast.Task): string[] {
+        const assembly = ast.isAssembly(task.context?.ref) ? task.context.ref : undefined;
+        const root = assembly?.model;
+        if (!root) {
+            return [];
+        }
+        const bindings = this.l2PathResolver.getAssemblyPathContextForAssembly(assembly)?.bindings;
+        return root.elements
+            .filter(ast.isSubInstance)
+            .flatMap(element => {
+                const instance = element.instance;
+                if (!instance?.name) {
+                    return [];
+                }
+                return [this.identifierPatternService.substitute(instance.name, bindings) ?? instance.name];
+            })
+            .filter((name): name is string => Boolean(name));
+    }
+
+    protected getActivityPathPrefix(linePrefix: string, keyword: string): string | undefined {
+        return new RegExp(`^\\s*${keyword}\\s+([\\w./{}]*)$`).exec(linePrefix)?.[1];
+    }
+
+    protected isTopLevelPathPrefix(pathPrefix: string): boolean {
+        return !pathPrefix.includes('.') && !pathPrefix.includes('/') && !pathPrefix.includes('{');
+    }
+
     protected createExecuteTaskText(task: ast.Task): string {
         const schedule = AstUtils.getContainerOfType(task, ast.isSchedule);
         const parameters = schedule?.parameters ?? [];

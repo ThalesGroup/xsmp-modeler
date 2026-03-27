@@ -71,7 +71,7 @@ export class XsmpDocumentSymbolProvider implements DocumentSymbolProvider {
             case ast.ComponentConfiguration.$type: {
                 const configuration = node as ast.ComponentConfiguration;
                 const path = this.pathService.stringifyPath(configuration.name) ?? '';
-                return configuration.component?.$refText ? `${path}: ${configuration.component.$refText}` : path;
+                return `${path}${this.getComponentConfigurationContextLabel(configuration)}`;
             }
             case ast.ComponentLinkBase.$type:
                 return this.pathService.stringifyPath((node as ast.ComponentLinkBase).name);
@@ -165,6 +165,13 @@ export class XsmpDocumentSymbolProvider implements DocumentSymbolProvider {
                 }
                 return [];
         }
+    }
+
+    protected getComponentConfigurationContextLabel(configuration: ast.ComponentConfiguration): string {
+        if (configuration.context?.$refText) {
+            return `: ${configuration.context.$refText}`;
+        }
+        return '';
     }
 
     protected sortChildren(children: Array<AstNode | undefined>): AstNode[] {

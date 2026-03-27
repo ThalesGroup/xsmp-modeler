@@ -25,7 +25,9 @@ entry Configuration returns Configuration:
 
 
 ComponentConfiguration returns ComponentConfiguration:
-    name=Path (':' component=[Component:QualifiedName])?
+    name=Path (
+        ':' context=[ComponentOrAssembly:QualifiedName]
+    )?
     '{' 
     elements+=(ConfigurationUsage|ComponentConfiguration|FieldValue)*
     '}';
@@ -44,8 +46,6 @@ ConfigurationUsage returns ConfigurationUsage:
      */
     'include' configuration=[Configuration:ValidID]
     ('at' path=Path)?;
-
-
 ValidID returns string:
     ID | 'configuration'|'using'|'at'|'i8'|'i16'|'i32'|'i64'|'u8'|'u16'|'u32'|'u64'|'f32'|'f64';
 
@@ -161,10 +161,28 @@ PathIndex returns PathIndex:
     '[' index=INT ']';
 
 PathSegment returns PathSegment:
-    ConcretePathNamedSegment | PathParentSegment | PathSelfSegment;
+    ConcretePathNamedSegment | PatternPathNamedSegment | PathParentSegment | PathSelfSegment;
 
 ConcretePathNamedSegment returns ConcretePathNamedSegment:
     reference=[NamedElement:ValidID];
+
+PatternPathNamedSegment returns PatternPathNamedSegment:
+    pattern=TemplateIdentifierPattern;
+
+TemplateIdentifierPattern returns IdentifierPattern:
+    {IdentifierPattern}
+    parts+=IdentifierTextPart*
+    parts+=IdentifierTemplatePart
+    parts+=IdentifierPatternPart*;
+
+IdentifierPatternPart returns IdentifierPatternPart:
+    IdentifierTextPart | IdentifierTemplatePart;
+
+IdentifierTextPart returns IdentifierTextPart:
+    text=ID;
+
+IdentifierTemplatePart returns IdentifierTemplatePart:
+    text=TEMPLATE_ID;
 
 PathParentSegment returns PathParentSegment:
     {PathParentSegment} '..';
@@ -182,6 +200,7 @@ terminal DURATION_STRING: /"[^"]*"d/;
 terminal STRING: /"[^"]*"/;
 terminal CHAR: /'[^']*'/;
 
+terminal TEMPLATE_ID: /\{[_a-zA-Z]\w*\}/;
 terminal ID: /[_a-zA-Z]\w*/;
 
 terminal FLOATING_LITERAL:FRACTIONALCONSTANT EXPONENTPART?| DIGITSEQUENCE EXPONENTPART;

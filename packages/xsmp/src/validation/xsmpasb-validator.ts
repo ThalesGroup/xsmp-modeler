@@ -4,7 +4,7 @@ import type { XsmpasbServices } from '../xsmpasb-module.js';
 import { checkNoParentTraversal, checkRelativePath, hasParentTraversal, isAbsolutePath, isValidExpandedL2Identifier } from './l2-validator-utils.js';
 import { checkName } from './name-validator-utils.js';
 import type { Xsmpl2PathResolver } from '../references/xsmpl2-path-resolver.js';
-import type { IdentifierPatternService, TemplateBindings } from '../references/identifier-pattern-service.js';
+import type { TemplateBindings } from '../references/identifier-pattern-service.js';
 import { PTK } from '../utils/primitive-type-kind.js';
 import * as Solver from '../utils/solver.js';
 import * as XsmpUtils from '../utils/xsmp-utils.js';
@@ -37,12 +37,10 @@ export function registerXsmpasbValidationChecks(services: XsmpasbServices) {
 
 export class XsmpasbValidator extends XsmpcfgValidator {
     protected readonly l2PathResolver: Xsmpl2PathResolver;
-    protected readonly identifierPatternService: IdentifierPatternService;
 
     constructor(services: XsmpasbServices) {
         super(services);
         this.l2PathResolver = services.shared.L2PathResolver;
-        this.identifierPatternService = services.shared.IdentifierPatternService;
     }
 
     checkAssembly(assembly: ast.Assembly, accept: ValidationAcceptor): void {

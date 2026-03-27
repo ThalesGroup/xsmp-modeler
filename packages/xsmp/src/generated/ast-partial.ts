@@ -31,6 +31,7 @@ export type CollectionLiteral = AstUtils.DeepPartialAstNode<ast.CollectionLitera
 export type Component = AstUtils.DeepPartialAstNode<ast.Component>;
 export type ComponentConfiguration = AstUtils.DeepPartialAstNode<ast.ComponentConfiguration>;
 export type ComponentLinkBase = AstUtils.DeepPartialAstNode<ast.ComponentLinkBase>;
+export type ComponentOrAssembly = AstUtils.DeepPartialAstNode<ast.ComponentOrAssembly>;
 export type ConcretePathNamedSegment = AstUtils.DeepPartialAstNode<ast.ConcretePathNamedSegment>;
 export type Configuration = AstUtils.DeepPartialAstNode<ast.Configuration>;
 export type ConfigurationUsage = AstUtils.DeepPartialAstNode<ast.ConfigurationUsage>;
@@ -271,6 +272,9 @@ export function isComponentConfiguration(item: unknown): item is ComponentConfig
 }
 export function isComponentLinkBase(item: unknown): item is ComponentLinkBase {
     return ast.isComponentLinkBase(item);
+}
+export function isComponentOrAssembly(item: unknown): item is ComponentOrAssembly {
+    return ast.isComponentOrAssembly(item);
 }
 export function isConcretePathNamedSegment(item: unknown): item is ConcretePathNamedSegment {
     return ast.isConcretePathNamedSegment(item);
@@ -703,6 +707,7 @@ export const CollectionLiteral = ast.CollectionLiteral;
 export const Component = ast.Component;
 export const ComponentConfiguration = ast.ComponentConfiguration;
 export const ComponentLinkBase = ast.ComponentLinkBase;
+export const ComponentOrAssembly = ast.ComponentOrAssembly;
 export const ConcretePathNamedSegment = ast.ConcretePathNamedSegment;
 export const Configuration = ast.Configuration;
 export const ConfigurationUsage = ast.ConfigurationUsage;

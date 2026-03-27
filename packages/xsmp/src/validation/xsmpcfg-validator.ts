@@ -1,14 +1,16 @@
 import type { AstNode, ValidationAcceptor, ValidationChecks } from 'langium';
-import { diagnosticData } from 'langium';
+import { AstUtils, diagnosticData } from 'langium';
 import * as ast from '../generated/ast-partial.js';
 import type { XsmpcfgServices } from '../xsmpcfg-module.js';
 import type { XsmpAddedSharedServices } from '../xsmp-module.js';
 import type { XsmpPathService } from '../references/xsmp-path-service.js';
 import type { XsmpcfgPathResolver } from '../references/xsmpcfg-path-resolver.js';
 import { checkName } from './name-validator-utils.js';
+import { checkTemplatedL2PathSegments, createTemplateBindings } from './template-parameter-validator-utils.js';
 import * as Solver from '../utils/solver.js';
 import { PTK } from '../utils/primitive-type-kind.js';
 import * as XsmpUtils from '../utils/xsmp-utils.js';
+import type { IdentifierPatternService, TemplateBindings } from '../references/identifier-pattern-service.js';
 
 export function registerXsmpcfgValidationChecks(services: XsmpcfgServices) {
     const registry = services.validation.ValidationRegistry;
@@ -25,15 +27,17 @@ export function registerXsmpcfgValidationChecks(services: XsmpcfgServices) {
 }
 
 type XsmpcfgValidationServices = {
-    shared: Pick<XsmpAddedSharedServices, 'CfgPathResolver' | 'PathService'>;
+    shared: Pick<XsmpAddedSharedServices, 'CfgPathResolver' | 'IdentifierPatternService' | 'PathService'>;
 };
 
 export class XsmpcfgValidator {
     protected readonly pathResolver: XsmpcfgPathResolver;
     protected readonly pathService: XsmpPathService;
+    protected readonly identifierPatternService: IdentifierPatternService;
 
     constructor(services: XsmpcfgValidationServices | XsmpcfgServices) {
         this.pathResolver = services.shared.CfgPathResolver;
+        this.identifierPatternService = services.shared.IdentifierPatternService;
         this.pathService = services.shared.PathService;
     }
 
@@ -49,6 +53,9 @@ export class XsmpcfgValidator {
         if (path.unsafe) {
             return;
         }
+        if (!this.checkPathTemplateParameters(path, accept)) {
+            return;
+        }
         const resolution = this.pathResolver.getComponentPathResolution(path);
         this.acceptPathError(resolution.invalidMessage, resolution.invalidNode, accept);
     }
@@ -56,6 +63,9 @@ export class XsmpcfgValidator {
     checkConfigurationUsage(usage: ast.ConfigurationUsage, accept: ValidationAcceptor): void {
         const path = usage.path;
         if (!path || path.unsafe) {
+            return;
+        }
+        if (!this.checkPathTemplateParameters(path, accept)) {
             return;
         }
         const resolution = this.pathResolver.getComponentPathResolution(path);
@@ -67,6 +77,9 @@ export class XsmpcfgValidator {
             return;
         }
         if (fieldValue.field.unsafe) {
+            return;
+        }
+        if (!this.checkPathTemplateParameters(fieldValue.field, accept)) {
             return;
         }
         const resolution = this.pathResolver.getFieldPathResolution(fieldValue.field);
@@ -94,6 +107,72 @@ export class XsmpcfgValidator {
         if (message && node) {
             accept('error', message, { node });
         }
+    }
+
+    protected checkPathTemplateParameters(path: ast.Path, accept: ValidationAcceptor): boolean {
+        const templateContext = this.getPathTemplateContext(path);
+        const available = new Set(templateContext?.parameters.map(parameter => parameter.name));
+        return checkTemplatedL2PathSegments(
+            path,
+            available,
+            templateContext?.bindings ?? new Map(),
+            this.identifierPatternService,
+            this.pathService,
+            accept,
+            templateName => `The placeholder '{${templateName}}' shall resolve to a Template Argument of the enclosing Assembly context.`,
+        );
+    }
+
+    protected getPathTemplateContext(path: ast.Path): {
+        parameters: readonly ast.TemplateParameter[];
+        bindings?: TemplateBindings;
+    } | undefined {
+        const configuration = AstUtils.getContainerOfType(path.$container, ast.isComponentConfiguration);
+        if (!configuration) {
+            return undefined;
+        }
+
+        if (path.$container === configuration) {
+            const explicitAssembly = ast.isAssembly(configuration.context?.ref) ? configuration.context.ref : undefined;
+            if (explicitAssembly) {
+                return {
+                    parameters: explicitAssembly.parameters,
+                    bindings: createTemplateBindings(explicitAssembly.parameters),
+                };
+            }
+            const parent = ast.isComponentConfiguration(configuration.$container) ? configuration.$container : undefined;
+            return parent ? this.getAssemblyTemplateContext(this.pathResolver.getConfigurationComponentContext(parent).assemblyContext) : undefined;
+        }
+
+        return this.getAssemblyTemplateContext(this.pathResolver.getConfigurationComponentContext(configuration).assemblyContext);
+    }
+
+    protected getAssemblyTemplateContext(context: {
+        assembly?: ast.Assembly;
+        instance?: ast.ModelInstance | ast.AssemblyInstance;
+        bindings?: TemplateBindings;
+    } | undefined): {
+        parameters: readonly ast.TemplateParameter[];
+        bindings?: TemplateBindings;
+    } | undefined {
+        if (!context) {
+            return undefined;
+        }
+        if (context.assembly) {
+            return {
+                parameters: context.assembly.parameters,
+                bindings: context.bindings,
+            };
+        }
+        const instanceAssembly = ast.isAssemblyInstance(context.instance) && ast.isAssembly(context.instance.assembly?.ref)
+            ? context.instance.assembly.ref
+            : undefined;
+        return instanceAssembly
+            ? {
+                parameters: instanceAssembly.parameters,
+                bindings: context.bindings,
+            }
+            : undefined;
     }
 
     protected checkValueAgainstType(value: ast.Value, type: ast.Type, accept: ValidationAcceptor): void {

@@ -8,7 +8,6 @@ export interface IdentifierPatternPartView {
     kind: 'text' | 'template';
     text: string;
     parameterName?: string;
-    suffix?: string;
     parameter?: partialAst.TemplateParameter;
 }
 
@@ -53,7 +52,6 @@ export class IdentifierPatternService {
                     kind: 'template',
                     text: part.text ?? '',
                     parameterName,
-                    suffix: this.getTemplateSuffix(part.text),
                 });
             }
         }
@@ -68,7 +66,7 @@ export class IdentifierPatternService {
             return undefined;
         }
         const parts: IdentifierPatternPartView[] = [];
-        const regex = /\{([_a-zA-Z]\w*)\}(\w*)|([_a-zA-Z]\w*)/g;
+        const regex = /\{([_a-zA-Z]\w*)\}|([_a-zA-Z]\w*)/g;
         let lastIndex = 0;
         let match: RegExpExecArray | null;
         while ((match = regex.exec(text)) !== null) {
@@ -80,7 +78,6 @@ export class IdentifierPatternService {
                     kind: 'template',
                     text: match[0],
                     parameterName: match[1],
-                    suffix: match[2],
                 });
             } else {
                 parts.push({
@@ -133,9 +130,6 @@ export class IdentifierPatternService {
                 return undefined;
             }
             result += value;
-            if (part.suffix) {
-                result += part.suffix;
-            }
         }
         return result;
     }
@@ -194,7 +188,7 @@ export class IdentifierPatternService {
 
     getSegmentPattern(segment: RecoverablePathNamedSegment): IdentifierPatternView | undefined {
         if (partialAst.isConcretePathNamedSegment(segment)) {
-            const text = segment.reference?.ref?.name ?? segment.reference?.$refText;
+            const text = segment.reference?.$refText ?? segment.reference?.ref?.name;
             return this.parseTextPattern(text);
         }
         if (partialAst.isPatternPathNamedSegment(segment)) {
@@ -208,11 +202,7 @@ export class IdentifierPatternService {
     }
 
     getTemplateParameterName(text: string | undefined): string | undefined {
-        return this.parseTemplateToken(text)?.parameterName;
-    }
-
-    getTemplateSuffix(text: string | undefined): string | undefined {
-        return this.parseTemplateToken(text)?.suffix;
+        return this.parseTemplateToken(text);
     }
 
     protected toView(pattern: RecoverableIdentifierPattern | IdentifierPatternView | string | undefined): IdentifierPatternView | undefined {
@@ -228,17 +218,14 @@ export class IdentifierPatternService {
         return this.getViewFromPattern(pattern as partialAst.IdentifierPattern);
     }
 
-    protected parseTemplateToken(text: string | undefined): { parameterName: string; suffix: string } | undefined {
+    protected parseTemplateToken(text: string | undefined): string | undefined {
         if (!text) {
             return undefined;
         }
-        const match = /^\{([_a-zA-Z]\w*)\}(\w*)$/.exec(text);
+        const match = /^\{([_a-zA-Z]\w*)\}$/.exec(text);
         if (!match) {
             return undefined;
         }
-        return {
-            parameterName: match[1],
-            suffix: match[2],
-        };
+        return match[1];
     }
 }

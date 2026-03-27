@@ -462,6 +462,28 @@ task Worker on demo.Child
         expect(labels(taskStatementItems)).toContain('execute Worker');
         expect(labels(taskStatementItems)).not.toContain('Task');
         expect(labels(taskStatementItems)).not.toContain('Event Epoch');
+
+        const assemblyContextCursor = extractCursor(`schedule Demo
+task Main on DemoAsm
+{
+    call Ch@@
+}
+`);
+        const { scheduleDocument: assemblyContextDocument } = await parseWorkspace({
+            assemblyDoc: `assembly <Lane = "Ops"> DemoAsm
+Root: demo.Root
+{
+    child += Child{Lane}: demo.Child
+}
+`,
+            schedule: assemblyContextCursor.text,
+        });
+        const assemblyContextItems = await getCompletionItems(
+            services.xsmpsed.lsp.CompletionProvider!,
+            assemblyContextDocument,
+            assemblyContextCursor.cursor
+        );
+        expect(labels(assemblyContextItems)).toContain('ChildOps');
     });
 });
 

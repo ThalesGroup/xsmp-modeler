@@ -204,6 +204,29 @@ task Main on demo.Root
         expectLocation(targetLocations, catalogueDocument, catalogue.range);
     });
 
+    test('supports definition on templated instance names inherited from an assembly context', async () => {
+        const catalogue = extractRange(scheduleCatalogueSource);
+        const assembly = extractRange(`assembly <Lane = "Ops"> DemoAsm
+
+Root: demo.Root
+{
+    child += [[Child{Lane}]]: demo.Child
+}
+`);
+        const schedulePath = extractCursor(`schedule Demo
+
+task Main on DemoAsm
+{
+    call Chi@@ld{Lane}.reset()
+}
+`);
+
+        const { assemblyDocument, document } = await parseScheduleWorkspace(catalogue.text, schedulePath.text, assembly.text);
+        const locations = await getDefinitions(services.xsmpsed.lsp.DefinitionProvider, document, schedulePath.cursor);
+
+        expectLocation(locations, assemblyDocument!, assembly.range);
+    });
+
     test('supports template parameter navigation inside templated instance names', async () => {
         const catalogue = extractRange(assemblyCatalogueSource);
         const assemblyText = `assembly <Index = 1, Suffix = "Tail"> Demo
@@ -291,17 +314,24 @@ async function parseLinkBaseWorkspace(catalogueText: string, linkBaseText: strin
     return { catalogueDocument, document };
 }
 
-async function parseScheduleWorkspace(catalogueText: string, scheduleText: string): Promise<{
+async function parseScheduleWorkspace(catalogueText: string, scheduleText: string, assemblyText?: string): Promise<{
     catalogueDocument: LangiumDocument<Catalogue>;
+    assemblyDocument?: LangiumDocument<Assembly>;
     document: LangiumDocument<Schedule>;
 }> {
     const { catalogueDocument, tempDir } = await parseProjectAndCatalogue(catalogueText);
+    const assemblyDocument = assemblyText
+        ? await parseAssembly(assemblyText, {
+            documentUri: URI.file(path.join(tempDir, 'src', 'demo.xsmpasb')).toString(),
+        })
+        : undefined;
     const document = await parseSchedule(scheduleText, {
         documentUri: URI.file(path.join(tempDir, 'src', 'demo.xsmpsed')).toString(),
     });
-    documents.push(document);
+    documents.push(...(assemblyDocument ? [assemblyDocument] : []), document);
+    expect(assemblyDocument?.parseResult.parserErrors ?? []).toHaveLength(0);
     expect(document.parseResult.parserErrors).toHaveLength(0);
-    return { catalogueDocument, document };
+    return { catalogueDocument, assemblyDocument, document };
 }
 
 async function parseProjectAndCatalogue(catalogueText: string): Promise<{

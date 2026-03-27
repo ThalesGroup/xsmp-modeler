@@ -77,7 +77,7 @@ export class XsmpcfgCompletionProvider extends XsmpCompletionProviderBase {
 
         const configuration = this.getRecoveryContainerOfType(context, ast.isConfiguration);
         const componentConfiguration = this.getRecoveryContainerOfType(context, ast.isComponentConfiguration);
-        const components = this.getCrossReferenceNames(context, ast.ComponentConfiguration, ast.ComponentConfiguration.component);
+        const contexts = this.getCrossReferenceNames(context, ast.ComponentConfiguration, ast.ComponentConfiguration.context);
         const configurations = this.getCrossReferenceNames(context, ast.ConfigurationUsage, ast.ConfigurationUsage.configuration);
 
         if (!configuration && !componentConfiguration) {
@@ -92,7 +92,7 @@ export class XsmpcfgCompletionProvider extends XsmpCompletionProviderBase {
         if (componentConfiguration) {
             acceptor(context, this.createSnippetItem(
                 'Component Configuration',
-                `${this.createPlaceholder(1, 'child')}: ${this.createChoicePlaceholder(2, components, 'demo.Component')}\n{\n\t$0\n}`,
+                `${this.createPlaceholder(1, 'child')}: ${this.createChoicePlaceholder(2, contexts, 'demo.Component')}\n{\n\t$0\n}`,
                 'Nested Component Configuration'
             ));
             acceptor(context, this.createSnippetItem(
@@ -106,7 +106,7 @@ export class XsmpcfgCompletionProvider extends XsmpCompletionProviderBase {
         if (configuration) {
             acceptor(context, this.createSnippetItem(
                 'Root Component Configuration',
-                `/${this.createPlaceholder(1, 'root')}: ${this.createChoicePlaceholder(2, components, 'demo.Component')}\n{\n\t$0\n}`,
+                `/${this.createPlaceholder(1, 'root')}: ${this.createChoicePlaceholder(2, contexts, 'demo.Component')}\n{\n\t$0\n}`,
                 'Root Component Configuration'
             ));
             acceptor(context, this.createSnippetItem(
@@ -123,10 +123,7 @@ export class XsmpcfgCompletionProvider extends XsmpCompletionProviderBase {
         }
         const configuration = this.getRecoveryContainerOfType(context, ast.isComponentConfiguration);
         const component = configuration
-            ? (ast.isComponent(configuration.component?.ref)
-                ? configuration.component.ref
-                : undefined)
-                ?? this.cfgPathResolver.getConfigurationComponentStack(configuration)?.at(-1)
+            ? this.cfgPathResolver.getConfigurationComponentContext(configuration).component
             : undefined;
         if (!component) {
             return;
@@ -150,18 +147,18 @@ export class XsmpcfgCompletionProvider extends XsmpCompletionProviderBase {
             return;
         }
         const configuration = this.getRecoveryContainerOfType(context, ast.isComponentConfiguration);
-        const component = configuration
-            ? (ast.isComponent(configuration.component?.ref)
-                ? configuration.component.ref
-                : undefined)
-                ?? this.cfgPathResolver.getConfigurationComponentStack(configuration)?.at(-1)
+        const componentContext = configuration
+            ? this.cfgPathResolver.getConfigurationComponentContext(configuration)
             : undefined;
-        if (!component) {
+        if (componentContext?.assemblyContext) {
+            return;
+        }
+        if (!componentContext?.component) {
             return;
         }
 
         const configurations = this.getCrossReferenceNames(context, ast.ConfigurationUsage, ast.ConfigurationUsage.configuration);
-        for (const child of this.getDirectChildComponentContexts(component)) {
+        for (const child of this.getDirectChildComponentContexts(componentContext.component)) {
             const componentName = XsmpUtils.fqn(child.component);
             acceptor(context, this.createContextualValueItem(
                 context,

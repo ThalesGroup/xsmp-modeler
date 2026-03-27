@@ -1,47 +1,96 @@
+import type { AstNode } from 'langium';
 import { AstUtils, WorkspaceCache } from 'langium';
 import * as ast from '../generated/ast-partial.js';
 import type { XsmpSharedServices } from '../xsmp-module.js';
+import type { TemplateBindings } from './identifier-pattern-service.js';
 import {
     componentModeFieldPathMessages,
-    type TypedComponentPathResolution,
     type TypedFieldPathResolution,
     type XsmpTypedPathResolver
 } from './xsmp-typed-path-resolver.js';
+import type { AssemblyPathContext, Xsmpl2PathResolver } from './xsmpl2-path-resolver.js';
 
 type RecoverableType = ast.Type;
 
-export type CfgComponentPathResolution = TypedComponentPathResolution;
 export type CfgFieldPathResolution = TypedFieldPathResolution;
+
+export interface CfgComponentPathResolution {
+    active: boolean;
+    finalComponent?: ast.Component;
+    finalBindings?: TemplateBindings;
+    finalStack?: readonly ast.Component[];
+    parentStackForUntypedTarget?: readonly ast.Component[];
+    finalAssemblyContext?: AssemblyPathContext;
+    invalidMessage?: string;
+    invalidNode?: AstNode;
+    namedSegments: ReadonlyMap<ast.PathNamedSegment, readonly ast.NamedElement[]>;
+    segmentBindings?: ReadonlyMap<ast.PathNamedSegment, TemplateBindings | undefined>;
+}
+
+interface CfgConfigurationContext {
+    component?: ast.Component;
+    bindings?: TemplateBindings;
+    componentStack?: readonly ast.Component[];
+    assemblyContext?: AssemblyPathContext;
+}
 
 export class XsmpcfgPathResolver {
     protected readonly componentPathCache: WorkspaceCache<ast.Path, CfgComponentPathResolution>;
     protected readonly fieldPathCache: WorkspaceCache<ast.Path, CfgFieldPathResolution>;
-    protected readonly componentStackCache: WorkspaceCache<ast.ComponentConfiguration, readonly ast.Component[] | undefined>;
+    protected readonly configurationContextCache: WorkspaceCache<ast.ComponentConfiguration, CfgConfigurationContext | undefined>;
     protected readonly typedPathResolver: XsmpTypedPathResolver;
+    protected readonly l2PathResolver: Xsmpl2PathResolver;
 
     constructor(services: XsmpSharedServices) {
         this.componentPathCache = new WorkspaceCache<ast.Path, CfgComponentPathResolution>(services);
         this.fieldPathCache = new WorkspaceCache<ast.Path, CfgFieldPathResolution>(services);
-        this.componentStackCache = new WorkspaceCache<ast.ComponentConfiguration, readonly ast.Component[] | undefined>(services);
+        this.configurationContextCache = new WorkspaceCache<ast.ComponentConfiguration, CfgConfigurationContext | undefined>(services);
         this.typedPathResolver = services.TypedPathResolver;
+        this.l2PathResolver = services.L2PathResolver;
     }
 
     getNamedSegmentCandidates(segment: ast.PathNamedSegment | undefined): readonly ast.NamedElement[] {
+        return this.getNamedSegmentContext(segment).candidates;
+    }
+
+    getNamedSegmentContext(segment: ast.PathNamedSegment | undefined): {
+        candidates: readonly ast.NamedElement[];
+        bindings?: TemplateBindings;
+    } {
         if (!segment) {
-            return [];
+            return { candidates: [] };
         }
         const path = AstUtils.getContainerOfType(segment, ast.isPath);
         if (!path) {
-            return [];
+            return { candidates: [] };
         }
         if (ast.isFieldValue(path.$container)) {
-            return this.getFieldPathResolution(path).namedSegments.get(segment) ?? [];
+            return {
+                candidates: this.getFieldPathResolution(path).namedSegments.get(segment) ?? [],
+            };
         }
-        return this.getComponentPathResolution(path).namedSegments.get(segment) ?? [];
+        const resolution = this.getComponentPathResolution(path);
+        return {
+            candidates: resolution.namedSegments.get(segment) ?? [],
+            bindings: resolution.segmentBindings?.get(segment),
+        };
     }
 
     getConfigurationComponentStack(configuration: ast.ComponentConfiguration): readonly ast.Component[] | undefined {
-        return this.componentStackCache.get(configuration, () => this.computeConfigurationComponentStack(configuration));
+        return this.getConfigurationContext(configuration)?.componentStack;
+    }
+
+    getConfigurationComponentContext(configuration: ast.ComponentConfiguration): {
+        component?: ast.Component;
+        bindings?: TemplateBindings;
+        assemblyContext?: AssemblyPathContext;
+    } {
+        const context = this.getConfigurationContext(configuration);
+        return {
+            component: context?.component,
+            bindings: context?.bindings,
+            assemblyContext: context?.assemblyContext,
+        };
     }
 
     getComponentPathResolution(path: ast.Path): CfgComponentPathResolution {
@@ -56,45 +105,117 @@ export class XsmpcfgPathResolver {
         return this.typedPathResolver.getFieldCandidatesForType(type);
     }
 
-    protected computeConfigurationComponentStack(configuration: ast.ComponentConfiguration): readonly ast.Component[] | undefined {
-        const parent = ast.isComponentConfiguration(configuration.$container) ? configuration.$container : undefined;
-        const parentStack = parent ? this.getConfigurationComponentStack(parent) : undefined;
-        const explicitComponent = ast.isComponent(configuration.component?.ref) ? configuration.component.ref : undefined;
-        const resolution = parentStack && configuration.name ? this.typedPathResolver.resolveComponentPath(configuration.name, parentStack) : undefined;
+    protected getConfigurationContext(configuration: ast.ComponentConfiguration): CfgConfigurationContext | undefined {
+        return this.configurationContextCache.get(configuration, () => this.computeConfigurationContext(configuration));
+    }
 
-        if (explicitComponent) {
-            if (resolution?.finalStack && resolution.finalStack.length > 0) {
-                return [...resolution.finalStack.slice(0, -1), explicitComponent];
-            }
-            if (resolution?.parentStackForUntypedTarget) {
-                return [...resolution.parentStackForUntypedTarget, explicitComponent];
-            }
-            return parentStack ? [...parentStack, explicitComponent] : [explicitComponent];
+    protected computeConfigurationContext(configuration: ast.ComponentConfiguration): CfgConfigurationContext | undefined {
+        const parent = ast.isComponentConfiguration(configuration.$container) ? configuration.$container : undefined;
+        const parentContext = parent ? this.getConfigurationContext(parent) : undefined;
+        const explicitContext = configuration.context?.ref;
+        const explicitComponent = ast.isComponent(explicitContext) ? explicitContext : undefined;
+        const explicitAssembly = ast.isAssembly(explicitContext) ? explicitContext : undefined;
+        const resolution = parentContext && configuration.name ? this.resolveComponentPathFromContext(configuration.name, parentContext) : undefined;
+
+        if (explicitAssembly) {
+            return this.toAssemblyConfigurationContext(
+                this.l2PathResolver.getAssemblyPathContextForAssembly(explicitAssembly)
+            );
         }
 
-        return resolution?.finalStack;
+        if (explicitComponent) {
+            const componentStack = this.getExplicitComponentStack(explicitComponent, resolution, parentContext);
+            return { component: explicitComponent, componentStack };
+        }
+
+        if (resolution?.finalAssemblyContext) {
+            return this.toAssemblyConfigurationContext(resolution.finalAssemblyContext);
+        }
+
+        if (resolution?.finalStack && resolution.finalStack.length > 0) {
+            return {
+                component: resolution.finalStack.at(-1),
+                componentStack: resolution.finalStack,
+            };
+        }
+
+        return undefined;
     }
 
     protected computeComponentPathResolution(path: ast.Path): CfgComponentPathResolution {
-        return this.typedPathResolver.resolveComponentPath(path, this.getBaseComponentStackForComponentPath(path));
+        return this.resolveComponentPathFromContext(path, this.getBaseConfigurationContextForComponentPath(path));
     }
 
     protected computeFieldPathResolution(path: ast.Path): CfgFieldPathResolution {
         const configuration = AstUtils.getContainerOfType(path, ast.isComponentConfiguration);
-        const component = configuration ? this.getConfigurationComponentStack(configuration)?.at(-1) : undefined;
-        return this.typedPathResolver.resolveFieldPath(path, component, componentModeFieldPathMessages);
+        const context = configuration ? this.getConfigurationContext(configuration) : undefined;
+        return this.typedPathResolver.resolveFieldPath(path, context?.component, componentModeFieldPathMessages, context?.bindings);
     }
 
-    protected getBaseComponentStackForComponentPath(path: ast.Path): readonly ast.Component[] | undefined {
+    protected resolveComponentPathFromContext(
+        path: ast.Path,
+        context: CfgConfigurationContext | undefined,
+    ): CfgComponentPathResolution {
+        if (context?.assemblyContext) {
+            const resolution = this.l2PathResolver.resolveAssemblyComponentPathInContext(path, context.assemblyContext);
+            return {
+                active: resolution.active,
+                finalComponent: resolution.finalComponent,
+                finalBindings: resolution.finalBindings,
+                finalAssemblyContext: resolution.finalContext,
+                invalidMessage: resolution.invalidMessage,
+                invalidNode: resolution.invalidNode,
+                namedSegments: resolution.namedSegments,
+                segmentBindings: resolution.segmentBindings,
+            };
+        }
+
+        const resolution = this.typedPathResolver.resolveComponentPath(path, context?.componentStack);
+        return {
+            active: resolution.active,
+            finalComponent: resolution.finalComponent,
+            finalStack: resolution.finalStack,
+            parentStackForUntypedTarget: resolution.parentStackForUntypedTarget,
+            invalidMessage: resolution.invalidMessage,
+            invalidNode: resolution.invalidNode,
+            namedSegments: resolution.namedSegments,
+        };
+    }
+
+    protected getBaseConfigurationContextForComponentPath(path: ast.Path): CfgConfigurationContext | undefined {
         if (ast.isConfigurationUsage(path.$container)) {
             const configuration = AstUtils.getContainerOfType(path.$container, ast.isComponentConfiguration);
-            return configuration ? this.getConfigurationComponentStack(configuration) : undefined;
+            return configuration ? this.getConfigurationContext(configuration) : undefined;
         }
         if (ast.isComponentConfiguration(path.$container)) {
             return ast.isComponentConfiguration(path.$container.$container)
-                ? this.getConfigurationComponentStack(path.$container.$container)
+                ? this.getConfigurationContext(path.$container.$container)
                 : undefined;
         }
         return undefined;
+    }
+
+    protected toAssemblyConfigurationContext(assemblyContext: AssemblyPathContext | undefined): CfgConfigurationContext | undefined {
+        return assemblyContext
+            ? {
+                component: assemblyContext.component,
+                bindings: assemblyContext.bindings,
+                assemblyContext,
+            }
+            : undefined;
+    }
+
+    protected getExplicitComponentStack(
+        explicitComponent: ast.Component,
+        resolution: CfgComponentPathResolution | undefined,
+        parentContext: CfgConfigurationContext | undefined,
+    ): readonly ast.Component[] {
+        if (resolution?.finalStack && resolution.finalStack.length > 0) {
+            return [...resolution.finalStack.slice(0, -1), explicitComponent];
+        }
+        if (resolution?.parentStackForUntypedTarget) {
+            return [...resolution.parentStackForUntypedTarget, explicitComponent];
+        }
+        return parentContext?.componentStack ? [...parentContext.componentStack, explicitComponent] : [explicitComponent];
     }
 }

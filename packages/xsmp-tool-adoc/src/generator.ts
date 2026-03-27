@@ -708,7 +708,7 @@ export class ADocGenerator implements XsmpGenerator {
             [%autowidth.stretch]
             |===
             ${this.infoRow('Name', task.name)}
-            ${this.infoRow('Component', this.formatReferenceName(task.component, true))}
+            ${this.infoRow('Context', this.formatReferenceName(task.context, true))}
             |===
 
             ${task.elements.length > 0 ? s`
@@ -891,7 +891,7 @@ export class ADocGenerator implements XsmpGenerator {
             [%autowidth.stretch]
             |===
             ${this.infoRow('Path', this.formatPath(component.name))}
-            ${this.infoRow('Type', this.formatReferenceName(component.component, true))}
+            ${this.infoRow('Context', this.formatReferenceName(component.context, true))}
             |===
 
             ${this.renderConfigurationIncludes(includes, level + 1, 'Includes')}

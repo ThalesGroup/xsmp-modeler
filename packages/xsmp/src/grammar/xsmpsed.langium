@@ -58,10 +58,10 @@ Int32Parameter returns Int32Parameter:
 
 Task returns Task:
     /**
-     * `task <name> [on <component>] { ... }`
+     * `task <name> [on <component-or-assembly>] { ... }`
      *
      * Declares a reusable schedule task.
-     * Attach an execution context component when the task should be validated against a specific component interface and when typed hover/navigation is desired on activity paths.
+     * Attach an execution context component or assembly when the task should be validated against a specific root context and when typed hover/navigation is desired on activity paths.
      *
      * **Example**
      * ```xsmp
@@ -71,7 +71,7 @@ Task returns Task:
      * }
      * ```
      */
-    'task' name=Name ('on' component=[Component:QualifiedName])?
+    'task' name=Name ('on' context=[ComponentOrAssembly:QualifiedName])?
     '{'
     elements+=Activity*
     '}';
@@ -378,7 +378,7 @@ terminal DURATION_STRING: /"[^"]*"d/;
 terminal STRING: /"[^"]*"/;
 terminal CHAR: /'[^']*'/;
 
-terminal TEMPLATE_ID: /\{[_a-zA-Z]\w*\}\w*/;
+terminal TEMPLATE_ID: /\{[_a-zA-Z]\w*\}/;
 terminal ID: /[_a-zA-Z]\w*/;
 
 

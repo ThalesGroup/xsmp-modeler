@@ -478,6 +478,7 @@ interface AssemblyInstance extends NamedElement {
 }
 
 type Name = string;
+type ComponentOrAssembly = Component|Assembly;
 
 interface SubInstance {
     container: LocalNamedReference
@@ -507,7 +508,7 @@ interface Configuration extends Document {
 interface ComponentConfiguration {
     name: Path
     elements: (ConfigurationUsage|ComponentConfiguration|Value)[]
-    component?: @Component
+    context?: @ComponentOrAssembly
 }
 
 interface ConfigurationUsage {
@@ -552,7 +553,7 @@ interface Schedule extends Document {
 }
 
 interface Task extends NamedElement {
-    component?: @Component
+    context?: @ComponentOrAssembly
     elements: Activity[]
 }
 

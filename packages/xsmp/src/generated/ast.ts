@@ -15,7 +15,7 @@ export namespace Xsmpasb {
         DURATION_STRING: /"[^"]*"d/,
         STRING: /"[^"]*"/,
         CHAR: /'[^']*'/,
-        TEMPLATE_ID: /\{[_a-zA-Z]\w*\}\w*/,
+        TEMPLATE_ID: /\{[_a-zA-Z]\w*\}/,
         ID: /[_a-zA-Z]\w*/,
         FLOATING_LITERAL: /(?:(?:[0-9][0-9']*)?\.(?:[0-9][0-9']*)|(?:[0-9][0-9']*)\.)(?:[eE][+-]?[0-9][0-9']*)?|(?:[0-9][0-9']*)(?:[eE][+-]?[0-9][0-9']*)/,
         INT: /-?(0|[1-9]\d*)/,
@@ -97,6 +97,7 @@ export namespace Xsmpasb {
         Component: Component
         ComponentConfiguration: ComponentConfiguration
         ComponentLinkBase: ComponentLinkBase
+        ComponentOrAssembly: ComponentOrAssembly
         ConcretePathNamedSegment: ConcretePathNamedSegment
         Configuration: Configuration
         ConfigurationUsage: ConfigurationUsage
@@ -353,6 +354,7 @@ export namespace Xsmpcat {
         Component: Component
         ComponentConfiguration: ComponentConfiguration
         ComponentLinkBase: ComponentLinkBase
+        ComponentOrAssembly: ComponentOrAssembly
         ConcretePathNamedSegment: ConcretePathNamedSegment
         Configuration: Configuration
         ConfigurationUsage: ConfigurationUsage
@@ -485,6 +487,7 @@ export namespace Xsmpcfg {
         DURATION_STRING: /"[^"]*"d/,
         STRING: /"[^"]*"/,
         CHAR: /'[^']*'/,
+        TEMPLATE_ID: /\{[_a-zA-Z]\w*\}/,
         ID: /[_a-zA-Z]\w*/,
         FLOATING_LITERAL: /(?:(?:[0-9][0-9']*)?\.(?:[0-9][0-9']*)|(?:[0-9][0-9']*)\.)(?:[eE][+-]?[0-9][0-9']*)?|(?:[0-9][0-9']*)(?:[eE][+-]?[0-9][0-9']*)/,
         INT: /[+-]?(0|[1-9]\d*)/,
@@ -551,6 +554,7 @@ export namespace Xsmpcfg {
         Component: Component
         ComponentConfiguration: ComponentConfiguration
         ComponentLinkBase: ComponentLinkBase
+        ComponentOrAssembly: ComponentOrAssembly
         ConcretePathNamedSegment: ConcretePathNamedSegment
         Configuration: Configuration
         ConfigurationUsage: ConfigurationUsage
@@ -679,7 +683,7 @@ export namespace Xsmplnk {
 
     export const Terminals = {
         WS: /\s+/,
-        TEMPLATE_ID: /\{[_a-zA-Z]\w*\}\w*/,
+        TEMPLATE_ID: /\{[_a-zA-Z]\w*\}/,
         ID: /[_a-zA-Z]\w*/,
         INT: /[+-]?(0|[1-9]\d*)/,
         ML_COMMENT: /\/\*[\s\S]*?\*\//,
@@ -732,6 +736,7 @@ export namespace Xsmplnk {
         Component: Component
         ComponentConfiguration: ComponentConfiguration
         ComponentLinkBase: ComponentLinkBase
+        ComponentOrAssembly: ComponentOrAssembly
         ConcretePathNamedSegment: ConcretePathNamedSegment
         Configuration: Configuration
         ConfigurationUsage: ConfigurationUsage
@@ -899,7 +904,7 @@ export namespace Xsmpsed {
         DURATION_STRING: /"[^"]*"d/,
         STRING: /"[^"]*"/,
         CHAR: /'[^']*'/,
-        TEMPLATE_ID: /\{[_a-zA-Z]\w*\}\w*/,
+        TEMPLATE_ID: /\{[_a-zA-Z]\w*\}/,
         ID: /[_a-zA-Z]\w*/,
         FLOATING_LITERAL: /(?:(?:[0-9][0-9']*)?\.(?:[0-9][0-9']*)|(?:[0-9][0-9']*)\.)(?:[eE][+-]?[0-9][0-9']*)?|(?:[0-9][0-9']*)(?:[eE][+-]?[0-9][0-9']*)/,
         INT: /[+-]?(0|[1-9]\d*)/,
@@ -990,6 +995,7 @@ export namespace Xsmpsed {
         Component: Component
         ComponentConfiguration: ComponentConfiguration
         ComponentLinkBase: ComponentLinkBase
+        ComponentOrAssembly: ComponentOrAssembly
         ConcretePathNamedSegment: ConcretePathNamedSegment
         Configuration: Configuration
         ConfigurationUsage: ConfigurationUsage
@@ -1519,14 +1525,14 @@ export function isComponent(item: unknown): item is Component {
 export interface ComponentConfiguration extends langium.AstNode {
     readonly $container: ComponentConfiguration | Configuration;
     readonly $type: 'ComponentConfiguration';
-    component?: langium.Reference<Component>;
+    context?: langium.Reference<ComponentOrAssembly>;
     elements: Array<ComponentConfiguration | ConfigurationUsage | Value>;
     name: Path;
 }
 
 export const ComponentConfiguration = {
     $type: 'ComponentConfiguration',
-    component: 'component',
+    context: 'context',
     elements: 'elements',
     name: 'name'
 } as const;
@@ -1550,6 +1556,16 @@ export const ComponentLinkBase = {
 
 export function isComponentLinkBase(item: unknown): item is ComponentLinkBase {
     return reflection.isInstance(item, ComponentLinkBase.$type);
+}
+
+export type ComponentOrAssembly = Assembly | Component;
+
+export const ComponentOrAssembly = {
+    $type: 'ComponentOrAssembly'
+} as const;
+
+export function isComponentOrAssembly(item: unknown): item is ComponentOrAssembly {
+    return reflection.isInstance(item, ComponentOrAssembly.$type);
 }
 
 export interface ConcretePathNamedSegment extends LocalNamedReference, PathNamedSegment {
@@ -3347,14 +3363,14 @@ export function isSubInstance(item: unknown): item is SubInstance {
 export interface Task extends NamedElement {
     readonly $container: Schedule;
     readonly $type: 'Task';
-    component?: langium.Reference<Component>;
+    context?: langium.Reference<ComponentOrAssembly>;
     elements: Array<Activity>;
 }
 
 export const Task = {
     $type: 'Task',
     attributes: 'attributes',
-    component: 'component',
+    context: 'context',
     elements: 'elements',
     name: 'name'
 } as const;
@@ -3710,7 +3726,7 @@ export class XsmpAstReflection extends langium.AbstractAstReflection {
                     defaultValue: []
                 }
             },
-            superTypes: [Document.$type]
+            superTypes: [Document.$type, ComponentOrAssembly.$type]
         },
         AssemblyComponentConfiguration: {
             name: AssemblyComponentConfiguration.$type,
@@ -3999,14 +4015,14 @@ export class XsmpAstReflection extends langium.AbstractAstReflection {
                     name: Component.name
                 }
             },
-            superTypes: [LanguageType.$type, ReferenceType.$type]
+            superTypes: [LanguageType.$type, ComponentOrAssembly.$type, ReferenceType.$type]
         },
         ComponentConfiguration: {
             name: ComponentConfiguration.$type,
             properties: {
-                component: {
-                    name: ComponentConfiguration.component,
-                    referenceType: Component.$type
+                context: {
+                    name: ComponentConfiguration.context,
+                    referenceType: ComponentOrAssembly.$type
                 },
                 elements: {
                     name: ComponentConfiguration.elements,
@@ -4028,6 +4044,12 @@ export class XsmpAstReflection extends langium.AbstractAstReflection {
                 name: {
                     name: ComponentLinkBase.name
                 }
+            },
+            superTypes: []
+        },
+        ComponentOrAssembly: {
+            name: ComponentOrAssembly.$type,
+            properties: {
             },
             superTypes: []
         },
@@ -5596,9 +5618,9 @@ export class XsmpAstReflection extends langium.AbstractAstReflection {
                     name: Task.attributes,
                     defaultValue: []
                 },
-                component: {
-                    name: Task.component,
-                    referenceType: Component.$type
+                context: {
+                    name: Task.context,
+                    referenceType: ComponentOrAssembly.$type
                 },
                 elements: {
                     name: Task.elements,

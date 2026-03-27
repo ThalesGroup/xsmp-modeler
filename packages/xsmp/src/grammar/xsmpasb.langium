@@ -331,7 +331,7 @@ terminal DATETIME_STRING: /"[^"]*"dt/;
 terminal DURATION_STRING: /"[^"]*"d/;
 terminal STRING: /"[^"]*"/;
 terminal CHAR: /'[^']*'/;
-terminal TEMPLATE_ID: /\{[_a-zA-Z]\w*\}\w*/;
+terminal TEMPLATE_ID: /\{[_a-zA-Z]\w*\}/;
 terminal ID: /[_a-zA-Z]\w*/;
 
 

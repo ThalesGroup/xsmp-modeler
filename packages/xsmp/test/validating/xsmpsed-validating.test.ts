@@ -2,7 +2,7 @@ import { afterEach, beforeAll, describe, expect, test } from 'vitest';
 import { clearDocuments, parseHelper, type ParseHelperOptions } from 'langium/test';
 import { EmptyFileSystem, type LangiumDocument, URI } from 'langium';
 import { createXsmpServices } from 'xsmp';
-import { Catalogue, Project, Schedule, isSchedule } from 'xsmp/ast-partial';
+import { Assembly, Catalogue, Project, Schedule, isSchedule } from 'xsmp/ast-partial';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -12,6 +12,7 @@ let services: ReturnType<typeof createXsmpServices>;
 let parseProject: ReturnType<typeof parseHelper<Project>>;
 let parseCatalogue: ReturnType<typeof parseHelper<Catalogue>>;
 let parseSchedule: ReturnType<typeof parseHelper<Schedule>>;
+let parseAssembly: ReturnType<typeof parseHelper<Assembly>>;
 const documents: LangiumDocument[] = [];
 const tempDirs: string[] = [];
 
@@ -71,10 +72,19 @@ namespace demo
 }
 `;
 
+const assemblySource = `assembly <Lane = "Ops"> DemoAsm
+
+Root: demo.Root
+{
+    child += Child{Lane}: demo.Child
+}
+`;
+
 beforeAll(async () => {
     services = createXsmpServices(EmptyFileSystem);
     parseProject = parseHelper<Project>(services.xsmpproject);
     parseCatalogue = parseHelper<Catalogue>(services.xsmpcat);
+    parseAssembly = parseHelper<Assembly>(services.xsmpasb);
     const doParseSchedule = parseHelper<Schedule>(services.xsmpsed);
     parseSchedule = (input: string, options?: ParseHelperOptions) => doParseSchedule(input, { validation: true, ...options });
 
@@ -185,9 +195,22 @@ task Main on demo.Root
             "The Template Parameter 'Unused' is not used.",
         ]);
     });
+
+    test('accepts assembly execution contexts and resolves inherited template parameters in paths', async () => {
+        const document = await parseInProject(`schedule Demo
+
+task Main on DemoAsm
+{
+    call Child{Lane}.reset()
+    trig Child{Lane}.step
+}
+`, assemblySource);
+
+        expect(getMessages(document)).toEqual([]);
+    });
 });
 
-async function parseInProject(source: string): Promise<LangiumDocument<Schedule>> {
+async function parseInProject(source: string, assemblyText?: string): Promise<LangiumDocument<Schedule>> {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmpsed-validating-'));
     tempDirs.push(tempDir);
 
@@ -200,15 +223,21 @@ source "src"
     const catalogueDocument = await parseCatalogue(catalogueSource, {
         documentUri: URI.file(path.join(tempDir, 'src', 'demo.xsmpcat')).toString(),
     });
+    const assemblyDocument = assemblyText
+        ? await parseAssembly(assemblyText, {
+            documentUri: URI.file(path.join(tempDir, 'src', 'demo.xsmpasb')).toString(),
+        })
+        : undefined;
     const scheduleDocument = await parseSchedule(source, {
         documentUri: URI.file(path.join(tempDir, 'src', 'demo.xsmpsed')).toString(),
     });
 
-    documents.push(projectDocument, catalogueDocument, scheduleDocument);
+    documents.push(projectDocument, catalogueDocument, ...(assemblyDocument ? [assemblyDocument] : []), scheduleDocument);
     expect(projectDocument.parseResult.parserErrors).toHaveLength(0);
     expect(catalogueDocument.parseResult.parserErrors).toHaveLength(0);
+    expect(assemblyDocument?.parseResult.parserErrors ?? []).toHaveLength(0);
     expect(scheduleDocument.parseResult.parserErrors).toHaveLength(0);
-    await rebuildTestDocuments(services, [projectDocument, catalogueDocument, scheduleDocument]);
+    await rebuildTestDocuments(services, [projectDocument, catalogueDocument, ...(assemblyDocument ? [assemblyDocument] : []), scheduleDocument]);
 
     return scheduleDocument;
 }

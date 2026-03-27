@@ -4,7 +4,7 @@ import { EmptyFileSystem, type LangiumDocument, URI } from 'langium';
 import { CodeActionKind, MarkupContent, TextEdit, type CodeAction, type LocationLink, type Range, type TextDocumentPositionParams } from 'vscode-languageserver';
 import type { CodeActionParams } from 'vscode-languageserver-protocol';
 import { createXsmpServices } from 'xsmp';
-import { Catalogue, Configuration, Project } from 'xsmp/ast-partial';
+import { Assembly, Catalogue, Configuration, Project } from 'xsmp/ast-partial';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -13,6 +13,7 @@ let services: ReturnType<typeof createXsmpServices>;
 let parseProject: ReturnType<typeof parseHelper<Project>>;
 let parseCatalogue: ReturnType<typeof parseHelper<Catalogue>>;
 let parseConfiguration: ReturnType<typeof parseHelper<Configuration>>;
+let parseAssembly: ReturnType<typeof parseHelper<Assembly>>;
 const documents: LangiumDocument[] = [];
 const tempDirs: string[] = [];
 
@@ -20,6 +21,7 @@ beforeAll(async () => {
     services = createXsmpServices(EmptyFileSystem);
     parseProject = parseHelper<Project>(services.xsmpproject);
     parseCatalogue = parseHelper<Catalogue>(services.xsmpcat);
+    parseAssembly = parseHelper<Assembly>(services.xsmpasb);
     const doParseConfiguration = parseHelper<Configuration>(services.xsmpcfg);
     parseConfiguration = (input, options) => doParseConfiguration(input, { validation: true, ...options });
 
@@ -189,6 +191,29 @@ namespace demo
             TextEdit.insert(configurationDocument.textDocument.positionAt(configuration.cursor), 'unsafe ')
         ]);
     });
+
+    test('supports definition on assembly-backed component configuration names using inherited template parameters', async () => {
+        const assembly = extractRange(`assembly <Lane = "Ops"> DemoAsm
+Root: demo.Root
+{
+    child += [[Child{Lane}]]: demo.Child
+}
+`);
+        const configuration = extractCursor(`configuration Demo
+/Root: DemoAsm
+{
+    Chi@@ld{Lane}
+    {
+        value = 2i32
+    }
+}
+`);
+
+        const { assemblyDocument, configurationDocument } = await parseProjectDocuments(catalogueSource, configuration.text, assembly.text);
+        const locations = await getDefinitions(configurationDocument, configuration.cursor);
+
+        expectLocation(locations, assemblyDocument, assembly.range);
+    });
 });
 
 const catalogueSource = `catalogue Demo
@@ -218,7 +243,15 @@ namespace demo
 }
 `;
 
-async function parseProjectDocuments(catalogueSource: string, configurationSource: string): Promise<{
+const assemblySource = `assembly <Lane = "Ops"> DemoAsm
+Root: demo.Root
+{
+    child += Child{Lane}: demo.Child
+}
+`;
+
+async function parseProjectDocuments(catalogueSource: string, configurationSource: string, assemblySourceText = assemblySource): Promise<{
+    assemblyDocument: LangiumDocument<Assembly>;
     catalogueDocument: LangiumDocument<Catalogue>;
     configurationDocument: LangiumDocument<Configuration>;
 }> {
@@ -234,6 +267,9 @@ source "src"
     const catalogueDocument = await parseCatalogue(catalogueSource, {
         documentUri: URI.file(path.join(tempDir, 'src', 'demo.xsmpcat')).toString(),
     });
+    const assemblyDocument = await parseAssembly(assemblySourceText, {
+        documentUri: URI.file(path.join(tempDir, 'src', 'demo.xsmpasb')).toString(),
+    });
     const otherConfigurationDocument = await parseConfiguration(`configuration Other
 /Other
 {
@@ -245,13 +281,14 @@ source "src"
         documentUri: URI.file(path.join(tempDir, 'src', 'demo.xsmpcfg')).toString(),
     });
 
-    documents.push(projectDocument, catalogueDocument, otherConfigurationDocument, configurationDocument);
+    documents.push(projectDocument, catalogueDocument, assemblyDocument, otherConfigurationDocument, configurationDocument);
     expect(projectDocument.parseResult.parserErrors).toHaveLength(0);
     expect(catalogueDocument.parseResult.parserErrors).toHaveLength(0);
+    expect(assemblyDocument.parseResult.parserErrors).toHaveLength(0);
     expect(otherConfigurationDocument.parseResult.parserErrors).toHaveLength(0);
     expect(configurationDocument.parseResult.parserErrors).toHaveLength(0);
 
-    return { catalogueDocument, configurationDocument };
+    return { assemblyDocument, catalogueDocument, configurationDocument };
 }
 
 async function getDefinitions(document: LangiumDocument<Configuration>, offset: number): Promise<LocationLink[]> {

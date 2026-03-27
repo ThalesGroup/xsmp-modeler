@@ -32,10 +32,25 @@ export interface AsbInstancePathResolution {
     active: boolean;
     finalComponent?: ast.Component;
     finalBindings?: TemplateBindings;
+    finalContext?: AssemblyPathContext;
     invalidMessage?: string;
     invalidNode?: AstNode;
     namedSegments: ReadonlyMap<ast.PathNamedSegment, readonly ast.NamedElement[]>;
     segmentBindings?: ReadonlyMap<ast.PathNamedSegment, TemplateBindings | undefined>;
+}
+
+export interface AssemblyPathContext {
+    component?: ast.Component;
+    bindings?: TemplateBindings;
+    assembly?: ast.Assembly;
+    instance?: ast.ModelInstance | ast.AssemblyInstance;
+}
+
+interface TaskExecutionContext {
+    component?: ast.Component;
+    bindings?: TemplateBindings;
+    componentStack?: readonly ast.Component[];
+    assemblyContext?: AssemblyPathContext;
 }
 
 export interface InterfaceLinkSourceResolution extends L2PathResolution<ast.Reference> {
@@ -79,7 +94,7 @@ export class Xsmpl2PathResolver {
     protected readonly linkBaseEndpointPathCache: WorkspaceCache<ast.Path, L2PathResolution>;
     protected readonly scheduleActivityPathCache: WorkspaceCache<ast.Path, L2PathResolution>;
     protected readonly componentLinkBaseStackCache: WorkspaceCache<ast.ComponentLinkBase, readonly ast.Component[] | undefined>;
-    protected readonly taskExecutionContextStackCache: WorkspaceCache<ast.Task, readonly ast.Component[] | undefined>;
+    protected readonly taskExecutionContextCache: WorkspaceCache<ast.Task, TaskExecutionContext | undefined>;
 
     constructor(services: XsmpSharedServices) {
         this.pathService = services.PathService;
@@ -93,7 +108,7 @@ export class Xsmpl2PathResolver {
         this.linkBaseEndpointPathCache = new WorkspaceCache<ast.Path, L2PathResolution>(services);
         this.scheduleActivityPathCache = new WorkspaceCache<ast.Path, L2PathResolution>(services);
         this.componentLinkBaseStackCache = new WorkspaceCache<ast.ComponentLinkBase, readonly ast.Component[] | undefined>(services);
-        this.taskExecutionContextStackCache = new WorkspaceCache<ast.Task, readonly ast.Component[] | undefined>(services);
+        this.taskExecutionContextCache = new WorkspaceCache<ast.Task, TaskExecutionContext | undefined>(services);
     }
 
     getFieldCandidatesForType(type: RecoverableType | undefined): readonly ast.Field[] {
@@ -120,6 +135,13 @@ export class Xsmpl2PathResolver {
 
     getNamedSegmentCandidates(segment: ast.PathNamedSegment | undefined): readonly ast.NamedElement[] {
         return this.getNamedSegmentContext(segment).candidates;
+    }
+
+    getNamedSegmentResolutionContext(segment: ast.PathNamedSegment | undefined): {
+        candidates: readonly ast.NamedElement[];
+        bindings?: TemplateBindings;
+    } {
+        return this.getNamedSegmentContext(segment);
     }
 
     getNamedSegmentTarget(segment: ast.PathNamedSegment | undefined): ast.NamedElement | undefined {
@@ -325,18 +347,47 @@ export class Xsmpl2PathResolver {
     }
 
     getTaskExecutionContextStack(task: ast.Task): readonly ast.Component[] | undefined {
-        return this.taskExecutionContextStackCache.get(task, () => {
-            const component = ast.isComponent(task.component?.ref) ? task.component.ref : undefined;
-            return component ? [component] : undefined;
-        });
+        return this.getTaskExecutionContext(task)?.componentStack;
     }
 
     getEffectiveTaskExecutionContext(task: ast.Task): ast.Component | undefined {
-        return this.getTaskExecutionContextStack(task)?.at(-1);
+        return this.getTaskExecutionContext(task)?.component;
     }
 
     getAssemblyComponentPathResolution(path: ast.Path): AsbInstancePathResolution {
         return this.assemblyConfigPathCache.get(path, () => this.computeAssemblyComponentPathResolution(path));
+    }
+
+    getAssemblyPathContextForAssembly(
+        assembly: ast.Assembly | undefined,
+    ): AssemblyPathContext | undefined {
+        if (!assembly) {
+            return undefined;
+        }
+        const bindings = this.createTemplateBindings(assembly.parameters);
+        const node = this.getAssemblyNode(assembly.model, bindings);
+        return this.createAssemblyPathContext(node, { assembly });
+    }
+
+    getAssemblyPathContextForInstance(
+        instance: ast.ModelInstance | ast.AssemblyInstance | undefined,
+        bindings?: TemplateBindings,
+    ): AssemblyPathContext | undefined {
+        if (!instance) {
+            return undefined;
+        }
+        const node = ast.isModelInstance(instance)
+            ? this.getAssemblyNode(instance, bindings)
+            : this.getAssemblyNodeForAssemblyInstance(instance);
+        return this.createAssemblyPathContext(node, { instance });
+    }
+
+    resolveAssemblyComponentPathInContext(
+        path: ast.Path,
+        context: AssemblyPathContext | undefined,
+        inheritedBindings?: TemplateBindings,
+    ): AsbInstancePathResolution {
+        return this.resolveAssemblyInstancePath(path, this.getAssemblyBaseNode(context), context, inheritedBindings);
     }
 
     getAssemblyFieldPathResolution(path: ast.Path): L2PathResolution<ast.Field> {
@@ -369,8 +420,8 @@ export class Xsmpl2PathResolver {
 
     protected computeAssemblyComponentPathResolution(path: ast.Path): AsbInstancePathResolution {
         const configuration = AstUtils.getContainerOfType(path, ast.isAssemblyComponentConfiguration);
-        const baseNode = configuration ? this.getAssemblyConfigurationBaseNode(configuration) : undefined;
-        return this.resolveAssemblyInstancePath(path, baseNode);
+        const baseContext = configuration ? this.getAssemblyConfigurationBaseContext(configuration) : undefined;
+        return this.resolveAssemblyComponentPathInContext(path, baseContext);
     }
 
     protected computeAssemblyFieldPathResolution(path: ast.Path): L2PathResolution<ast.Field> {
@@ -682,35 +733,54 @@ export class Xsmpl2PathResolver {
     }
 
     protected computeScheduleActivityPathResolution(path: ast.Path): L2PathResolution {
-        const bindings = this.getScheduleTemplateBindings(path);
+        const task = AstUtils.getContainerOfType(path.$container, ast.isTask);
+        const taskContext = task ? this.getTaskExecutionContext(task) : undefined;
+        const bindings = this.mergeTemplateBindings(this.getScheduleTemplateBindings(path), taskContext?.bindings);
         if (ast.isExecuteTask(path.$container)) {
-            const task = AstUtils.getContainerOfType(path.$container, ast.isTask);
-            const baseStack = task ? this.getTaskExecutionContextStack(task) : undefined;
-            return this.typedComponentResolutionToL2(baseStack ? this.typedPathResolver.resolveComponentPath(path, baseStack, bindings) : undefined, bindings);
+            if (taskContext?.assemblyContext) {
+                return this.assemblyInstanceResolutionToL2(
+                    this.resolveAssemblyComponentPathInContext(path, taskContext.assemblyContext, bindings)
+                );
+            }
+            return this.typedComponentResolutionToL2(
+                taskContext?.componentStack ? this.typedPathResolver.resolveComponentPath(path, taskContext.componentStack, bindings) : undefined,
+                bindings
+            );
         }
 
-        const task = AstUtils.getContainerOfType(path.$container, ast.isTask);
-        const baseStack = task ? this.getTaskExecutionContextStack(task) : undefined;
-        if (!baseStack) {
+        if (!taskContext?.component && !taskContext?.assemblyContext) {
             return this.inactiveResolution();
         }
 
         if (ast.isCallOperation(path.$container)) {
-            return this.resolveComponentMemberPath(path, baseStack, ['operation'], bindings);
+            return taskContext.assemblyContext
+                ? this.resolveAssemblyMemberPathInContext(path, taskContext.assemblyContext, ['operation'], bindings)
+                : this.resolveComponentMemberPath(path, taskContext.componentStack, ['operation'], bindings);
         }
         if (ast.isSetProperty(path.$container)) {
-            return this.resolveComponentMemberPath(path, baseStack, ['property'], bindings);
+            return taskContext.assemblyContext
+                ? this.resolveAssemblyMemberPathInContext(path, taskContext.assemblyContext, ['property'], bindings)
+                : this.resolveComponentMemberPath(path, taskContext.componentStack, ['property'], bindings);
         }
         if (ast.isTransfer(path.$container)) {
-            return this.resolveComponentFieldEndpointPath(
-                path,
-                baseStack,
-                path === path.$container.outputFieldPath ? 'outputField' : 'inputField',
-                bindings
-            );
+            return taskContext.assemblyContext
+                ? this.resolveAssemblyFieldEndpointPathInContext(
+                    path,
+                    taskContext.assemblyContext,
+                    path === path.$container.outputFieldPath ? 'outputField' : 'inputField',
+                    bindings,
+                )
+                : this.resolveComponentFieldEndpointPath(
+                    path,
+                    taskContext.componentStack,
+                    path === path.$container.outputFieldPath ? 'outputField' : 'inputField',
+                    bindings
+                );
         }
         if (ast.isTrigger(path.$container)) {
-            return this.resolveComponentMemberPath(path, baseStack, ['entryPoint'], bindings);
+            return taskContext.assemblyContext
+                ? this.resolveAssemblyMemberPathInContext(path, taskContext.assemblyContext, ['entryPoint'], bindings)
+                : this.resolveComponentMemberPath(path, taskContext.componentStack, ['entryPoint'], bindings);
         }
 
         return this.inactiveResolution();
@@ -729,7 +799,12 @@ export class Xsmpl2PathResolver {
         return undefined;
     }
 
-    protected resolveAssemblyInstancePath(path: ast.Path, baseNode: AssemblyNode | undefined): AsbInstancePathResolution {
+    protected resolveAssemblyInstancePath(
+        path: ast.Path,
+        baseNode: AssemblyNode | undefined,
+        baseContext?: AssemblyPathContext,
+        inheritedBindings?: TemplateBindings,
+    ): AsbInstancePathResolution {
         const namedSegments = new Map<ast.PathNamedSegment, readonly ast.NamedElement[]>();
         const segmentBindings = new Map<ast.PathNamedSegment, TemplateBindings | undefined>();
         if (!baseNode) {
@@ -757,6 +832,8 @@ export class Xsmpl2PathResolver {
         }
 
         let currentNode = baseNode;
+        let currentBindings = this.mergeTemplateBindings(inheritedBindings, baseNode.bindings);
+        let currentContext = baseContext;
         for (const segment of segments) {
             if (ast.isPathIndex(segment)) {
                 return {
@@ -791,9 +868,9 @@ export class Xsmpl2PathResolver {
 
             const candidates = currentNode.children.map(child => child.instance);
             namedSegments.set(actualSegment, candidates);
-            segmentBindings.set(actualSegment, currentNode.bindings);
+            segmentBindings.set(actualSegment, currentBindings);
             const segmentText = this.pathService.getSegmentText(actualSegment);
-            const next = this.resolveAssemblyChild(actualSegment, currentNode.children, currentNode.bindings);
+            const next = this.resolveAssemblyChild(actualSegment, currentNode.children, currentBindings);
             if (!next) {
                 return {
                     active: true,
@@ -814,12 +891,15 @@ export class Xsmpl2PathResolver {
             }
             const resolvedNext = next as AssemblyNodeChild;
             currentNode = resolvedNext.node;
+            currentBindings = this.mergeTemplateBindings(inheritedBindings, resolvedNext.node.bindings);
+            currentContext = this.getAssemblyPathContextForInstance(resolvedNext.instance, resolvedNext.node.bindings);
         }
 
         return {
             active: true,
             finalComponent: currentNode.component,
-            finalBindings: currentNode.bindings,
+            finalBindings: currentBindings,
+            finalContext: currentContext,
             namedSegments,
             segmentBindings,
         };
@@ -838,10 +918,20 @@ export class Xsmpl2PathResolver {
         };
     }
 
+    protected resolveAssemblyMemberPathInContext(
+        path: ast.Path,
+        context: AssemblyPathContext | undefined,
+        memberKinds: MemberKind[],
+        inheritedBindings?: TemplateBindings,
+    ): L2PathResolution {
+        return this.resolveAssemblyMemberPath(path, this.getAssemblyBaseNode(context), memberKinds, inheritedBindings);
+    }
+
     protected resolveAssemblyMemberPath(
         path: ast.Path,
         baseNode: AssemblyNode | undefined,
         memberKinds: MemberKind[],
+        inheritedBindings?: TemplateBindings,
     ): L2PathResolution {
         const namedSegments = new Map<ast.PathNamedSegment, readonly ast.NamedElement[]>();
         const segmentBindings = new Map<ast.PathNamedSegment, TemplateBindings | undefined>();
@@ -861,6 +951,7 @@ export class Xsmpl2PathResolver {
         }
 
         let currentNode = baseNode;
+        let currentBindings = this.mergeTemplateBindings(inheritedBindings, baseNode.bindings);
         for (let index = 0; index < segments.length; index++) {
             const segment = segments[index];
             if (ast.isPathIndex(segment)) {
@@ -902,13 +993,13 @@ export class Xsmpl2PathResolver {
             if (isLast) {
                 const candidates = this.getComponentMembers(currentNode.component, memberKinds);
                 namedSegments.set(actualSegment, candidates);
-                segmentBindings.set(actualSegment, currentNode.bindings);
-                const resolved = this.typedPathResolver.resolveNamedElement(actualSegment, candidates, currentNode.bindings);
+                segmentBindings.set(actualSegment, currentBindings);
+                const resolved = this.typedPathResolver.resolveNamedElement(actualSegment, candidates, currentBindings);
                 if (!resolved) {
                     return {
                         active: true,
                         finalComponent: currentNode.component,
-                        finalBindings: currentNode.bindings,
+                        finalBindings: currentBindings,
                         invalidMessage: `The path segment '${this.pathService.getSegmentText(actualSegment)}' shall resolve to a supported member of the current Component.`,
                         invalidNode: actualSegment,
                         namedSegments,
@@ -920,7 +1011,7 @@ export class Xsmpl2PathResolver {
                     finalElement: resolved,
                     finalType: this.getMemberType(resolved),
                     finalComponent: currentNode.component,
-                    finalBindings: currentNode.bindings,
+                    finalBindings: currentBindings,
                     namedSegments,
                     segmentBindings,
                 };
@@ -928,13 +1019,13 @@ export class Xsmpl2PathResolver {
 
             const candidates = currentNode.children.map(child => child.instance);
             namedSegments.set(actualSegment, candidates);
-            segmentBindings.set(actualSegment, currentNode.bindings);
-            const next = this.resolveAssemblyChild(actualSegment, currentNode.children, currentNode.bindings);
+            segmentBindings.set(actualSegment, currentBindings);
+            const next = this.resolveAssemblyChild(actualSegment, currentNode.children, currentBindings);
             if (!next) {
                 return {
                     active: true,
                     finalComponent: currentNode.component,
-                    finalBindings: currentNode.bindings,
+                    finalBindings: currentBindings,
                     invalidMessage: `The path segment '${this.pathService.getSegmentText(actualSegment)}' shall resolve to a child Model Instance or Assembly Instance.`,
                     invalidNode: actualSegment,
                     namedSegments,
@@ -945,7 +1036,7 @@ export class Xsmpl2PathResolver {
                 return {
                     active: true,
                     finalComponent: currentNode.component,
-                    finalBindings: currentNode.bindings,
+                    finalBindings: currentBindings,
                     invalidMessage: `The path segment '${this.pathService.getSegmentText(actualSegment)}' is ambiguous.`,
                     invalidNode: actualSegment,
                     namedSegments,
@@ -954,15 +1045,17 @@ export class Xsmpl2PathResolver {
             }
             const resolvedNext = next as AssemblyNodeChild;
             currentNode = resolvedNext.node;
+            currentBindings = this.mergeTemplateBindings(inheritedBindings, resolvedNext.node.bindings);
         }
 
-        return { active: true, finalComponent: currentNode.component, finalBindings: currentNode.bindings, namedSegments, segmentBindings };
+        return { active: true, finalComponent: currentNode.component, finalBindings: currentBindings, namedSegments, segmentBindings };
     }
 
     protected resolveAssemblyFieldEndpointPath(
         path: ast.Path,
         baseNode: AssemblyNode | undefined,
         requiredKind: 'inputField' | 'outputField',
+        inheritedBindings?: TemplateBindings,
     ): L2PathResolution<ast.Field> {
         const namedSegments = new Map<ast.PathNamedSegment, readonly ast.NamedElement[]>();
         const segmentBindings = new Map<ast.PathNamedSegment, TemplateBindings | undefined>();
@@ -982,6 +1075,7 @@ export class Xsmpl2PathResolver {
         }
 
         let currentNode = baseNode;
+        let currentBindings = this.mergeTemplateBindings(inheritedBindings, baseNode.bindings);
         for (let index = 0; index < segments.length; index++) {
             const segment = segments[index];
             if (ast.isPathIndex(segment)) {
@@ -1028,17 +1122,17 @@ export class Xsmpl2PathResolver {
                 };
             }
 
-            const child = this.resolveAssemblyChild(actualSegment, currentNode.children, currentNode.bindings);
+            const child = this.resolveAssemblyChild(actualSegment, currentNode.children, currentBindings);
             const fieldCandidates = this.getComponentMembers(currentNode.component, [requiredKind]) as ast.Field[];
-            const resolvedField = this.typedPathResolver.resolveNamedElement(actualSegment, fieldCandidates, currentNode.bindings);
+            const resolvedField = this.typedPathResolver.resolveNamedElement(actualSegment, fieldCandidates, currentBindings);
             if (!child || Array.isArray(child) || index === segments.length - 1) {
                 namedSegments.set(actualSegment, fieldCandidates);
-                segmentBindings.set(actualSegment, currentNode.bindings);
+                segmentBindings.set(actualSegment, currentBindings);
                 if (Array.isArray(child)) {
                     return {
                         active: true,
                         finalComponent: currentNode.component,
-                        finalBindings: currentNode.bindings,
+                        finalBindings: currentBindings,
                         invalidMessage: `The path segment '${this.pathService.getSegmentText(actualSegment)}' is ambiguous.`,
                         invalidNode: actualSegment,
                         namedSegments,
@@ -1049,7 +1143,7 @@ export class Xsmpl2PathResolver {
                     return {
                         active: true,
                         finalComponent: currentNode.component,
-                        finalBindings: currentNode.bindings,
+                        finalBindings: currentBindings,
                         invalidMessage: `The path segment '${this.pathService.getSegmentText(actualSegment)}' shall resolve to a ${requiredKind === 'outputField' ? 'Field marked as Output' : 'Field marked as Input'} of the current Component.`,
                         invalidNode: actualSegment,
                         namedSegments,
@@ -1071,7 +1165,7 @@ export class Xsmpl2PathResolver {
                     finalElement: tail.finalField,
                     finalType: tail.finalType,
                     finalComponent: currentNode.component,
-                    finalBindings: currentNode.bindings,
+                    finalBindings: currentBindings,
                     invalidMessage: tail.invalidMessage,
                     invalidNode: tail.invalidNode,
                     namedSegments,
@@ -1081,11 +1175,21 @@ export class Xsmpl2PathResolver {
 
             const resolvedChild = child as AssemblyNodeChild;
             namedSegments.set(actualSegment, [resolvedChild.instance]);
-            segmentBindings.set(actualSegment, currentNode.bindings);
+            segmentBindings.set(actualSegment, currentBindings);
             currentNode = resolvedChild.node;
+            currentBindings = this.mergeTemplateBindings(inheritedBindings, resolvedChild.node.bindings);
         }
 
-        return { active: true, finalComponent: currentNode.component, finalBindings: currentNode.bindings, namedSegments, segmentBindings };
+        return { active: true, finalComponent: currentNode.component, finalBindings: currentBindings, namedSegments, segmentBindings };
+    }
+
+    protected resolveAssemblyFieldEndpointPathInContext(
+        path: ast.Path,
+        context: AssemblyPathContext | undefined,
+        requiredKind: 'inputField' | 'outputField',
+        inheritedBindings?: TemplateBindings,
+    ): L2PathResolution<ast.Field> {
+        return this.resolveAssemblyFieldEndpointPath(path, this.getAssemblyBaseNode(context), requiredKind, inheritedBindings);
     }
 
     protected resolveComponentMemberPath(
@@ -1168,14 +1272,80 @@ export class Xsmpl2PathResolver {
         return { active: false, namedSegments: new Map(), segmentBindings: new Map() };
     }
 
-    protected getAssemblyConfigurationBaseNode(configuration: ast.AssemblyComponentConfiguration): AssemblyNode | undefined {
+    protected getAssemblyConfigurationBaseContext(configuration: ast.AssemblyComponentConfiguration): AssemblyPathContext | undefined {
         if (ast.isAssembly(configuration.$container)) {
-            return this.getAssemblyNode(configuration.$container.model, this.createTemplateBindings(configuration.$container.parameters));
+            return this.getAssemblyPathContextForAssembly(configuration.$container);
         }
         if (ast.isAssemblyInstance(configuration.$container)) {
-            return this.getAssemblyNodeForAssemblyInstance(configuration.$container);
+            return this.getAssemblyPathContextForInstance(configuration.$container);
         }
         return undefined;
+    }
+
+    protected getAssemblyBaseNode(context: AssemblyPathContext | undefined): AssemblyNode | undefined {
+        if (!context) {
+            return undefined;
+        }
+        if (context.assembly) {
+            return this.getAssemblyNode(context.assembly.model, this.createTemplateBindings(context.assembly.parameters));
+        }
+        if (context.instance) {
+            return ast.isModelInstance(context.instance)
+                ? this.getAssemblyNode(context.instance, context.bindings)
+                : this.getAssemblyNodeForAssemblyInstance(context.instance);
+        }
+        return undefined;
+    }
+
+    protected getTaskExecutionContext(task: ast.Task): TaskExecutionContext | undefined {
+        return this.taskExecutionContextCache.get(task, () => {
+            const explicitContext = task.context?.ref;
+            if (ast.isAssembly(explicitContext)) {
+                return this.toTaskExecutionContext(this.getAssemblyPathContextForAssembly(explicitContext));
+            }
+            if (ast.isComponent(explicitContext)) {
+                return {
+                    component: explicitContext,
+                    componentStack: [explicitContext],
+                };
+            }
+            return undefined;
+        });
+    }
+
+    protected createAssemblyPathContext(
+        node: AssemblyNode | undefined,
+        seed: Omit<AssemblyPathContext, 'component' | 'bindings'>,
+    ): AssemblyPathContext | undefined {
+        return node
+            ? {
+                component: node.component,
+                bindings: node.bindings,
+                ...seed,
+            }
+            : undefined;
+    }
+
+    protected toTaskExecutionContext(assemblyContext: AssemblyPathContext | undefined): TaskExecutionContext | undefined {
+        return assemblyContext
+            ? {
+                component: assemblyContext.component,
+                bindings: assemblyContext.bindings,
+                assemblyContext,
+            }
+            : undefined;
+    }
+
+    protected assemblyInstanceResolutionToL2(resolution: AsbInstancePathResolution): L2PathResolution {
+        return {
+            active: resolution.active,
+            finalComponent: resolution.finalComponent,
+            finalBindings: resolution.finalBindings,
+            invalidMessage: resolution.invalidMessage,
+            invalidNode: resolution.invalidNode,
+            namedSegments: resolution.namedSegments,
+            segmentBindings: resolution.segmentBindings,
+        };
     }
 
     protected getAssemblyNode(model: ast.ModelInstance | undefined, bindings?: TemplateBindings): AssemblyNode | undefined {
@@ -1359,6 +1529,19 @@ export class Xsmpl2PathResolver {
         return this.getAssemblyTemplateBindings(node)
             ?? this.getScheduleTemplateBindings(node)
             ?? this.getLinkBaseTemplateBindings(node);
+    }
+
+    protected mergeTemplateBindings(
+        baseBindings: TemplateBindings | undefined,
+        overrideBindings: TemplateBindings | undefined,
+    ): TemplateBindings | undefined {
+        if (!baseBindings) {
+            return overrideBindings;
+        }
+        if (!overrideBindings) {
+            return baseBindings;
+        }
+        return new Map([...baseBindings.entries(), ...overrideBindings.entries()]);
     }
 
     protected mergeNamedSegments(

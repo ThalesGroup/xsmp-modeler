@@ -12,6 +12,7 @@ import type {
 import { AstUtils, EMPTY_SCOPE, MapScope, StreamScope, WorkspaceCache, stream } from 'langium';
 import * as ast from '../generated/ast-partial.js';
 import type { ProjectManager } from '../workspace/project-manager.js';
+import type { IdentifierPatternService, TemplateBindings } from './identifier-pattern-service.js';
 import type { XsmpcfgPathResolver } from './xsmpcfg-path-resolver.js';
 import type { XsmpcfgServices } from '../xsmpcfg-module.js';
 
@@ -22,6 +23,7 @@ export class XsmpcfgScopeProvider implements ScopeProvider {
     protected readonly pathResolver: XsmpcfgPathResolver;
     protected readonly projectManager: ProjectManager;
     protected readonly reflection: AstReflection;
+    protected readonly identifierPatternService: IdentifierPatternService;
 
     constructor(services: XsmpcfgServices) {
         this.descriptions = services.workspace.AstNodeDescriptionProvider;
@@ -30,6 +32,7 @@ export class XsmpcfgScopeProvider implements ScopeProvider {
         this.pathResolver = services.shared.CfgPathResolver;
         this.projectManager = services.shared.workspace.ProjectManager;
         this.reflection = services.shared.AstReflection;
+        this.identifierPatternService = services.shared.IdentifierPatternService;
     }
 
     getScope(context: ReferenceInfo): Scope {
@@ -40,15 +43,23 @@ export class XsmpcfgScopeProvider implements ScopeProvider {
     }
 
     protected getCfgPathScope(segment: ast.ConcretePathNamedSegment): Scope {
-        const candidates = this.pathResolver.getNamedSegmentCandidates(segment);
-        return candidates.length > 0 ? this.createScope(candidates) : EMPTY_SCOPE;
+        const { candidates, bindings } = this.pathResolver.getNamedSegmentContext(segment);
+        return candidates.length > 0 ? this.createScope(candidates, undefined, undefined, bindings) : EMPTY_SCOPE;
     }
 
-    protected createScope(elements: Iterable<ast.NamedElement>, outerScope?: Scope, options?: ScopeOptions): Scope {
+    protected createScope(
+        elements: Iterable<ast.NamedElement>,
+        outerScope?: Scope,
+        options?: ScopeOptions,
+        bindings?: TemplateBindings,
+    ): Scope {
         return new StreamScope(
             stream(elements)
                 .filter((element): element is ast.NamedElement => Boolean(element.name))
-                .map(element => this.descriptions.createDescription(element, element.name)),
+                .map(element => this.descriptions.createDescription(
+                    element,
+                    this.identifierPatternService.substitute(element.name, bindings) ?? element.name
+                )),
             outerScope,
             options
         );

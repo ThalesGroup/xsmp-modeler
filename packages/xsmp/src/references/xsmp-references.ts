@@ -25,6 +25,21 @@ export class XsmpReferences extends DefaultReferences {
         if (!patternSegment) {
             return [];
         }
+        const path = AstUtils.getContainerOfType(patternSegment, ast.isPath);
+        if (path && (
+            ast.isComponentConfiguration(path.$container)
+            || ast.isConfigurationUsage(path.$container)
+            || ast.isFieldValue(path.$container)
+        )) {
+            const { candidates, bindings } = this.services.shared.CfgPathResolver.getNamedSegmentContext(patternSegment);
+            const matches = this.services.shared.IdentifierPatternService.matchCandidates(
+                patternSegment,
+                candidates,
+                candidate => candidate.name ?? '',
+                bindings
+            ).matches;
+            return matches.length === 1 ? [matches[0]] : [];
+        }
         const target = this.services.shared.L2PathResolver.getNamedSegmentTarget(patternSegment);
         return target ? [target] : [];
     }
@@ -52,6 +67,26 @@ export class XsmpReferences extends DefaultReferences {
         const parameterName = this.services.shared.IdentifierPatternService.getTemplateParameterName(part.text);
         if (!parameterName) {
             return undefined;
+        }
+
+        const task = AstUtils.getContainerOfType(part, ast.isTask);
+        const taskAssembly = ast.isAssembly(task?.context?.ref) ? task.context.ref : undefined;
+        if (taskAssembly) {
+            const assemblyParameter = taskAssembly.parameters.find(parameter => parameter.name === parameterName);
+            if (assemblyParameter) {
+                return assemblyParameter;
+            }
+        }
+
+        const configuration = AstUtils.getContainerOfType(part, ast.isComponentConfiguration);
+        if (configuration) {
+            const context = this.services.shared.CfgPathResolver.getConfigurationComponentContext(configuration).assemblyContext;
+            const configurationAssembly = context?.assembly
+                ?? (ast.isAssemblyInstance(context?.instance) && ast.isAssembly(context.instance.assembly?.ref) ? context.instance.assembly.ref : undefined);
+            const assemblyParameter = configurationAssembly?.parameters.find(parameter => parameter.name === parameterName);
+            if (assemblyParameter) {
+                return assemblyParameter;
+            }
         }
 
         const assembly = AstUtils.getContainerOfType(part, ast.isAssembly);

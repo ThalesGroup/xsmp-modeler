@@ -141,7 +141,7 @@ export class XsmpPathService {
         if (!reference) {
             return '';
         }
-        return reference.reference?.ref?.name ?? reference.reference?.$refText ?? '';
+        return reference.reference?.$refText ?? reference.reference?.ref?.name ?? '';
     }
 
     protected createPathSlice(path: RecoverablePath, segmentCount: number): RecoverablePath {

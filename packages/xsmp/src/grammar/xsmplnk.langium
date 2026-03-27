@@ -153,7 +153,7 @@ PathSeparator returns string:
 
 hidden terminal WS: /\s+/;
 
-terminal TEMPLATE_ID: /\{[_a-zA-Z]\w*\}\w*/;
+terminal TEMPLATE_ID: /\{[_a-zA-Z]\w*\}/;
 terminal ID: /[_a-zA-Z]\w*/;
 
 terminal INT returns bigint: /[+-]?(0|[1-9]\d*)/;

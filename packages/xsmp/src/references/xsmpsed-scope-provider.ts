@@ -1,6 +1,7 @@
 import type { AstNode, AstNodeDescription, AstNodeDescriptionProvider, AstReflection, IndexManager, ReferenceInfo, Scope, ScopeOptions, ScopeProvider, Stream, URI } from 'langium';
 import * as ast from '../generated/ast-partial.js';
 import { AstUtils, EMPTY_SCOPE, MapScope, StreamScope, WorkspaceCache, stream } from 'langium';
+import type { IdentifierPatternService, TemplateBindings } from './identifier-pattern-service.js';
 import type { Xsmpl2PathResolver } from './xsmpl2-path-resolver.js';
 import type { ProjectManager } from '../workspace/project-manager.js';
 import type { XsmpServices } from '../xsmp-module.js';
@@ -12,6 +13,7 @@ export class XsmpsedScopeProvider implements ScopeProvider {
     protected readonly projectManager: ProjectManager;
     protected readonly descriptions: AstNodeDescriptionProvider;
     protected readonly pathResolver: Xsmpl2PathResolver;
+    protected readonly identifierPatternService: IdentifierPatternService;
 
     constructor(services: XsmpServices) {
         this.reflection = services.shared.AstReflection;
@@ -20,6 +22,7 @@ export class XsmpsedScopeProvider implements ScopeProvider {
         this.projectManager = services.shared.workspace.ProjectManager;
         this.descriptions = services.workspace.AstNodeDescriptionProvider;
         this.pathResolver = services.shared.L2PathResolver;
+        this.identifierPatternService = services.shared.IdentifierPatternService;
     }
 
     protected createScopeForNodes(elements: Iterable<ast.TemplateParameter>, outerScope?: Scope, options?: ScopeOptions): Scope {
@@ -53,7 +56,7 @@ export class XsmpsedScopeProvider implements ScopeProvider {
         }
         const referenceType = this.reflection.getReferenceType(context);
         if (ast.isTemplateArgument(context.container) && context.property === ast.TemplateArgument.parameter) {
-            const task = (context.container.$container as ast.ExecuteTask).task;
+            const task = ast.isExecuteTask(context.container.$container) ? context.container.$container.task : undefined;
             const schedule = task?.ref ? AstUtils.getContainerOfType(task.ref, ast.isSchedule) : undefined;
             return schedule ? this.createScopeForNodes(schedule.parameters, EMPTY_SCOPE) : EMPTY_SCOPE;
         }
@@ -67,8 +70,8 @@ export class XsmpsedScopeProvider implements ScopeProvider {
     }
 
     protected getPathScope(segment: ast.ConcretePathNamedSegment): Scope {
-        const candidates = this.pathResolver.getNamedSegmentCandidates(segment);
-        return candidates.length > 0 ? this.createScopeForNamedElements(candidates) : EMPTY_SCOPE;
+        const { candidates, bindings } = this.pathResolver.getNamedSegmentResolutionContext(segment);
+        return candidates.length > 0 ? this.createScopeForNamedElements(candidates, undefined, undefined, bindings) : EMPTY_SCOPE;
     }
 
     /**
@@ -78,11 +81,19 @@ export class XsmpsedScopeProvider implements ScopeProvider {
         return new StreamScope(stream(elements), outerScope, options);
     }
 
-    protected createScopeForNamedElements(elements: Iterable<ast.NamedElement>, outerScope?: Scope, options?: ScopeOptions): Scope {
+    protected createScopeForNamedElements(
+        elements: Iterable<ast.NamedElement>,
+        outerScope?: Scope,
+        options?: ScopeOptions,
+        bindings?: TemplateBindings,
+    ): Scope {
         return new StreamScope(
             stream(elements)
                 .filter((element): element is ast.NamedElement => Boolean(element.name))
-                .map(element => this.descriptions.createDescription(element, element.name)),
+                .map(element => this.descriptions.createDescription(
+                    element,
+                    this.identifierPatternService.substitute(element.name, bindings) ?? element.name
+                )),
             outerScope,
             options
         );
