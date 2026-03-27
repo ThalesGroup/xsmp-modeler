@@ -6,6 +6,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { FileChangeType, type DidChangeWatchedFilesParams, type LocationLink, type TextDocumentPositionParams } from 'vscode-languageserver';
 import { createXsmpServices } from 'xsmp';
+import { resolveServerFileContent } from 'xsmp/lsp';
 import { createBuiltinTestXsmpServices } from '../test-services.js';
 
 let tempDir: string;
@@ -221,6 +222,110 @@ namespace dep
         ]);
     });
 
+    test('can render SMP mirrors on demand even when the workspace mirror is unavailable', async () => {
+        const projectDir = createProject(tempDir, 'app', `
+project 'app'
+using 'ECSS_SMP_2025'
+source 'src'
+`, {
+            'src/types.smpcat': `<?xml version="1.0" encoding="UTF-8"?>
+<Catalogue:Catalogue xmlns:Catalogue="http://www.ecss.nl/smp/2025/Smdl/Catalogue" xmlns:Elements="http://www.ecss.nl/smp/2025/Core/Elements" xmlns:Types="http://www.ecss.nl/smp/2025/Core/Types" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" Id="dep" Name="types">
+  <Namespace Name="dep">
+    <Type xsi:type="Types:Structure" Id="dep.ExternalType" Name="ExternalType" Uuid="bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"/>
+  </Namespace>
+</Catalogue:Catalogue>
+`,
+            'src/types.xsmpcat': `
+catalogue types
+
+namespace dep
+{
+    /** @uuid 22222222-2222-2222-2222-222222222222 */
+    struct ExternalType
+    {
+    }
+}
+`,
+        });
+
+        const services = await createBuiltinTestXsmpServices(NodeFileSystem);
+        await services.shared.workspace.WorkspaceManager.initializeWorkspace([
+            { name: 'app', uri: URI.file(projectDir).toString() },
+        ]);
+
+        const mirrorUri = services.shared.SmpWorkspaceIndex.getMirrorUriForSourcePath(path.join(projectDir, 'src', 'types.smpcat'));
+        expect(mirrorUri).toBeDefined();
+        expect(mirrorUri && services.shared.workspace.LangiumDocuments.getDocument(mirrorUri)).toBeUndefined();
+
+        const content = await resolveServerFileContent(services.shared, mirrorUri!);
+
+        expect(content).toContain('catalogue types');
+        expect(content).toContain('@uuid bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb');
+        expect(content).not.toContain('@uuid 22222222-2222-2222-2222-222222222222');
+
+        const mirrorDocument = await services.shared.workspace.LangiumDocuments.getOrCreateDocument(mirrorUri!);
+        await services.shared.workspace.DocumentBuilder.build([mirrorDocument], { validation: true }, Cancellation.CancellationToken.None);
+        expect(mirrorDocument.textDocument.getText()).toContain('catalogue types');
+    });
+
+    test('revalidates surviving XSMP documents after deleting an SMP mirror source', async () => {
+        const projectDir = createProject(tempDir, 'app', `
+project 'app'
+using 'ECSS_SMP_2025'
+source 'src'
+`, {
+            'src/types.smpcat': `<?xml version="1.0" encoding="UTF-8"?>
+<Catalogue:Catalogue xmlns:Catalogue="http://www.ecss.nl/smp/2025/Smdl/Catalogue" xmlns:Elements="http://www.ecss.nl/smp/2025/Core/Elements" xmlns:Types="http://www.ecss.nl/smp/2025/Core/Types" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" Id="dep" Name="types">
+  <Namespace Name="dep">
+    <Type xsi:type="Types:Structure" Id="dep.ExternalType" Name="ExternalType" Uuid="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"/>
+  </Namespace>
+</Catalogue:Catalogue>
+`,
+            'src/app.xsmpcat': `
+catalogue app
+
+namespace dep
+{
+    /** @uuid aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa */
+    struct ExternalType
+    {
+    }
+}
+`,
+        });
+
+        const services = await createBuiltinTestXsmpServices(NodeFileSystem);
+        await services.shared.workspace.WorkspaceManager.initializeWorkspace([
+            { name: 'app', uri: URI.file(projectDir).toString() },
+        ]);
+
+        const smpPath = path.join(projectDir, 'src', 'types.smpcat');
+        const mirrorUri = services.shared.SmpWorkspaceIndex.getMirrorUriForSourcePath(smpPath);
+        const appUri = URI.file(path.join(projectDir, 'src', 'app.xsmpcat'));
+        const appDocumentBefore = services.shared.workspace.LangiumDocuments.getDocument(appUri);
+
+        expect(mirrorUri).toBeDefined();
+        expect(hasDiagnosticMessage(appDocumentBefore, 'Duplicated UUID.')).toBe(true);
+        expect(hasDiagnosticMessage(appDocumentBefore, 'Duplicated Type name.')).toBe(true);
+
+        fs.rmSync(smpPath);
+
+        const updateHandler = services.shared.lsp.DocumentUpdateHandler as unknown as {
+            updateWatchedFiles(params: DidChangeWatchedFilesParams): Promise<void>;
+        };
+        await updateHandler.updateWatchedFiles({
+            changes: [
+                { uri: URI.file(smpPath).toString(), type: FileChangeType.Deleted },
+            ],
+        });
+
+        expect(mirrorUri && services.shared.workspace.LangiumDocuments.getDocument(mirrorUri)).toBeUndefined();
+
+        const appDocumentAfter = services.shared.workspace.LangiumDocuments.getDocument(appUri);
+        expect(hasDiagnosticMessage(appDocumentAfter, 'Duplicated UUID.')).toBe(false);
+        expect(hasDiagnosticMessage(appDocumentAfter, 'Duplicated Type name.')).toBe(false);
+    });
+
     test('ignores SMP files under smdl-gen and generates outputs from mirrored SMP sources', async () => {
         const projectDir = createProject(tempDir, 'app', `
 project 'app'
@@ -359,6 +464,10 @@ function positionParams(document: LangiumDocument, offset: number): TextDocument
         textDocument: { uri: document.textDocument.uri },
         position: document.textDocument.positionAt(offset),
     };
+}
+
+function hasDiagnosticMessage(document: LangiumDocument | undefined, message: string): boolean {
+    return document?.diagnostics?.some(diagnostic => diagnostic.message === message) === true;
 }
 
 function expectMirrorLocation(

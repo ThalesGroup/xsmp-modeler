@@ -1,6 +1,7 @@
 import type { LanguageClientOptions, ServerOptions } from 'vscode-languageclient/node.js';
 import * as vscode from 'vscode';
 import * as path from 'node:path';
+import { URI } from 'langium';
 import satisfies from 'semver/functions/satisfies.js';
 import { LanguageClient, TransportKind } from 'vscode-languageclient/node.js';
 import { createProjectWizard, createXsmpStarterFileWizard } from 'xsmp/wizard';
@@ -12,8 +13,11 @@ import type {
     XsmpResolvedContributionManifestEntry,
 } from 'xsmp/contributions';
 import { xsmpExtensionApiVersion } from 'xsmp';
-import { getDefaultImportedXsmpPath } from 'xsmp/smp';
+import { getDefaultImportedXsmpPath, getSmpMirrorSourceUri } from 'xsmp/smp';
 import { registerEmbeddedDocumentation } from './embedded-documentation.js';
+import { registerSmpMirrorCommands } from './smp-mirror-commands.js';
+import { registerSmpMirrorPreview } from './smp-mirror-preview.js';
+import { getSmpMirrorSyncChanges, type SmpMirrorSyncChangeKind } from './smp-mirror-preview-support.js';
 import { createXsmpDocumentSelector, xsmpFileWatcherPatterns, xsmpLanguageIds, xsmpReadonlySchemes } from './xsmp-language-support.js';
 
 let client: LanguageClient | undefined;
@@ -27,7 +31,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
     try {
         client = await startLanguageClient(context);
-        ReadonlyXsmpFileSystemProvider.register(context);
+        const readonlyProvider = ReadonlyXsmpFileSystemProvider.register(context);
+        registerReadonlyMirrorFileSync(context, readonlyProvider);
+        registerSmpMirrorPreview(context, getClient);
+        registerSmpMirrorCommands(context, getClient);
         await registerDiscoveredXsmpContributions(context);
     } catch (error) {
         logContributionMessage('Failed to activate XSMP extension.');
@@ -300,17 +307,27 @@ function shouldGenerateOnSave(document: vscode.TextDocument): boolean {
 
 async function resolveImportSmpTarget(uri?: vscode.Uri): Promise<vscode.Uri | undefined> {
     const candidate = uri ?? vscode.window.activeTextEditor?.document.uri;
-    if (!candidate || candidate.scheme !== 'file') {
+    if (!candidate) {
         return undefined;
     }
-    if (!candidate.fsPath.endsWith('.smpcat')
-        && !candidate.fsPath.endsWith('.smpcfg')
-        && !candidate.fsPath.endsWith('.smplnk')
-        && !candidate.fsPath.endsWith('.smpasb')
-        && !candidate.fsPath.endsWith('.smpsed')) {
+
+    const resolvedCandidate = candidate.scheme === 'file'
+        ? candidate
+        : candidate.scheme === 'xsmp-smp'
+            ? toVscodeUri(getSmpMirrorSourceUri(URI.parse(candidate.toString())))
+            : undefined;
+
+    if (!resolvedCandidate) {
         return undefined;
     }
-    return candidate;
+    if (!resolvedCandidate.fsPath.endsWith('.smpcat')
+        && !resolvedCandidate.fsPath.endsWith('.smpcfg')
+        && !resolvedCandidate.fsPath.endsWith('.smplnk')
+        && !resolvedCandidate.fsPath.endsWith('.smpasb')
+        && !resolvedCandidate.fsPath.endsWith('.smpsed')) {
+        return undefined;
+    }
+    return resolvedCandidate;
 }
 
 async function fileExists(uri: vscode.Uri): Promise<boolean> {
@@ -418,7 +435,7 @@ function createXsmpFileWatchers(context: vscode.ExtensionContext): vscode.FileSy
 
 export class ReadonlyXsmpFileSystemProvider implements vscode.FileSystemProvider {
 
-    static register(context: vscode.ExtensionContext) {
+    static register(context: vscode.ExtensionContext): ReadonlyXsmpFileSystemProvider {
         const provider = new ReadonlyXsmpFileSystemProvider();
         context.subscriptions.push(
             ...xsmpReadonlySchemes.map(scheme => vscode.workspace.registerFileSystemProvider(scheme, provider, {
@@ -426,6 +443,7 @@ export class ReadonlyXsmpFileSystemProvider implements vscode.FileSystemProvider
                 isCaseSensitive: true
             })),
         );
+        return provider;
     }
 
     async stat(uri: vscode.Uri): Promise<vscode.FileStat> {
@@ -460,6 +478,16 @@ export class ReadonlyXsmpFileSystemProvider implements vscode.FileSystemProvider
     private readonly didChangeFile = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
     onDidChangeFile = this.didChangeFile.event;
 
+    emitMirrorSyncChanges(filePath: string, kind: SmpMirrorSyncChangeKind): void {
+        const changes = getSmpMirrorSyncChanges(filePath, kind).map(change => ({
+            type: toVscodeFileChangeType(change.kind),
+            uri: vscode.Uri.parse(change.uri),
+        }));
+        if (changes.length > 0) {
+            this.didChangeFile.fire(changes);
+        }
+    }
+
     watch() {
         return {
             dispose: () => { }
@@ -484,5 +512,36 @@ export class ReadonlyXsmpFileSystemProvider implements vscode.FileSystemProvider
 
     rename() {
         throw vscode.FileSystemError.NoPermissions();
+    }
+}
+
+function toVscodeUri(uri: ReturnType<typeof getSmpMirrorSourceUri>): vscode.Uri | undefined {
+    return uri ? vscode.Uri.parse(uri.toString()) : undefined;
+}
+
+function registerReadonlyMirrorFileSync(
+    context: vscode.ExtensionContext,
+    provider: ReadonlyXsmpFileSystemProvider,
+): void {
+    const mirrorRelevantPatterns = xsmpFileWatcherPatterns.filter(pattern => pattern !== '**/xsmp.project');
+    for (const pattern of mirrorRelevantPatterns) {
+        const watcher = vscode.workspace.createFileSystemWatcher(pattern);
+        context.subscriptions.push(
+            watcher,
+            watcher.onDidCreate(uri => provider.emitMirrorSyncChanges(uri.fsPath, 'created')),
+            watcher.onDidChange(uri => provider.emitMirrorSyncChanges(uri.fsPath, 'changed')),
+            watcher.onDidDelete(uri => provider.emitMirrorSyncChanges(uri.fsPath, 'deleted')),
+        );
+    }
+}
+
+function toVscodeFileChangeType(kind: SmpMirrorSyncChangeKind): vscode.FileChangeType {
+    switch (kind) {
+        case 'created':
+            return vscode.FileChangeType.Created;
+        case 'deleted':
+            return vscode.FileChangeType.Deleted;
+        default:
+            return vscode.FileChangeType.Changed;
     }
 }

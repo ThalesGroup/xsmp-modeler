@@ -18,7 +18,7 @@ export class XsmpLangiumDocumentFactory extends DefaultLangiumDocumentFactory im
         cancellationToken = Cancellation.CancellationToken.None,
     ): Promise<LangiumDocument<T>> {
         if (isSmpMirrorDocument(uri)) {
-            const content = this.smpMirrorManager.getMirrorContent(uri);
+            const content = await this.smpMirrorManager.getOrCreateMirrorContent(uri);
             if (content === undefined) {
                 throw new Error(`No SMP mirror content is available for '${uri.toString()}'.`);
             }
@@ -35,7 +35,7 @@ export class XsmpLangiumDocumentFactory extends DefaultLangiumDocumentFactory im
             return await super.update(document, cancellationToken);
         }
 
-        const text = this.smpMirrorManager.getMirrorContent(document.uri);
+        const text = await this.smpMirrorManager.getOrCreateMirrorContent(document.uri);
         if (text === undefined) {
             throw new Error(`No SMP mirror content is available for '${document.uri.toString()}'.`);
         }

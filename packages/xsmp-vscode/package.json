@@ -147,6 +147,30 @@
                 "path": "syntaxes/xsmpsed.tmLanguage.json"
             }
         ],
+        "customEditors": [
+            {
+                "viewType": "xsmp.smpMirrorPreview",
+                "displayName": "XSMP Preview",
+                "selector": [
+                    {
+                        "filenamePattern": "*.smpcat"
+                    },
+                    {
+                        "filenamePattern": "*.smpcfg"
+                    },
+                    {
+                        "filenamePattern": "*.smplnk"
+                    },
+                    {
+                        "filenamePattern": "*.smpasb"
+                    },
+                    {
+                        "filenamePattern": "*.smpsed"
+                    }
+                ],
+                "priority": "default"
+            }
+        ],
         "commands": [
             {
                 "command": "xsmp.wizard",
@@ -197,6 +221,16 @@
                 "command": "xsmp.importSmp",
                 "category": "Xsmp",
                 "title": "Import SMP File"
+            },
+            {
+                "command": "xsmp.openSmpMirror",
+                "category": "Xsmp",
+                "title": "Open XSMP"
+            },
+            {
+                "command": "xsmp.openSmpXmlSource",
+                "category": "Xsmp",
+                "title": "Open XML Source"
             },
             {
                 "command": "xsmp.registerContributor",
@@ -264,6 +298,18 @@
                     "group": "navigation@101",
                     "when": "resourceScheme == file && (resourceExtname == .smpcat || resourceExtname == .smpcfg || resourceExtname == .smplnk || resourceExtname == .smpasb || resourceExtname == .smpsed)"
                 }
+            ],
+            "editor/title": [
+                {
+                    "command": "xsmp.openSmpMirror",
+                    "group": "navigation@100",
+                    "when": "resourceScheme == file && (resourceExtname == .smpcat || resourceExtname == .smpcfg || resourceExtname == .smplnk || resourceExtname == .smpasb || resourceExtname == .smpsed)"
+                },
+                {
+                    "command": "xsmp.openSmpXmlSource",
+                    "group": "navigation@101",
+                    "when": "resourceScheme == xsmp-smp"
+                }
             ]
         }
     },
@@ -278,6 +324,9 @@
         "onCommand:xsmp.generate",
         "onCommand:xsmp.generateAll",
         "onCommand:xsmp.importSmp",
+        "onCommand:xsmp.openSmpMirror",
+        "onCommand:xsmp.openSmpXmlSource",
+        "onCustomEditor:xsmp.smpMirrorPreview",
         "onLanguage:xsmpproject",
         "onLanguage:xsmpcat",
         "onLanguage:xsmpasb",

@@ -11,6 +11,7 @@ import { isSmpMirrorDocument } from '../builtins.js';
 import type { XsmpSharedServices } from '../xsmp-module.js';
 import { SmpImportService } from './import/service.js';
 import {
+    getSmpMirrorSourceUri,
     getXsmpHomologuePath,
     isSmpSourceFilePath,
     isXsmpSourceFilePath,
@@ -52,6 +53,33 @@ export class SmpMirrorManager {
 
     getMirrorContent(uri: URI): string | undefined {
         return this.mirrorContentByUri.get(uri.toString());
+    }
+
+    async getOrCreateMirrorContent(uri: URI): Promise<string | undefined> {
+        const existingContent = this.getMirrorContent(uri);
+        if (existingContent !== undefined) {
+            return existingContent;
+        }
+        if (!this.isMirrorUri(uri)) {
+            return undefined;
+        }
+
+        const sourceUri = this.getSourceUri(uri) ?? getSmpMirrorSourceUri(uri);
+        if (!sourceUri) {
+            return undefined;
+        }
+
+        try {
+            const rendered = await this.importer.renderImportedDocument({
+                inputPath: sourceUri.fsPath,
+                outputUri: uri,
+                workspaceIndex: this.workspaceIndex,
+            });
+            this.mirrorContentByUri.set(uri.toString(), rendered.content);
+            return rendered.content;
+        } catch {
+            return undefined;
+        }
     }
 
     isMirrorUri(uri: URI): boolean {
@@ -165,7 +193,6 @@ export class SmpMirrorManager {
                     [createSourceDiagnostic(DiagnosticSeverity.Error, error instanceof Error ? error.message : String(error))],
                 );
                 if (this.documents.hasDocument(mirrorUri)) {
-                    this.documents.deleteDocument(mirrorUri);
                     deleted.push(mirrorUri);
                 }
             }
@@ -177,9 +204,8 @@ export class SmpMirrorManager {
             }
             const mirrorUri = URI.parse(uri);
             if (this.documents.hasDocument(mirrorUri)) {
-                this.documents.deleteDocument(mirrorUri);
+                deleted.push(mirrorUri);
             }
-            deleted.push(mirrorUri);
         }
 
         this.mirrorContentByUri = nextMirrorContentByUri;

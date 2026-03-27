@@ -14,6 +14,7 @@ import type {
 import type { XsmpSharedServices } from '../xsmp-module.js';
 import * as ast from '../generated/ast-partial.js';
 import { AstUtils, Cancellation, URI } from 'langium';
+import { isSmpMirrorDocument } from '../builtins.js';
 export type { XsmpProjectGenerationFailure, XsmpProjectGenerationReport } from '../workspace/document-generator.js';
 import type { XsmpProjectGenerationReport } from '../workspace/document-generator.js';
 
@@ -31,7 +32,7 @@ export class XsmpLanguageServer extends DefaultLanguageServer {
     protected override eagerLoadServices(): void {
         super.eagerLoadServices();
         this.services.lsp.Connection?.onRequest(GetServerFileContentRequest, async (uri) => {
-            return this.services.workspace.LangiumDocuments.all.find(d => d.uri.toString() === uri)?.textDocument.getText();
+            return await resolveServerFileContent(this.services as XsmpSharedServices, URI.parse(uri));
         });
 
         this.services.lsp.Connection?.onRequest(RegisterContributions, async (entries) => {
@@ -113,4 +114,16 @@ export class XsmpLanguageServer extends DefaultLanguageServer {
         });
         return containingProject;
     }
+}
+
+export async function resolveServerFileContent(services: XsmpSharedServices, uri: URI): Promise<string | null> {
+    const existingDocument = services.workspace.LangiumDocuments.all.find(document => document.uri.toString() === uri.toString());
+    if (existingDocument) {
+        return existingDocument.textDocument.getText();
+    }
+
+    if (!isSmpMirrorDocument(uri)) {
+        return null;
+    }
+    return await services.SmpMirrorManager.getOrCreateMirrorContent(uri) ?? null;
 }
