@@ -79,6 +79,8 @@
         "build:api": "tsc -p tsconfig.lib.json",
         "build:clean": "npm run clean && npm run build",
         "cli": "npm run build && node ./bin/cli.cjs",
+        "docs:build": "python3 -m mkdocs build --strict",
+        "docs:serve": "python3 -m mkdocs serve",
         "watch": "concurrently -n tsc,esbuild -c blue,yellow \"tsc -b tsconfig.json --watch\" \"node esbuild.mjs --watch\"",
         "lint": "eslint src",
         "langium:generate": "shx rm -f src/language/generated/ast-partial.ts && langium generate && node src/generate-partial-ast.js",
@@ -268,6 +270,12 @@
                 "category": "Xsmp",
                 "title": "Register a contributor",
                 "enablement": "false"
+            },
+            {
+                "command": "xsmp.openDocumentation",
+                "category": "Xsmp",
+                "title": "Open Embedded Documentation",
+                "enablement": "false"
             }
         ],
         "xsmp": [
@@ -366,6 +374,7 @@
     "files": [
         "bin/**",
         "out/**",
+        "docs/**",
         "syntaxes/**",
         "icons/**",
         "xsmpcat-language-configuration.json",

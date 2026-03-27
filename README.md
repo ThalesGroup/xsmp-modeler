@@ -3,32 +3,24 @@
 [![CI](https://github.com/ThalesGroup/xsmp-modeler/actions/workflows/action.yml/badge.svg)](https://github.com/ThalesGroup/xsmp-modeler/actions/workflows/action.yml)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=ydaveluy_xsmp-modeler&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=ydaveluy_xsmp-modeler)
 
-XSMP Modeler is a framework for developing SMDL (Simulation Model Definition Language) models as defined in the [ECSS SMP standard — Level 1](https://ecss.nl/standard/ecss-e-st-40-07c-simulation-modelling-platform-2-march-2020/) and provides a preview of the [ECSS SMP standard — Level 2](https://ecss.nl/standard/ecss-e-st-40-08c-simulation-modelling-platform-level-2-5-august-2025/).
+XSMP Modeler is a framework for developing SMDL (Simulation Model Definition Language) models as defined in the ECSS SMP standards.
 
-Features:
+## Documentation
 
-- Integrated text editor with syntax highlighting, error checking, auto-completion, formatting, hover information, outline view, quick fixes, and more.
-- Profiles tailored for different target frameworks.
-- Additional tools for documentation and code generation.
+User documentation is published at:
+
+- <https://thalesgroup.github.io/xsmp-modeler/>
+
+The published documentation covers:
+
+- installation from the Visual Studio Marketplace
+- project creation with the wizard
+- command-line usage
+- projects, tools and profiles
+- the full XSMP language set
+- the built-in user-facing tools and profiles
 
 ## Installation
-
-### Visual Studio Code
-
-Install from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=ydaveluy.xsmp-modeler).
-
-
-## Profiles
-
-XSMP Modeler provides profiles to adapt the tooling to different environments:
-
-- **XSMP SDK Profile**: Integrates with the [XSMP SDK](https://github.com/ThalesGroup/xsmp-sdk) to facilitate development and testing of SMP components.
-- **ESA-CDK Profile**: Intended for use with the ESA Component Development Kit (ESA-CDK).
-
-## Tools
-
-- **SMP Tool**: Generates SMP modeling artifacts (smpcat, smppkg, smpcfg, smplnk, smpasb) from XSMP textual models.
-- **AsciiDoc Tool**: Generates AsciiDoc documentation from XSMP models.
 
 ## Sponsors
 

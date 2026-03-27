@@ -13,6 +13,7 @@ import type {
     XsmpResolvedContributionManifestEntry,
 } from 'xsmp/contributions';
 import { xsmpExtensionApiVersion } from 'xsmp';
+import { registerEmbeddedDocumentation } from './embedded-documentation.js';
 
 let client: LanguageClient | undefined;
 let contributionOutputChannel: vscode.OutputChannel | undefined;
@@ -61,6 +62,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
             reportContributionRegistration(report, 'XSMP contribution registration completed with errors.');
         })
     );
+    registerEmbeddedDocumentation(context);
 
     void generateAllOnStartupIfEnabled();
 

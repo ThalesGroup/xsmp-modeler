@@ -37,6 +37,7 @@ describe('Xsmpcat completion provider', () => {
         items = await getCompletionItems(document, cursor.cursor);
         expect(labels(items)).toContain('Namespace');
         expect(labels(items)).not.toContain('namespace');
+        expect(findSnippetItem(items, 'Namespace')?.insertText).toContain('demo::foundation');
         expect(findSnippetItem(items, 'Model')?.insertText).toContain('/** @uuid ');
         expect(labels(items)).toContain('Model');
 

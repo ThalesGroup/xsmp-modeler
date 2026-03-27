@@ -3,6 +3,7 @@ import { EmptyFileSystem, type LangiumDocument } from "langium";
 import { expandToString as s } from "langium/generate";
 import { parseHelper } from "langium/test";
 import { createXsmpServices } from "../../src/language/xsmp-module.js";
+import * as ast from "../../src/language/generated/ast-partial.js";
 import { Catalogue, isCatalogue } from "../../src/language/generated/ast-partial.js";
 
 let services: ReturnType<typeof createXsmpServices>;
@@ -44,6 +45,35 @@ describe('Parsing tests', () => {
             Namespaces:
               a
         `);
+    });
+
+    test('parse shorthand multiplicities for container and reference', async () => {
+        document = await parse(`
+            catalogue test
+
+            namespace demo
+            {
+                public interface ILogger
+                {
+                }
+
+                public model Sensor
+                {
+                }
+
+                public model Platform
+                {
+                    container demo.Sensor* sensors
+                    reference demo.ILogger+ loggers
+                }
+            }
+        `);
+
+        expect(checkDocumentValid(document)).toBeUndefined();
+        const namespace = document.parseResult.value?.elements?.[0];
+        const platform = namespace?.elements?.find((element): element is ast.Model => ast.isModel(element) && element.name === 'Platform');
+        expect(platform?.elements?.some(ast.isContainer)).toBe(true);
+        expect(platform?.elements?.some(ast.isReference)).toBe(true);
     });
 });
 

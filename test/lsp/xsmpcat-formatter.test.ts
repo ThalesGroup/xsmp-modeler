@@ -18,5 +18,46 @@ describe('Xsmpcat Formatter', () => {
         });
     });
 
+    test('formats shorthand multiplicities without extra spaces', async () => {
+        await formatting({
+            before: `
+catalogue test
+namespace demo
+{
+    model Platform
+    {
+        container    Sensor   *   sensors
+        reference    ILogger   +   loggers
+    }
+
+    interface ILogger
+    {
+    }
+
+    model Sensor
+    {
+    }
+}
+            `,
+            after: `
+catalogue test
+namespace demo
+{
+    model Platform
+    {
+        container Sensor* sensors
+        reference ILogger+ loggers
+    }
+    interface ILogger
+    {
+    }
+    model Sensor
+    {
+    }
+}
+            `
+        });
+    });
+
 
 });

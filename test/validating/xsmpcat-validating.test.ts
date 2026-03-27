@@ -1,7 +1,8 @@
 import { beforeAll, describe, expect, test } from "vitest";
 import { EmptyFileSystem, type LangiumDocument } from "langium";
+import { expandToString as s } from "langium/generate";
 import { parseHelper } from "langium/test";
-import type { Diagnostic } from "vscode-languageserver-types";
+import { DiagnosticSeverity, type Diagnostic } from "vscode-languageserver-types";
 import { createXsmpServices } from "../../src/language/xsmp-module.js";
 import { Catalogue, isCatalogue, } from "../../src/language/generated/ast-partial.js";
 import * as path from 'path';
@@ -28,6 +29,35 @@ describe('Validating Xsmpcat', () => {
         expect(
             checkDocumentValid(document) ?? document.diagnostics?.map(diagnosticToString)?.join('\n')
             ).toBe(fs.readFileSync(path.resolve(__dirname, 'xsmpcat-validating.expected.txt')).toString().trimEnd());
+    });
+
+    test('accepts shorthand multiplicities', async () => {
+        document = await parse(`
+            catalogue test
+
+            namespace demo
+            {
+                /** @uuid ad9c7c0c-173b-4341-8be3-21ed8725896a */
+                public interface ILogger
+                {
+                }
+
+                /** @uuid 95f0dc0d-b10a-45fa-8160-3bb523fcad78 */
+                public model Sensor
+                {
+                }
+
+                /** @uuid 749f7302-7fa4-41b8-9185-b2d047c0a4c2 */
+                public model Platform
+                {
+                    container demo.Sensor* sensors
+                    reference demo.ILogger+ loggers
+                }
+            }
+        `, { documentUri: 'shorthand-multiplicity.xsmpcat' });
+
+        expect(checkDocumentValid(document)).toBeUndefined();
+        expect((document.diagnostics ?? []).filter(d => d.severity === DiagnosticSeverity.Error)).toHaveLength(0);
     });
 
 });

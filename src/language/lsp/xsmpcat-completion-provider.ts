@@ -273,10 +273,10 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
             return this.createTypedMemberSnippet(nodeDescription, 'association', 'Association Definition');
         }
         if (this.isReferenceProperty(refInfo, ast.Container, ast.Container.type)) {
-            return this.createTypedMemberSnippet(nodeDescription, 'container', 'Container Definition', false, '[*]');
+            return this.createTypedMemberSnippet(nodeDescription, 'container', 'Container Definition', false, '*');
         }
         if (this.isReferenceProperty(refInfo, ast.Reference, ast.Reference.interface)) {
-            return this.createTypedMemberSnippet(nodeDescription, 'reference', 'Reference Definition', false, '[*]');
+            return this.createTypedMemberSnippet(nodeDescription, 'reference', 'Reference Definition', false, '*');
         }
         if (this.isReferenceProperty(refInfo, ast.EventSink, ast.EventSink.type)) {
             return this.createTypedMemberSnippet(nodeDescription, 'eventsink', 'Event Sink Definition');
@@ -306,7 +306,7 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
                 acceptor(context, this.createKeywordSnippet(keyword, 'catalogue ${1:foundation_catalogue}\n$0', 'Catalogue Definition'));
                 break;
             case 'namespace':
-                acceptor(context, this.createKeywordSnippet(keyword, 'namespace ${1:demo}\n{\n\t$0\n}', 'Namespace Definition'));
+                acceptor(context, this.createKeywordSnippet(keyword, 'namespace ${1:demo::foundation}\n{\n\t$0\n}', 'Namespace Definition'));
                 break;
             case 'struct':
                 acceptor(context, this.createTypeKeywordSnippet(keyword, 'struct ${1:Name}\n{\n\t$0\n}', 'Structure Definition'));
@@ -402,14 +402,14 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
             case 'container':
                 acceptor(context, this.createKeywordSnippet(
                     keyword,
-                    `container ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Container, ast.Container.type), 'demo.Component')}[*] ${this.createPlaceholder(2, 'name')}`,
+                    `container ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Container, ast.Container.type), 'demo.Component')}* ${this.createPlaceholder(2, 'name')}`,
                     'Container Definition'
                 ));
                 break;
             case 'reference':
                 acceptor(context, this.createKeywordSnippet(
                     keyword,
-                    `reference ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Reference, ast.Reference.interface), 'demo.Interface')}[*] ${this.createPlaceholder(2, 'name')}`,
+                    `reference ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Reference, ast.Reference.interface), 'demo.Interface')}* ${this.createPlaceholder(2, 'name')}`,
                     'Reference Definition'
                 ));
                 break;
@@ -489,7 +489,7 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
     }
 
     protected addTypeDefinitionSnippets(context: CompletionContext, acceptor: CompletionAcceptor): void {
-        acceptor(context, this.createSnippetItem('Namespace', 'namespace ${1:demo}\n{\n\t$0\n}', 'Namespace Definition'));
+        acceptor(context, this.createSnippetItem('Namespace', 'namespace ${1:demo::foundation}\n{\n\t$0\n}', 'Namespace Definition'));
         acceptor(context, this.createTypeSnippetItem('Structure', 'struct ${1:Name}\n{\n\t$0\n}', 'Structure Definition'));
         acceptor(context, this.createTypeSnippetItem('Class', 'class ${1:Name}\n{\n\t$0\n}', 'Class Definition'));
         acceptor(context, this.createTypeSnippetItem('Exception', 'exception ${1:Name}\n{\n\t$0\n}', 'Exception Definition'));
@@ -567,12 +567,12 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
         if (ast.isModel(classifier) || ast.isService(classifier)) {
             acceptor(context, this.createSnippetItem(
                 'Container',
-                `container ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Container, ast.Container.type), 'demo.Component')}[*] ${this.createPlaceholder(2, 'name')}`,
+                `container ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Container, ast.Container.type), 'demo.Component')}* ${this.createPlaceholder(2, 'name')}`,
                 'Container Definition'
             ));
             acceptor(context, this.createSnippetItem(
                 'Reference',
-                `reference ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Reference, ast.Reference.interface), 'demo.Interface')}[*] ${this.createPlaceholder(2, 'name')}`,
+                `reference ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Reference, ast.Reference.interface), 'demo.Interface')}* ${this.createPlaceholder(2, 'name')}`,
                 'Reference Definition'
             ));
             acceptor(context, this.createSnippetItem('Entry Point', 'entrypoint ${1:name}', 'Entry Point Definition'));

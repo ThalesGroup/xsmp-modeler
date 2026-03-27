@@ -534,14 +534,14 @@ Association returns Association:
 Container returns Container:
     attributes+=Attribute*
     /**
-     * `container <type> [<multiplicity>] <name> [= <default-component>]`
+     * `container <type>[?|*|+|[<bounds>]] <name> [= <default-component>]`
      *
      * Declares a containment slot for child components.
      * Use multiplicity to constrain how many children may be placed in the container, and `= <default-component>` to suggest an initial implementation.
      *
      * **Example**
      * ```xsmp
-     * container demo.avionics.SensorHead sensor = demo.avionics.SensorHead
+     * container demo.avionics.SensorHead* sensors = demo.avionics.SensorHead
      * ```
      */
     'container' type=[ReferenceType:QualifiedName] MultiplicityDeclaration name=ValidID ('=' defaultComponent=[Component:QualifiedName])?;
@@ -549,20 +549,23 @@ Container returns Container:
 Reference returns Reference:
     attributes+=Attribute*
     /**
-     * `reference <interface> [<multiplicity>] <name>`
+     * `reference <interface>[?|*|+|[<bounds>]] <name>`
      *
      * Declares an aggregation reference to external components.
      * References are typed by interfaces, which keeps the component loosely coupled to its environment.
      *
      * **Example**
      * ```xsmp
-     * reference demo.foundation.ILogger? logger
+     * reference demo.foundation.ILogger* loggers
      * ```
      */
     'reference' interface=[Interface:QualifiedName] MultiplicityDeclaration name=ValidID;
 
 fragment MultiplicityDeclaration:
-    optional?='?' | multiplicity=Multiplicity?;
+    (optional?='?' | multiplicity=Multiplicity | multiplicity=ShortMultiplicity)?;
+
+ShortMultiplicity returns Multiplicity:
+    {Multiplicity} aux?='+' | {Multiplicity} '*';
 
 Multiplicity returns Multiplicity:
     {Multiplicity} '[' ((lower=Expression ('...' (aux?='*' | upper=Expression))? ) | aux?='+' | '*' )?']';

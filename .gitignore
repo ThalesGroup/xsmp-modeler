@@ -8,6 +8,7 @@ lib/
 bin/
 src/language/generated/
 coverage/
+site/
 .tsbuildinfo/
 .scannerwork
 sonar-report.xml

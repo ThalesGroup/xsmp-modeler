@@ -1,0 +1,55 @@
+site_name: XSMP Modeler
+site_description: User documentation for XSMP Modeler
+site_url: https://thalesgroup.github.io/xsmp-modeler/
+repo_url: https://github.com/ThalesGroup/xsmp-modeler
+repo_name: ThalesGroup/xsmp-modeler
+edit_uri: edit/main/docs/
+docs_dir: docs
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - search.highlight
+    - search.suggest
+plugins:
+  - search
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Install in VS Code: getting-started/install-vscode.md
+      - Create a Project: getting-started/create-project.md
+      - Command Line Interface: getting-started/cli.md
+  - Concepts:
+      - Projects, Tools and Profiles: concepts/projects-tools-profiles.md
+      - Paths, Templates and Values: concepts/paths-templates-values.md
+      - Recommended Workflow: concepts/workflow.md
+  - Languages:
+      - Overview: languages/overview.md
+      - xsmp.project, .xsmpprofile and .xsmptool: languages/xsmpproject.md
+      - XSMP Catalogue (.xsmpcat): languages/xsmpcat.md
+      - XSMP Configuration (.xsmpcfg): languages/xsmpcfg.md
+      - XSMP Assembly (.xsmpasb): languages/xsmpasb.md
+      - XSMP Link Base (.xsmplnk): languages/xsmplnk.md
+      - XSMP Schedule (.xsmpsed): languages/xsmpsed.md
+  - Profiles:
+      - XSMP SDK: profiles/xsmp-sdk.md
+      - ESA CDK: profiles/esa-cdk.md
+  - Tools:
+      - SMP: tools/smp.md
+      - AsciiDoc: tools/adoc.md
+      - Python: tools/python.md
