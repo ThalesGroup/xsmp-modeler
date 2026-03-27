@@ -1433,6 +1433,48 @@ Supported expression families include:
 - built-in constants and built-in functions prefixed with `$`
 - `nullptr`
 
+### Numeric literal forms
+
+Catalogue expressions use their own literal syntax.
+
+Integer literals may be written in:
+
+- decimal form:
+  - `42`
+- hexadecimal form:
+  - `0x2A`
+- binary form:
+  - `0b101010`
+
+Accepted integer literal suffixes are:
+
+- `u`: unsigned integer literal
+- `ul` or `lu`: unsigned long integer literal
+- `ns`: nanoseconds
+- `us`: microseconds
+- `ms`: milliseconds
+- `s`: seconds
+- `mn`: minutes
+- `h`: hours
+- `d`: days
+
+Examples:
+
+```xsmp
+public constant Smp.UInt32 Mask = 0xFFu
+public constant Smp.Duration StartupDelay = 10s
+public constant Smp.Duration PollingPeriod = 250ms
+```
+
+Floating-point literals may be written with:
+
+- a decimal fraction:
+  - `3.5`
+- an exponent:
+  - `1.2e3`
+- an optional `f` suffix:
+  - `3.5f`
+
 Examples:
 
 ```xsmp

@@ -1,6 +1,32 @@
-# Paths, Templates and Values
+# Shared Syntax: Comments, Paths, Templates and Values
 
-Several XSMP languages share the same ideas for paths, template placeholders and values. This page explains the common syntax once so the language-specific pages can stay focused.
+Several XSMP languages share the same ideas for document comments, paths, template placeholders and values. This page explains the common syntax once so the language-specific pages can stay focused on language-specific statements.
+
+## Document comments and export metadata
+
+Catalogue, configuration, assembly, link-base and schedule documents may start with a documentation comment.
+
+In addition to normal descriptive text, the same root-level tags are recognized when exporting SMP artifacts:
+
+- `@title`
+- `@date`
+- `@creator`
+- `@version`
+
+Example:
+
+```xsmp
+/**
+ * Nominal avionics configuration.
+ * @title Avionics Nominal Configuration
+ * @creator alice
+ * @date 2026-03-27T08:00:00Z
+ * @version 1.0
+ */
+configuration AvionicsNominal
+```
+
+Some languages also recognize additional metadata on individual declarations. Those declaration-specific tags are documented on the relevant language pages, especially [XSMP Catalogue](../languages/xsmpcat.md).
 
 ## Paths
 
@@ -47,6 +73,17 @@ Use it for legacy models, partially typed setups or temporary workarounds, not a
 
 Assemblies and schedules can declare template parameters.
 
+Common supported forms are:
+
+```text
+<Name: string>
+<Name: string = "Ops">
+<Name = "Ops">
+<Index: int32>
+<Index: int32 = 1>
+<Index = 1>
+```
+
 Example:
 
 ```text
@@ -69,7 +106,9 @@ execute Tick at {OrbitalMember}
 
 ## Values
 
-Configurations, assemblies and schedules support the same family of value literals.
+Configurations, assemblies and schedules share the same family of scalar value literals.
+
+Configurations and assemblies also support array and structure values. Schedules only use simple values.
 
 ### Simple values
 
@@ -103,7 +142,7 @@ demo.foundation.Mode.Nominal
 
 ## Numeric suffixes
 
-Some contexts accept explicit numeric suffixes:
+Configuration, assembly and schedule values accept explicit numeric suffixes when you want to state the exact scalar type directly in the literal.
 
 ```text
 12i32
@@ -112,11 +151,76 @@ Some contexts accept explicit numeric suffixes:
 1lit
 ```
 
+### Integer suffixes
+
+- `i8`: signed 8-bit integer
+- `i16`: signed 16-bit integer
+- `i32`: signed 32-bit integer
+- `i64`: signed 64-bit integer
+- `u8`: unsigned 8-bit integer
+- `u16`: unsigned 16-bit integer
+- `u32`: unsigned 32-bit integer
+- `u64`: unsigned 64-bit integer
+
+Examples:
+
+```text
+12i8
+12i16
+12i32
+12i64
+28u8
+28u16
+28u32
+28u64
+```
+
+### Floating-point suffixes
+
+- `f32`: 32-bit floating-point value
+- `f64`: 64-bit floating-point value
+
+Examples:
+
+```text
+3.5f32
+3.5f64
+```
+
+### Enumeration numeric suffix
+
+- `lit`: numeric value of an enumeration literal
+
+This form is useful when you want to write the underlying numeric value instead of the qualified enumeration name.
+
+Examples:
+
+```text
+0lit
+2lit
+```
+
+### Plain numbers
+
 When the target type is already clear from the surrounding declaration, you may also write plain integers and floats in many places, such as:
 
 ```text
 count = 3
 ratio = 1.5
+```
+
+### Related non-numeric value suffixes
+
+XSMP also uses two common value suffixes that are not numeric-width suffixes:
+
+- `d`: duration literal
+- `dt`: datetime literal
+
+Examples:
+
+```text
+"PT10S"d
+"2025-01-01T01:00:00Z"dt
 ```
 
 ## When to look at language-specific rules

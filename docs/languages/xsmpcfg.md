@@ -6,12 +6,9 @@ This page documents the user-facing configuration grammar in detail: root declar
 
 ## Document comments and metadata
 
-Configuration documents can be preceded by a documentation comment. In addition to normal descriptive text, the following root-level tags are recognized when exporting SMP artifacts:
+Configuration files use the shared document-comment rules described in [Shared Syntax: Comments, Paths, Templates and Values](../concepts/paths-templates-values.md#document-comments-and-export-metadata).
 
-- `@title`
-- `@date`
-- `@creator`
-- `@version`
+Use a leading documentation comment with the shared root-level tags `@title`, `@date`, `@creator` and `@version` when you want to enrich exported SMP metadata.
 
 Example:
 
@@ -180,43 +177,22 @@ Configurations support three value families:
 - arrays
 - structures
 
+The shared scalar literal rules, including numeric suffixes such as `i32`, `u16`, `f64`, `lit`, `d` and `dt`, are documented in [Shared Syntax: Comments, Paths, Templates and Values](../concepts/paths-templates-values.md#values) and [Numeric suffixes](../concepts/paths-templates-values.md#numeric-suffixes).
+
 ## Simple values
 
-**Simple Values** cover the scalar literals commonly used in configuration files.
+**Simple Values** cover the shared scalar literals commonly used in configuration files.
 
-The following literal forms are accepted:
+Use the common value reference for the full list of supported scalar forms. In configuration files, those simple values are typically used for field assignments inside one component subtree.
 
-- signed integers with explicit suffixes:
-  - `12i8`
-  - `12i16`
-  - `12i32`
-  - `12i64`
-- unsigned integers with explicit suffixes:
-  - `12u8`
-  - `12u16`
-  - `12u32`
-  - `12u64`
-- plain integers:
-  - `12`
-- floating-point values with explicit suffixes:
-  - `3.5f32`
-  - `3.5f64`
-- plain floating-point values:
-  - `3.5`
-- booleans:
-  - `true`
-  - `false`
-- characters:
-  - `'A'`
-- strings:
-  - `"nominal"`
-- enumeration values:
-  - `demo.foundation.Mode.Nominal`
-  - `0lit`
-- duration literals:
-  - `"PT10S"d`
-- datetime literals:
-  - `"2026-03-27T08:00:00Z"dt`
+Examples:
+
+```xsmp
+retryCount = 3i32
+lineVoltage = 28.0f64
+modeState = 1lit
+startupDelay = "PT10S"d
+```
 
 When the target type is already clear from the field being assigned, you may also write plain integers and floats instead of suffixed numeric literals.
 
@@ -336,29 +312,7 @@ Configuration paths are used in:
 - `include ... at ...`
 - field assignments
 
-### Syntax
-
-```text
-[unsafe] [ / ] <segment> [ ('.' | '/') <segment> | '[' <index> ']' ]*
-```
-
-Segments may be:
-
-- named segments
-- `..`
-- `.`
-
-Required:
-
-- at least one segment for normal relative paths
-- or `/` for absolute-root form
-
-Optional:
-
-- `unsafe`
-- absolute `/`
-- additional member segments
-- indexes
+Configuration paths use the shared path model described in [Shared Syntax: Comments, Paths, Templates and Values](../concepts/paths-templates-values.md#paths) and the shared `unsafe` behavior documented in [unsafe](../concepts/paths-templates-values.md#unsafe).
 
 Behavior:
 
@@ -366,7 +320,11 @@ Behavior:
 - a relative path starts from the current configuration block
 - `.` keeps the current level and `..` moves to the parent level
 
-### Examples
+### Important note
+
+Unlike assembly, link-base and schedule paths, configuration paths do not support template placeholders.
+
+Examples:
 
 ```xsmp
 /avionics
@@ -387,20 +345,6 @@ tuning[0]
 ```xsmp
 unsafe child.sensor
 ```
-
-### `unsafe`
-
-`unsafe` keeps a path exactly as written even when it cannot be checked safely against the available model definitions.
-
-Example:
-
-```xsmp
-include Legacy at unsafe child
-```
-
-### Important note
-
-Unlike assembly, link-base and schedule paths, configuration paths do not support template placeholders.
 
 ## Minimal complete example
 

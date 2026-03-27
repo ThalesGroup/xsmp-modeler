@@ -6,12 +6,9 @@ This page documents the assembly grammar in detail, including template parameter
 
 ## Document comments and metadata
 
-Assembly documents can start with a documentation comment. The following root-level tags are recognized when exporting SMP artifacts:
+Assembly files use the shared document-comment rules described in [Shared Syntax: Comments, Paths, Templates and Values](../concepts/paths-templates-values.md#document-comments-and-export-metadata).
 
-- `@title`
-- `@date`
-- `@creator`
-- `@version`
+Use a leading documentation comment with the shared root-level tags `@title`, `@date`, `@creator` and `@version` when you want to enrich exported SMP metadata.
 
 Example:
 
@@ -76,13 +73,7 @@ Assemblies support two parameter kinds:
 - string parameters
 - `int32` parameters
 
-### String parameter syntax
-
-```text
-<name>: string
-<name>: string = "<value>"
-<name> = "<value>"
-```
+Assemblies use the shared template-parameter forms documented in [Template parameters and placeholders](../concepts/paths-templates-values.md#template-parameters-and-placeholders).
 
 Examples:
 
@@ -95,29 +86,7 @@ Examples:
 ```
 
 ```xsmp
-<Lane = "Ops">
-```
-
-### `int32` parameter syntax
-
-```text
-<name>: int32
-<name>: int32 = <integer>
-<name> = <integer>
-```
-
-Examples:
-
-```xsmp
-<Index: int32>
-```
-
-```xsmp
 <Index: int32 = 1>
-```
-
-```xsmp
-<Index = 1>
 ```
 
 ## `configure` blocks
@@ -562,34 +531,22 @@ Assemblies support:
 - arrays
 - structures
 
+The shared scalar literal rules, including numeric suffixes such as `i32`, `u16`, `f64`, `lit`, `d` and `dt`, are documented in [Shared Syntax: Comments, Paths, Templates and Values](../concepts/paths-templates-values.md#values) and [Numeric suffixes](../concepts/paths-templates-values.md#numeric-suffixes).
+
 ### Simple values
 
-**Simple Values** are the scalar literals accepted in field assignments, property assignments and operation arguments.
+**Simple Values** are the shared scalar literals accepted in field assignments, property assignments and operation arguments.
 
-Accepted forms include:
+Examples:
 
-- integers with suffixes:
-  - `1i8`, `1i16`, `1i32`, `1i64`
-  - `1u8`, `1u16`, `1u32`, `1u64`
-- plain integers:
-  - `1`
-- floats with suffixes:
-  - `1.0f32`
-  - `1.0f64`
-- plain floats:
-  - `1.0`
-- booleans:
-  - `true`
-  - `false`
-- characters
-- strings
-- enumeration literals:
-  - `demo.foundation.Mode.Nominal`
-  - `0lit`
-- durations:
-  - `"PT10S"d`
-- datetimes:
-  - `"2026-03-27T08:00:00Z"dt`
+```xsmp
+priority = 1u8
+gain = 0.5f32
+mode = 2lit
+timeout = "PT5S"d
+```
+
+When the target type is already clear from the surrounding field, property or parameter, you may also write plain integers and plain floating-point values.
 
 ### Arrays
 
@@ -674,44 +631,13 @@ Assembly paths are used in:
 - field links
 - interface links
 
-### Syntax
-
-```text
-[unsafe] [ / ] <segment> [ ('.' | '/') <segment> | '[' <index> ']' ]*
-```
-
-Segments may be:
-
-- named segments
-- templated segments
-- `.`
-- `..`
-
-Required:
-
-- at least one segment for normal relative paths
-- or `/` for the absolute-root form
-
-Optional:
-
-- `unsafe`
-- absolute `/`
-- additional segments
-- indexes
+Assembly paths use the shared path model described in [Shared Syntax: Comments, Paths, Templates and Values](../concepts/paths-templates-values.md#paths), the shared `unsafe` behavior documented in [unsafe](../concepts/paths-templates-values.md#unsafe), and the shared placeholder forms described in [Template parameters and placeholders](../concepts/paths-templates-values.md#template-parameters-and-placeholders).
 
 Behavior:
 
 - an absolute path starts from the root model instance
 - a relative path starts from the current instance context
 - the last segment may resolve to a field, event source, event sink, reference or other member depending on usage
-
-### Template placeholders
-
-Assembly paths and instance names support placeholder-based segments such as:
-
-- `Avionics{Lane}`
-- `{BusMember}`
-- `Router{Lane}`
 
 ### Examples
 
@@ -733,6 +659,10 @@ nested.logger
 
 ```xsmp
 payloads[0]
+```
+
+```xsmp
+{BusMember}.logger
 ```
 
 ```xsmp

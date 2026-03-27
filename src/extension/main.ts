@@ -4,7 +4,7 @@ import * as path from 'node:path';
 import satisfies from 'semver/functions/satisfies.js';
 import { LanguageClient, TransportKind } from 'vscode-languageclient/node.js';
 import { builtInScheme } from 'xsmp';
-import { createProjectWizard } from 'xsmp/wizard';
+import { createProjectWizard, createXsmpStarterFileWizard } from 'xsmp/wizard';
 import { GenerateAllProjects, GenerateProject, GetServerFileContentRequest, RegisterContributions } from 'xsmp/lsp';
 import type { XsmpProjectGenerationReport } from 'xsmp/lsp';
 import type {
@@ -37,6 +37,24 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     // New project Wizard
     context.subscriptions.push(
         vscode.commands.registerCommand('xsmp.wizard', () => createProjectWizard(getClient()))
+    );
+    context.subscriptions.push(
+        vscode.commands.registerCommand('xsmp.newFile', async (uri?: vscode.Uri) => createXsmpStarterFileWizard(undefined, uri))
+    );
+    context.subscriptions.push(
+        vscode.commands.registerCommand('xsmp.newCatalogue', async (uri?: vscode.Uri) => createXsmpStarterFileWizard('catalogue', uri))
+    );
+    context.subscriptions.push(
+        vscode.commands.registerCommand('xsmp.newConfiguration', async (uri?: vscode.Uri) => createXsmpStarterFileWizard('configuration', uri))
+    );
+    context.subscriptions.push(
+        vscode.commands.registerCommand('xsmp.newAssembly', async (uri?: vscode.Uri) => createXsmpStarterFileWizard('assembly', uri))
+    );
+    context.subscriptions.push(
+        vscode.commands.registerCommand('xsmp.newLinkBase', async (uri?: vscode.Uri) => createXsmpStarterFileWizard('link-base', uri))
+    );
+    context.subscriptions.push(
+        vscode.commands.registerCommand('xsmp.newSchedule', async (uri?: vscode.Uri) => createXsmpStarterFileWizard('schedule', uri))
     );
     context.subscriptions.push(
         vscode.commands.registerCommand('xsmp.generate', async (uri?: vscode.Uri) => {

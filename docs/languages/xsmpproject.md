@@ -9,8 +9,12 @@ This page documents the user-facing `xsmp.project` file: project declaration, so
 An **XSMP Project** declares one project and lists the sources, dependencies, profile and tools that control how that project is built and validated.
 
 ```text
-project "<project-name>" [using "<standard>"]
-    (source "<path>" | dependency "<project-name>" | profile "<profile-name>" | tool "<tool-name>")*
+project '<project-name>'
+
+(source '<path>' | 
+dependency '<project-name>' | 
+profile '<profile-name>' | 
+tool '<tool-name>')*
 ```
 
 Required:
@@ -20,7 +24,6 @@ Required:
 
 Optional:
 
-- `using "<standard>"`
 - any number of `source` statements
 - any number of `dependency` statements
 - zero or one `profile` statement
@@ -29,35 +32,21 @@ Optional:
 Example:
 
 ```xsmp
-project "missionsystem"
-source "smdl"
-dependency "foundation"
-profile "xsmp-sdk"
-tool "smp"
-tool "adoc"
+project 'missionsystem'
+source 'smdl'
+dependency 'foundation'
+profile 'xsmp-sdk'
+tool 'smp'
+tool 'adoc'
 ```
 
 ## Strings
 
-The grammar accepts both single-quoted and double-quoted strings, but this documentation uses double quotes consistently:
+The grammar accepts both single-quoted and double-quoted strings. This documentation uses single quotes by default:
 
 ```xsmp
-project "missionsystem"
+project 'missionsystem'
 ```
-
-## `using`
-
-A **Standard Selection** chooses the SMP standard revision applied to the project.
-
-Syntax:
-
-```text
-project "<project-name>" using "<standard>"
-```
-
-`using` selects the SMP standard revision for the project.
-
-For now, this documentation keeps that part generic and focuses mainly on project structure, dependencies, tools and profiles.
 
 ## `source`
 
@@ -66,7 +55,7 @@ A **Source Declaration** tells XSMP where to look for the modeling documents tha
 Syntax:
 
 ```text
-source "<path>"
+source '<path>'
 ```
 
 Required:
@@ -83,11 +72,11 @@ Behavior:
 Examples:
 
 ```xsmp
-source "smdl"
+source 'smdl'
 ```
 
 ```xsmp
-source "models/foundation"
+source 'models/foundation'
 ```
 
 ## `dependency`
@@ -97,7 +86,7 @@ A **Project Dependency** declares that the current project uses modeling documen
 Syntax:
 
 ```text
-dependency "<project-name>"
+dependency '<project-name>'
 ```
 
 Required:
@@ -128,8 +117,8 @@ What dependencies do not inherit:
 Example:
 
 ```xsmp
-dependency "foundation"
-dependency "avionics"
+dependency 'foundation'
+dependency 'avionics'
 ```
 
 ## `profile`
@@ -139,7 +128,7 @@ A **Profile Selection** activates one project-wide profile for the current proje
 Syntax:
 
 ```text
-profile "<profile-name>"
+profile '<profile-name>'
 ```
 
 Required:
@@ -157,7 +146,7 @@ Behavior:
 Example:
 
 ```xsmp
-profile "xsmp-sdk"
+profile 'xsmp-sdk'
 ```
 
 ## `tool`
@@ -167,7 +156,7 @@ A **Tool Activation** enables one additional capability for the current project.
 Syntax:
 
 ```text
-tool "<tool-name>"
+tool '<tool-name>'
 ```
 
 Required:
@@ -184,9 +173,9 @@ Behavior:
 Examples:
 
 ```xsmp
-tool "smp"
-tool "adoc"
-tool "python"
+tool 'smp'
+tool 'adoc'
+tool 'python'
 ```
 
 ## Statement order
@@ -221,18 +210,18 @@ That means two projects in the same workspace may activate different tools and p
 ### Minimal project
 
 ```xsmp
-project "foundation"
-source "smdl"
+project 'foundation'
+source 'smdl'
 ```
 
 ### Project with dependencies and generation
 
 ```xsmp
-project "mission-demo"
-source "smdl"
-dependency "foundation"
-dependency "avionics"
-profile "xsmp-sdk"
-tool "smp"
-tool "adoc"
+project 'mission-demo'
+source 'smdl'
+dependency 'foundation'
+dependency 'avionics'
+profile 'xsmp-sdk'
+tool 'smp'
+tool 'adoc'
 ```

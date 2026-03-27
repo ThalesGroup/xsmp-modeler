@@ -45,7 +45,7 @@ Both commands support:
 
 If you do not provide it, XSMP Modeler uses the parent directory of the target project directory.
 
-The workspace root is scanned recursively for `xsmp.project` files so that dependencies declared with `dependency "<project-name>"` can be resolved.
+The workspace root is scanned recursively for `xsmp.project` files so that dependencies declared with `dependency '<project-name>'` can be resolved.
 
 ## Validation behavior
 

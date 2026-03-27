@@ -6,12 +6,9 @@ They are used to describe when tasks run, where they run, and which operations, 
 
 ## Document comments and metadata
 
-Schedule documents can start with a documentation comment. The following root-level tags are recognized when exporting SMP artifacts:
+Schedule files use the shared document-comment rules described in [Shared Syntax: Comments, Paths, Templates and Values](../concepts/paths-templates-values.md#document-comments-and-export-metadata).
 
-- `@title`
-- `@date`
-- `@creator`
-- `@version`
+Use a leading documentation comment with the shared root-level tags `@title`, `@date`, `@creator` and `@version` when you want to enrich exported SMP metadata.
 
 Example:
 
@@ -70,13 +67,7 @@ Schedules support:
 - string parameters
 - `int32` parameters
 
-### String parameter syntax
-
-```text
-<name>: string
-<name>: string = "<value>"
-<name> = "<value>"
-```
+Schedules use the shared template-parameter forms documented in [Template parameters and placeholders](../concepts/paths-templates-values.md#template-parameters-and-placeholders).
 
 Examples:
 
@@ -89,29 +80,7 @@ Examples:
 ```
 
 ```xsmp
-<Root = "platform">
-```
-
-### `int32` parameter syntax
-
-```text
-<name>: int32
-<name>: int32 = <integer>
-<name> = <integer>
-```
-
-Examples:
-
-```xsmp
-<Cycles: int32>
-```
-
-```xsmp
 <Cycles: int32 = 3>
-```
-
-```xsmp
-<Cycles = 3>
 ```
 
 ## Tasks
@@ -532,30 +501,7 @@ Schedule paths are used in:
 - `trig`
 - `execute ... at ...`
 
-### Syntax
-
-```text
-[unsafe] [ / ] <segment> [ ('.' | '/') <segment> | '[' <index> ']' ]*
-```
-
-Segments may be:
-
-- named segments
-- templated segments
-- `.`
-- `..`
-
-Required:
-
-- at least one segment for normal relative paths
-- or `/` for the absolute-root form
-
-Optional:
-
-- `unsafe`
-- absolute `/`
-- additional segments
-- indexes
+Schedule paths use the shared path model described in [Shared Syntax: Comments, Paths, Templates and Values](../concepts/paths-templates-values.md#paths), the shared `unsafe` behavior documented in [unsafe](../concepts/paths-templates-values.md#unsafe), and the shared placeholder forms described in [Template parameters and placeholders](../concepts/paths-templates-values.md#template-parameters-and-placeholders).
 
 Behavior:
 
@@ -582,47 +528,30 @@ payloads[0]
 ```
 
 ```xsmp
-unsafe legacy.reset
+{ConsoleMember}.log
 ```
 
-### Template placeholders
-
-Schedules support templated path segments such as:
-
-- `{OrbitalMember}`
-- `Logger{Lane}`
-- `{ConsoleMember}`
-
-Example:
-
 ```xsmp
-call {ConsoleMember}.log(message = "mission dispatch")
+unsafe legacy.reset
 ```
 
 ## Simple values
 
 **Simple Values** are the scalar literals accepted by schedule activities for arguments and property assignments.
 
-Schedule activities accept simple values, not arrays or structure literals.
+Schedule activities use the shared scalar literal rules documented in [Shared Syntax: Comments, Paths, Templates and Values](../concepts/paths-templates-values.md#values) and [Numeric suffixes](../concepts/paths-templates-values.md#numeric-suffixes).
 
-Accepted forms include:
+Unlike configurations and assemblies, schedules accept simple values only. They do not use array or structure literals in activities.
 
-- integers with suffixes:
-  - `1i8`, `1i16`, `1i32`, `1i64`
-  - `1u8`, `1u16`, `1u32`, `1u64`
-- plain integers:
-  - `1`
-- floats with suffixes:
-  - `1.0f32`
-  - `1.0f64`
-- plain floats:
-  - `1.0`
-- booleans
-- characters
-- strings
-- enumeration literals
-- durations
-- datetimes
+Examples:
+
+```xsmp
+call controller.setRetryCount(count = 3u16)
+property mode = 1lit
+call controller.setTimeout(timeout = "PT10S"d)
+```
+
+When the target type is already clear from the called parameter or property, you may also write plain integers and plain floating-point values.
 
 Examples:
 

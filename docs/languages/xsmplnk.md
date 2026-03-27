@@ -6,12 +6,9 @@ They are useful when the same wiring should be applied to several assembly insta
 
 ## Document comments and metadata
 
-Link-base documents can start with a documentation comment. The following root-level tags are recognized when exporting SMP artifacts:
+Link-base files use the shared document-comment rules described in [Shared Syntax: Comments, Paths, Templates and Values](../concepts/paths-templates-values.md#document-comments-and-export-metadata).
 
-- `@title`
-- `@date`
-- `@creator`
-- `@version`
+Use a leading documentation comment with the shared root-level tags `@title`, `@date`, `@creator` and `@version` when you want to enrich exported SMP metadata.
 
 Example:
 
@@ -238,30 +235,7 @@ Link-base paths are used in:
 - field links
 - interface links
 
-### Syntax
-
-```text
-[unsafe] [ / ] <segment> [ ('.' | '/') <segment> | '[' <index> ']' ]*
-```
-
-Segments may be:
-
-- named segments
-- templated segments
-- `.`
-- `..`
-
-Required:
-
-- at least one segment for normal relative paths
-- or `/` for the absolute-root form
-
-Optional:
-
-- `unsafe`
-- absolute `/`
-- additional segments
-- indexes
+Link-base paths use the shared path model described in [Shared Syntax: Comments, Paths, Templates and Values](../concepts/paths-templates-values.md#paths), the shared `unsafe` behavior documented in [unsafe](../concepts/paths-templates-values.md#unsafe), and the shared placeholder forms described in [Template parameters and placeholders](../concepts/paths-templates-values.md#template-parameters-and-placeholders).
 
 Behavior:
 
@@ -269,25 +243,11 @@ Behavior:
 - a relative path starts from the current component link-base block
 - the last segment is interpreted according to the link kind that uses the path
 
-### Template placeholders
-
-Link bases support templated path segments such as:
-
-- `{BusMember}`
-- `{RouterMember}`
-- `Logger{Lane}`
-
-Example:
+Examples:
 
 ```xsmp
-field link {BusMember}.power.lineVoltage -> {RouterMember}.incomingBus
+{BusMember}.power.lineVoltage
 ```
-
-### `unsafe`
-
-`unsafe` keeps a path or local name exactly as written even when it cannot be checked safely against the available model definitions.
-
-Examples:
 
 ```xsmp
 field link unsafe outValue -> unsafe child.inValue

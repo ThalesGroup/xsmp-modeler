@@ -14,7 +14,7 @@ Use `python` when you want:
 Add this to `xsmp.project`:
 
 ```text
-tool "python"
+tool 'python'
 ```
 
 ## What it adds
@@ -32,9 +32,9 @@ Typical wizard-created files include:
 ## Typical project snippet
 
 ```text
-project "mission-demo"
-source "smdl"
-tool "python"
+project 'mission-demo'
+source 'smdl'
+tool 'python'
 ```
 
 ## Expected result

@@ -18,7 +18,7 @@ Use the SMP tool when you want XSMP sources to produce standard SMP artifacts su
 Add this to `xsmp.project`:
 
 ```text
-tool "smp"
+tool 'smp'
 ```
 
 ## What it generates
@@ -43,9 +43,9 @@ depending on which XSMP documents exist in the project.
 ## Typical project snippet
 
 ```text
-project "orbitalsegment"
-source "smdl"
-tool "smp"
+project 'orbitalsegment'
+source 'smdl'
+tool 'smp'
 ```
 
 ## How to run it

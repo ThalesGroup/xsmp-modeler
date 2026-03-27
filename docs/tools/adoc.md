@@ -14,7 +14,7 @@ Use `adoc` when you want:
 Add this to `xsmp.project`:
 
 ```text
-tool "adoc"
+tool 'adoc'
 ```
 
 ## What it adds
@@ -32,9 +32,9 @@ Typical wizard-created files include:
 ## Typical project snippet
 
 ```text
-project "mission-demo"
-source "smdl"
-tool "adoc"
+project 'mission-demo'
+source 'smdl'
+tool 'adoc'
 ```
 
 ## Expected result

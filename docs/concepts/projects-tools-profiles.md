@@ -15,12 +15,12 @@ A project declares:
 Example:
 
 ```text
-project "missionsystem"
-source "smdl"
-dependency "foundation"
-profile "xsmp-sdk"
-tool "smp"
-tool "adoc"
+project 'missionsystem'
+source 'smdl'
+dependency 'foundation'
+profile 'xsmp-sdk'
+tool 'smp'
+tool 'adoc'
 ```
 
 ## Sources
@@ -30,14 +30,14 @@ Each `source` entry points to modeling content relative to the project directory
 Typical value:
 
 ```text
-source "smdl"
+source 'smdl'
 ```
 
 All XSMP modeling files usually live in that directory.
 
 ## Dependencies
 
-`dependency "<project-name>"` links one project to another by project name.
+`dependency '<project-name>'` links one project to another by project name.
 
 Dependencies make the dependent project's modeling documents available to the current project, such as:
 
@@ -71,7 +71,7 @@ Profiles can:
 A project typically activates at most one profile:
 
 ```text
-profile "xsmp-sdk"
+profile 'xsmp-sdk'
 ```
 
 You can omit the profile entirely, but you cannot activate several profiles in one project.
@@ -95,9 +95,9 @@ Tools can:
 You can combine several tools in the same project:
 
 ```text
-tool "smp"
-tool "adoc"
-tool "python"
+tool 'smp'
+tool 'adoc'
+tool 'python'
 ```
 
 ## What is global and what is project-local

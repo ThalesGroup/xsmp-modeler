@@ -7,6 +7,7 @@ describe('embedded documentation links', () => {
             keyword: 'tool',
             page: 'languages/xsmpproject.md',
             title: 'xsmp.project, profile and tool reference',
+            anchor: 'tool',
         });
     });
 
@@ -15,6 +16,7 @@ describe('embedded documentation links', () => {
             keyword: 'assembly',
             page: 'languages/xsmpasb.md',
             title: 'XSMP assembly reference',
+            anchor: 'root-structure',
         });
     });
 
@@ -23,6 +25,73 @@ describe('embedded documentation links', () => {
             keyword: 'readOnly',
             page: 'languages/xsmpcat.md',
             title: 'XSMP catalogue reference',
+            anchor: 'property',
+        });
+    });
+
+    test('maps link and schedule keywords to specific sections', () => {
+        expect(getEmbeddedDocumentationTarget('xsmplnk', 'interface')).toEqual({
+            keyword: 'interface',
+            page: 'languages/xsmplnk.md',
+            title: 'XSMP link base reference',
+            anchor: 'interface-link',
+        });
+        expect(getEmbeddedDocumentationTarget('xsmpsed', 'simulation')).toEqual({
+            keyword: 'simulation',
+            page: 'languages/xsmpsed.md',
+            title: 'XSMP schedule reference',
+            anchor: 'simulation-event',
+        });
+    });
+
+    test('uses line context for ambiguous link keywords', () => {
+        expect(getEmbeddedDocumentationTarget('xsmplnk', 'link', 'event link publishedMode -> sink')).toEqual({
+            keyword: 'link',
+            page: 'languages/xsmplnk.md',
+            title: 'XSMP link base reference',
+            anchor: 'event-link',
+        });
+        expect(getEmbeddedDocumentationTarget('xsmplnk', 'link', 'link OrbitalLinks for OrbitalSegment')).toEqual({
+            keyword: 'link',
+            page: 'languages/xsmplnk.md',
+            title: 'XSMP link base reference',
+            anchor: 'root-structure',
+        });
+    });
+
+    test('uses line context for ambiguous schedule keywords', () => {
+        expect(getEmbeddedDocumentationTarget('xsmpsed', 'event', 'event Bootstrap mission "PT10S"')).toEqual({
+            keyword: 'event',
+            page: 'languages/xsmpsed.md',
+            title: 'XSMP schedule reference',
+            anchor: 'mission-event',
+        });
+        expect(getEmbeddedDocumentationTarget('xsmpsed', 'on', 'task Bootstrap on demo.orbit.Platform')).toEqual({
+            keyword: 'on',
+            page: 'languages/xsmpsed.md',
+            title: 'XSMP schedule reference',
+            anchor: 'tasks',
+        });
+        expect(getEmbeddedDocumentationTarget('xsmpsed', 'using', 'event Dispatch on "Ready" using mission delay "PT5S"')).toEqual({
+            keyword: 'using',
+            page: 'languages/xsmpsed.md',
+            title: 'XSMP schedule reference',
+            anchor: 'global-event-triggered-event',
+        });
+    });
+
+    test('uses line context for ambiguous assembly keywords', () => {
+        expect(getEmbeddedDocumentationTarget('xsmpasb', 'link', 'interface link logger -> payload:backLogger')).toEqual({
+            keyword: 'link',
+            page: 'languages/xsmpasb.md',
+            title: 'XSMP assembly reference',
+            anchor: 'interface-link',
+        });
+        expect(getEmbeddedDocumentationTarget('xsmpasb', 'using', 'payload += PayloadA: PayloadSegment using config PayloadCfg using link PayloadLinks')).toEqual({
+            keyword: 'using',
+            page: 'languages/xsmpasb.md',
+            title: 'XSMP assembly reference',
+            anchor: 'sub-assembly-instances',
         });
     });
 

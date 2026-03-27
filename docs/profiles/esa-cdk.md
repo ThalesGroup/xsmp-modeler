@@ -14,7 +14,7 @@ Use `esa-cdk` when your project needs:
 Add this to `xsmp.project`:
 
 ```text
-profile "esa-cdk"
+profile 'esa-cdk'
 ```
 
 ## What it adds
@@ -28,10 +28,10 @@ The profile contributes:
 ## Typical project snippet
 
 ```text
-project "orbital-segment"
-source "smdl"
-profile "esa-cdk"
-tool "smp"
+project 'orbital-segment'
+source 'smdl'
+profile 'esa-cdk'
+tool 'smp'
 ```
 
 ## Expected outcome

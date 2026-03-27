@@ -1,3 +1,3 @@
-project "payload" using "ECSS_SMP_2025"
-source "smdl"
-dependency "foundation"
+project 'payload' using 'ECSS_SMP_2025'
+source 'smdl'
+dependency 'foundation'

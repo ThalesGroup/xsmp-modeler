@@ -49,13 +49,13 @@ If you select additional tools or profiles, the structure can grow with document
 The wizard generates an `xsmp.project` file that looks like this in principle:
 
 ```text
-project "MissionDemo"
+project 'MissionDemo'
 
-source "smdl"
+source 'smdl'
 
-profile "xsmp-sdk"
-tool "smp"
-tool "adoc"
+profile 'xsmp-sdk'
+tool 'smp'
+tool 'adoc'
 ```
 
 It may also add `dependency` entries if a selected contribution scaffolder asks for them.

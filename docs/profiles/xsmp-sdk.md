@@ -15,7 +15,7 @@ Use `xsmp-sdk` when you want:
 Add this to `xsmp.project`:
 
 ```text
-profile "xsmp-sdk"
+profile 'xsmp-sdk'
 ```
 
 ## What it adds
@@ -40,10 +40,10 @@ Typical additions include:
 The profile is often combined with the `smp` tool:
 
 ```text
-project "mission-demo"
-source "smdl"
-profile "xsmp-sdk"
-tool "smp"
+project 'mission-demo'
+source 'smdl'
+profile 'xsmp-sdk'
+tool 'smp'
 ```
 
 This gives you:

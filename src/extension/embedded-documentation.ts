@@ -9,8 +9,9 @@ export const OpenEmbeddedDocumentationCommand = 'xsmp.openDocumentation';
 export function registerEmbeddedDocumentation(context: vscode.ExtensionContext): void {
     context.subscriptions.push(
         vscode.commands.registerCommand(OpenEmbeddedDocumentationCommand, async (target: XsmpEmbeddedDocumentationTarget) => {
-            const targetUri = resolveEmbeddedDocumentationUri(context, target.page);
-            if (!fs.existsSync(targetUri.fsPath)) {
+            const pageUri = resolveEmbeddedDocumentationUri(context, target.page);
+            const targetUri = target.anchor ? pageUri.with({ fragment: target.anchor }) : pageUri;
+            if (!fs.existsSync(pageUri.fsPath)) {
                 void vscode.window.showErrorMessage(`Embedded XSMP documentation page not found: ${target.page}`);
                 return;
             }
@@ -47,7 +48,7 @@ export function registerEmbeddedDocumentation(context: vscode.ExtensionContext):
                     }
 
                     const keyword = document.getText(range);
-                    const target = getEmbeddedDocumentationTarget(document.languageId, keyword);
+                    const target = getEmbeddedDocumentationTarget(document.languageId, keyword, document.lineAt(position.line).text);
                     if (!target) {
                         return undefined;
                     }

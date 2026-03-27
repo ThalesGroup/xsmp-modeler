@@ -256,6 +256,36 @@
                 "title": "Create a new project"
             },
             {
+                "command": "xsmp.newFile",
+                "category": "Xsmp",
+                "title": "Create XSMP File"
+            },
+            {
+                "command": "xsmp.newCatalogue",
+                "category": "Xsmp",
+                "title": "Create Catalogue File"
+            },
+            {
+                "command": "xsmp.newConfiguration",
+                "category": "Xsmp",
+                "title": "Create Configuration File"
+            },
+            {
+                "command": "xsmp.newAssembly",
+                "category": "Xsmp",
+                "title": "Create Assembly File"
+            },
+            {
+                "command": "xsmp.newLinkBase",
+                "category": "Xsmp",
+                "title": "Create Link Base File"
+            },
+            {
+                "command": "xsmp.newSchedule",
+                "category": "Xsmp",
+                "title": "Create Schedule File"
+            },
+            {
                 "command": "xsmp.generate",
                 "category": "Xsmp",
                 "title": "Generate Project"
@@ -354,10 +384,30 @@
                     "markdownDescription": "Automatically run `Xsmp: Generate All Projects` once the XSMP workspace has finished loading at startup."
                 }
             }
+        },
+        "menus": {
+            "explorer/context": [
+                {
+                    "command": "xsmp.newFile",
+                    "group": "navigation@100",
+                    "when": "explorerResourceIsFolder"
+                },
+                {
+                    "command": "xsmp.newFile",
+                    "group": "navigation@100",
+                    "when": "resourceScheme == file && !explorerResourceIsFolder"
+                }
+            ]
         }
     },
     "activationEvents": [
         "onCommand:xsmp.wizard",
+        "onCommand:xsmp.newFile",
+        "onCommand:xsmp.newCatalogue",
+        "onCommand:xsmp.newConfiguration",
+        "onCommand:xsmp.newAssembly",
+        "onCommand:xsmp.newLinkBase",
+        "onCommand:xsmp.newSchedule",
         "onCommand:xsmp.generate",
         "onCommand:xsmp.generateAll",
         "onLanguage:xsmpproject",
