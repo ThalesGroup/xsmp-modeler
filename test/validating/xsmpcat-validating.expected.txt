@@ -15,7 +15,6 @@
 [40:19..40:28]: Missing Type UUID.
 [40:11..40:18]: Illegal modifier.
 [40:29..40:33]: The PrimitiveType Smp.Bool is not visible.
-[40:34..40:49]: Default value is missing.
 [48:11..48:20]: Missing Type UUID.
 [48:21..48:25]: The PrimitiveType Smp.Bool is not visible.
 [44:14..44:19]: Duplicated usage.

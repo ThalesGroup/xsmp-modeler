@@ -728,10 +728,7 @@ export class XsmpcatValidator {
     checkAttributeType(attribute: ast.AttributeType, accept: ValidationAcceptor): void {
         this.checkModifier(attribute, [ast.isVisibilityModifiers], accept);
         if (this.checkTypeReference(accept, attribute, attribute.type?.ref, ast.AttributeType.type)) {
-            if (!attribute.default) {
-                accept('warning', 'Default value is missing.', { node: attribute, property: ast.AttributeType.name });
-            }
-            else {
+            if (attribute.default) {
                 this.checkExpression(attribute.type.ref, attribute.default, accept);
             }
 
