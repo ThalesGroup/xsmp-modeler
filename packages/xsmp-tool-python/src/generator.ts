@@ -2,8 +2,7 @@ import * as ast from 'xsmp/ast';
 import { expandToString as s } from 'langium/generate';
 import { isGeneratedBy } from 'xsmp/generator';
 import * as CopyrightNoticeProvider from 'xsmp/generator';
-import type { AstNode, URI } from 'langium';
-import { UriUtils } from 'langium';
+import { type AstNode, type URI, UriUtils } from 'langium';
 import * as fs from 'node:fs';
 import * as Path from 'node:path';
 import type { TaskAcceptor, XsmpGenerator } from 'xsmp/generator';
@@ -115,7 +114,7 @@ export class PythonGenerator implements XsmpGenerator {
                 ${components.map(type => s`
                 class ${type.name}:
                     uuid: ecss_smp.Smp.Uuid = ecss_smp.Smp.Uuid("${this.docHelper.getUuid(type)?.toString().trim()}")
-                `, this).join('\n')}
+                `).join('\n')}
 
                 `: undefined}
                 

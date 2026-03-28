@@ -19,7 +19,7 @@ export function parse(text: string): bigint {
     const matches = PATTERN.exec(text);
     if (matches !== null) {
         // check for letter T but no time sections
-        if ('T' === matches.at(3) === false) {
+        if (matches.at(3) !== 'T') {
             const negate = '-' === matches.at(1);
             const dayMatch = matches.at(2);
             const hourMatch = matches.at(4);
@@ -49,7 +49,7 @@ function _parseNumber(parsed: string | undefined, multiplier: number): bigint {
     if (parsed.startsWith('+')) {
         parsed = parsed.substring(1);
     }
-    return BigInt(parseFloat(parsed) * multiplier);
+    return BigInt(Number.parseFloat(parsed) * multiplier);
 }
 
 function _parseFraction(parsed: string | undefined, negate: number): bigint {
@@ -58,7 +58,7 @@ function _parseFraction(parsed: string | undefined, negate: number): bigint {
         return ZERO;
     }
     parsed = parsed.padEnd(9, '0');
-    return BigInt(parseFloat(parsed) * negate);
+    return BigInt(Number.parseFloat(parsed) * negate);
 }
 
 export function serialize(value: bigint) {

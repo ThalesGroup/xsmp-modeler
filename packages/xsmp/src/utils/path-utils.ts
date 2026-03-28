@@ -6,5 +6,5 @@ export function isSameOrContainedPath(parentPath: string, childPath: string, pat
 }
 
 export function toXsmpIdentifier(value: string): string {
-    return value.replace(/[.-]+/g, '_');
+    return value.replaceAll(/[.-]+/g, '_');
 }

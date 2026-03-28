@@ -9,18 +9,22 @@ import type * as LinkBase from 'xsmp/smp/linkbase';
 import type * as Assembly from 'xsmp/smp/assembly';
 import type * as Schedule from 'xsmp/smp/schedule';
 import * as XsmpUtils from 'xsmp/utils';
-import * as Duration from 'xsmp/utils';
 
-import type { AstNode, JSDocParagraph, Reference, URI } from 'langium';
-import { AstUtils, UriUtils, isReference } from 'langium';
+import { type AstNode, type JSDocParagraph, type Reference, type URI, AstUtils, UriUtils, isReference } from 'langium';
 import * as fs from 'node:fs';
-import * as Solver from 'xsmp/utils';
 import { isGeneratedBy, type TaskAcceptor, type XsmpGenerator, getCopyrightNotice } from 'xsmp/generator';
 import { create } from 'xmlbuilder2';
-import { type FloatingPTK, type IntegralPTK, PTK, VisibilityKind, type DocumentationHelper, type AttributeHelper } from 'xsmp/utils';
 import { getStandardBuiltinExportName, isStandardBuiltinLibrary, xsmpVersion, type XsmpSharedServices } from 'xsmp';
 import type { ProjectManager } from 'xsmp/workspace';
 import type { XsmpPathService, XsmpcfgPathResolver, Xsmpl2PathResolver } from 'xsmp/references';
+
+const Duration = XsmpUtils;
+const Solver = XsmpUtils;
+const { PTK, VisibilityKind } = XsmpUtils;
+type FloatingPTK = XsmpUtils.FloatingPTK;
+type IntegralPTK = XsmpUtils.IntegralPTK;
+type DocumentationHelper = XsmpUtils.DocumentationHelper;
+type AttributeHelper = XsmpUtils.AttributeHelper;
 
 export class SmpGenerator implements XsmpGenerator {
 
@@ -75,7 +79,7 @@ export class SmpGenerator implements XsmpGenerator {
             '@Id': this.getId(element),
             '@Name': element.name,
             Description: this.docHelper.getDescription(element),
-            Metadata: element.attributes.map(this.convertMetadata, this),
+            Metadata: element.attributes.map(attribute => this.convertMetadata(attribute)),
         };
     }
     protected convertGeneratedNamedElement(id: string, name: string): Elements.NamedElement {
@@ -126,8 +130,8 @@ export class SmpGenerator implements XsmpGenerator {
     protected convertNamespace(namespace: ast.Namespace): Catalogue.Namespace {
         return {
             ...this.convertNamedElement(namespace),
-            Namespace: namespace.elements.filter(ast.isNamespace).map(this.convertNamespace, this),
-            Type: namespace.elements.filter(ast.isType).map(this.convertTypeDispatch, this),
+            Namespace: namespace.elements.filter(ast.isNamespace).map(element => this.convertNamespace(element)),
+            Type: namespace.elements.filter(ast.isType).map(element => this.convertTypeDispatch(element)),
         };
     }
 
@@ -208,31 +212,31 @@ export class SmpGenerator implements XsmpGenerator {
 
         return {
             ...this.convertType(inter, 'Catalogue:Interface'),
-            Constant: inter.elements.filter(ast.isConstant).map(this.convertConstant, this),
-            Property: inter.elements.filter(ast.isProperty).map(this.convertProperty, this),
-            Operation: inter.elements.filter(ast.isOperation).map(this.convertOperation, this),
-            Base: inter.base.map(i => this.convertXlink(i, inter), this),
+            Constant: inter.elements.filter(ast.isConstant).map(element => this.convertConstant(element)),
+            Property: inter.elements.filter(ast.isProperty).map(element => this.convertProperty(element)),
+            Operation: inter.elements.filter(ast.isOperation).map(element => this.convertOperation(element)),
+            Base: inter.base.map(base => this.convertXlink(base, inter)),
         };
     }
     protected convertComponent(component: ast.Component): Catalogue.Component {
 
         return {
             ...this.convertType(component, `Catalogue:${component.$type}`),
-            Constant: component.elements.filter(ast.isConstant).map(this.convertConstant, this),
-            Property: component.elements.filter(ast.isProperty).map(this.convertProperty, this),
-            Operation: component.elements.filter(ast.isOperation).map(this.convertOperation, this),
+            Constant: component.elements.filter(ast.isConstant).map(element => this.convertConstant(element)),
+            Property: component.elements.filter(ast.isProperty).map(element => this.convertProperty(element)),
+            Operation: component.elements.filter(ast.isOperation).map(element => this.convertOperation(element)),
             Realization: this.getSmpStandard(component) === 'ECSS_SMP_2025'
-                ? component.elements.filter(ast.isRealization).map(this.convertRealization, this)
+                ? component.elements.filter(ast.isRealization).map(element => this.convertRealization(element))
                 : undefined,
             Base: component.base ? this.convertXlink(component.base, component) : undefined,
-            Interface: component.interface.map(i => this.convertXlink(i, component), this),
-            EntryPoint: component.elements.filter(ast.isEntryPoint).map(this.convertEntryPoint, this),
-            EventSink: component.elements.filter(ast.isEventSink).map(this.convertEventSink, this),
-            EventSource: component.elements.filter(ast.isEventSource).map(this.convertEventSource, this),
-            Field: component.elements.filter(ast.isField).map(this.convertField, this),
-            Association: component.elements.filter(ast.isAssociation).map(this.convertAssociation, this),
-            Container: component.elements.filter(ast.isContainer).map(this.convertContainer, this),
-            Reference: component.elements.filter(ast.isReference).map(this.convertReference, this),
+            Interface: component.interface.map(interf => this.convertXlink(interf, component)),
+            EntryPoint: component.elements.filter(ast.isEntryPoint).map(element => this.convertEntryPoint(element)),
+            EventSink: component.elements.filter(ast.isEventSink).map(element => this.convertEventSink(element)),
+            EventSource: component.elements.filter(ast.isEventSource).map(element => this.convertEventSource(element)),
+            Field: component.elements.filter(ast.isField).map(element => this.convertField(element)),
+            Association: component.elements.filter(ast.isAssociation).map(element => this.convertAssociation(element)),
+            Container: component.elements.filter(ast.isContainer).map(element => this.convertContainer(element)),
+            Reference: component.elements.filter(ast.isReference).map(element => this.convertReference(element)),
         };
     }
     protected convertProperty(property: ast.Property): Types.Property {
@@ -308,7 +312,7 @@ export class SmpGenerator implements XsmpGenerator {
 
         return {
             ...this.convertType(enumeration, 'Types:Enumeration'),
-            Literal: enumeration.literal.map(this.convertEnumerationLiteral, this),
+            Literal: enumeration.literal.map(literal => this.convertEnumerationLiteral(literal)),
         };
     }
     protected convertEnumerationLiteral(literal: ast.EnumerationLiteral): Types.EnumerationLiteral {
@@ -391,7 +395,7 @@ export class SmpGenerator implements XsmpGenerator {
                 case PTK.String8: return { '@xsi:type': 'Types:String8ArrayValue', ItemValue: expression.elements.map(e => ({ '@Value': this.toString8(e) })) } as Types.String8ArrayValue;
             }
         }
-        return { '@xsi:type': 'Types:ArrayValue', ItemValue: expression.elements.map(e => this.convertTypedValue(type.itemType.ref, e), this) } as Types.ArrayValue;
+        return { '@xsi:type': 'Types:ArrayValue', ItemValue: expression.elements.map(element => this.convertTypedValue(type.itemType.ref, element)) } as Types.ArrayValue;
     }
 
     protected getSimpleArrayValueXsiType(type: ast.Type | undefined): string | undefined {
@@ -443,7 +447,7 @@ export class SmpGenerator implements XsmpGenerator {
 
     protected convertStructureValue(type: ast.Structure, expression: ast.CollectionLiteral): Types.StructureValue {
         const fields = this.attrHelper.getAllFields(type).toArray();
-        return { '@xsi:type': 'Types:StructureValue', FieldValue: expression.elements.map((e, index) => this.convertTypedValue(fields.at(index)?.type?.ref as ast.Type | undefined, e), this) };
+        return { '@xsi:type': 'Types:StructureValue', FieldValue: expression.elements.map((element, index) => this.convertTypedValue(fields.at(index)?.type?.ref as ast.Type | undefined, element)) };
     }
 
     protected convertAttributeType(attributeType: ast.AttributeType): Types.AttributeType {
@@ -468,8 +472,8 @@ export class SmpGenerator implements XsmpGenerator {
 
         return {
             ...this.convertType(structure, 'Types:Structure'),
-            Constant: structure.elements.filter(ast.isConstant).map(this.convertConstant, this),
-            Field: structure.elements.filter(ast.isField).map(this.convertField, this),
+            Constant: structure.elements.filter(ast.isConstant).map(element => this.convertConstant(element)),
+            Field: structure.elements.filter(ast.isField).map(element => this.convertField(element)),
         };
     }
     protected convertClass(type: ast.Class): Types.Class {
@@ -478,9 +482,9 @@ export class SmpGenerator implements XsmpGenerator {
             ...this.convertStructure(type),
             '@xsi:type': 'Types:Class',
             Base: type.base ? this.convertXlink(type.base, type) : undefined,
-            Property: type.elements.filter(ast.isProperty).map(this.convertProperty, this),
-            Operation: type.elements.filter(ast.isOperation).map(this.convertOperation, this),
-            Association: type.elements.filter(ast.isAssociation).map(this.convertAssociation, this),
+            Property: type.elements.filter(ast.isProperty).map(element => this.convertProperty(element)),
+            Operation: type.elements.filter(ast.isOperation).map(element => this.convertOperation(element)),
+            Association: type.elements.filter(ast.isAssociation).map(element => this.convertAssociation(element)),
             '@Abstract': XsmpUtils.isAbstractType(type) ? true : undefined,
         };
     }
@@ -523,8 +527,8 @@ export class SmpGenerator implements XsmpGenerator {
             ...this.convertVisibilityElement(operation),
             '@Id': id,
             Parameter: operation.returnParameter ?
-                operation.parameter.map(p => this.convertParameter(p, id), this).concat(this.convertReturnParameter(operation.returnParameter, id)) :
-                operation.parameter.map(p => this.convertParameter(p, id), this),
+                operation.parameter.map(parameter => this.convertParameter(parameter, id)).concat(this.convertReturnParameter(operation.returnParameter, id)) :
+                operation.parameter.map(parameter => this.convertParameter(parameter, id)),
             RaisedException: operation.raisedException.map(e => this.convertXlink(e, operation)),
         };
     }
@@ -533,7 +537,7 @@ export class SmpGenerator implements XsmpGenerator {
             '@Id': `${id}.${parameter.name ?? 'return'}`,
             '@Name': parameter.name ?? 'return',
             Description: this.docHelper.getDescription(parameter),
-            Metadata: parameter.attributes.map(this.convertMetadata, this),
+            Metadata: parameter.attributes.map(attribute => this.convertMetadata(attribute)),
             Type: this.convertXlink(parameter.type, parameter),
             '@Direction': 'return',
         };
@@ -543,7 +547,7 @@ export class SmpGenerator implements XsmpGenerator {
             '@Id': `${id}.${parameter.name}`,
             '@Name': parameter.name,
             Description: this.docHelper.getDescription(parameter),
-            Metadata: parameter.attributes.map(this.convertMetadata, this),
+            Metadata: parameter.attributes.map(attribute => this.convertMetadata(attribute)),
             Type: this.convertXlink(parameter.type, parameter),
             Default: parameter.default ? this.convertTypedValue(parameter.type.ref, parameter.default) : undefined,
             '@Direction': parameter.direction,
@@ -596,7 +600,7 @@ export class SmpGenerator implements XsmpGenerator {
             return undefined;
         }
         const value = Date.parse(date.toString().trim());
-        if (isNaN(value)) {
+        if (Number.isNaN(value)) {
             return undefined;
         }
         return new Date(value).toISOString();
@@ -650,8 +654,8 @@ export class SmpGenerator implements XsmpGenerator {
             '@Creator': this.docHelper.getCreator(catalogue),
             '@Version': this.docHelper.getVersion(catalogue),
             Description: this.docHelper.getDescription(catalogue),
-            Metadata: catalogue.attributes.map(this.convertMetadata, this),
-            Namespace: catalogue.elements.map(this.convertNamespace, this),
+            Metadata: catalogue.attributes.map(attribute => this.convertMetadata(attribute)),
+            Namespace: catalogue.elements.map(namespace => this.convertNamespace(namespace)),
         };
     }
     protected async convertPackage(catalogue: ast.Catalogue): Promise<Package.Package> {
@@ -675,10 +679,10 @@ export class SmpGenerator implements XsmpGenerator {
             '@Creator': this.docHelper.getCreator(catalogue),
             '@Version': this.docHelper.getVersion(catalogue),
             Description: this.docHelper.getDescription(catalogue),
-            Metadata: catalogue.attributes.map(this.convertMetadata, this),
+            Metadata: catalogue.attributes.map(attribute => this.convertMetadata(attribute)),
             Implementation: AstUtils.streamAllContents(catalogue).filter(ast.isType).filter(e => !ast.isInterface(e)).map(e =>
                 this.convertXlink({ ref: e, $refText: e.name }, undefined)).toArray(),
-            Dependency: dependencies.map(e => ({ '@xlink:title': e.name, '@xlink:href': `${UriUtils.basename(AstUtils.getDocument(e).uri).replace(/\.xsmpcat$/, '.smppkg')}#${this.docHelper.getId(e) ?? '_' + XsmpUtils.fqn(e)}` }), this),
+            Dependency: dependencies.map(dependency => ({ '@xlink:title': dependency.name, '@xlink:href': `${UriUtils.basename(AstUtils.getDocument(dependency).uri).replace(/\.xsmpcat$/, '.smppkg')}#${this.docHelper.getId(dependency) ?? '_' + XsmpUtils.fqn(dependency)}` })),
         };
     }
     protected generatedBy(): string | undefined {
@@ -701,7 +705,7 @@ export class SmpGenerator implements XsmpGenerator {
     private safeXmlComment(input: string | undefined): string | undefined {
         if (!input) return undefined;
         // an XML comment cannot contain a series of two hyphens (--) or end with a hyphen adjacent to the closing tag
-        let safeComment = input.replace(/-{2,}/g, match => '*'.repeat(match.length));
+        let safeComment = input.replaceAll(/-{2,}/g, match => '*'.repeat(match.length));
         if (safeComment.endsWith('-')) {
             safeComment += ' ';
         }
@@ -741,16 +745,16 @@ export class SmpGenerator implements XsmpGenerator {
             '@Creator': this.docHelper.getCreator(configuration),
             '@Version': this.docHelper.getVersion(configuration),
             Description: this.docHelper.getDescription(configuration),
-            Metadata: configuration.attributes.map(this.convertMetadata, this),
-            Include: configuration.elements.filter(ast.isConfigurationUsage).map(this.convertConfigurationUsage, this),
-            Component: configuration.elements.filter(ast.isComponentConfiguration).map(this.convertComponentConfiguration, this),
+            Metadata: configuration.attributes.map(attribute => this.convertMetadata(attribute)),
+            Include: configuration.elements.filter(ast.isConfigurationUsage).map(include => this.convertConfigurationUsage(include)),
+            Component: configuration.elements.filter(ast.isComponentConfiguration).map(component => this.convertComponentConfiguration(component)),
         };
     }
     convertComponentConfiguration(component: ast.ComponentConfiguration): Configuration.ComponentConfiguration {
         return {
             '@Path': this.pathService.stringifyPath(component.name),
-            Include: component.elements.filter(ast.isConfigurationUsage).map(this.convertConfigurationUsage, this),
-            Component: component.elements.filter(ast.isComponentConfiguration).map(this.convertComponentConfiguration, this),
+            Include: component.elements.filter(ast.isConfigurationUsage).map(include => this.convertConfigurationUsage(include)),
+            Component: component.elements.filter(ast.isComponentConfiguration).map(child => this.convertComponentConfiguration(child)),
             FieldValue: component.elements.filter(ast.isFieldValue).map(value => this.convertValue(value)),
         };
     }
@@ -1024,8 +1028,8 @@ export class SmpGenerator implements XsmpGenerator {
 
     protected convertUnsuffixedFloatValue(value: ast.FloatValue, expectedType: ast.Type | undefined): Types.Value {
         switch (XsmpUtils.getPTK(expectedType)) {
-            case PTK.Float32: return { '@xsi:type': 'Types:Float32Value', '@Value': parseFloat(value.value) } as Types.Float32Value;
-            case PTK.Float64: return { '@xsi:type': 'Types:Float64Value', '@Value': parseFloat(value.value) } as Types.Float64Value;
+            case PTK.Float32: return { '@xsi:type': 'Types:Float32Value', '@Value': Number.parseFloat(value.value) } as Types.Float32Value;
+            case PTK.Float64: return { '@xsi:type': 'Types:Float64Value', '@Value': Number.parseFloat(value.value) } as Types.Float64Value;
             default: return { '@xsi:type': 'Types:Value' } as Types.Value;
         }
     }
@@ -1096,8 +1100,8 @@ export class SmpGenerator implements XsmpGenerator {
             case ast.DateTimeValue.$type: return { '@xsi:type': 'Types:DateTimeValue', '@Value': (value as ast.DateTimeValue).value.slice(1, -3) } as Types.DateTimeValue;
             case ast.DurationValue.$type: return { '@xsi:type': 'Types:DurationValue', '@Value': (value as ast.DurationValue).value.slice(1, -2) } as Types.DurationValue;
             case ast.FloatValue.$type: return this.convertUnsuffixedFloatValue(value as ast.FloatValue, expectedType);
-            case ast.Float32Value.$type: return { '@xsi:type': 'Types:Float32Value', '@Value': parseFloat((value as ast.Float32Value).value) } as Types.Float32Value;
-            case ast.Float64Value.$type: return { '@xsi:type': 'Types:Float64Value', '@Value': parseFloat((value as ast.Float64Value).value) } as Types.Float64Value;
+            case ast.Float32Value.$type: return { '@xsi:type': 'Types:Float32Value', '@Value': Number.parseFloat((value as ast.Float32Value).value) } as Types.Float32Value;
+            case ast.Float64Value.$type: return { '@xsi:type': 'Types:Float64Value', '@Value': Number.parseFloat((value as ast.Float64Value).value) } as Types.Float64Value;
             case ast.IntValue.$type: return this.convertUnsuffixedIntValue(value as ast.IntValue, expectedType);
             case ast.Int8Value.$type: return { '@xsi:type': 'Types:Int8Value', '@Value': BigInt((value as ast.Int8Value).value) } as Types.Int8Value;
             case ast.Int16Value.$type: return { '@xsi:type': 'Types:Int16Value', '@Value': (value as ast.Int16Value).value } as Types.Int16Value;
@@ -1154,7 +1158,7 @@ export class SmpGenerator implements XsmpGenerator {
         const obj = {
             '!notice': notice,
             '!generatedBy': this.generatedBy(),
-            'LinkBase:LinkBase': await this.convertLinkBase(linkBase),
+            'LinkBase:LinkBase': this.convertLinkBase(linkBase),
         },
             doc = create({ version: '1.0', encoding: 'UTF-8' }, obj);
         return doc.end({ prettyPrint: true });
@@ -1175,16 +1179,16 @@ export class SmpGenerator implements XsmpGenerator {
             '@Creator': this.docHelper.getCreator(linkBase),
             '@Version': this.docHelper.getVersion(linkBase),
             Description: this.docHelper.getDescription(linkBase),
-            Metadata: linkBase.attributes.map(this.convertMetadata, this),
-            Component: linkBase.elements.filter(ast.isComponentLinkBase).map(this.convertComponentLinkBase, this),
+            Metadata: linkBase.attributes.map(attribute => this.convertMetadata(attribute)),
+            Component: linkBase.elements.filter(ast.isComponentLinkBase).map(component => this.convertComponentLinkBase(component)),
         };
     }
 
     convertComponentLinkBase(linkBase: ast.ComponentLinkBase): LinkBase.ComponentLinkBase {
         return {
             '@Path': this.pathService.stringifyPath(linkBase.name)!,
-            Link: linkBase.elements.filter(ast.isLink).map(this.convertLink, this),
-            Component: linkBase.elements.filter(ast.isComponentLinkBase).map(this.convertComponentLinkBase, this),
+            Link: linkBase.elements.filter(ast.isLink).map(link => this.convertLink(link)),
+            Component: linkBase.elements.filter(ast.isComponentLinkBase).map(component => this.convertComponentLinkBase(component)),
         };
     }
     convertLink(link: ast.Link): LinkBase.Link {
@@ -1213,7 +1217,7 @@ export class SmpGenerator implements XsmpGenerator {
         const obj = {
             '!notice': notice,
             '!generatedBy': this.generatedBy(),
-            'Assembly:Assembly': await this.convertAssembly(assembly),
+            'Assembly:Assembly': this.convertAssembly(assembly),
         },
             doc = create({ version: '1.0', encoding: 'UTF-8' }, obj);
         return doc.end({ prettyPrint: true });
@@ -1236,9 +1240,9 @@ export class SmpGenerator implements XsmpGenerator {
             '@Creator': this.docHelper.getCreator(assembly),
             '@Version': this.docHelper.getVersion(assembly),
             Description: this.docHelper.getDescription(assembly),
-            Metadata: assembly.attributes.map(this.convertMetadata, this),
-            ComponentConfiguration: assembly.configurations.map(this.convertAssemblyComponentConfiguration, this),
-            Parameter: assembly.parameters.map(this.convertTemplateParameter, this),
+            Metadata: assembly.attributes.map(attribute => this.convertMetadata(attribute)),
+            ComponentConfiguration: assembly.configurations.map(configuration => this.convertAssemblyComponentConfiguration(configuration)),
+            Parameter: assembly.parameters.map(parameter => this.convertTemplateParameter(parameter)),
             Model: this.convertModelInstance(assembly.model)
         };
     }
@@ -1248,12 +1252,12 @@ export class SmpGenerator implements XsmpGenerator {
             '@Name': model.name,
             Description: this.docHelper.getDescription(model),
             '@Implementation': model.implementation ? model.implementation.$refText.replace('.', '::') : model.strImplementation!,
-            Assembly: model.elements.filter(ast.isSubInstance).filter(i => ast.isAssemblyInstance(i.instance)).map(this.convertAssemblyInstance, this),
-            Model: model.elements.filter(ast.isSubInstance).filter(i => ast.isModelInstance(i.instance)).map(this.convertSubModelInstance, this),
-            Link: model.elements.filter(ast.isLink).map(this.convertLink, this),
+            Assembly: model.elements.filter(ast.isSubInstance).filter(instance => ast.isAssemblyInstance(instance.instance)).map(instance => this.convertAssemblyInstance(instance)),
+            Model: model.elements.filter(ast.isSubInstance).filter(instance => ast.isModelInstance(instance.instance)).map(instance => this.convertSubModelInstance(instance)),
+            Link: model.elements.filter(ast.isLink).map(link => this.convertLink(link)),
             FieldValue: model.elements.filter(ast.isFieldValue).map(value => this.convertValue(value)),
-            Invocation: model.elements.filter(ast.isInvocation).map(this.convertInvocation, this),
-            GlobalEventHandler: model.elements.filter(ast.isGlobalEventHandler).map(this.convertGlobalEventHandler, this),
+            Invocation: model.elements.filter(ast.isInvocation).map(invocation => this.convertInvocation(invocation)),
+            GlobalEventHandler: model.elements.filter(ast.isGlobalEventHandler).map(handler => this.convertGlobalEventHandler(handler)),
 
         };
     }
@@ -1264,8 +1268,8 @@ export class SmpGenerator implements XsmpGenerator {
             Assembly: this.filename(assembly.assembly.ref)!,
             '@Name': assembly.name,
             Description: this.docHelper.getDescription(assembly),
-            Argument: assembly.arguments.map(this.convertTemplateArgument, this),
-            ModelConfiguration: assembly.elements.map(this.convertAssemblyComponentConfiguration, this),
+            Argument: assembly.arguments.map(argument => this.convertTemplateArgument(argument)),
+            ModelConfiguration: assembly.elements.map(configuration => this.convertAssemblyComponentConfiguration(configuration)),
             Configuration: this.filename(assembly.configuration?.ref),
             LinkBase: this.filename(assembly.linkBase?.ref),
 
@@ -1325,9 +1329,9 @@ export class SmpGenerator implements XsmpGenerator {
     convertAssemblyComponentConfiguration(component: ast.AssemblyComponentConfiguration): Assembly.ComponentConfiguration {
         return {
             '@InstancePath': this.pathService.stringifyPath(component.name),
-            Invocation: component.elements.filter(ast.isInvocation).map(this.convertInvocation, this),
-            GlobalEventHandler: component.elements.filter(ast.isGlobalEventHandler).map(this.convertGlobalEventHandler, this),
-            FieldValue: component.elements.filter(ast.isValue).map(v => this.convertValue(v as ast.Value), this),
+            Invocation: component.elements.filter(ast.isInvocation).map(invocation => this.convertInvocation(invocation)),
+            GlobalEventHandler: component.elements.filter(ast.isGlobalEventHandler).map(handler => this.convertGlobalEventHandler(handler)),
+            FieldValue: component.elements.filter(ast.isValue).map(value => this.convertValue(value as ast.Value)),
         };
     }
 
@@ -1336,7 +1340,7 @@ export class SmpGenerator implements XsmpGenerator {
             case ast.OperationCall.$type: return {
                 '@xsi:type': 'Assembly:OperationCall',
                 '@Operation': this.pathService.stringifyLocalNamedReference((invocation as ast.OperationCall).operation, false) ?? '',
-                Parameter: (invocation as ast.OperationCall).parameters.map(this.convertParameterValue, this)
+                Parameter: (invocation as ast.OperationCall).parameters.map(parameter => this.convertParameterValue(parameter))
             } as Assembly.OperationCall;
             case ast.PropertyValue.$type: return {
                 '@xsi:type': 'Assembly:PropertyValue',
@@ -1367,7 +1371,7 @@ export class SmpGenerator implements XsmpGenerator {
         const obj = {
             '!notice': notice,
             '!generatedBy': this.generatedBy(),
-            'Schedule:Schedule': await this.convertSchedule(schedule),
+            'Schedule:Schedule': this.convertSchedule(schedule),
         },
             doc = create({ version: '1.0', encoding: 'UTF-8' }, obj);
         return doc.end({ prettyPrint: true });
@@ -1391,19 +1395,19 @@ export class SmpGenerator implements XsmpGenerator {
             '@Creator': this.docHelper.getCreator(schedule),
             '@Version': this.docHelper.getVersion(schedule),
             Description: this.docHelper.getDescription(schedule),
-            Metadata: schedule.attributes.map(this.convertMetadata, this),
-            Parameter: schedule.parameters.map(this.convertTemplateParameter, this),
+            Metadata: schedule.attributes.map(attribute => this.convertMetadata(attribute)),
+            Parameter: schedule.parameters.map(parameter => this.convertTemplateParameter(parameter)),
             '@EpochTime': schedule.epochTime,
             '@MissionStart': schedule.missionStart,
-            Task: schedule.elements.filter(ast.isTask).map(this.convertTask, this),
-            Event: schedule.elements.filter(ast.isEvent).map(this.convertEvent, this),
+            Task: schedule.elements.filter(ast.isTask).map(task => this.convertTask(task)),
+            Event: schedule.elements.filter(ast.isEvent).map(event => this.convertEvent(event)),
         };
     }
 
     convertTask(task: ast.Task): Schedule.Task {
         return {
             ...this.convertNamedElement(task),
-            Activity: task.elements.map(this.convertActivity, this)
+            Activity: task.elements.map(activity => this.convertActivity(activity))
         };
     }
     private getSiblingTypeIndex<T extends AstNode & { $type: string }>(element: T, siblings: readonly T[]): number {
@@ -1446,7 +1450,7 @@ export class SmpGenerator implements XsmpGenerator {
                     ...this.convertGeneratedActivityElement(activity),
                     '@xsi:type': 'Schedule:CallOperation',
                     OperationPath: this.pathService.stringifyPath((activity as ast.CallOperation).operationPath),
-                    Parameter: (activity as ast.CallOperation).parameters.map(this.convertParameterValue, this)
+                    Parameter: (activity as ast.CallOperation).parameters.map(parameter => this.convertParameterValue(parameter))
                 } as Schedule.CallOperation;
             case ast.EmitGlobalEvent.$type:
                 return {
@@ -1461,7 +1465,7 @@ export class SmpGenerator implements XsmpGenerator {
                     '@xsi:type': 'Schedule:ExecuteTask',
                     '@Root': this.pathService.stringifyPath((activity as ast.ExecuteTask).root),
                     Task: this.convertXlink((activity as ast.ExecuteTask).task, activity),
-                    Argument: (activity as ast.ExecuteTask).parameter.map(this.convertTemplateArgument, this),
+                    Argument: (activity as ast.ExecuteTask).parameter.map(parameter => this.convertTemplateArgument(parameter)),
                 } as Schedule.ExecuteTask;
             case ast.SetProperty.$type:
                 return {

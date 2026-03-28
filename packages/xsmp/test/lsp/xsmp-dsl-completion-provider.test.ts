@@ -305,6 +305,22 @@ Root: demo.Root
         const templatedSubInstanceTypeItems = await getCompletionItems(services.xsmpasb.lsp.CompletionProvider!, templatedSubInstanceTypeDocument, templatedSubInstanceTypeCursor.cursor);
         expect(labels(templatedSubInstanceTypeItems)).toContain('demo.Child');
 
+        const namespacedSubInstanceTypeCursor = extractCursor(`assembly Demo
+Root: demo.Root
+{
+    child += Child: demo.@@
+}
+`);
+        const { assemblyDocument: namespacedSubInstanceTypeDocument } = await parseWorkspace({
+            assembly: namespacedSubInstanceTypeCursor.text,
+        });
+        const namespacedSubInstanceTypeItems = await getCompletionItems(
+            services.xsmpasb.lsp.CompletionProvider!,
+            namespacedSubInstanceTypeDocument,
+            namespacedSubInstanceTypeCursor.cursor
+        );
+        expect(labels(namespacedSubInstanceTypeItems)).toContain('demo.Child');
+
         const rootTypeCursor = extractCursor(`assembly Demo
 Root: @@
 {
@@ -331,6 +347,21 @@ Scenario{Lane}: @@
         expect(labels(templatedRootTypeItems)).toContain('demo.Root');
         expect(labels(templatedRootTypeItems)).not.toContain('Lane');
         expect(labels(templatedRootTypeItems)).not.toContain('BusMember');
+
+        const namespacedRootTypeCursor = extractCursor(`assembly Demo
+Root: demo.@@
+{
+}
+`);
+        const { assemblyDocument: namespacedRootTypeDocument } = await parseWorkspace({
+            assembly: namespacedRootTypeCursor.text,
+        });
+        const namespacedRootTypeItems = await getCompletionItems(
+            services.xsmpasb.lsp.CompletionProvider!,
+            namespacedRootTypeDocument,
+            namespacedRootTypeCursor.cursor
+        );
+        expect(labels(namespacedRootTypeItems)).toContain('demo.Root');
     });
 
     test('xsmplnk offers link snippets and typed reference completion', async () => {

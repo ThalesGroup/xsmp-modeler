@@ -636,12 +636,16 @@ export class XsmpcatValidator {
 
         if (ast.isInterface(type)) {
             type.elements.forEach(e => duplicates.add(e.name ?? '', e));
-            type.base.forEach(b => { this.collectmembers(b.ref, duplicates, visited); }, this);
+            for (const base of type.base) {
+                this.collectmembers(base.ref, duplicates, visited);
+            }
         }
         else if (ast.isComponent(type)) {
             type.elements.forEach(e => duplicates.add(e.name ?? '', e));
             this.collectmembers(type.base?.ref, duplicates, visited);
-            type.interface.forEach(b => { this.collectmembers(b.ref, duplicates, visited); }, this);
+            for (const inter of type.interface) {
+                this.collectmembers(inter.ref, duplicates, visited);
+            }
         }
         else if (ast.isStructure(type)) {
             type.elements.forEach(e => duplicates.add(e.name ?? '', e));
@@ -653,10 +657,16 @@ export class XsmpcatValidator {
         const duplicates = new MultiMap<string, ast.NamedElement>(),
             visited = new Set<ast.Type>();
         visited.add(type);
-        if (ast.isInterface(type)) { type.base.forEach(b => { this.collectmembers(b.ref, duplicates, visited); }, this); }
+        if (ast.isInterface(type)) {
+            for (const base of type.base) {
+                this.collectmembers(base.ref, duplicates, visited);
+            }
+        }
         else if (ast.isComponent(type)) {
             this.collectmembers(type.base?.ref, duplicates, visited);
-            type.interface.forEach(b => { this.collectmembers(b.ref, duplicates, visited); }, this);
+            for (const inter of type.interface) {
+                this.collectmembers(inter.ref, duplicates, visited);
+            }
         }
         else if (ast.isClass(type)) { this.collectmembers(type.base?.ref, duplicates, visited); }
 
@@ -725,7 +735,7 @@ export class XsmpcatValidator {
         }
 
         if (!component.modifiers.includes('abstract') &&
-            component.elements.some(e => (ast.isOperation(e) || ast.isProperty(e)) && this.attrHelper.isAbstract(e), this)) { accept('warning', `The ${component.$type} shall be abstract.`, { node: component, keyword: component.$type === ast.Model.$type ? 'model' : 'service', data: diagnosticData(IssueCodes.MissingAbstract) }); }
+            component.elements.some(element => (ast.isOperation(element) || ast.isProperty(element)) && this.attrHelper.isAbstract(element))) { accept('warning', `The ${component.$type} shall be abstract.`, { node: component, keyword: component.$type === ast.Model.$type ? 'model' : 'service', data: diagnosticData(IssueCodes.MissingAbstract) }); }
     }
 
     checkStructure(structure: ast.Structure, accept: ValidationAcceptor): void {
@@ -777,7 +787,7 @@ export class XsmpcatValidator {
             }
         }
         if (!clazz.modifiers.includes('abstract') &&
-            clazz.elements.some(e => (ast.isOperation(e) || ast.isProperty(e)) && this.attrHelper.isAbstract(e), this)) {
+            clazz.elements.some(element => (ast.isOperation(element) || ast.isProperty(element)) && this.attrHelper.isAbstract(element))) {
             accept('warning', `The ${clazz.$type} shall be abstract.`, { node: clazz, keyword: clazz.$type === ast.Class.$type ? 'class' : 'exception', data: diagnosticData(IssueCodes.MissingAbstract) });
         }
     }
@@ -880,7 +890,7 @@ export class XsmpcatValidator {
 
     checkCatalogue(catalogue: ast.Catalogue, accept: ValidationAcceptor): void {
         const date = this.docHelper.getDate(catalogue);
-        if (date && isNaN(Date.parse(date.toString().trim()))) {
+        if (date && Number.isNaN(Date.parse(date.toString().trim()))) {
             accept('warning', 'Invalid date format (e.g: 1970-01-01T00:00:00Z).', { node: catalogue, range: date.range });
         }
         const duplicates = this.indexManager.allElements(ast.Catalogue.$type).filter(c => c.name === catalogue.name).toArray();

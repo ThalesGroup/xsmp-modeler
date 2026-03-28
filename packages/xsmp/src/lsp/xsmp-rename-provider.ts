@@ -1,5 +1,4 @@
-import type { AstNode, LangiumDocument, LangiumDocuments, ReferenceDescription, URI } from 'langium';
-import { AstUtils, CstUtils } from 'langium';
+import { type AstNode, type LangiumDocument, type LangiumDocuments, type ReferenceDescription, type URI, AstUtils, CstUtils } from 'langium';
 import { DefaultRenameProvider } from 'langium/lsp';
 import type { RenameParams } from 'vscode-languageserver-protocol';
 import { Location, TextEdit, type Range, type WorkspaceEdit } from 'vscode-languageserver-types';
@@ -83,7 +82,10 @@ export class XsmpRenameProvider extends DefaultRenameProvider {
         if (!langiumDoc) {
             return undefined;
         }
-        return langiumDoc.textDocument.getText(range).replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n\r]*/g,'').replace(/\s+/g, '');
+        return langiumDoc.textDocument.getText(range)
+            .replaceAll(/\/\*[\s\S]*?\*\//g, '')
+            .replaceAll(/\/\/[^\n\r]*/g, '')
+            .replaceAll(/\s+/g, '');
     }
 
     getRefLocation(ref: ReferenceDescription): Location {

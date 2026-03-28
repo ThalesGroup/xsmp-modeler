@@ -235,7 +235,7 @@ export class EsaCdkGenerator extends GapPatternCppGenerator {
         if (!type.base) {
             includes.push(`esa/ecss/smp/cdk/${type.$type}.h`);
         }
-        if (type.elements.filter(ast.isInvokable).some(this.isInvokable, this)) {
+        if (this.hasInvokableMembers(type)) {
             includes.push('map');
         }
         if (type.elements.some(ast.isContainer)) {
@@ -259,7 +259,7 @@ export class EsaCdkGenerator extends GapPatternCppGenerator {
     override sourceIncludesComponent(type: ast.Component): Include[] {
         const includes = super.sourceIncludesComponent(type);
 
-        if (type.elements.filter(ast.isInvokable).some(this.isInvokable, this)) {
+        if (this.hasInvokableMembers(type)) {
             includes.push('Smp/IPublication.h');
             includes.push('esa/ecss/smp/cdk/Request.h');
         }
@@ -290,6 +290,12 @@ export class EsaCdkGenerator extends GapPatternCppGenerator {
 
     protected override componentBase(type: ast.Component): string | undefined {
         return type.base ? this.fqn(type.base.ref) : `::esa::ecss::smp::cdk::${type.$type}`;
+    }
+    private hasInvokableMembers(type: ast.Component): boolean {
+        return type.elements.filter(ast.isInvokable).some(element => this.isInvokable(element));
+    }
+    private getInvokableOperations(type: ast.Component): ast.Operation[] {
+        return type.elements.filter(ast.isOperation).filter(operation => this.isInvokable(operation));
     }
     protected override componentBases(type: ast.Component): string[] {
         const bases = super.componentBases(type);
@@ -368,7 +374,7 @@ export class EsaCdkGenerator extends GapPatternCppGenerator {
             /// Get Universally Unique Identifier of the ${type.$type}.
             /// @return  Universally Unique Identifier of the ${type.$type}.
             const ::Smp::Uuid& GetUuid() const override;
-            ${type.elements.filter(ast.isInvokable).some(this.isInvokable, this) ? `
+            ${this.hasInvokableMembers(type) ? `
             private:
                 template <typename _Type> static void PopulateRequestHandlers(_Type* bluePrint, typename ::esa::ecss::smp::cdk::RequestContainer<_Type>::Map& handlers);
                 static ::esa::ecss::smp::cdk::RequestContainer<${name}>::Map requestHandlers;
@@ -386,14 +392,14 @@ export class EsaCdkGenerator extends GapPatternCppGenerator {
             ${this.declareMembersGen(type, VisibilityKind.public, gen)}
             };
 
-            ${type.elements.filter(ast.isInvokable).some(this.isInvokable, this) ? `
+            ${this.hasInvokableMembers(type) ? `
             template <typename _Type>
             void ${name}::PopulateRequestHandlers(_Type* bluePrint, typename ::esa::ecss::smp::cdk::RequestContainer<_Type>::Map& handlers) 
             {
                 typedef ::esa::ecss::smp::cdk::RequestContainer<_Type> Help;
                 
                 // ---- Operations ----
-                ${type.elements.filter(ast.isOperation).filter(this.isInvokable, this).map(param => this.generateRqHandlerOperation(param, gen), this).join('\n')}
+                ${this.getInvokableOperations(type).map(operation => this.generateRqHandlerOperation(operation, gen)).join('\n')}
                 
                 ::esa::ecss::smp::cdk::«t.eClass.name»::PopulateRequestHandlers<_Type>(bluePrint, handlers);
             }
@@ -474,7 +480,7 @@ export class EsaCdkGenerator extends GapPatternCppGenerator {
             void ${name}::DoDisconnect(){
             }
 
-            ${type.elements.filter(ast.isInvokable).some(this.isInvokable, this) ? `                
+            ${this.hasInvokableMembers(type) ? `                
                 void ${name}::Invoke(::Smp::IRequest* request) {
                     if (!request) {
                         return;
@@ -499,7 +505,7 @@ export class EsaCdkGenerator extends GapPatternCppGenerator {
 
     protected generateRqHandlerOperation(op: ast.Operation, _gen: boolean): string {
         const r = op.returnParameter;
-        const invokation = `component.${this.operationName(op)}(${op.parameter.map(param => `${this.attrHelper.isByPointer(param) ? '&' : ''}p_${param.name}`, this).join(', ')})`;
+        const invokation = `component.${this.operationName(op)}(${op.parameter.map(param => `${this.attrHelper.isByPointer(param) ? '&' : ''}p_${param.name}`).join(', ')})`;
         return s`
            Help::template AddIfMissing<«IF o.returnParameter !== null»«o.returnParameter.type()»«ELSE»void«ENDIF»«FOR param : o.parameter BEFORE ', ' SEPARATOR ', '»«param.type()»«ENDFOR»>(
                 handlers,
@@ -509,10 +515,10 @@ export class EsaCdkGenerator extends GapPatternCppGenerator {
        
             if (handlers.find("${op.name}") == handlers.end()) {
                 handlers["${op.name}"] = [](_Type & component, [[maybe_unused]] ::Smp::IRequest* request) {
-                ${op.parameter.map(this.initParameter, this).join('\n')}
+                ${op.parameter.map(param => this.initParameter(param)).join('\n')}
                 /// Invoke ${op.name}
                 ${r ? `request->SetReturnValue({${this.primitiveTypeKind(r.type.ref)}, ${invokation}})` : `${invokation}`};
-                ${op.parameter.map(this.setParameter, this).join('\n')}
+                ${op.parameter.map(param => this.setParameter(param)).join('\n')}
                 };
             }
             `;

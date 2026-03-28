@@ -90,7 +90,7 @@ export class StringValue extends Value<StringValue> {
             const fractionalRegex = /[.,]\d+/;
             // ignore the fractional part when parsing with Date because Date can only handle ms
             const instant = Date.parse(this.value.replace(fractionalRegex, ''));
-            if (isNaN(instant)) {
+            if (Number.isNaN(instant)) {
                 return undefined;
             }
             let ns = BigInt(instant) * BigInt(1_000_000);
@@ -139,8 +139,8 @@ export class EnumerationLiteralValue extends Value<EnumerationLiteralValue> {
 
 }
 const INT64_MAX = BigInt('0x7FFFFFFFFFFFFFFF');
-const UINT32_MAX = BigInt(0xFFFF_FFFF);
-const INT32_MAX = BigInt(0x7FFF_FFFF);
+const UINT32_MAX = 0xFFFF_FFFFn;
+const INT32_MAX = 0x7FFF_FFFFn;
 export class IntegralValue extends Value<IntegralValue> {
     readonly value: bigint;
     readonly type: IntegralPTK;
@@ -172,10 +172,18 @@ export class IntegralValue extends Value<IntegralValue> {
             type = isUnsigned ? PTK.UInt64 : PTK.Int64;
         }
         else if (value > INT32_MAX) {
-            type = isUnsigned ? (isLong ? PTK.UInt64 : PTK.UInt32) : (isLong ? PTK.Int64 : PTK.UInt32);
+            if (isUnsigned) {
+                type = isLong ? PTK.UInt64 : PTK.UInt32;
+            } else {
+                type = isLong ? PTK.Int64 : PTK.UInt32;
+            }
         }
         else {
-            type = isUnsigned ? (isLong ? PTK.UInt64 : PTK.UInt32) : (isLong ? PTK.Int64 : PTK.Int32);
+            if (isUnsigned) {
+                type = isLong ? PTK.UInt64 : PTK.UInt32;
+            } else {
+                type = isLong ? PTK.Int64 : PTK.Int32;
+            }
         }
 
         const result = new IntegralValue(value, type);
@@ -221,7 +229,7 @@ export class IntegralValue extends Value<IntegralValue> {
         return result;
     }
     override floatValue(type: FloatingPTK): FloatValue { return new FloatValue(Number(this.value), type); }
-    override charValue(): CharValue | undefined { return new CharValue(String.fromCharCode(Number(this.value))); }
+    override charValue(): CharValue | undefined { return new CharValue(String.fromCodePoint(Number(this.value))); }
 
     override unaryComplement(): IntegralValue { return new IntegralValue(~this.value, this.type); }
     override plus(): this { return this; }
@@ -272,9 +280,9 @@ export class FloatValue extends Value<FloatValue> {
     public static of(expr: ast.FloatingLiteral, _accept?: ValidationAcceptor): FloatValue {
         const text = expr.text?.replaceAll("'", '') ?? '';
         if (text.endsWith('f') || text.endsWith('F')) {
-            return new FloatValue(parseFloat(text.slice(0, -1)), PTK.Float32);
+            return new FloatValue(Number.parseFloat(text.slice(0, -1)), PTK.Float32);
         }
-        return new FloatValue(parseFloat(text), PTK.Float64);
+        return new FloatValue(Number.parseFloat(text), PTK.Float64);
     }
     override toString(): string { return this.value.toString(); }
 
@@ -303,38 +311,43 @@ export class FloatValue extends Value<FloatValue> {
     override multiply(val: FloatValue): FloatValue { return new FloatValue(this.value * val.value, val.type === PTK.Float64 || this.type === PTK.Float64 ? PTK.Float64 : PTK.Float32); }
 }
 type BuiltInConstants = 'PI' | 'E';
-const builtInConstants: string[] = [
+const builtInConstants = new Set<BuiltInConstants>([
     'PI', 'E'
-];
-type BuiltInFloat64Functions =
+]);
+type BuiltInFloat64Function =
     'cos' | 'sin' | 'tan' | 'acos' | 'asin' | 'atan' | 'cosh' | 'sinh' | 'tanh' | 'exp' | 'log' | 'log10' | 'expm1' | 'log1p' | 'sqrt' | 'ceil' | 'floor' | 'abs';
 
-const builtInFloat64Functions: string[] = [
+const builtInFloat64Functions = new Set<BuiltInFloat64Function>([
     'cos', 'sin', 'tan', 'acos', 'asin', 'atan', 'cosh', 'sinh', 'tanh',
     'exp', 'log', 'log10', 'expm1', 'log1p', 'sqrt', 'ceil', 'floor', 'abs'
-];
+]);
 
-const builtInFloat32Functions: string[] = [
+type BuiltInFloat32Function =
+    'cosf' | 'sinf' | 'tanf' | 'acosf' | 'asinf' | 'atanf' | 'coshf' | 'sinhf' | 'tanhf' |
+    'expf' | 'logf' | 'log10f' | 'expm1f' | 'log1pf' | 'sqrtf' | 'ceilf' | 'floorf' | 'absf';
+
+const builtInFloat32Functions = new Set<BuiltInFloat32Function>([
     'cosf', 'sinf', 'tanf', 'acosf', 'asinf', 'atanf', 'coshf', 'sinhf', 'tanhf',
-    'expf', 'logf', 'log10f', 'expm1f', 'log1pf', 'sqrtf', 'ceilf', 'floorf', 'absf'];
+    'expf', 'logf', 'log10f', 'expm1f', 'log1pf', 'sqrtf', 'ceilf', 'floorf', 'absf',
+]);
 
 function convertBuiltinFunction<T>(func: ast.BuiltInFunction, accept?: ValidationAcceptor): Value<T> | undefined {
     if (func.name?.endsWith('f')) {
-        if (!builtInFloat32Functions.includes(func.name)) {
+        if (!builtInFloat32Functions.has(func.name as BuiltInFloat32Function)) {
             if (accept)
                 accept('error', `Unknown built-in function '${func.name}'.`, { node: func, property: ast.BuiltInFunction.name });
             return undefined;
         }
         const value = getValueAs(func.argument, PTK.Float32, accept)?.floatValue(PTK.Float32);
-        return value ? new FloatValue(Math[func.name.substring(0, -1) as BuiltInFloat64Functions](value.getValue()), PTK.Float32) : undefined;
+        return value ? new FloatValue(Math[func.name.slice(0, -1) as BuiltInFloat64Function](value.getValue()), PTK.Float32) : undefined;
     }
-    if (func.name && !builtInFloat64Functions.includes(func.name)) {
+    if (func.name && !builtInFloat64Functions.has(func.name as BuiltInFloat64Function)) {
         if (accept)
             accept('error', `Unknown built-in function '${func.name}'.`, { node: func, property: ast.BuiltInFunction.name });
         return undefined;
     }
     const value = getValueAs(func.argument, PTK.Float64, accept)?.floatValue(PTK.Float64);
-    return value ? new FloatValue(Math[func.name as BuiltInFloat64Functions](value.getValue()), PTK.Float64) : undefined;
+    return value ? new FloatValue(Math[func.name as BuiltInFloat64Function](value.getValue()), PTK.Float64) : undefined;
 
 }
 export function getValue<T>(expression: ast.Expression | undefined, accept?: ValidationAcceptor): Value<T> | undefined {
@@ -350,7 +363,7 @@ export function getValue<T>(expression: ast.Expression | undefined, accept?: Val
             case ast.ParenthesizedExpression.$type: return getValue((expression as ast.ParenthesizedExpression).expr, accept);
             case ast.BuiltInConstant.$type: {
                 const cst = expression as ast.BuiltInConstant;
-                if (cst.name && !builtInConstants.includes(cst.name)) {
+                if (cst.name && !builtInConstants.has(cst.name as BuiltInConstants)) {
                     if (accept)
                         accept('error', `Unknown built-in constant '${cst.name}'.`, { node: cst, property: ast.BuiltInConstant.name });
                     return undefined;

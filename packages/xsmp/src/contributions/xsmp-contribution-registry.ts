@@ -94,7 +94,7 @@ interface XsmpResolvedBuiltinContributionEntry {
 type ContributionRegistryEntry = XsmpResolvedContributionManifestEntry | XsmpResolvedBuiltinContributionEntry;
 
 function normalizeBuiltinPath(value: string): string {
-    return value.replace(/\\/g, '/').replace(/^\/+/, '');
+    return value.replaceAll('\\', '/').replace(/^\/+/, '');
 }
 
 function contributionUri(extensionId: string, relativePath: string): URI {
@@ -435,7 +435,7 @@ export class XsmpContributionRegistry {
             registerContribution = module.registerContribution ?? module.register;
         }
         if (typeof registerContribution !== 'function') {
-            throw new Error(`Contribution handler '${entry.handlerPath}' does not export 'registerContribution'.`);
+            throw new TypeError(`Contribution handler '${entry.handlerPath}' does not export 'registerContribution'.`);
         }
 
         const api: XsmpContributionRegistrationApi = {

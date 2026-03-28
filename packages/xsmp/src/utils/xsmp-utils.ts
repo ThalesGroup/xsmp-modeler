@@ -1,5 +1,4 @@
-import type { AstNode, CstNode } from 'langium';
-import { AstUtils, CstUtils, isJSDoc, isLeafCstNode, isRootCstNode } from 'langium';
+import { type AstNode, type CstNode, AstUtils, CstUtils, isJSDoc, isLeafCstNode, isRootCstNode } from 'langium';
 import * as ast from '../generated/ast-partial.js';
 import * as Solver from './solver.js';
 import { PTK } from './primitive-type-kind.js';
@@ -29,8 +28,14 @@ export function escape(input: string | undefined): string {
     if (!input) {
         return '';
     }
-    return input.replaceAll('\t', '\\t').replaceAll('\b', '\\b').replaceAll('\n', '\\n').replaceAll('\r', '\\r')
-        .replaceAll('\f', '\\f').replaceAll("'", "\\'").replaceAll('"', '\\"');
+    return input
+        .replaceAll('\t', String.raw`\t`)
+        .replaceAll('\b', String.raw`\b`)
+        .replaceAll('\n', String.raw`\n`)
+        .replaceAll('\r', String.raw`\r`)
+        .replaceAll('\f', String.raw`\f`)
+        .replaceAll("'", String.raw`\'`)
+        .replaceAll('"', String.raw`\"`);
 }
 
 export function isUUID(str: string | undefined): str is string {

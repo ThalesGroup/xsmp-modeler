@@ -1,14 +1,15 @@
-import type { MultiMap } from 'langium';
 import {
     AstUtils, type ValidationAcceptor, type ValidationChecks, WorkspaceCache,
-    type IndexManager, type URI,
+    type IndexManager, type URI, type MultiMap,
     type AstNodeDescription,
     UriUtils
 } from 'langium';
 import * as ast from 'xsmp/ast-partial';
 import type { XsmpcatServices } from 'xsmp';
 import * as XsmpUtils from 'xsmp/utils';
-import { VisibilityKind, type DocumentationHelper, type AttributeHelper } from 'xsmp/utils';
+const { VisibilityKind } = XsmpUtils;
+type DocumentationHelper = XsmpUtils.DocumentationHelper;
+type AttributeHelper = XsmpUtils.AttributeHelper;
 import type { ProjectManager } from 'xsmp/workspace';
 
 let validator: TasMdkValidator;
@@ -42,7 +43,10 @@ function getRootBase(component: ast.Component): ast.Component | undefined {
     while (ast.isComponent(component.base?.ref)) {
         component = component.base.ref;
     }
-    return component.base ? undefined : component;
+    if (component.base) {
+        return undefined;
+    }
+    return component;
 }
 
 const tasMdkModelQfn = 'TasMdk.Model';
@@ -69,43 +73,69 @@ export class TasMdkValidator {
     }
 
     checkField(field: ast.Field, accept: ValidationAcceptor): void {
-
-        // String8 shall be forbidden
         if (XsmpUtils.isString8(field.type?.ref)) {
             accept('error', 'String8 type is forbidden for fields.', { node: field, property: ast.Field.type });
         }
 
-        switch (field.$container.$type) {
-            case ast.Model.$type:
-            case ast.Service.$type:
-                if (XsmpUtils.getRealVisibility(field) === VisibilityKind.public) {
-                    accept('error', 'A field cannot be public in Gram environment.', { node: field, property: ast.Field.modifiers, index: field.modifiers.indexOf('public') });
-                }
-                if (XsmpUtils.isInput(field) && XsmpUtils.isOutput(field)) {
-                    accept('error', 'A field cannot be both an input and an output.',
-                        { node: field, property: ast.Field.modifiers, index: field.modifiers.indexOf('input') });
-                }
-                else if (field.name) {
+        if (!this.isGramFieldContainer(field)) {
+            return;
+        }
 
-                    // check naming convention of fields
-                    if (XsmpUtils.isInput(field) && !field.name.startsWith('inp_')) {
-                        accept('error', 'The name of an input field must start with \'inp_\'.', { node: field, property: ast.Field.name }
-                        );
+        this.checkGramFieldVisibility(field, accept);
+        if (this.checkGramFieldDirection(field, accept)) {
+            return;
+        }
+        this.checkGramFieldNaming(field, accept);
+        this.checkForMissingDescription(field, accept, 'field');
+    }
 
-                    }
-                    else if (XsmpUtils.isOutput(field) && !field.name.startsWith('out_')) {
-                        accept('error', 'The name of an output field must start with \'out_\'.', { node: field, property: ast.Field.name });
-                    }
-                    else if (!XsmpUtils.isOutput(field) && !XsmpUtils.isInput(field) && !field.name.startsWith('fea_')
-                        && !field.name.startsWith('sta_')) {
+    protected isGramFieldContainer(field: ast.Field): boolean {
+        return field.$container.$type === ast.Model.$type || field.$container.$type === ast.Service.$type;
+    }
 
-                        accept('error', 'The name of a feature field must start with \'fea_\' and a state must start with \'sta_\'.', { node: field, property: ast.Field.name });
-                    }
-                }
-                this.checkForMissingDescription(field, accept, 'field');
-                break;
-            default:
-                break;
+    protected checkGramFieldVisibility(field: ast.Field, accept: ValidationAcceptor): void {
+        if (XsmpUtils.getRealVisibility(field) === VisibilityKind.public) {
+            accept('error', 'A field cannot be public in Gram environment.', {
+                node: field,
+                property: ast.Field.modifiers,
+                index: field.modifiers.indexOf('public')
+            });
+        }
+    }
+
+    protected checkGramFieldDirection(field: ast.Field, accept: ValidationAcceptor): boolean {
+        if (!XsmpUtils.isInput(field) || !XsmpUtils.isOutput(field)) {
+            return false;
+        }
+        accept('error', 'A field cannot be both an input and an output.', {
+            node: field,
+            property: ast.Field.modifiers,
+            index: field.modifiers.indexOf('input')
+        });
+        return true;
+    }
+
+    protected checkGramFieldNaming(field: ast.Field, accept: ValidationAcceptor): void {
+        if (!field.name) {
+            return;
+        }
+        if (XsmpUtils.isInput(field)) {
+            if (!field.name.startsWith('inp_')) {
+                accept('error', 'The name of an input field must start with \'inp_\'.', { node: field, property: ast.Field.name });
+            }
+            return;
+        }
+        if (XsmpUtils.isOutput(field)) {
+            if (!field.name.startsWith('out_')) {
+                accept('error', 'The name of an output field must start with \'out_\'.', { node: field, property: ast.Field.name });
+            }
+            return;
+        }
+        if (!field.name.startsWith('fea_') && !field.name.startsWith('sta_')) {
+            accept('error', 'The name of a feature field must start with \'fea_\' and a state must start with \'sta_\'.', {
+                node: field,
+                property: ast.Field.name
+            });
         }
     }
 
@@ -198,7 +228,7 @@ export class TasMdkValidator {
     protected checkOperationIsPublicable(op: ast.Operation, accept: ValidationAcceptor): void {
 
         // an operation is publicable if all parameters are publicables
-        op.parameter.forEach(p => this.checkParameterIsPublicable(p, accept), this);
+        op.parameter.forEach(parameter => this.checkParameterIsPublicable(parameter, accept));
         if (op.returnParameter) {
             this.checkParameterIsPublicable(op.returnParameter, accept);
         }

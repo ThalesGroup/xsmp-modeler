@@ -1,5 +1,4 @@
-import type { AstNode, AstNodeDescription } from 'langium';
-import { isAstNodeDescription } from 'langium';
+import { type AstNode, type AstNodeDescription, isAstNodeDescription } from 'langium';
 import type { NodeKindProvider } from 'langium/lsp';
 import { CompletionItemKind, SymbolKind } from 'vscode-languageserver';
 import * as ast from '../generated/ast-partial.js';

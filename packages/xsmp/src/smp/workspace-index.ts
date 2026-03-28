@@ -12,7 +12,7 @@ export class SmpWorkspaceIndex {
     protected readonly workspaceFileIndex = new Map<string, string[]>();
     protected readonly scannedSourcePaths = new Set<string>();
     protected readonly indexedSearchRoots = new Set<string>();
-    protected readonly externalDocumentIndexCache = new Map<string, unknown>();
+    protected readonly externalDocumentIndexCache = new Map<string, object | null>();
     protected searchIndexUpdate = Promise.resolve();
 
     setEligibleSourcePaths(sourcePaths: readonly string[]): void {
@@ -106,11 +106,11 @@ export class SmpWorkspaceIndex {
             .sort((left, right) => compareWorkspaceCandidates(left, right, inputDirectory));
     }
 
-    getCachedExternalDocumentIndex(pathname: string): unknown | undefined {
+    getCachedExternalDocumentIndex(pathname: string): object | null | undefined {
         return this.externalDocumentIndexCache.get(path.resolve(pathname));
     }
 
-    setCachedExternalDocumentIndex(pathname: string, value: unknown): void {
+    setCachedExternalDocumentIndex(pathname: string, value: object | null): void {
         this.externalDocumentIndexCache.set(path.resolve(pathname), value);
     }
 

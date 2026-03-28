@@ -18,7 +18,10 @@ export interface SmpMirrorSyncChange {
 export function getSmpMirrorSyncChanges(filePath: string, kind: SmpMirrorSyncChangeKind): SmpMirrorSyncChange[] {
     if (isSmpSourceFilePath(filePath)) {
         const mirrorUri = getSmpMirrorPreviewUri(filePath);
-        return mirrorUri ? [{ uri: mirrorUri, kind: kind === 'deleted' ? 'deleted' : 'changed' }] : [];
+        if (!mirrorUri) {
+            return [];
+        }
+        return [{ uri: mirrorUri, kind: kind === 'deleted' ? 'deleted' : 'changed' }];
     }
 
     const sourcePath = getSmpSourcePathFromMirrorPath(filePath);
@@ -31,8 +34,6 @@ export function getSmpMirrorSyncChanges(filePath: string, kind: SmpMirrorSyncCha
         return [];
     }
 
-    return [{
-        uri: mirrorUri,
-        kind: kind === 'deleted' ? 'changed' : 'deleted',
-    }];
+    const changeKind = kind === 'deleted' ? 'changed' : 'deleted';
+    return [{ uri: mirrorUri, kind: changeKind }];
 }

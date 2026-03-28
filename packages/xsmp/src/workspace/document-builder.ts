@@ -1,5 +1,4 @@
-import type { Cancellation, LangiumDocument, ValidationOptions } from 'langium';
-import { DefaultDocumentBuilder, ValidationCategory } from 'langium';
+import { type Cancellation, type LangiumDocument, type ValidationOptions, DefaultDocumentBuilder, ValidationCategory } from 'langium';
 import type { XsmpSharedServices } from '../xsmp-module.js';
 import type { ProjectManager } from './project-manager.js';
 import * as ast from '../generated/ast-partial.js';

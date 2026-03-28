@@ -280,8 +280,8 @@ export abstract class CppGenerator implements XsmpGenerator {
                             return false;
                         }
                         ` : ''}
-                    ${exportedTypes.map(this.registerType, this).join('\n')}
-                    ${components.map(this.registerComponent, this).join('\n')}
+                    ${exportedTypes.map(type => this.registerType(type)).join('\n')}
+                    ${components.map(component => this.registerComponent(component)).join('\n')}
                     
                     return true;
                 }
@@ -513,11 +513,17 @@ export abstract class CppGenerator implements XsmpGenerator {
         switch (expr.$type) {
             case ast.CollectionLiteral.$type: {
                 const type = this.typeProvider.getType(expr);
-                if (ast.isArrayType(type) && ast.isArrayType(type.itemType.ref))
-                    return `{ ${(expr as ast.CollectionLiteral).elements.map(e => `{${this.expression(e)}}`, this).join(', ')}}`;
-                else if (ast.isStructure(type))
-                    return `{ ${(expr as ast.CollectionLiteral).elements.map(e => ast.isArrayType(this.typeProvider.getType(e)) ? `{${this.expression(e)}}` : this.expression(e), this).join(', ')}}`;
-                return `{ ${(expr as ast.CollectionLiteral).elements.map(e => this.expression(e), this).join(', ')}}`;
+                const elements = (expr as ast.CollectionLiteral).elements;
+                if (ast.isArrayType(type) && ast.isArrayType(type.itemType.ref)) {
+                    return `{ ${elements.map(element => `{${this.expression(element)}}`).join(', ')}}`;
+                }
+                if (ast.isStructure(type)) {
+                    return `{ ${elements.map(element => {
+                        const rendered = this.expression(element);
+                        return ast.isArrayType(this.typeProvider.getType(element)) ? `{${rendered}}` : rendered;
+                    }).join(', ')}}`;
+                }
+                return `{ ${elements.map(element => this.expression(element)).join(', ')}}`;
             }
             case ast.DesignatedInitializer.$type: return `/* .${(expr as ast.DesignatedInitializer).field.ref?.name} = */${this.expression((expr as ast.DesignatedInitializer).expr)}`;
             case ast.UnaryOperation.$type: return `${(expr as ast.UnaryOperation).feature}${this.expression((expr as ast.UnaryOperation).operand)}`;
@@ -753,7 +759,7 @@ export abstract class CppGenerator implements XsmpGenerator {
                 // --------------------------- Forward Declarations ---------------------------
                 // ----------------------------------------------------------------------------
                 
-                ${Array.from(forwardedTypes).map(type => this.namespace(type, `class ${type.name};`, false), this).join('\n')}
+                ${Array.from(forwardedTypes).map(type => this.namespace(type, `class ${type.name};`, false)).join('\n')}
 
                 `: undefined}
             ${sortedIncludes.length > 0 ? s`
@@ -833,7 +839,7 @@ export abstract class CppGenerator implements XsmpGenerator {
     }
 
     headerIncludesOperation(element: ast.Operation): Include[] {
-        return [...this.headerIncludesParameter(element.returnParameter), ...element.parameter.flatMap(param => this.headerIncludesParameter(param), this)];
+        return [...this.headerIncludesParameter(element.returnParameter), ...element.parameter.flatMap(param => this.headerIncludesParameter(param))];
     }
     headerIncludesProperty(element: ast.Property): Include[] {
         if (this.attrHelper.isByPointer(element) && this.isForwardable(element.type.ref))
@@ -942,7 +948,7 @@ export abstract class CppGenerator implements XsmpGenerator {
         return [];
     }
     sourceIncludesOperation(element: ast.Operation): Include[] {
-        return [...this.sourceIncludesParameter(element.returnParameter), ...element.parameter.flatMap(param => this.sourceIncludesParameter(param), this)];
+        return [...this.sourceIncludesParameter(element.returnParameter), ...element.parameter.flatMap(param => this.sourceIncludesParameter(param))];
     }
     sourceIncludesProperty(element: ast.Property): Include[] {
         if (this.attrHelper.isByPointer(element) && this.isForwardable(element.type.ref))
@@ -1076,10 +1082,10 @@ export abstract class CppGenerator implements XsmpGenerator {
     }
 
     protected finalizeMembers(container: ast.WithBody): string {
-        return container.elements.map(element => this.finalize(element), this).filter(v => v !== undefined).join('\n');
+        return container.elements.map(element => this.finalize(element)).filter(v => v !== undefined).join('\n');
     }
     protected constructMembers(container: ast.WithBody): string {
-        return container.elements.map(element => this.construct(element), this).filter(v => v !== undefined).join('\n');
+        return container.elements.map(element => this.construct(element)).filter(v => v !== undefined).join('\n');
     }
     protected construct(element: ast.NamedElement): string | undefined {
         switch (element.$type) {
@@ -1277,7 +1283,7 @@ export abstract class CppGenerator implements XsmpGenerator {
         if (base !== undefined) {
             bases.push(`public ${base}`);
         }
-        bases.push(...type.interface.map(inter => `public virtual ${this.fqn(inter.ref)}`, this));
+        bases.push(...type.interface.map(inter => `public virtual ${this.fqn(inter.ref)}`));
 
         return bases;
     }
@@ -1410,7 +1416,7 @@ export abstract class CppGenerator implements XsmpGenerator {
         }
     }
     protected publishMembers(type: ast.WithBody): string {
-        return type.elements.filter(ast.isPublicable).map(this.publishMember, this).filter(text => text !== undefined).join('\n');
+        return type.elements.filter(ast.isPublicable).map(element => this.publishMember(element)).filter(text => text !== undefined).join('\n');
     }
     protected declareParameter(param: ast.Parameter): string {
         return `${this.type(param)} ${param.name}${param.default ? ' = ' + this.expression(param.default) : ''}`;
@@ -1463,7 +1469,7 @@ export abstract class CppGenerator implements XsmpGenerator {
             case PTK.UInt64:
                 return '0UL';
             case PTK.Char8:
-                return "'\\0'";
+                return String.raw`'\0'`;
             case PTK.String8:
                 return '""';
 

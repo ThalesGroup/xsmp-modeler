@@ -1,11 +1,14 @@
-import { AstUtils, type GrammarAST, type ReferenceInfo } from 'langium';
-import type { AstNodeDescription } from 'langium';
+import { AstUtils, type AstNodeDescription, type GrammarAST, type ReferenceInfo } from 'langium';
 import type { CompletionAcceptor, CompletionContext, NextFeature } from 'langium/lsp';
 import type { CompletionItem } from 'vscode-languageserver';
 import * as ast from '../generated/ast-partial.js';
 import type { XsmpasbServices } from '../xsmpasb-module.js';
 import * as XsmpUtils from '../utils/xsmp-utils.js';
 import { XsmpCompletionProviderBase } from './xsmp-completion-provider-base.js';
+
+const identifierPrefixPattern = /^[_a-zA-Z]\w*/;
+const placeholderPrefixPattern = /^\{[_a-zA-Z]\w*\}/;
+const typeSegmentPattern = /^[_a-zA-Z]\w*$/;
 
 export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
     protected readonly snippetOnlyKeywords = new Set([
@@ -190,6 +193,7 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
         }
 
         if (model) {
+            const assemblyUsageSnippet = this.createAssemblyUsageSnippet(configurations, linkBases, 4);
             acceptor(context, this.createSnippetItem(
                 'Sub Model Instance',
                 `${this.createPlaceholder(1, 'container')} += ${this.createPlaceholder(2, 'Child')}: ${this.createChoicePlaceholder(3, components, 'demo.Component')}`,
@@ -197,7 +201,7 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
             ));
             acceptor(context, this.createSnippetItem(
                 'Sub Assembly Instance',
-                `${this.createPlaceholder(1, 'container')} += ${this.createPlaceholder(2, 'Child')}: ${this.createChoicePlaceholder(3, assemblies, 'Assembly')}${assemblies.length > 0 ? '' : ''}${configurations.length > 0 ? ` using config ${this.createChoicePlaceholder(4, configurations, 'Configuration')}` : ''}${linkBases.length > 0 ? ` using link ${this.createChoicePlaceholder(configurations.length > 0 ? 5 : 4, linkBases, 'LinkBase')}` : ''}`,
+                `${this.createPlaceholder(1, 'container')} += ${this.createPlaceholder(2, 'Child')}: ${this.createChoicePlaceholder(3, assemblies, 'Assembly')}${assemblyUsageSnippet}`,
                 'Sub Assembly Instance'
             ));
             acceptor(context, this.createSnippetItem('Event Link', 'event link ${1:owner} -> ${2:client}', 'Event Link'));
@@ -316,16 +320,10 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
             ));
 
             if (assemblies.length > 0) {
-                const configurationPart = configurations.length > 0
-                    ? ` using config ${this.createChoicePlaceholder(3, configurations, 'Configuration')}`
-                    : '';
-                const linkBasePart = linkBases.length > 0
-                    ? ` using link ${this.createChoicePlaceholder(configurations.length > 0 ? 4 : 3, linkBases, 'LinkBase')}`
-                    : '';
                 acceptor(context, this.createContextualValueItem(
                     context,
                     `${child.path} += ${defaultName}: Assembly`,
-                    `${child.path} += ${this.createPlaceholder(1, defaultName)}: ${this.createChoicePlaceholder(2, assemblies, 'Assembly')}${configurationPart}${linkBasePart}`,
+                    `${child.path} += ${this.createPlaceholder(1, defaultName)}: ${this.createChoicePlaceholder(2, assemblies, 'Assembly')}${this.createAssemblyUsageSnippet(configurations, linkBases, 3)}`,
                     'Sub Assembly Instance'
                 ));
             }
@@ -495,14 +493,89 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
     }
 
     protected isSubInstanceTypePosition(context: CompletionContext): boolean {
-        const linePrefix = this.getLinePrefix(context);
-        return /^\s*(?:[_a-zA-Z]\w*|\{[_a-zA-Z]\w*\}\w*)(?:[_a-zA-Z0-9{}]*|\{[_a-zA-Z]\w*\}\w*)*\s*\+=\s*(?:[_a-zA-Z]\w*|\{[_a-zA-Z]\w*\}\w*)(?:[_a-zA-Z0-9{}]*|\{[_a-zA-Z]\w*\}\w*)*\s*:\s*[\w.]*$/.test(linePrefix);
+        const typePosition = this.parseTypePosition(this.getLinePrefix(context));
+        if (!typePosition) {
+            return false;
+        }
+        const assignmentIndex = typePosition.left.indexOf('+=');
+        if (assignmentIndex === -1) {
+            return false;
+        }
+        const container = typePosition.left.slice(0, assignmentIndex).trim();
+        const subInstanceName = typePosition.left.slice(assignmentIndex + 2).trim();
+        return this.isTemplatedIdentifier(container)
+            && this.isTemplatedIdentifier(subInstanceName)
+            && this.isPartialQualifiedType(typePosition.typeFragment);
     }
 
     protected isModelImplementationTypePosition(context: CompletionContext): boolean {
-        const linePrefix = this.getLinePrefix(context);
-        return /^\s*(?:[_a-zA-Z]\w*|\{[_a-zA-Z]\w*\}\w*)(?:[_a-zA-Z0-9{}]*|\{[_a-zA-Z]\w*\}\w*)*\s*:\s*[\w.]*$/.test(linePrefix)
-            && !linePrefix.includes('+=');
+        const typePosition = this.parseTypePosition(this.getLinePrefix(context));
+        return typePosition !== undefined
+            && !typePosition.left.includes('+=')
+            && this.isTemplatedIdentifier(typePosition.left)
+            && this.isPartialQualifiedType(typePosition.typeFragment);
+    }
+
+    private createAssemblyUsageSnippet(configurations: string[], linkBases: string[], configurationPlaceholderIndex: number): string {
+        const configurationPart = configurations.length > 0
+            ? ` using config ${this.createChoicePlaceholder(configurationPlaceholderIndex, configurations, 'Configuration')}`
+            : '';
+        const linkBasePlaceholderIndex = configurations.length > 0
+            ? configurationPlaceholderIndex + 1
+            : configurationPlaceholderIndex;
+        const linkBasePart = linkBases.length > 0
+            ? ` using link ${this.createChoicePlaceholder(linkBasePlaceholderIndex, linkBases, 'LinkBase')}`
+            : '';
+        return `${configurationPart}${linkBasePart}`;
+    }
+
+    private parseTypePosition(linePrefix: string): { left: string; typeFragment: string } | undefined {
+        const separatorIndex = linePrefix.lastIndexOf(':');
+        if (separatorIndex === -1) {
+            return undefined;
+        }
+        const left = linePrefix.slice(0, separatorIndex).trim();
+        if (left.length === 0) {
+            return undefined;
+        }
+        return {
+            left,
+            typeFragment: linePrefix.slice(separatorIndex + 1).trim(),
+        };
+    }
+
+    private isTemplatedIdentifier(candidate: string): boolean {
+        let remaining = candidate.trim();
+        if (remaining.length === 0) {
+            return false;
+        }
+        while (remaining.length > 0) {
+            const placeholderMatch = placeholderPrefixPattern.exec(remaining);
+            if (placeholderMatch) {
+                remaining = remaining.slice(placeholderMatch[0].length);
+                const suffixMatch = /^\w*/.exec(remaining)?.[0] ?? '';
+                remaining = remaining.slice(suffixMatch.length);
+                continue;
+            }
+            const identifierMatch = identifierPrefixPattern.exec(remaining);
+            if (!identifierMatch) {
+                return false;
+            }
+            remaining = remaining.slice(identifierMatch[0].length);
+        }
+        return true;
+    }
+
+    private isPartialQualifiedType(candidate: string): boolean {
+        if (candidate.length === 0) {
+            return true;
+        }
+        const segments = candidate.split('.');
+        return segments.every((segment, index) =>
+            segment.length > 0
+                ? typeSegmentPattern.test(segment)
+                : index === segments.length - 1
+        );
     }
 
     protected getExpectedSubInstanceType(context: CompletionContext): ast.ReferenceType | undefined {

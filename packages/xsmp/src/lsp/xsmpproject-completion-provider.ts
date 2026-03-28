@@ -1,5 +1,4 @@
-import type { AstNodeDescription, MaybePromise, ReferenceInfo, Stream } from 'langium';
-import { AstUtils, UriUtils, stream, type GrammarAST } from 'langium';
+import { AstUtils, UriUtils, stream, type AstNodeDescription, type GrammarAST, type MaybePromise, type ReferenceInfo, type Stream } from 'langium';
 import type { CompletionAcceptor, CompletionContext, NextFeature } from 'langium/lsp';
 import type { MarkupContent } from 'vscode-languageserver';
 import * as ast from '../generated/ast-partial.js';

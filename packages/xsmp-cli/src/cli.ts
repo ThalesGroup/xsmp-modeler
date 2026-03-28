@@ -1,9 +1,11 @@
 import { runCli } from './main.js';
 
-void runCli(process.argv).then(exitCode => {
-    process.exitCode = exitCode;
-}, error => {
-    const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
-    process.stderr.write(`${message}\n`);
-    process.exitCode = 2;
-});
+void (async () => {
+    try {
+        process.exitCode = await runCli(process.argv);
+    } catch (error) {
+        const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
+        process.stderr.write(`${message}\n`);
+        process.exitCode = 2;
+    }
+})();

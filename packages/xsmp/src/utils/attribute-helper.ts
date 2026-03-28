@@ -1,6 +1,5 @@
 
-import type { AstNode, Stream } from 'langium';
-import { WorkspaceCache, stream } from 'langium';
+import { type AstNode, type Stream, WorkspaceCache, stream } from 'langium';
 import * as ast from '../generated/ast-partial.js';
 import { type XsmpSharedServices } from '../xsmp-module.js';
 import { fqn, getRealVisibility } from './xsmp-utils.js';
@@ -10,14 +9,7 @@ import { VisibilityKind } from './visibility-kind.js';
 import { ViewKind } from './view_kind.js';
 import { PTK } from './primitive-type-kind.js';
 
-export type Attributes = 'Attributes.Static'
-    | 'Attributes.Const' | 'Attributes.Mutable'
-    | 'Attributes.ByPointer' | 'Attributes.ByReference'
-    | 'Attributes.Abstract' | 'Attributes.Virtual'
-    | 'Attributes.Constructor' | 'Attributes.Forcible'
-    | 'Attributes.Failure' | 'Attributes.ConstGetter'
-    | 'Attributes.NoConstructor' | 'Attributes.NoDestructor'
-    | 'Attributes.SimpleArray' | 'Attributes.Operator' | 'Attributes.View' | string;
+export type Attributes = `${string}.${string}`;
 
 function kind(parameter: ast.Parameter | ast.ReturnParameter): ArgKind {
     if (ast.isReferenceType(parameter.type?.ref)) {
@@ -220,7 +212,7 @@ export class AttributeHelper {
      */
     getSignature(element: ast.NamedElement): string | undefined {
         if (ast.Operation.$type === element.$type) {
-            return `${element.name}(${(element as ast.Operation).parameter.map(p => this.getParameterSignature(p), this).join(', ')})`;
+            return `${element.name}(${(element as ast.Operation).parameter.map(parameter => this.getParameterSignature(parameter)).join(', ')})`;
         }
         return element.name;
     }

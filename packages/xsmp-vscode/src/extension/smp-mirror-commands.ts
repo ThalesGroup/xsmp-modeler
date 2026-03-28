@@ -35,9 +35,6 @@ export function registerSmpMirrorCommands(
             const document = await vscode.workspace.openTextDocument(vscode.Uri.parse(mirrorUri));
             await vscode.window.showTextDocument(document, { preview: false });
         }),
-    );
-
-    context.subscriptions.push(
         vscode.commands.registerCommand(OpenSmpXmlSourceCommand, async (uri?: vscode.Uri) => {
             const sourceUri = getActiveSmpSourceUri(uri)
                 ?? getMirrorSourceUri(uri ?? vscode.window.activeTextEditor?.document.uri);
@@ -54,17 +51,23 @@ export function registerSmpMirrorCommands(
 
 function getActiveSmpSourceUri(uri?: vscode.Uri): vscode.Uri | undefined {
     const candidate = uri ?? vscode.window.activeTextEditor?.document.uri;
-    if (!candidate || candidate.scheme !== 'file') {
+    if (candidate?.scheme !== 'file') {
         return undefined;
     }
-    return isSmpMirrorPreviewSourcePath(candidate.fsPath) ? candidate : undefined;
+    if (!isSmpMirrorPreviewSourcePath(candidate.fsPath)) {
+        return undefined;
+    }
+    return candidate;
 }
 
 function getMirrorSourceUri(uri: vscode.Uri | undefined): vscode.Uri | undefined {
-    if (!uri || uri.scheme !== 'xsmp-smp') {
+    if (uri?.scheme !== 'xsmp-smp') {
         return undefined;
     }
 
     const sourceUri = getSmpMirrorSourceUri(URI.parse(uri.toString()));
-    return sourceUri ? vscode.Uri.parse(sourceUri.toString()) : undefined;
+    if (!sourceUri) {
+        return undefined;
+    }
+    return vscode.Uri.parse(sourceUri.toString());
 }

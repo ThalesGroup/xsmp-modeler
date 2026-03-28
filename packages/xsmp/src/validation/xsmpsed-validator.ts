@@ -276,27 +276,39 @@ export class XsmpsedValidator extends XsmpcfgValidator {
             return undefined;
         }
         if (ast.isSetProperty(container) && container.value === value) {
-            if (!container.propertyPath || container.propertyPath.unsafe) {
-                return undefined;
-            }
-            const resolution = this.l2PathResolver.getScheduleActivityPathResolution(container.propertyPath);
-            return resolution.active && !resolution.invalidMessage ? resolution.finalType : undefined;
+            return this.getSetPropertyValueType(container);
         }
         if (ast.isParameterValue(container) && container.value === value) {
-            if (!container.parameter) {
-                return undefined;
-            }
-            const call = AstUtils.getContainerOfType(container, ast.isCallOperation);
-            if (!call || !call.operationPath || call.operationPath.unsafe) {
-                return undefined;
-            }
-            const resolution = this.l2PathResolver.getScheduleActivityPathResolution(call.operationPath);
-            if (!resolution.active || resolution.invalidMessage || !ast.isOperation(resolution.finalElement)) {
-                return undefined;
-            }
-            return resolution.finalElement.parameter.find(parameter => parameter.name === container.parameter)?.type?.ref;
+            return this.getParameterValueType(container);
         }
         return super.getExpectedTypeForValue(value);
+    }
+
+    protected getSetPropertyValueType(setProperty: ast.SetProperty): ast.Type | undefined {
+        if (!setProperty.propertyPath || setProperty.propertyPath.unsafe) {
+            return undefined;
+        }
+        const resolution = this.l2PathResolver.getScheduleActivityPathResolution(setProperty.propertyPath);
+        if (!resolution.active || resolution.invalidMessage) {
+            return undefined;
+        }
+        return resolution.finalType;
+    }
+
+    protected getParameterValueType(parameterValue: ast.ParameterValue): ast.Type | undefined {
+        if (!parameterValue.parameter) {
+            return undefined;
+        }
+        const call = AstUtils.getContainerOfType(parameterValue, ast.isCallOperation);
+        const operationPath = call?.operationPath;
+        if (!operationPath || operationPath.unsafe) {
+            return undefined;
+        }
+        const resolution = this.l2PathResolver.getScheduleActivityPathResolution(operationPath);
+        if (!resolution.active || resolution.invalidMessage || !ast.isOperation(resolution.finalElement)) {
+            return undefined;
+        }
+        return resolution.finalElement.parameter.find(parameter => parameter.name === parameterValue.parameter)?.type?.ref;
     }
 
     protected override checkPathTemplateParameters(path: ast.Path, accept: ValidationAcceptor): boolean {

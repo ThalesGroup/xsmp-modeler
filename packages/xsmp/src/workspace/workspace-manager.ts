@@ -1,5 +1,4 @@
-import type { LangiumDocument, LangiumDocumentFactory } from 'langium';
-import { Cancellation, DefaultWorkspaceManager, interruptAndCheck, stream } from 'langium';
+import { type LangiumDocument, type LangiumDocumentFactory, Cancellation, DefaultWorkspaceManager, interruptAndCheck, stream } from 'langium';
 import { builtInScheme } from '../builtins.js';
 import { URI } from 'vscode-uri';
 import type { WorkspaceFolder } from 'vscode-languageserver-protocol';

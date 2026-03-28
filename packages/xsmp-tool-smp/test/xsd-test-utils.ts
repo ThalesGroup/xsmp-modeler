@@ -18,6 +18,7 @@ const xsdRoot = path.resolve(__dirname, 'xsd');
 const l1Spec2020Root = path.join(xsdRoot, 'l1-2020');
 const l1Spec2025Root = path.join(xsdRoot, 'l1-2025');
 const l2SpecRoot = path.join(xsdRoot, 'l2', 'Smdl');
+const xmllintExecutable = resolveXmllintExecutable();
 
 const xmlSchemaStub = `<?xml version="1.0"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
@@ -30,7 +31,29 @@ const xmlSchemaStub = `<?xml version="1.0"?>
 `;
 
 export function hasXmllint(): boolean {
-    return spawnSync('xmllint', ['--version'], { stdio: 'ignore' }).status === 0;
+    return xmllintExecutable !== undefined;
+}
+
+function resolveXmllintExecutable(): string | undefined {
+    const candidates = [
+        process.env.XMLLINT_PATH,
+        '/usr/bin/xmllint',
+        '/usr/local/bin/xmllint',
+        '/opt/homebrew/bin/xmllint',
+    ];
+    for (const candidate of candidates) {
+        if (!candidate) {
+            continue;
+        }
+        try {
+            if (spawnSync(candidate, ['--version'], { stdio: 'ignore' }).status === 0) {
+                return candidate;
+            }
+        } catch {
+            // Ignore missing or non-executable candidates.
+        }
+    }
+    return undefined;
 }
 
 function patchFile(filePath: string, update: (content: string) => string): void {
@@ -92,10 +115,10 @@ function prepareL2SchemaBundle(tmpDir: string): Record<'linkbase' | 'assembly' |
     for (const fileName of ['LinkBase.xsd', 'Assembly.xsd', 'Schedule.xsd']) {
         patchFile(path.join(smdlRoot, fileName), content =>
             content
-                .replace('schemaLocation="xlink.xsd"', 'schemaLocation="../xlink.xsd"')
-                .replace('schemaLocation="Elements.xsd"', 'schemaLocation="../Core/Elements.xsd"')
-                .replace('schemaLocation="Types.xsd"', 'schemaLocation="../Core/Types.xsd"')
-                .replace(/Elements:DayTimeDuration/g, 'xsd:duration')
+                .replaceAll('schemaLocation="xlink.xsd"', 'schemaLocation="../xlink.xsd"')
+                .replaceAll('schemaLocation="Elements.xsd"', 'schemaLocation="../Core/Elements.xsd"')
+                .replaceAll('schemaLocation="Types.xsd"', 'schemaLocation="../Core/Types.xsd"')
+                .replaceAll(/Elements:DayTimeDuration/g, 'xsd:duration')
         );
     }
 
@@ -107,13 +130,16 @@ function prepareL2SchemaBundle(tmpDir: string): Record<'linkbase' | 'assembly' |
 }
 
 export function assertXmlConformsToXsd(xmlPath: string, kind: SmpSchemaKind, standard: SmpStandard = 'ECSS_SMP_2020'): void {
+    if (!xmllintExecutable) {
+        throw new Error('xmllint executable not found. Set XMLLINT_PATH to a trusted absolute path if needed.');
+    }
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-xsd-'));
     try {
         const schemaPath = kind === 'catalogue' || kind === 'package' || kind === 'configuration'
             ? prepareL1SchemaBundle(tmpDir, standard)[kind]
             : prepareL2SchemaBundle(tmpDir)[kind];
 
-        execFileSync('xmllint', ['--noout', '--schema', schemaPath, xmlPath], {
+        execFileSync(xmllintExecutable, ['--noout', '--schema', schemaPath, xmlPath], {
             encoding: 'utf8',
             stdio: 'pipe',
         });

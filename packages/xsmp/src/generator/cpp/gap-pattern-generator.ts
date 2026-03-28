@@ -1162,10 +1162,10 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
     }
 
     protected defineMembers(container: ast.WithBody, _useGenPattern: boolean): string {
-        return container.elements.map(this.define, this).filter(v => v !== undefined).join('\n');
+        return container.elements.map(element => this.define(element)).filter(v => v !== undefined).join('\n');
     }
     protected defineMembersGen(container: ast.WithBody, useGenPattern: boolean): string {
-        return container.elements.map(element => this.defineGen(element, useGenPattern), this).filter(v => v !== undefined).join('\n');
+        return container.elements.map(element => this.defineGen(element, useGenPattern)).filter(v => v !== undefined).join('\n');
     }
 
     protected override declareProperty(element: ast.Property): string | undefined {

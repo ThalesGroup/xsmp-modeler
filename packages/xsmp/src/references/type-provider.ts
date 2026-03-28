@@ -1,5 +1,4 @@
-import type { AstNode } from 'langium';
-import { WorkspaceCache } from 'langium';
+import { type AstNode, WorkspaceCache } from 'langium';
 import * as ast from '../generated/ast-partial.js';
 import type { XsmpSharedServices } from '../xsmp-module.js';
 import { type AttributeHelper } from '../utils/attribute-helper.js';

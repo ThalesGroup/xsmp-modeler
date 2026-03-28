@@ -224,7 +224,7 @@ export class XsmpSdkGenerator extends GapPatternCppGenerator {
                 }
                 
                 ${fields.length === 0 ? '' : '// Fields declaration'}
-                ${fields.map(field => `${this.comment(field)}${this.attrHelper.isMutable(field) ? 'mutable ' : ''}typename _BASE::template Field<${this.fqn(field.type.ref)}>${isState(field) ? '' : '::transient'}${isInput(field) ? '::input' : ''}${isOutput(field) ? '::output' : ''}${this.attrHelper.isForcible(field) ? '::forcible' : ''}${this.attrHelper.isFailure(field) ? '::failure' : ''} ${field.name};`, this).join('\n')}
+                ${fields.map(field => `${this.comment(field)}${this.attrHelper.isMutable(field) ? 'mutable ' : ''}typename _BASE::template Field<${this.fqn(field.type.ref)}>${isState(field) ? '' : '::transient'}${isInput(field) ? '::input' : ''}${isOutput(field) ? '::output' : ''}${this.attrHelper.isForcible(field) ? '::forcible' : ''}${this.attrHelper.isFailure(field) ? '::failure' : ''} ${field.name};`).join('\n')}
                };
         };
         
@@ -236,7 +236,7 @@ export class XsmpSdkGenerator extends GapPatternCppGenerator {
         const includes = super.sourceIncludesComponent(type);
         includes.push('Xsmp/ComponentHelper.h');
 
-        if (type.elements.filter(ast.isInvokable).some(this.isInvokable, this)) {
+        if (this.hasInvokableMembers(type)) {
             includes.push('Xsmp/Request.h');
         }
         return includes;
@@ -250,7 +250,7 @@ export class XsmpSdkGenerator extends GapPatternCppGenerator {
         if (!type.base) {
             includes.push(`Xsmp/${type.$type}.h`);
         }
-        if (type.elements.filter(ast.isInvokable).some(this.isInvokable, this)) {
+        if (this.hasInvokableMembers(type)) {
             includes.push('map');
             includes.push('Smp/IRequest.h');
             includes.push('functional');
@@ -271,7 +271,7 @@ export class XsmpSdkGenerator extends GapPatternCppGenerator {
         if (type.elements.some(ast.isEntryPoint)) {
             includes.push('Xsmp/EntryPointPublisher.h');
         }
-        if (type.$type === ast.Model.$type && type.elements.some(element => ast.isField(element) && this.attrHelper.isFailure(element), this)) {
+        if (this.hasFailureField(type)) {
             includes.push('Xsmp/FallibleModel.h');
         }
         return includes;
@@ -376,7 +376,7 @@ export class XsmpSdkGenerator extends GapPatternCppGenerator {
             /// Get Universally Unique Identifier of the ${type.$type}.
             /// @return  Universally Unique Identifier of the ${type.$type}.
             const ::Smp::Uuid& GetUuid() const override;
-            ${type.elements.filter(ast.isInvokable).some(this.isInvokable, this) ? `
+            ${this.hasInvokableMembers(type) ? `
             private:
             static std::map<std::string_view, std::function<void(${name}*, ::Smp::IRequest*)>> _requestHandlers;
 
@@ -409,7 +409,7 @@ export class XsmpSdkGenerator extends GapPatternCppGenerator {
             bases.push('public virtual ::Xsmp::EventConsumer');
         if (type.elements.some(ast.isEntryPoint))
             bases.push('public virtual ::Xsmp::EntryPointPublisher');
-        if (type.$type === ast.Model.$type && type.elements.filter(ast.isField).some(field => this.attrHelper.isFailure(field), this))
+        if (this.hasFailureField(type))
             bases.push('public virtual ::Xsmp::FallibleModel');
         return bases;
     }
@@ -465,10 +465,10 @@ export class XsmpSdkGenerator extends GapPatternCppGenerator {
                 ${base}::Disconnect();
             }
             
-            ${type.elements.filter(ast.isInvokable).some(this.isInvokable, this) ? `
+            ${this.hasInvokableMembers(type) ? `
                 std::map<std::string_view, std::function<void(${name}*, ::Smp::IRequest*)>> ${name}::_requestHandlers{
-                    ${type.elements.filter(ast.isOperation).filter(this.isInvokable, this).map(param => this.generateRqHandlerOperation(param, gen), this).join('\n')}
-                    ${type.elements.filter(ast.isProperty).filter(this.isInvokable, this).map(property => this.generateRqHandlerProperty(property, gen), this).join('\n')}
+                    ${this.getInvokableOperations(type).map(operation => this.generateRqHandlerOperation(operation, gen)).join('\n')}
+                    ${this.getInvokableProperties(type).map(property => this.generateRqHandlerProperty(property, gen)).join('\n')}
                 };
                 
                 void ${name}::Invoke(::Smp::IRequest* request) {
@@ -495,14 +495,14 @@ export class XsmpSdkGenerator extends GapPatternCppGenerator {
 
     protected generateRqHandlerOperation(op: ast.Operation, gen: boolean): string {
         const r = op.returnParameter;
-        const invokation = `component->${this.operationName(op)}(${op.parameter.map(param => `${this.attrHelper.isByPointer(param) ? '&' : ''}p_${param.name}`, this).join(', ')})`;
+        const invokation = `component->${this.operationName(op)}(${op.parameter.map(param => `${this.attrHelper.isByPointer(param) ? '&' : ''}p_${param.name}`).join(', ')})`;
         return s`
             // Handler for Operation ${op.name}
             {"${op.name}",
             [](${this.name(op.$container, gen)}* component, ::Smp::IRequest *${r || op.parameter.length > 0 ? 'request' : ''}) {
-                ${op.parameter.map(this.initParameter, this).join('\n')}
+                ${op.parameter.map(param => this.initParameter(param)).join('\n')}
                 ${r ? `::Xsmp::Request::setReturnValue(request, ${this.primitiveTypeKind(r.type.ref)}, ${invokation})` : `${invokation}`};
-                ${op.parameter.map(this.setParameter, this).join('\n')}
+                ${op.parameter.map(param => this.setParameter(param)).join('\n')}
             }},
 
             `;
@@ -572,10 +572,26 @@ export class XsmpSdkGenerator extends GapPatternCppGenerator {
         if (ast.isClass(type))
             return false;
         if (ast.isStructure(type))
-            return type.elements.filter(ast.isField).some(this.isCdkField, this);
+            return type.elements.filter(ast.isField).some(field => this.isCdkField(field));
         if (ast.isArrayType(type))
             return this.isCdkFieldType(type.itemType.ref);
         return false;
+    }
+
+    private hasInvokableMembers(type: ast.Component): boolean {
+        return type.elements.filter(ast.isInvokable).some(element => this.isInvokable(element));
+    }
+
+    private getInvokableOperations(type: ast.Component): ast.Operation[] {
+        return type.elements.filter(ast.isOperation).filter(operation => this.isInvokable(operation));
+    }
+
+    private getInvokableProperties(type: ast.Component): ast.Property[] {
+        return type.elements.filter(ast.isProperty).filter(property => this.isInvokable(property));
+    }
+
+    private hasFailureField(type: ast.Component): boolean {
+        return type.$type === ast.Model.$type && type.elements.some(element => ast.isField(element) && this.attrHelper.isFailure(element));
     }
 
     protected override isCdkField(field: ast.Field): boolean {

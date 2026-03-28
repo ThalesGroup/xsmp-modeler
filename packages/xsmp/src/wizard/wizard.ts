@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
-import * as path from 'path';
-import * as fs from 'fs';
-import * as os from 'os';
+import * as path from 'node:path';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
 import type { LanguageClient } from 'vscode-languageclient/node.js';
 import { GetContributionSummaries, GetContributionWizardPrompts, ScaffoldProject } from '../lsp/language-server.js';
 import { isSameOrContainedPath, toXsmpIdentifier } from '../utils/path-utils.js';
@@ -87,7 +87,7 @@ async function promptProjectName(): Promise<string | undefined> {
             return input;
         }
 
-        await vscode.window.showErrorMessage('Project name must follow the format [a-zA-Z][a-zA-Z0-9_.-]\\w*');
+        await vscode.window.showErrorMessage(String.raw`Project name must follow the format [a-zA-Z][a-zA-Z0-9_.-]\w*`);
     }
 }
 

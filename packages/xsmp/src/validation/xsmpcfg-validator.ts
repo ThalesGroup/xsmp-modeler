@@ -1,5 +1,4 @@
-import type { AstNode, ValidationAcceptor, ValidationChecks } from 'langium';
-import { AstUtils, diagnosticData } from 'langium';
+import { type AstNode, type ValidationAcceptor, type ValidationChecks, AstUtils, diagnosticData } from 'langium';
 import * as ast from '../generated/ast-partial.js';
 import type { XsmpcfgServices } from '../xsmpcfg-module.js';
 import type { XsmpAddedSharedServices } from '../xsmp-module.js';
@@ -311,21 +310,23 @@ export class XsmpcfgValidator {
         this.checkArrayStartIndex(value, type, accept);
 
         const maxSize = Solver.getValue(type.size)?.integralValue(PTK.Int64)?.getValue();
-        const startIndex = value.startIndex !== undefined ? BigInt(value.startIndex) : BigInt(0);
+        const startIndex = value.startIndex === undefined ? BigInt(0) : BigInt(value.startIndex);
         const occupiedSize = BigInt(value.elements.length) + startIndex;
         if (maxSize !== undefined && occupiedSize > maxSize) {
-            accept('error', startIndex !== BigInt(0)
-                ? `The array value shall not exceed ${maxSize} item(s) when StartIndex is applied.`
-                : `The array value shall not contain more than ${maxSize} item(s).`, { node: value, data: diagnosticData('xsmpcfg.array.size') });
+            const message = startIndex === BigInt(0)
+                ? `The array value shall not contain more than ${maxSize} item(s).`
+                : `The array value shall not exceed ${maxSize} item(s) when StartIndex is applied.`;
+            accept('error', message, { node: value, data: diagnosticData('xsmpcfg.array.size') });
         }
 
         if (!type.itemType?.ref) {
             return;
         }
 
-        const size = maxSize !== undefined
-            ? Math.min(value.elements.length, Number(maxSize))
-            : value.elements.length;
+        let size = value.elements.length;
+        if (maxSize !== undefined) {
+            size = Math.min(size, Number(maxSize));
+        }
         for (let index = 0; index < size; index++) {
             this.checkValueAgainstType(value.elements[index], type.itemType.ref, accept);
         }

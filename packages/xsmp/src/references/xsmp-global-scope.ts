@@ -1,5 +1,4 @@
-import type { AstNodeDescription, Scope, Stream } from 'langium';
-import { stream } from 'langium';
+import { type AstNodeDescription, type Scope, type Stream, stream } from 'langium';
 
 export class XsmpGlobalScope implements Scope {
     readonly elements: Map<string, AstNodeDescription>;

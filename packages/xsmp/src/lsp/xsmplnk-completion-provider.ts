@@ -1,5 +1,4 @@
-import type { GrammarAST } from 'langium';
-import type { AstNodeDescription, ReferenceInfo } from 'langium';
+import type { AstNodeDescription, GrammarAST, ReferenceInfo } from 'langium';
 import type { CompletionAcceptor, CompletionContext, NextFeature } from 'langium/lsp';
 import * as ast from '../generated/ast-partial.js';
 import type { XsmplnkServices } from '../xsmplnk-module.js';

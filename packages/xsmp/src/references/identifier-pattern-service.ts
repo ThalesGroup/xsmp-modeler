@@ -17,6 +17,7 @@ export interface IdentifierPatternView {
 }
 
 export type TemplateBindings = ReadonlyMap<string, string>;
+type IdentifierPatternInput = RecoverableIdentifierPattern | IdentifierPatternView | string | undefined;
 
 export interface IdentifierMatchResult<T> {
     matches: readonly T[];
@@ -96,12 +97,12 @@ export class IdentifierPatternService {
         };
     }
 
-    hasTemplate(pattern: RecoverableIdentifierPattern | IdentifierPatternView | string | undefined): boolean {
+    hasTemplate(pattern: IdentifierPatternInput): boolean {
         const view = this.toView(pattern);
         return view ? view.parts.some(part => part.kind === 'template') : false;
     }
 
-    getTemplateNames(pattern: RecoverableIdentifierPattern | IdentifierPatternView | string | undefined): string[] {
+    getTemplateNames(pattern: IdentifierPatternInput): string[] {
         const view = this.toView(pattern);
         if (!view) {
             return [];
@@ -111,7 +112,7 @@ export class IdentifierPatternService {
             .map(part => part.parameterName);
     }
 
-    substitute(pattern: RecoverableIdentifierPattern | IdentifierPatternView | string | undefined, bindings: TemplateBindings | undefined): string | undefined {
+    substitute(pattern: IdentifierPatternInput, bindings: TemplateBindings | undefined): string | undefined {
         const view = this.toView(pattern);
         if (!view) {
             return undefined;
@@ -135,8 +136,8 @@ export class IdentifierPatternService {
     }
 
     matches(
-        left: RecoverableIdentifierPattern | IdentifierPatternView | string | undefined,
-        right: RecoverableIdentifierPattern | IdentifierPatternView | string | undefined,
+        left: IdentifierPatternInput,
+        right: IdentifierPatternInput,
         bindings: TemplateBindings | undefined,
     ): boolean {
         const leftView = this.toView(left);
@@ -205,7 +206,7 @@ export class IdentifierPatternService {
         return this.parseTemplateToken(text);
     }
 
-    protected toView(pattern: RecoverableIdentifierPattern | IdentifierPatternView | string | undefined): IdentifierPatternView | undefined {
+    protected toView(pattern: IdentifierPatternInput): IdentifierPatternView | undefined {
         if (!pattern) {
             return undefined;
         }

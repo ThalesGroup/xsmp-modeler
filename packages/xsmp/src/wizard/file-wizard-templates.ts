@@ -108,7 +108,7 @@ export function createXsmpStarterFileTemplate(
 }
 
 function createStarterNaming(fileStem: string): XsmpStarterNaming {
-    const normalizedStem = stripStarterSuffixes(toXsmpIdentifier(fileStem).replace(/[^A-Za-z0-9_]/g, '_'));
+    const normalizedStem = stripStarterSuffixes(toXsmpIdentifier(fileStem).replaceAll(/\W/g, '_'));
     const namespaceSegment = normalizedStem.toLowerCase();
     const typeName = toPascalCase(normalizedStem);
     const instanceName = toCamelCase(typeName);

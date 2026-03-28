@@ -1,7 +1,5 @@
-import type { AstNodeDescription, LangiumDocument, MaybePromise, ReferenceInfo } from 'langium';
-import { AstUtils, GrammarAST, type AstNode } from 'langium';
-import type { CompletionAcceptor, CompletionContext, CompletionValueItem, NextFeature } from 'langium/lsp';
-import { DefaultCompletionProvider } from 'langium/lsp';
+import { AstUtils, GrammarAST, type AstNode, type AstNodeDescription, type LangiumDocument, type MaybePromise, type ReferenceInfo } from 'langium';
+import { DefaultCompletionProvider, type CompletionAcceptor, type CompletionContext, type CompletionValueItem, type NextFeature } from 'langium/lsp';
 import type { MarkupContent } from 'vscode-languageserver';
 import {
     CompletionItemKind,
@@ -334,16 +332,16 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
 
     protected escapeSnippetText(text: string): string {
         return text
-            .replaceAll('\\', '\\\\')
-            .replaceAll('$', '\\$')
-            .replaceAll('}', '\\}');
+            .replaceAll('\\', String.raw`\\`)
+            .replaceAll('$', String.raw`\$`)
+            .replaceAll('}', String.raw`\}`);
     }
 
     protected escapeSnippetChoice(text: string): string {
         return text
-            .replaceAll('\\', '\\\\')
-            .replaceAll(',', '\\,')
-            .replaceAll('|', '\\|');
+            .replaceAll('\\', String.raw`\\`)
+            .replaceAll(',', String.raw`\,`)
+            .replaceAll('|', String.raw`\|`);
     }
 
     protected createPlaceholder(index: number, defaultValue: string): string {
@@ -791,8 +789,10 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
 
         switch (XsmpUtils.getPTK(type)) {
             case PTK.Bool:
-                items.push(this.createValueItem('false', 'false', `Boolean value for ${XsmpUtils.fqn(type)}.`));
-                items.push(this.createValueItem('true', 'true', `Boolean value for ${XsmpUtils.fqn(type)}.`));
+                items.push(
+                    this.createValueItem('false', 'false', `Boolean value for ${XsmpUtils.fqn(type)}.`),
+                    this.createValueItem('true', 'true', `Boolean value for ${XsmpUtils.fqn(type)}.`),
+                );
                 break;
             case PTK.Char8:
                 items.push(this.createValueItem("'A'", "'A'", `Character value for ${XsmpUtils.fqn(type)}.`));

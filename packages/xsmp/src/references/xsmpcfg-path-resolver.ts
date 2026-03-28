@@ -1,5 +1,4 @@
-import type { AstNode } from 'langium';
-import { AstUtils, WorkspaceCache } from 'langium';
+import { type AstNode, AstUtils, WorkspaceCache } from 'langium';
 import * as ast from '../generated/ast-partial.js';
 import type { XsmpSharedServices } from '../xsmp-module.js';
 import type { TemplateBindings } from './identifier-pattern-service.js';

@@ -1,6 +1,4 @@
-import { Cancellation, type LangiumDocument } from 'langium';
-import type { AstNode, Mutable, URI } from 'langium';
-import { DefaultLangiumDocumentFactory, DocumentState, type LangiumDocumentFactory } from 'langium';
+import { Cancellation, DefaultLangiumDocumentFactory, DocumentState, type AstNode, type LangiumDocument, type LangiumDocumentFactory, type Mutable, type URI } from 'langium';
 import type { XsmpSharedServices } from '../xsmp-module.js';
 import { isSmpMirrorDocument } from '../builtins.js';
 import type { SmpMirrorManager } from './mirror-manager.js';

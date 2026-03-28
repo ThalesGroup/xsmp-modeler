@@ -18,9 +18,6 @@ export function registerEmbeddedDocumentation(context: vscode.ExtensionContext):
 
             await vscode.commands.executeCommand('markdown.showPreviewToSide', targetUri);
         }),
-    );
-
-    context.subscriptions.push(
         vscode.languages.registerHoverProvider(
             createXsmpDocumentSelector(),
             {

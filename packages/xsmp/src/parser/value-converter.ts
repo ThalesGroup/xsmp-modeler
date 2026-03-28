@@ -1,5 +1,4 @@
-import type { CstNode, GrammarAST, ValueType } from 'langium';
-import { DefaultValueConverter } from 'langium';
+import { type CstNode, type GrammarAST, type ValueType, DefaultValueConverter } from 'langium';
 
 export class XsmpValueConverter extends DefaultValueConverter {
     protected override runConverter(rule: GrammarAST.AbstractRule, input: string, cstNode: CstNode): ValueType {

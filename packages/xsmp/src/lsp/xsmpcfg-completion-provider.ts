@@ -1,6 +1,5 @@
-import { AstUtils, type GrammarAST } from 'langium';
+import { AstUtils, type AstNodeDescription, type GrammarAST, type ReferenceInfo } from 'langium';
 import type { CompletionAcceptor, CompletionContext, NextFeature } from 'langium/lsp';
-import type { AstNodeDescription, ReferenceInfo } from 'langium';
 import * as ast from '../generated/ast-partial.js';
 import type { XsmpcfgServices } from '../xsmpcfg-module.js';
 import * as XsmpUtils from '../utils/xsmp-utils.js';

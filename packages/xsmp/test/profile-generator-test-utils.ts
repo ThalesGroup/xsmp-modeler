@@ -118,7 +118,7 @@ function listRelativeFiles(root: string): string[] {
     }
     const entries: string[] = [];
     walk(root, root, entries);
-    return entries.sort();
+    return entries.sort((left, right) => left.localeCompare(right));
 }
 
 function walk(root: string, current: string, entries: string[]): void {

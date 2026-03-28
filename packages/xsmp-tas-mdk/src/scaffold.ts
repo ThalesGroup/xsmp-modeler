@@ -58,7 +58,7 @@ $(COMPONENT_NAME)_tests_python:
 \tpython3 -m gram_addons__python_test_suite.runtests $(TEST_ARGS)
 `.trimStart());
 
-    await context.writeFile(path.join(testsDir, 'component.conf'), `
+    await context.writeFile(path.join(testsDir, 'component.conf'), String.raw`
 __LIBRARIES__=\\
 gram_addons--python_test_suite,\\
 gram_addons--simulator_launcher,\\

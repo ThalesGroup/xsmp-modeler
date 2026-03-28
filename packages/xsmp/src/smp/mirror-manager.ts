@@ -270,9 +270,7 @@ export class SmpMirrorManager {
     }
 
     protected getTrackedSourceUris(): Set<string> {
-        return new Set<string>([
-            ...this.baseSourceDiagnostics.keys(),
-        ]);
+        return new Set<string>(this.baseSourceDiagnostics.keys());
     }
 
     protected setBaseDiagnostics(

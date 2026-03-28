@@ -23,7 +23,7 @@ export async function loadVscodeBuiltinContributionPackages(vendorRoot: string):
         const moduleUrl = pathToFileURL(modulePath).href;
         const contributionModule = await import(moduleUrl) as XsmpContributionPackageModule;
         if (!contributionModule.xsmpContributionPackage) {
-            throw new Error(`Missing xsmpContributionPackage export in vendorized built-in '${packageName}'.`);
+            throw new TypeError(`Missing xsmpContributionPackage export in vendorized built-in '${packageName}'.`);
         }
         packages.push(contributionModule.xsmpContributionPackage);
     }

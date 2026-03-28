@@ -1,6 +1,5 @@
 import { afterEach, beforeAll, describe, expect, test } from 'vitest';
-import type { LangiumDocument } from 'langium';
-import { EmptyFileSystem } from 'langium';
+import { type LangiumDocument, EmptyFileSystem } from 'langium';
 import { clearDocuments, parseHelper } from 'langium/test';
 import { CompletionItemKind, InsertTextFormat, type CompletionItem } from 'vscode-languageserver';
 import { createXsmpServices } from 'xsmp';

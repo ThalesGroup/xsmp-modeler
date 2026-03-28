@@ -1,5 +1,4 @@
-import type { AstNodeDescription, MaybePromise, ReferenceInfo, Stream } from 'langium';
-import { AstUtils, GrammarAST } from 'langium';
+import { type AstNodeDescription, type MaybePromise, type ReferenceInfo, type Stream, AstUtils, GrammarAST } from 'langium';
 import type { CompletionAcceptor, CompletionContext, NextFeature } from 'langium/lsp';
 import { randomUUID } from 'node:crypto';
 import * as ast from '../generated/ast-partial.js';
@@ -639,11 +638,13 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
 
         switch (XsmpUtils.getPTK(type)) {
             case PTK.Bool:
-                items.push(this.createValueItem('false', 'false', `Boolean value for ${XsmpUtils.fqn(type)}.`));
-                items.push(this.createValueItem('true', 'true', `Boolean value for ${XsmpUtils.fqn(type)}.`));
+                items.push(
+                    this.createValueItem('false', 'false', `Boolean value for ${XsmpUtils.fqn(type)}.`),
+                    this.createValueItem('true', 'true', `Boolean value for ${XsmpUtils.fqn(type)}.`),
+                );
                 break;
             case PTK.Char8:
-                items.push(this.createValueItem("'\\0'", "'\\0'", `Character value for ${XsmpUtils.fqn(type)}.`));
+                items.push(this.createValueItem(String.raw`'\0'`, String.raw`'\0'`, `Character value for ${XsmpUtils.fqn(type)}.`));
                 break;
             case PTK.String8:
                 items.push(this.createValueItem('""', '""', `String value for ${XsmpUtils.fqn(type)}.`));
@@ -656,8 +657,10 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
                 break;
             case PTK.Float32:
             case PTK.Float64:
-                items.push(this.createValueItem('$PI', '$PI', 'Built-in constant PI.'));
-                items.push(this.createValueItem('$E', '$E', 'Built-in constant E.'));
+                items.push(
+                    this.createValueItem('$PI', '$PI', 'Built-in constant PI.'),
+                    this.createValueItem('$E', '$E', 'Built-in constant E.'),
+                );
                 break;
         }
 

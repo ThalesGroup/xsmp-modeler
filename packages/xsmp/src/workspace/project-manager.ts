@@ -40,21 +40,33 @@ export class ProjectManager {
 
     protected doGetProject(document: LangiumDocument): ast.Project | undefined {
         for (const doc of this.documents.all) {
-
-            const project = doc.parseResult.value;
-            if (ast.isProject(project)) {
-                const projectUri = UriUtils.dirname(doc.uri);
-
-                if (isSameOrContainedPath(projectUri.path, document.uri.path)) {
-                    for (const source of project.elements.filter(ast.isSource)) {
-                        if (source.path && isSameOrContainedPath(UriUtils.joinPath(projectUri, source.path).path, document.uri.path)) {
-                            return project;
-                        }
-                    }
-                }
+            const project = this.getProjectForDocument(doc, document);
+            if (project) {
+                return project;
             }
         }
         return undefined;
+    }
+
+    protected getProjectForDocument(doc: LangiumDocument, document: LangiumDocument): ast.Project | undefined {
+        const project = doc.parseResult.value;
+        if (!ast.isProject(project)) {
+            return undefined;
+        }
+        const projectUri = UriUtils.dirname(doc.uri);
+        if (!isSameOrContainedPath(projectUri.path, document.uri.path)) {
+            return undefined;
+        }
+        return this.projectContainsDocument(project, projectUri, document.uri) ? project : undefined;
+    }
+
+    protected projectContainsDocument(project: ast.Project, projectUri: URI, documentUri: URI): boolean {
+        for (const source of project.elements.filter(isSource)) {
+            if (source.path && isSameOrContainedPath(UriUtils.joinPath(projectUri, source.path).path, documentUri.path)) {
+                return true;
+            }
+        }
+        return false;
     }
     getDependencies(project: ast.Project): Set<ast.Project> {
         return this.dependenciesCache.get(

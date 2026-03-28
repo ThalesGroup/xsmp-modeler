@@ -8,6 +8,7 @@ import type { XsmpPathService } from 'xsmp/references';
 import {
     fqn,
     getLower,
+    getValue,
     getNodeType,
     getRealVisibility,
     getUpper,
@@ -17,7 +18,8 @@ import {
     VisibilityKind,
     VisibilityKinds,
 } from 'xsmp/utils';
-import * as Solver from 'xsmp/utils';
+
+type AssemblyStatement = ast.FieldValue | ast.GlobalEventHandler | ast.Invocation;
 
 /**
  * AsciiDoc generator for XSMP documents.
@@ -113,9 +115,10 @@ export class ADocGenerator implements XsmpGenerator {
             return expr.name;
         }
         try {
-            const value = Solver.getValue(expr);
+            const value = getValue(expr);
             if (value) {
-                return value.toString();
+                const rendered = value.toString();
+                return rendered === '[object Object]' ? undefined : rendered;
             }
         } catch {
             // ignore solver exceptions
@@ -137,8 +140,9 @@ export class ADocGenerator implements XsmpGenerator {
                 results.push(this.getShortValue(expression.expr) ?? '?');
             } else {
                 try {
-                    const value = Solver.getValue(expression);
-                    results.push(value?.toString() ?? '?');
+                    const value = getValue(expression);
+                    const rendered = value?.toString();
+                    results.push(rendered && rendered !== '[object Object]' ? rendered : '?');
                 } catch {
                     results.push('?');
                 }
@@ -157,7 +161,7 @@ export class ADocGenerator implements XsmpGenerator {
         if (!str) {
             return '';
         }
-        return str.replaceAll('|', '\\|').replaceAll('\n', ' ');
+        return str.replaceAll('|', String.raw`\|`).replaceAll('\n', ' ');
     }
 
     private quoteIfBare(value: string): string {
@@ -203,6 +207,32 @@ export class ADocGenerator implements XsmpGenerator {
             return undefined;
         }
         return `.^h|${label} |${this.escapeCell(String(value))}`;
+    }
+
+    private optionalHeader(enabled: boolean, label: string): string {
+        return enabled ? ` |${label}` : '';
+    }
+
+    private inlineOptionalCell(enabled: boolean, value: string | undefined): string {
+        return enabled ? ` |${value ?? ''}` : '';
+    }
+
+    private tableRow(...cells: Array<string | undefined>): string {
+        return cells
+            .filter(cell => cell !== undefined)
+            .map(cell => `|${cell}`)
+            .join('\n');
+    }
+
+    private renderReferenceInfoRow(
+        label: string,
+        refs: ReadonlyArray<Reference<ast.NamedElement>>,
+        context: ast.NamedElement | ast.ReturnParameter,
+    ): string | undefined {
+        if (refs.length === 0) {
+            return undefined;
+        }
+        return `.${refs.length}+.^h|${label} ${refs.map(ref => `|${this.crossReference(ref, context)}`).join(' ')}`;
     }
 
     private renderDocumentHeader(
@@ -251,7 +281,10 @@ export class ADocGenerator implements XsmpGenerator {
             return '';
         }
         if (ref.ref) {
-            return qualified && ast.isNamedElement(ref.ref) ? fqn(ref.ref, '::') : (ref.ref.name ?? '');
+            if (qualified && ast.isNamedElement(ref.ref)) {
+                return fqn(ref.ref, '::');
+            }
+            return ref.ref.name ?? '';
         }
         return ref.$refText;
     }
@@ -510,7 +543,7 @@ export class ADocGenerator implements XsmpGenerator {
     }
 
     private renderAssemblyStatements(
-        elements: Array<ast.FieldValue | ast.GlobalEventHandler | ast.Invocation>,
+        elements: AssemblyStatement[],
         level: number,
         title: string,
     ): string | undefined {
@@ -575,7 +608,7 @@ export class ADocGenerator implements XsmpGenerator {
             .${title}
             [%autowidth.stretch]
             |===
-            |Kind |Owner |Reference |Client${hasBackReference ? ' |Back Reference' : ''}${hasDescription ? ' |Description' : ''}
+            |Kind |Owner |Reference |Client${this.optionalHeader(hasBackReference, 'Back Reference')}${this.optionalHeader(hasDescription, 'Description')}
 
             ${links.map(link => {
                 const owner = ast.isInterfaceLink(link)
@@ -717,7 +750,7 @@ export class ADocGenerator implements XsmpGenerator {
                 .${task.name}'s activities
                 [%autowidth.stretch]
                 |===
-                |Kind |Target |Details${hasDescription ? ' |Description' : ''}
+                |Kind |Target |Details${this.optionalHeader(hasDescription, 'Description')}
 
                 ${task.elements.map(activity => {
                     let kind = '';
@@ -781,7 +814,7 @@ export class ADocGenerator implements XsmpGenerator {
 
             ${this.renderDescriptionBlock(description)}
 
-            ${catalogue.elements.filter(element => ast.isNamespace(element)).map(namespace => this.generateNamespace(namespace), this).join('\n')}
+            ${catalogue.elements.filter(ast.isNamespace).map(namespace => this.generateNamespace(namespace)).join('\n')}
         `;
     }
 
@@ -963,7 +996,7 @@ export class ADocGenerator implements XsmpGenerator {
             }
             ....
 
-            ${types.map(this.generateType, this).join('\n')}
+            ${types.map(type => this.generateType(type)).join('\n')}
         `;
     }
 
@@ -1008,11 +1041,13 @@ export class ADocGenerator implements XsmpGenerator {
             case ast.Float.$type: {
                 const float = type as ast.Float;
                 const unit = this.docHelper.getUnit(float);
+                const minimumSuffix = float.range === '<..' || float.range === '<.<' ? ' (exclusive)' : '';
+                const maximumSuffix = float.range === '..<' || float.range === '<.<' ? ' (exclusive)' : '';
                 return s`
                     ${typeInfo}
                     .^h|Primitive Type |${this.crossReference(float.primitiveType ?? ['Smp', 'Float64'], float)}
-                    ${float.minimum ? `.^h|Minimum |${this.getShortValue(float.minimum)}${float.range === '<..' || float.range === '<.<' ? ' (exclusive)' : ''}` : undefined}
-                    ${float.maximum ? `.^h|Maximum |${this.getShortValue(float.maximum)}${float.range === '..<' || float.range === '<.<' ? ' (exclusive)' : ''}` : undefined}
+                    ${float.minimum ? `.^h|Minimum |${this.getShortValue(float.minimum)}${minimumSuffix}` : undefined}
+                    ${float.maximum ? `.^h|Maximum |${this.getShortValue(float.maximum)}${maximumSuffix}` : undefined}
                     ${unit ? `.^h|Unit |${unit}` : undefined}
                 `;
             }
@@ -1067,7 +1102,7 @@ export class ADocGenerator implements XsmpGenerator {
                 const inter = type as ast.Interface;
                 return s`
                     ${typeInfo}
-                    ${inter.base.length > 0 ? `.${inter.base.length}+.^h|Extends ${inter.base.map(i => `|${this.crossReference(i, inter)}`, this).join(' ')}` : undefined}
+                    ${this.renderReferenceInfoRow('Extends', inter.base, inter)}
                 `;
             }
 
@@ -1077,7 +1112,7 @@ export class ADocGenerator implements XsmpGenerator {
                 return s`
                     ${typeInfo}
                     ${component.base ? `.^h|Extends |${this.crossReference(component.base, component)}` : undefined}
-                    ${component.interface.length > 0 ? `.${component.interface.length}+.^h|Implements ${component.interface.map(i => `|${this.crossReference(i, component)}`, this).join(' ')}` : undefined}
+                    ${this.renderReferenceInfoRow('Implements', component.interface, component)}
                 `;
             }
             default:
@@ -1114,9 +1149,25 @@ export class ADocGenerator implements XsmpGenerator {
 
     private generateMermaidComponent(component: ast.Component): string {
         const interfaces = component.interface;
-        const base = component.base;
+        const baseType = component.base?.ref;
         const references = component.elements.filter(ast.isReference);
         const containers = component.elements.filter(ast.isContainer);
+        const referenceRelations = references
+            .map(ref => {
+                if (!ref.interface.ref) {
+                    return '';
+                }
+                return `${component.name} "${this.multiplicity(ref as unknown as ast.NamedElementWithMultiplicity)}" o-- ${ref.interface.ref.name} : ${ref.name}`;
+            })
+            .join('\n');
+        const containerRelations = containers
+            .map(container => {
+                if (!container.type.ref) {
+                    return '';
+                }
+                return `${component.name} "${this.multiplicity(container as unknown as ast.NamedElementWithMultiplicity)}" *-- ${container.type.ref.name} : ${container.name}`;
+            })
+            .join('\n');
         return s`
             ==== Diagram
 
@@ -1124,17 +1175,17 @@ export class ADocGenerator implements XsmpGenerator {
             [mermaid]
             ....
             classDiagram
-                ${base?.ref !== undefined ? `class ${base.ref.name} { <<${getNodeType(base.ref)}>> }` : ''}
+                ${baseType ? `class ${baseType.name} { <<${getNodeType(baseType)}>> }` : ''}
                 ${interfaces.map(interf => `class ${interf.ref?.name} { <<${getNodeType(interf.ref!)}>> }`).join('\n')}
                 ${references.map(ref => ref.interface.ref ? `class ${ref.interface.ref.name} { <<${getNodeType(ref.interface.ref)}>> }` : '').join('\n')}
                 ${containers.map(container => container.type.ref ? `class ${container.type.ref.name} { <<${getNodeType(container.type.ref)}>> }` : '').join('\n')}
                 class ${component.name} {
                     ${this.mermaidClassAttributes(component)}
                 }
-                ${base?.ref !== undefined ? `${base.ref.name} <|-- ${component.name} : extends` : undefined}
+                ${baseType ? `${baseType.name} <|-- ${component.name} : extends` : undefined}
                 ${interfaces.map(interf => `${interf.ref?.name} <|.. ${component.name} : implements`).join('\n')}
-                ${references.map(ref => ref.interface.ref ? `${component.name} "${this.multiplicity(ref as unknown as ast.NamedElementWithMultiplicity)}" o-- ${ref.interface.ref.name} : ${ref.name}` : '', this).join('\n')}
-                ${containers.map(container => container.type.ref ? `${component.name} "${this.multiplicity(container as unknown as ast.NamedElementWithMultiplicity)}" *-- ${container.type.ref.name} : ${container.name}` : '', this).join('\n')}
+                ${referenceRelations}
+                ${containerRelations}
             ....
         `;
     }
@@ -1184,15 +1235,19 @@ export class ADocGenerator implements XsmpGenerator {
         const operations = element.elements.filter(ast.isOperation);
         const maxMembers = Math.max(5, 10 - operations.length);
         const maxOperations = Math.max(5, 10 - members.length);
+        const visibleMembers = members.map(member => this.generateMermaidMembers(member)).join('\n');
+        const visibleOperations = operations.map(operation => this.generateMermaidMembers(operation)).join('\n');
+        const truncatedMembers = members.slice(0, maxMembers - 2).map(member => this.generateMermaidMembers(member)).join('\n');
+        const truncatedOperations = operations.slice(0, maxOperations - 2).map(operation => this.generateMermaidMembers(operation)).join('\n');
         return s`
             ${members.length > maxMembers ? `
-                ${members.slice(0, maxMembers - 2).map(this.generateMermaidMembers, this).join('\n')}
+                ${truncatedMembers}
                 ...
-                ` : members.map(this.generateMermaidMembers, this).join('\n')}
+                ` : visibleMembers}
             ${operations.length > maxOperations ? `
-                ${operations.slice(0, maxOperations - 2).map(this.generateMermaidMembers, this).join('\n')}
+                ${truncatedOperations}
                 ...()
-                ` : operations.map(this.generateMermaidMembers, this).join('\n')}
+                ` : visibleOperations}
         `;
     }
 
@@ -1224,7 +1279,11 @@ export class ADocGenerator implements XsmpGenerator {
             }
             case ast.Operation.$type: {
                 const op = element as ast.Operation;
-                return `${this.generateMermaidVisibility(op)}${op.name}(${op.parameter.map(param => `${param.direction ?? 'in'} ${param.type.ref?.name}`).join(', ')}) ${op.returnParameter?.type.ref?.name ?? 'void'} `;
+                const parameters = op.parameter
+                    .map(param => `${param.direction ?? 'in'} ${param.type.ref?.name}`)
+                    .join(', ');
+                const returnType = op.returnParameter?.type.ref?.name ?? 'void';
+                return `${this.generateMermaidVisibility(op)}${op.name}(${parameters}) ${returnType} `;
             }
             default:
                 return undefined;
@@ -1279,7 +1338,7 @@ export class ADocGenerator implements XsmpGenerator {
             ==== Fields
             The ${element.name} ${element.$type.toLowerCase()} provides the following fields:
 
-            ${VisibilityKinds.map(v => this.generateFieldsWithVisibility(element, v), this).filter(text => text !== undefined).join('\n')}
+            ${VisibilityKinds.map(visibility => this.generateFieldsWithVisibility(element, visibility)).filter(text => text !== undefined).join('\n')}
         `;
     }
 
@@ -1315,16 +1374,18 @@ export class ADocGenerator implements XsmpGenerator {
             .${element.name}'s ${VisibilityKind[visibility]} fields
             [%autowidth.stretch]
             |===
-            |Kind |Name |Type${hasUnit ? ' |Unit' : ''}${hasViewKind ? ' |View Kind' : ''}${hasInitialValue ? ' |Initial Value' : ''}${hasDescription ? ' |Description' : ''}
+            |Kind |Name |Type${this.optionalHeader(hasUnit, 'Unit')}${this.optionalHeader(hasViewKind, 'View Kind')}${this.optionalHeader(hasInitialValue, 'Initial Value')}${this.optionalHeader(hasDescription, 'Description')}
 
             ${fields.map(field => s`
-                |${this.getFieldKinds(field).join(', ')}
-                |${field.name}
-                |${this.crossReference(field.type, field)}
-                ${hasUnit ? `|${this.unit(field) ?? ''}` : undefined}
-                ${hasViewKind ? `|${this.viewKind(field)}` : undefined}
-                ${hasInitialValue ? `|${this.getShortValue(field.default) ?? ''}` : undefined}
-                ${hasDescription ? `|${this.escapeDescription(this.docHelper.getDescription(field))}` : undefined}
+                ${this.tableRow(
+                    this.getFieldKinds(field).join(', '),
+                    field.name,
+                    this.crossReference(field.type, field),
+                    hasUnit ? this.unit(field) ?? '' : undefined,
+                    hasViewKind ? this.viewKind(field) : undefined,
+                    hasInitialValue ? this.getShortValue(field.default) ?? '' : undefined,
+                    hasDescription ? this.escapeDescription(this.docHelper.getDescription(field)) : undefined,
+                )}
             `).join('\n')}
             |===
         `;
@@ -1348,13 +1409,15 @@ export class ADocGenerator implements XsmpGenerator {
             .${element.name}'s ${VisibilityKind[visibility]} constants
             [%autowidth.stretch]
             |===
-            |Name |Type |Value${hasDescription ? ' |Description' : ''}
+            |Name |Type |Value${this.optionalHeader(hasDescription, 'Description')}
 
             ${constants.map(constant => s`
-                |${constant.name}
-                |${this.crossReference(constant.type, constant)}
-                |${this.getShortValue(constant.value) ?? ''}
-                ${hasDescription ? `|${this.escapeDescription(this.docHelper.getDescription(constant))}` : undefined}
+                ${this.tableRow(
+                    constant.name,
+                    this.crossReference(constant.type, constant),
+                    this.getShortValue(constant.value) ?? '',
+                    hasDescription ? this.escapeDescription(this.docHelper.getDescription(constant)) : undefined,
+                )}
             `).join('\n')}
             |===
         ` : undefined;
@@ -1370,17 +1433,19 @@ export class ADocGenerator implements XsmpGenerator {
             .${element.name}'s containers
             [%autowidth.stretch]
             |===
-            |Name |Type |Minimum |Maximum${hasDescription ? ' |Description' : ''}
+            |Name |Type |Minimum |Maximum${this.optionalHeader(hasDescription, 'Description')}
 
             ${containers.map(container => {
                 const lower = getLower(container);
                 const upper = getUpper(container);
                 return s`
-                    |${container.name}
-                    |${this.crossReference(container.type, container)}
-                    |${this.getMultiplicityValue(lower)}
-                    |${this.getMultiplicityValue(upper)}
-                    ${hasDescription ? `|${this.escapeDescription(this.docHelper.getDescription(container))}` : undefined}
+                    ${this.tableRow(
+                        container.name,
+                        this.crossReference(container.type, container),
+                        this.getMultiplicityValue(lower),
+                        this.getMultiplicityValue(upper),
+                        hasDescription ? this.escapeDescription(this.docHelper.getDescription(container)) : undefined,
+                    )}
                 `;
             }).join('\n')}
             |===
@@ -1397,17 +1462,19 @@ export class ADocGenerator implements XsmpGenerator {
             .${element.name}'s references
             [%autowidth.stretch]
             |===
-            |Name |Type |Minimum |Maximum${hasDescription ? ' |Description' : ''}
+            |Name |Type |Minimum |Maximum${this.optionalHeader(hasDescription, 'Description')}
 
             ${references.map(reference => {
                 const lower = getLower(reference);
                 const upper = getUpper(reference);
                 return s`
-                    |${reference.name}
-                    |${this.crossReference(reference.interface, reference)}
-                    |${this.getMultiplicityValue(lower)}
-                    |${this.getMultiplicityValue(upper)}
-                    ${hasDescription ? `|${this.escapeDescription(this.docHelper.getDescription(reference))}` : undefined}
+                    ${this.tableRow(
+                        reference.name,
+                        this.crossReference(reference.interface, reference),
+                        this.getMultiplicityValue(lower),
+                        this.getMultiplicityValue(upper),
+                        hasDescription ? this.escapeDescription(this.docHelper.getDescription(reference)) : undefined,
+                    )}
                 `;
             }).join('\n')}
             |===
@@ -1435,13 +1502,13 @@ export class ADocGenerator implements XsmpGenerator {
                 .${element.name}'s parameters
                 [%autowidth.stretch]
                 |===
-                |Direction |Name |Type${hasDefaultValue ? ' |Default Value' : ''}${hasDescription ? ' |Description' : ''}
+                |Direction |Name |Type${this.optionalHeader(hasDefaultValue, 'Default Value')}${this.optionalHeader(hasDescription, 'Description')}
 
                 ${element.parameter.map(param => s`
-                    |${param.direction ?? 'in'} |${param.name} |${this.crossReference(param.type, param)}${hasDefaultValue ? ` |${this.getShortValue(param.default) ?? ''}` : undefined}${hasDescription ? ` |${this.escapeDescription(this.docHelper.getDescription(param))}` : undefined}
+                    |${param.direction ?? 'in'} |${param.name} |${this.crossReference(param.type, param)}${this.inlineOptionalCell(hasDefaultValue, this.getShortValue(param.default))}${this.inlineOptionalCell(hasDescription, this.escapeDescription(this.docHelper.getDescription(param)))}
                 `).join('\n')}
                 ${element.returnParameter ? s`
-                    |return |${element.returnParameter.name ?? 'return'} |${this.crossReference(element.returnParameter.type, element.returnParameter)}${hasDefaultValue ? ' |' : undefined}${hasDescription ? ` |${this.escapeDescription(this.docHelper.getDescription(element.returnParameter))}` : undefined}
+                    |return |${element.returnParameter.name ?? 'return'} |${this.crossReference(element.returnParameter.type, element.returnParameter)}${this.inlineOptionalCell(hasDefaultValue, '')}${this.inlineOptionalCell(hasDescription, this.escapeDescription(this.docHelper.getDescription(element.returnParameter)))}
                 ` : ''}
                 |===
             ` : undefined}
@@ -1458,12 +1525,14 @@ export class ADocGenerator implements XsmpGenerator {
             .${element.name}'s Event Sinks
             [%autowidth.stretch]
             |===
-            |Name |Type${hasDescription ? ' |Description' : ''}
+            |Name |Type${this.optionalHeader(hasDescription, 'Description')}
 
             ${eventSinks.map(eventSink => s`
-                |${eventSink.name}
-                |${this.crossReference(eventSink.type, eventSink)}
-                ${hasDescription ? `|${this.escapeDescription(this.docHelper.getDescription(eventSink))}` : undefined}
+                ${this.tableRow(
+                    eventSink.name,
+                    this.crossReference(eventSink.type, eventSink),
+                    hasDescription ? this.escapeDescription(this.docHelper.getDescription(eventSink)) : undefined,
+                )}
             `).join('\n')}
             |===
         ` : undefined;
@@ -1479,12 +1548,14 @@ export class ADocGenerator implements XsmpGenerator {
             .${element.name}'s Event Sources
             [%autowidth.stretch]
             |===
-            |Name |Type${hasDescription ? ' |Description' : ''}
+            |Name |Type${this.optionalHeader(hasDescription, 'Description')}
 
             ${eventSources.map(eventSource => s`
-                |${eventSource.name}
-                |${this.crossReference(eventSource.type, eventSource)}
-                ${hasDescription ? `|${this.escapeDescription(this.docHelper.getDescription(eventSource))}` : undefined}
+                ${this.tableRow(
+                    eventSource.name,
+                    this.crossReference(eventSource.type, eventSource),
+                    hasDescription ? this.escapeDescription(this.docHelper.getDescription(eventSource)) : undefined,
+                )}
             `).join('\n')}
             |===
         ` : undefined;
@@ -1501,12 +1572,14 @@ export class ADocGenerator implements XsmpGenerator {
             .${element.name}'s Entry Points
             [%autowidth.stretch]
             |===
-            |Name${hasViewKind ? ' |View Kind' : ''}${hasDescription ? ' |Description' : ''}
+            |Name${this.optionalHeader(hasViewKind, 'View Kind')}${this.optionalHeader(hasDescription, 'Description')}
 
             ${entryPoints.map(entryPoint => s`
-                |${entryPoint.name}
-                ${hasViewKind ? `|${this.viewKind(entryPoint)}` : undefined}
-                ${hasDescription ? `|${this.escapeDescription(this.docHelper.getDescription(entryPoint))}` : undefined}
+                ${this.tableRow(
+                    entryPoint.name,
+                    hasViewKind ? this.viewKind(entryPoint) : undefined,
+                    hasDescription ? this.escapeDescription(this.docHelper.getDescription(entryPoint)) : undefined,
+                )}
             `).join('\n')}
             |===
         ` : undefined;
@@ -1531,14 +1604,16 @@ export class ADocGenerator implements XsmpGenerator {
             .${element.name}'s ${VisibilityKind[visibility]} properties
             [%autowidth.stretch]
             |===
-            |Name |Type${hasCategory ? ' |Category' : ''}${hasViewKind ? ' |View Kind' : ''}${hasDescription ? ' |Description' : ''}
+            |Name |Type${this.optionalHeader(hasCategory, 'Category')}${this.optionalHeader(hasViewKind, 'View Kind')}${this.optionalHeader(hasDescription, 'Description')}
 
             ${properties.map(property => s`
-                |${property.name}
-                |${this.crossReference(property.type, property)}
-                ${hasCategory ? `|${this.docHelper.getPropertyCategory(property) ?? ''}` : undefined}
-                ${hasViewKind ? `|${this.viewKind(property)}` : undefined}
-                ${hasDescription ? `|${this.escapeDescription(this.docHelper.getDescription(property))}` : undefined}
+                ${this.tableRow(
+                    property.name,
+                    this.crossReference(property.type, property),
+                    hasCategory ? this.docHelper.getPropertyCategory(property) ?? '' : undefined,
+                    hasViewKind ? this.viewKind(property) : undefined,
+                    hasDescription ? this.escapeDescription(this.docHelper.getDescription(property)) : undefined,
+                )}
             `).join('\n')}
             |===
         ` : undefined;
@@ -1561,12 +1636,14 @@ export class ADocGenerator implements XsmpGenerator {
             .${element.name}'s ${VisibilityKind[visibility]} associations
             [%autowidth.stretch]
             |===
-            |Name |Type${hasDescription ? ' |Description' : ''}
+            |Name |Type${this.optionalHeader(hasDescription, 'Description')}
 
             ${associations.map(association => s`
-                |${association.name}
-                |${this.crossReference(association.type, association)}
-                ${hasDescription ? `|${this.escapeDescription(this.docHelper.getDescription(association))}` : undefined}
+                ${this.tableRow(
+                    association.name,
+                    this.crossReference(association.type, association),
+                    hasDescription ? this.escapeDescription(this.docHelper.getDescription(association)) : undefined,
+                )}
             `).join('\n')}
             |===
         ` : undefined;

@@ -130,8 +130,8 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
                             return false;
                         }
                         ` : ''}
-                    ${exportedTypes.map(this.registerType, this).join('\n')}
-                    ${components.map(this.registerComponent, this).join('\n')}
+                    ${exportedTypes.map(type => this.registerType(type)).join('\n')}
+                    ${components.map(component => this.registerComponent(component)).join('\n')}
                     
                     return true;
                 }
@@ -260,7 +260,7 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
     }
 
     override sourceIncludesOperation(element: ast.Operation): Include[] {
-        return ['Smp/Publication/IPublishOperation.h', ...this.sourceIncludesParameter(element.returnParameter), ...element.parameter.flatMap(param => this.sourceIncludesParameter(param), this)];
+        return ['Smp/Publication/IPublishOperation.h', ...this.sourceIncludesParameter(element.returnParameter), ...element.parameter.flatMap(param => this.sourceIncludesParameter(param))];
     }
     // End of TAS override for ecss smp compatibility version
 
@@ -449,8 +449,8 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
             ~${name}() = default;
             ${name}(const ${name}&) = default;
             ${name}(${name}&&) = default;
-            ${name}(${fields.map(f => `${this.fqn(f.type.ref)} ${f.name}`, this).join(', ')}):
-            ${fields.map(f => `${f.name}(${f.name})`, this).join(', ')} {}
+            ${name}(${fields.map(field => `${this.fqn(field.type.ref)} ${field.name}`).join(', ')}):
+            ${fields.map(field => `${field.name}(${field.name})`).join(', ')} {}
             ${name}& operator=(const ${name}&) = default;` : undefined}
             static void _Register(::Smp::Publication::ITypeRegistry* registry);
         };
@@ -470,23 +470,23 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
                         const Smp::Publication::ITypeRegistry *type_registry, Smp::Uuid typeUuid,
                         const raw_type &default_value = raw_type{}) :
                         ::TasMdk::Types::StructureType<Opts...>(name, description, parent, view, type_registry->GetType(typeUuid))${fields.length === 0 ? '' : ','}
-                       ${fields.map(f => s`
-                            /// ${f.name} initialization
-                            ${f.name}{"${f.name}", ${this.description(f)}, this, ${this.viewKind(f, 'view')},  type_registry, ${this.uuid(f.type.ref)}, default_value.${f.name}}
-                            `, this).join(',\n')} {
+                       ${fields.map(field => s`
+                            /// ${field.name} initialization
+                            ${field.name}{"${field.name}", ${this.description(field)}, this, ${this.viewKind(field, 'view')},  type_registry, ${this.uuid(field.type.ref)}, default_value.${field.name}}
+                            `).join(',\n')} {
                 }
                 
                 // copy operator
                 _${name} & operator=(const _${name} &other)
                 {
-                    ${fields.map(f => `${f.name} = other.${f.name};`, this).join('\n')}
+                    ${fields.map(field => `${field.name} = other.${field.name};`).join('\n')}
                     return *this;
                 }
                 
                 // copy operator from raw_type
                 _${name} & operator=(const raw_type &other)
                 {
-                    ${fields.map(f => `${f.name} = other.${f.name};`, this).join('\n')}
+                    ${fields.map(field => `${field.name} = other.${field.name};`).join('\n')}
                     return *this;
                 }
                 
@@ -495,7 +495,7 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
                 {
                     return {${fields.map(f => f.name).join(', ')}};
                 }
-                ${fields.map(f => `${this.structField(f)}`, this).join('\n')}
+                ${fields.map(field => this.structField(field)).join('\n')}
             };`: undefined}
         `;
     }
@@ -665,8 +665,8 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
 			    [[maybe_unused]] _Type* bluePrint,
 			    [[maybe_unused]] typename ::TasMdk::Request::Handler<_Type>::CollectionType& handlers)
 			{
-                ${type.elements.filter(ast.isOperation).map(e => this.generateRqHandlerOperation(e, gen), this).join('\n')}
-                ${type.elements.filter(ast.isProperty).map(e => this.generateRqHandlerProperty(e, gen), this).join('\n')}
+                ${type.elements.filter(ast.isOperation).map(operation => this.generateRqHandlerOperation(operation, gen)).join('\n')}
+                ${type.elements.filter(ast.isProperty).map(property => this.generateRqHandlerProperty(property, gen)).join('\n')}
 			}
             `;
     }
@@ -765,14 +765,14 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
 
     protected generateRqHandlerOperation(op: ast.Operation, _gen: boolean): string {
         const r = op.returnParameter;
-        const invokation = `component.${this.operationName(op)}(${op.parameter.map(param => `${this.attrHelper.isByPointer(param) ? '&' : ''}p_${param.name}`, this).join(', ')})`;
+        const invokation = `component.${this.operationName(op)}(${op.parameter.map(param => `${this.attrHelper.isByPointer(param) ? '&' : ''}p_${param.name}`).join(', ')})`;
         return s`
             if (handlers.find("${op.name}") == handlers.end()) {
                 handlers["${op.name}"] = [](_Type & component, [[maybe_unused]] ::Smp::IRequest* request) {
-                ${op.parameter.map(this.initParameter, this).join('\n')}
+                ${op.parameter.map(param => this.initParameter(param)).join('\n')}
                 /// Invoke ${op.name}
                 ${r ? `request->SetReturnValue({${this.primitiveTypeKind(r.type.ref)}, ${invokation}})` : `${invokation}`};
-                ${op.parameter.map(this.setParameter, this).join('\n')}
+                ${op.parameter.map(param => this.setParameter(param)).join('\n')}
                 };
             }
             `;
@@ -843,7 +843,7 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
         if (ast.isClass(type))
             return false;
         if (ast.isStructure(type))
-            return type.elements.filter(ast.isField).some(this.isCdkField, this);
+            return type.elements.filter(ast.isField).some(field => this.isCdkField(field));
         if (ast.isArrayType(type))
             return this.isCdkFieldType(type.itemType.ref);
         return false;

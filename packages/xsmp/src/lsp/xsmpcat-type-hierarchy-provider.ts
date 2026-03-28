@@ -17,7 +17,7 @@ export class XsmpcatTypeHierarchyProvider extends AbstractTypeHierarchyProvider 
     protected override getSupertypes(node: AstNode): MaybePromise<TypeHierarchyItem[] | undefined> {
         switch (node.$type) {
             case ast.Interface.$type: {
-                const items = (node as ast.Interface).base.filter(i => i.ref !== undefined).map(i => this.getXsmpTypeHierarchyItem(i.ref!), this);
+                const items = (node as ast.Interface).base.filter(i => i.ref !== undefined).map(i => this.getXsmpTypeHierarchyItem(i.ref!));
                 return items.length === 0 ? undefined : items;
             }
             case ast.Model.$type:
@@ -26,7 +26,7 @@ export class XsmpcatTypeHierarchyProvider extends AbstractTypeHierarchyProvider 
                 if ((node as ast.Component).base?.ref) {
                     items.push(this.getXsmpTypeHierarchyItem((node as ast.Component).base!.ref!));
                 }
-                items.push(...(node as ast.Component).interface.filter(i => i.ref !== undefined).map(i => this.getXsmpTypeHierarchyItem(i.ref!), this));
+                items.push(...(node as ast.Component).interface.filter(i => i.ref !== undefined).map(i => this.getXsmpTypeHierarchyItem(i.ref!)));
                 return items.length === 0 ? undefined : items;
             }
             case ast.Class.$type:

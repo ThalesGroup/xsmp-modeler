@@ -1,5 +1,4 @@
-import { AstUtils, type GrammarAST } from 'langium';
-import type { AstNodeDescription, ReferenceInfo } from 'langium';
+import { AstUtils, type AstNodeDescription, type GrammarAST, type ReferenceInfo } from 'langium';
 import type { CompletionAcceptor, CompletionContext, NextFeature } from 'langium/lsp';
 import * as ast from '../generated/ast-partial.js';
 import type { IdentifierPatternService } from '../references/identifier-pattern-service.js';
@@ -364,7 +363,7 @@ export class XsmpsedCompletionProvider extends XsmpCompletionProviderBase {
     }
 
     protected getActivityPathPrefix(linePrefix: string, keyword: string): string | undefined {
-        return new RegExp(`^\\s*${keyword}\\s+([\\w./{}]*)$`).exec(linePrefix)?.[1];
+        return new RegExp(String.raw`^\s*${keyword}\s+([\w./{}]*)$`).exec(linePrefix)?.[1];
     }
 
     protected isTopLevelPathPrefix(pathPrefix: string): boolean {

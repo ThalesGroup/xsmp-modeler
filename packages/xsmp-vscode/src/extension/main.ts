@@ -45,27 +45,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
     // New project Wizard
     context.subscriptions.push(
-        vscode.commands.registerCommand('xsmp.wizard', () => createProjectWizard(getClient()))
-    );
-    context.subscriptions.push(
-        vscode.commands.registerCommand('xsmp.newFile', async (uri?: vscode.Uri) => createXsmpStarterFileWizard(undefined, uri))
-    );
-    context.subscriptions.push(
-        vscode.commands.registerCommand('xsmp.newCatalogue', async (uri?: vscode.Uri) => createXsmpStarterFileWizard('catalogue', uri))
-    );
-    context.subscriptions.push(
-        vscode.commands.registerCommand('xsmp.newConfiguration', async (uri?: vscode.Uri) => createXsmpStarterFileWizard('configuration', uri))
-    );
-    context.subscriptions.push(
-        vscode.commands.registerCommand('xsmp.newAssembly', async (uri?: vscode.Uri) => createXsmpStarterFileWizard('assembly', uri))
-    );
-    context.subscriptions.push(
-        vscode.commands.registerCommand('xsmp.newLinkBase', async (uri?: vscode.Uri) => createXsmpStarterFileWizard('link-base', uri))
-    );
-    context.subscriptions.push(
-        vscode.commands.registerCommand('xsmp.newSchedule', async (uri?: vscode.Uri) => createXsmpStarterFileWizard('schedule', uri))
-    );
-    context.subscriptions.push(
+        vscode.commands.registerCommand('xsmp.wizard', () => createProjectWizard(getClient())),
+        vscode.commands.registerCommand('xsmp.newFile', async (uri?: vscode.Uri) => createXsmpStarterFileWizard(undefined, uri)),
+        vscode.commands.registerCommand('xsmp.newCatalogue', async (uri?: vscode.Uri) => createXsmpStarterFileWizard('catalogue', uri)),
+        vscode.commands.registerCommand('xsmp.newConfiguration', async (uri?: vscode.Uri) => createXsmpStarterFileWizard('configuration', uri)),
+        vscode.commands.registerCommand('xsmp.newAssembly', async (uri?: vscode.Uri) => createXsmpStarterFileWizard('assembly', uri)),
+        vscode.commands.registerCommand('xsmp.newLinkBase', async (uri?: vscode.Uri) => createXsmpStarterFileWizard('link-base', uri)),
+        vscode.commands.registerCommand('xsmp.newSchedule', async (uri?: vscode.Uri) => createXsmpStarterFileWizard('schedule', uri)),
         vscode.commands.registerCommand('xsmp.generate', async (uri?: vscode.Uri) => {
             const targetUri = uri?.toString() ?? vscode.window.activeTextEditor?.document.uri.toString() ?? null;
             if (!targetUri) {
@@ -74,15 +60,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
             }
             const report = await getClient().sendRequest(GenerateProject, targetUri);
             reportProjectGeneration(report, 'XSMP project generation completed.');
-        })
-    );
-    context.subscriptions.push(
+        }),
         vscode.commands.registerCommand('xsmp.generateAll', async () => {
             const report = await getClient().sendRequest(GenerateAllProjects);
             reportProjectGeneration(report, 'XSMP workspace generation completed.');
-        })
-    );
-    context.subscriptions.push(
+        }),
         vscode.commands.registerCommand('xsmp.importSmp', async (uri?: vscode.Uri) => {
             const targetUri = await resolveImportSmpTarget(uri);
             if (!targetUri) {
@@ -125,14 +107,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
                 logContributionError(error);
                 void vscode.window.showErrorMessage('SMP import failed. See "XSMP Contributions" for details.');
             }
-        })
-    );
-    context.subscriptions.push(
+        }),
         vscode.commands.registerCommand('xsmp.registerContributor', async (entries: XsmpResolvedContributionManifestEntry | XsmpResolvedContributionManifestEntry[]) => {
             const payload = Array.isArray(entries) ? entries : [entries];
             const report = await getClient().sendRequest(RegisterContributions, payload);
             reportContributionRegistration(report, 'XSMP contribution registration completed with errors.');
-        })
+        }),
     );
     registerEmbeddedDocumentation(context);
     registerGenerateOnSave(context);
@@ -251,11 +231,12 @@ function reportProjectGeneration(report: XsmpProjectGenerationReport, successPre
     const skippedCount = report.skippedProjects.length;
 
     if (skippedCount === 0) {
-        const message = generatedCount === 0
-            ? `${successPrefix} No project was generated.`
-            : generatedCount === 1
-                ? `${successPrefix} Generated project '${report.generatedProjects[0]}'.`
-                : `${successPrefix} Generated ${generatedCount} project(s).`;
+        let message = `${successPrefix} Generated ${generatedCount} project(s).`;
+        if (generatedCount === 0) {
+            message = `${successPrefix} No project was generated.`;
+        } else if (generatedCount === 1) {
+            message = `${successPrefix} Generated project '${report.generatedProjects[0]}'.`;
+        }
         void vscode.window.showInformationMessage(message);
         return;
     }
@@ -297,8 +278,7 @@ function shouldGenerateOnSave(document: vscode.TextDocument): boolean {
         return false;
     }
 
-    const activeEditor = vscode.window.activeTextEditor;
-    if (!activeEditor || activeEditor.document.uri.toString() !== document.uri.toString()) {
+    if (vscode.window.activeTextEditor?.document.uri.toString() !== document.uri.toString()) {
         return false;
     }
 
@@ -311,11 +291,12 @@ async function resolveImportSmpTarget(uri?: vscode.Uri): Promise<vscode.Uri | un
         return undefined;
     }
 
-    const resolvedCandidate = candidate.scheme === 'file'
-        ? candidate
-        : candidate.scheme === 'xsmp-smp'
-            ? toVscodeUri(getSmpMirrorSourceUri(URI.parse(candidate.toString())))
-            : undefined;
+    let resolvedCandidate: vscode.Uri | undefined;
+    if (candidate.scheme === 'file') {
+        resolvedCandidate = candidate;
+    } else if (candidate.scheme === 'xsmp-smp') {
+        resolvedCandidate = toVscodeUri(getSmpMirrorSourceUri(URI.parse(candidate.toString())));
+    }
 
     if (!resolvedCandidate) {
         return undefined;

@@ -11,7 +11,7 @@ import { registerXsmpprojectValidationChecks } from './validation/xsmpproject-va
 import { registerXsmpasbValidationChecks } from './validation/xsmpasb-validator.js';
 import { registerXsmplnkValidationChecks } from './validation/xsmplnk-validator.js';
 import { registerXsmpsedValidationChecks } from './validation/xsmpsed-validator.js';
-import { XsmpWorkspaceManager } from './workspace/workspace-manager.js';
+import { BuiltinDirectoryProvider, XsmpWorkspaceManager } from './workspace/workspace-manager.js';
 import { XsmpIndexManager } from './workspace/index-manager.js';
 import { XsmpNodeKindProvider } from './lsp/node-kind-provider.js';
 import { XsmpDocumentGenerator } from './workspace/document-generator.js';
@@ -39,7 +39,6 @@ import { registerXsmpcfgValidationChecks } from './validation/xsmpcfg-validator.
 import { XsmpContributionRegistry } from './contributions/xsmp-contribution-registry.js';
 import { XsmpDocumentUpdateHandler } from './lsp/document-update-handler.js';
 import { SmpMirrorManager, SmpWorkspaceIndex, XsmpLangiumDocumentFactory } from './smp/index.js';
-import { BuiltinDirectoryProvider } from './workspace/workspace-manager.js';
 
 export type XsmpServices = LangiumServices & { shared: XsmpSharedServices; }
 export interface XsmpModuleContext extends DefaultSharedModuleContext {
