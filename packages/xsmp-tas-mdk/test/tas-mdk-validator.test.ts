@@ -235,7 +235,7 @@ async function loadTasMdkCatalogue(
         path.join(tempDir, 'xsmp.project'),
         [
             'project "Demo" using "ECSS_SMP_2025"',
-            'profile "org.eclipse.xsmp.profile.tas-mdk"',
+            'profile "tas-mdk"',
             'source "src"',
             '',
         ].join('\n'),

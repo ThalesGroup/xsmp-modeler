@@ -53,7 +53,7 @@ function createProgram(io: CliIo, onValidate: CliAction, onGenerate: CliAction, 
     program
         .name('xsmpproject-cli')
         .description('Validate and generate XSMP projects.')
-        .version(xsmpVersion)
+        .version(process.env.XSMP_CLI_VERSION ?? xsmpVersion)
         .showHelpAfterError()
         .configureOutput({
             writeOut: text => io.stdout(text),

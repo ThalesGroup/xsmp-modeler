@@ -36,6 +36,7 @@
         "coverage:raw": "vitest run --coverage",
         "docs:build": "python3 -m mkdocs build --strict",
         "docs:serve": "python3 -m mkdocs serve",
+        "package:cli:bundle": "npm run build && node ./scripts/build-cli-bundle.mjs",
         "package:modeler": "npm run build && npm run package -w xsmp-modeler -- --no-dependencies",
         "package:tas-mdk": "npm run build && npm run package -w xsmp-tas-mdk",
         "package": "npm run build && npm run package -w xsmp-modeler -- --no-dependencies && npm run package -w xsmp-tas-mdk",

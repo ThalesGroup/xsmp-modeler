@@ -7,6 +7,6 @@ export const xsmpContributionPackage: XsmpContributionPackage = {
     name: '@xsmp/tool-smp',
     extensionId: '@xsmp/tool-smp',
     descriptorUrl: new URL('./smp.xsmptool', import.meta.url),
-    aliases: ['org.eclipse.xsmp.tool.smp'],
+    deprecatedAliases: ['org.eclipse.xsmp.tool.smp'],
     registerContribution,
 };

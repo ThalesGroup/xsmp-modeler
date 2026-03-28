@@ -18,7 +18,7 @@ let validator: TasMdkValidator;
  */
 export function registerTasMdkValidationChecks(
     services: XsmpcatServices,
-    category: string = 'org.eclipse.xsmp.profile.tas-mdk',
+    category: string = 'tas-mdk',
 ) {
     const registry = services.validation.ValidationRegistry;
     validator = new TasMdkValidator(services);

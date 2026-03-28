@@ -6,7 +6,7 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as ast from 'xsmp/ast-partial';
 import { createXsmpServices, isSmpMirrorDocument } from 'xsmp';
-import { cliBuiltinContributionPackages } from './builtin-packages.js';
+import { getCliBuiltinContributionPackages, getCliBuiltinDirectory } from './builtin-packages.js';
 
 const ignoredWorkspaceDirectories = new Set([
     '.git',
@@ -75,8 +75,9 @@ export function createConsoleIo(): CliIo {
 }
 
 export async function createCliServices() {
-    const services = createXsmpServices(NodeFileSystem);
-    const report = await services.shared.ContributionRegistry.registerBuiltinPackages(cliBuiltinContributionPackages);
+    const builtinDir = await getCliBuiltinDirectory();
+    const services = createXsmpServices(builtinDir ? { ...NodeFileSystem, builtinDir } : NodeFileSystem);
+    const report = await services.shared.ContributionRegistry.registerBuiltinPackages(await getCliBuiltinContributionPackages());
     if (report.failures.length > 0) {
         const details = report.failures.map(failure => `[${failure.phase}] ${failure.extensionId}: ${failure.message}`).join('\n');
         throw new CliError(`Built-in XSMP contribution initialization failed:\n${details}`, 2);

@@ -40,12 +40,14 @@ jobs:
       shell: bash
       run: npm run build
 
-    - name: Package CLI
+    - name: Package CLI bundle
       id: cli
       shell: bash
       run: |
-        CLI_TGZ="$(npm pack -w @xsmp/cli --json | jq -r '.[0].filename')"
-        echo "artifact=$CLI_TGZ" >> "$GITHUB_OUTPUT"
+        node ./scripts/build-cli-bundle.mjs
+        CLI_BUNDLE="$(find out/cli-bundle -maxdepth 1 -type f -name 'xsmpproject-cli-*.cjs' -print -quit)"
+        test -n "$CLI_BUNDLE"
+        echo "artifact=$CLI_BUNDLE" >> "$GITHUB_OUTPUT"
 
     - name: Package XSMP Modeler VSIX
       id: modeler

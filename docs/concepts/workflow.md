@@ -49,11 +49,7 @@ Those examples show how catalogues, configurations, assemblies, links and schedu
 
 ## 5. Validate early
 
-Use validation continuously in the editor. For workspace-level checks or CI, use the CLI:
-
-```bash
-xsmpproject-cli validate path/to/project
-```
+Use validation continuously in the editor and fix issues as soon as they appear.
 
 ## 6. Generate outputs
 
@@ -61,12 +57,6 @@ In VS Code, you can either rely on automatic generation on save when `xsmp.gener
 
 - `Xsmp: Generate Project`
 - `Xsmp: Generate All Projects`
-
-Or use the CLI:
-
-```bash
-xsmpproject-cli generate path/to/project
-```
 
 Generation uses the active profile and tools of the target project.
 

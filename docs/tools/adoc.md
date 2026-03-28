@@ -22,22 +22,18 @@ tool 'adoc'
 
 The tool contributes:
 
-- generation of AsciiDoc outputs for:
-  - `xsmpcat`
-  - `xsmpcfg`
-  - `xsmpasb`
-  - `xsmplnk`
-  - `xsmpsed`
+- generation of AsciiDoc outputs for catalogues, configurations, assemblies, link bases and schedules
 - wizard templates for a `doc/` folder and theme files
 
-Typical wizard-created files include:
+Typical files added by the tool include:
 
 - `doc/<project-identifier>.adoc`
 - `doc/themes/default.yml`
+- `adoc-gen/<source-basename>-gen.adoc`
 
 Generated outputs are written to `adoc-gen/` in the project root.
 
-Each source document produces one file named from the source file basename:
+Each supported source document produces one file named from the source file basename:
 
 - `mission_catalogue.xsmpcat` -> `adoc-gen/mission_catalogue-gen.adoc`
 - `mission_schedule.xsmpsed` -> `adoc-gen/mission_schedule-gen.adoc`

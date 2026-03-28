@@ -4,6 +4,7 @@ import { xsmpContributionPackage as adocTool } from '@xsmp/tool-adoc';
 import { xsmpContributionPackage as pythonTool } from '@xsmp/tool-python';
 import { xsmpContributionPackage as smpTool } from '@xsmp/tool-smp';
 import { xsmpContributionPackage as tasMdkProfile } from 'xsmp-tas-mdk';
+import type { XsmpContributionPackage } from 'xsmp/contributions';
 
 export const cliBuiltinContributionPackages = [
     smpTool,
@@ -13,3 +14,11 @@ export const cliBuiltinContributionPackages = [
     esaCdkProfile,
     tasMdkProfile,
 ] as const;
+
+export async function getCliBuiltinContributionPackages(): Promise<readonly XsmpContributionPackage[]> {
+    return cliBuiltinContributionPackages;
+}
+
+export async function getCliBuiltinDirectory(): Promise<string | undefined> {
+    return undefined;
+}

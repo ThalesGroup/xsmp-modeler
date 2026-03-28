@@ -21,10 +21,10 @@ tool 'python'
 
 The tool contributes:
 
-- Python-related generation
+- Python-related generation for supported XSMP workflows
 - wizard templates for Python test assets
 
-Typical wizard-created files include:
+Typical files added by the tool include:
 
 - `pytest.ini`
 - `python/<project-identifier>/test_<project-identifier>.py`
@@ -39,4 +39,4 @@ tool 'python'
 
 ## Expected result
 
-With `python` enabled, XSMP Modeler can generate Python-oriented outputs and prepare the project for Python-based testing workflows.
+With `python` enabled, XSMP Modeler can generate Python-oriented outputs and prepare the project for Python-based testing workflows around the active profile and tools.

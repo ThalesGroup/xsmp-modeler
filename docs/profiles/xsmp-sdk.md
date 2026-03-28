@@ -22,22 +22,12 @@ profile 'xsmp-sdk'
 
 The profile contributes:
 
+- a convenient default profile in the project wizard
 - wizard templates for an XSMP SDK-style project
 - project files such as `CMakeLists.txt` and `README.md`
 - profile-specific generation on top of your XSMP sources
 
-## Typical wizard result
-
-When selected in the wizard, the profile prepares a project layout that is immediately usable with the XSMP SDK build workflow.
-
-Typical additions include:
-
-- `CMakeLists.txt`
-- `README.md`
-
-## Typical use with tools
-
-The profile is often combined with the `smp` tool:
+## Typical project snippet
 
 ```text
 project 'mission-demo'
@@ -46,7 +36,6 @@ profile 'xsmp-sdk'
 tool 'smp'
 ```
 
-This gives you:
+## Expected result
 
-- XSMP SDK-oriented project scaffolding
-- SMP XML generation from your XSMP sources
+With this profile enabled, scaffolding and generation produce an XSMP SDK-oriented project layout that is ready for the usual XSMP SDK build workflow.

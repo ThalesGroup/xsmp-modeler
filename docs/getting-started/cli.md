@@ -16,23 +16,24 @@ The CLI currently provides two commands:
 - a project directory containing `xsmp.project`
 - or the `xsmp.project` file itself
 
-## Local usage from this repository
+## Run from a GitHub release
 
-From a local checkout, use:
+Download the CLI artifact `xsmpproject-cli-<version>.cjs` from the
+[GitHub Releases page](https://github.com/ThalesGroup/xsmp-modeler/releases).
+
+The release artifact is a single JavaScript file. Run it with Node.js `20.19.0`
+or newer:
 
 ```bash
-npm run cli -- validate examples/04-orbital-segment
+node xsmpproject-cli-<version>.cjs --help
 ```
 
 ```bash
-npm run cli -- generate examples/04-orbital-segment
+node xsmpproject-cli-<version>.cjs validate path/to/project
 ```
 
-If the CLI is installed as a command on your machine, you can also use:
-
 ```bash
-xsmpproject-cli validate path/to/project
-xsmpproject-cli generate path/to/project
+node xsmpproject-cli-<version>.cjs generate path/to/project
 ```
 
 ## Workspace root discovery
@@ -80,17 +81,17 @@ The CLI uses these exit codes:
 Validate a project directory:
 
 ```bash
-xsmpproject-cli validate path/to/missionsystem
+node xsmpproject-cli-<version>.cjs validate path/to/missionsystem
 ```
 
 Validate a project file explicitly:
 
 ```bash
-xsmpproject-cli validate path/to/missionsystem/xsmp.project
+node xsmpproject-cli-<version>.cjs validate path/to/missionsystem/xsmp.project
 ```
 
 Generate with an explicit workspace root:
 
 ```bash
-xsmpproject-cli generate path/to/missionsystem --workspace-root path/to/workspace
+node xsmpproject-cli-<version>.cjs generate path/to/missionsystem --workspace-root path/to/workspace
 ```

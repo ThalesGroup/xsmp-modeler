@@ -7,6 +7,6 @@ export const xsmpContributionPackage: XsmpContributionPackage = {
     name: '@xsmp/tool-adoc',
     extensionId: '@xsmp/tool-adoc',
     descriptorUrl: new URL('./adoc.xsmptool', import.meta.url),
-    aliases: ['org.eclipse.xsmp.tool.adoc'],
+    deprecatedAliases: ['org.eclipse.xsmp.tool.adoc'],
     registerContribution,
 };

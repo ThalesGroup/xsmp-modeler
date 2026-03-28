@@ -34,6 +34,6 @@ profile 'esa-cdk'
 tool 'smp'
 ```
 
-## Expected outcome
+## Expected result
 
 With this profile enabled, generation and scaffolding produce outputs aligned with the ESA CDK environment instead of the XSMP SDK-oriented layout.

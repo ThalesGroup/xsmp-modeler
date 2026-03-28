@@ -21,9 +21,9 @@ Add this to `xsmp.project`:
 tool 'smp'
 ```
 
-## What it generates
+## What it adds
 
-The tool writes generated outputs under:
+The tool contributes generation of SMP XML artifacts under:
 
 ```text
 smdl-gen/
@@ -46,19 +46,6 @@ depending on which XSMP documents exist in the project.
 project 'orbitalsegment'
 source 'smdl'
 tool 'smp'
-```
-
-## How to run it
-
-From VS Code:
-
-- `Xsmp: Generate Project`
-- `Xsmp: Generate All Projects`
-
-From the CLI:
-
-```bash
-xsmpproject-cli generate path/to/project
 ```
 
 ## Expected result
