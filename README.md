@@ -22,6 +22,10 @@ The published documentation covers:
 
 ## Installation
 
+Install **XSMP Modeler** from the Visual Studio Marketplace:
+
+- <https://marketplace.visualstudio.com/items?itemName=ydaveluy.xsmp-modeler>
+
 ## Sponsors
 
 <a href="https://cnes.fr"><img src="packages/xsmp-vscode/icons/logo_cnes.png" align="center" height="121" width="142" alt="Cnes"></a>
