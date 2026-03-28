@@ -61,6 +61,9 @@ jobs:
           -Dsonar.organization=ydaveluy
           -Dsonar.sources=packages/
           -Dsonar.exclusions=**/generated/**,**/out/**,**/lib/**,**/.types/**
+          -Dsonar.c.file.suffixes=-
+          -Dsonar.cpp.file.suffixes=-
+          -Dsonar.objc.file.suffixes=-
           -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
           -Dsonar.coverage.exclusions=**/*.test.*
           -Dsonar.tests=packages/
