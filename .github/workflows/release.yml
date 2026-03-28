@@ -1,0 +1,84 @@
+name: Release
+
+permissions:
+  contents: write
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    name: Publish GitHub Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Use Node.js
+      uses: actions/setup-node@v6
+      with:
+        node-version: '20.19.0'
+
+    - name: Validate release tag
+      shell: bash
+      run: |
+        CLI_VERSION="$(jq -r '.version' packages/xsmp-cli/package.json)"
+        MODELER_VERSION="$(jq -r '.version' packages/xsmp-vscode/package.json)"
+        TAS_MDK_VERSION="$(jq -r '.version' packages/xsmp-tas-mdk/package.json)"
+        test "$CLI_VERSION" = "$MODELER_VERSION"
+        test "$CLI_VERSION" = "$TAS_MDK_VERSION"
+        test "v$CLI_VERSION" = "$GITHUB_REF_NAME"
+
+    - name: Install dependencies
+      shell: bash
+      run: npm ci
+
+    - name: Build workspace
+      shell: bash
+      run: npm run build
+
+    - name: Package CLI
+      id: cli
+      shell: bash
+      run: |
+        CLI_TGZ="$(npm pack -w @xsmp/cli --json | jq -r '.[0].filename')"
+        echo "artifact=$CLI_TGZ" >> "$GITHUB_OUTPUT"
+
+    - name: Package XSMP Modeler VSIX
+      id: modeler
+      shell: bash
+      run: |
+        npm run package -w xsmp-modeler -- --no-dependencies
+        MODELER_VSIX="$(find packages/xsmp-vscode -maxdepth 1 -name '*.vsix' -print -quit)"
+        test -n "$MODELER_VSIX"
+        echo "artifact=$MODELER_VSIX" >> "$GITHUB_OUTPUT"
+
+    - name: Package TAS-MDK VSIX
+      id: tas_mdk
+      shell: bash
+      run: |
+        npm run package -w xsmp-tas-mdk
+        TAS_MDK_VSIX="$(find packages/xsmp-tas-mdk -maxdepth 1 -name '*.vsix' -print -quit)"
+        test -n "$TAS_MDK_VSIX"
+        echo "artifact=$TAS_MDK_VSIX" >> "$GITHUB_OUTPUT"
+
+    - name: Create or update GitHub release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      shell: bash
+      run: |
+        TAG="$GITHUB_REF_NAME"
+        ASSETS=(
+          "${{ steps.cli.outputs.artifact }}"
+          "${{ steps.modeler.outputs.artifact }}"
+          "${{ steps.tas_mdk.outputs.artifact }}"
+        )
+
+        if gh release view "$TAG" >/dev/null 2>&1; then
+          gh release upload "$TAG" "${ASSETS[@]}" --clobber
+        else
+          gh release create "$TAG" "${ASSETS[@]}" --generate-notes --verify-tag
+        fi

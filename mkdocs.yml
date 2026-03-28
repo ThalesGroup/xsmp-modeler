@@ -40,7 +40,7 @@ nav:
       - Recommended Workflow: concepts/workflow.md
   - Languages:
       - Overview: languages/overview.md
-      - xsmp.project, .xsmpprofile and .xsmptool: languages/xsmpproject.md
+      - xsmp.project: languages/xsmpproject.md
       - XSMP Catalogue (.xsmpcat): languages/xsmpcat.md
       - XSMP Configuration (.xsmpcfg): languages/xsmpcfg.md
       - XSMP Assembly (.xsmpasb): languages/xsmpasb.md
