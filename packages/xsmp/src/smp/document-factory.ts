@@ -18,11 +18,7 @@ export class XsmpLangiumDocumentFactory extends DefaultLangiumDocumentFactory im
         cancellationToken = Cancellation.CancellationToken.None,
     ): Promise<LangiumDocument<T>> {
         if (isSmpMirrorDocument(uri)) {
-            const content = await this.smpMirrorManager.getOrCreateMirrorContent(uri);
-            if (content === undefined) {
-                throw new Error(`No SMP mirror content is available for '${uri.toString()}'.`);
-            }
-            return this.createAsync<T>(uri, content, cancellationToken);
+            return this.createAsync<T>(uri, await this.getMirrorContentOrFallback(uri), cancellationToken);
         }
         return await super.fromUri(uri, cancellationToken);
     }
@@ -35,10 +31,7 @@ export class XsmpLangiumDocumentFactory extends DefaultLangiumDocumentFactory im
             return await super.update(document, cancellationToken);
         }
 
-        const text = await this.smpMirrorManager.getOrCreateMirrorContent(document.uri);
-        if (text === undefined) {
-            throw new Error(`No SMP mirror content is available for '${document.uri.toString()}'.`);
-        }
+        const text = await this.getMirrorContentOrFallback(document.uri);
 
         const oldText = document.parseResult.value.$cstNode?.root.fullText;
         const textDocumentGetter = this.createTextDocumentGetter(document.uri, text);
@@ -50,5 +43,17 @@ export class XsmpLangiumDocumentFactory extends DefaultLangiumDocumentFactory im
         }
         document.state = DocumentState.Parsed;
         return document;
+    }
+
+    protected async getMirrorContentOrFallback(uri: URI): Promise<string> {
+        const content = await this.smpMirrorManager.getOrCreateMirrorContent(uri);
+        if (content !== undefined) {
+            return content;
+        }
+
+        // VS Code can attempt to reopen readonly virtual mirror documents after the
+        // underlying SMP source disappeared or was renamed. Keep the server alive and
+        // surface an empty document instead of crashing the language server process.
+        return '';
     }
 }

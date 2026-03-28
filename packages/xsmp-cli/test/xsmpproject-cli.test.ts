@@ -270,6 +270,36 @@ namespace app
         expect(fs.existsSync(path.join(tempDir, 'demo.xsmpcat'))).toBe(true);
     });
 
+    test('imports an SMP catalogue with external refs resolved from indexed subdirectories', async () => {
+        const dependencyDirectory = path.join(tempDir, 'deps');
+        fs.mkdirSync(dependencyDirectory, { recursive: true });
+        fs.writeFileSync(path.join(dependencyDirectory, 'dependency.smpcat'), `<?xml version="1.0" encoding="UTF-8"?>
+<Catalogue:Catalogue xmlns:Catalogue="http://www.ecss.nl/smp/2025/Smdl/Catalogue" xmlns:Elements="http://www.ecss.nl/smp/2025/Core/Elements" xmlns:Types="http://www.ecss.nl/smp/2025/Core/Types" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" Id="dep" Name="dependency">
+  <Namespace Name="dep">
+    <Type xsi:type="Types:Structure" Id="dep.struct.indexed" Name="IndexedStruct"/>
+  </Namespace>
+</Catalogue:Catalogue>
+`, 'utf-8');
+
+        const inputPath = path.join(tempDir, 'demo.smpcat');
+        fs.writeFileSync(inputPath, `<?xml version="1.0" encoding="UTF-8"?>
+<Catalogue:Catalogue xmlns:Catalogue="http://www.ecss.nl/smp/2025/Smdl/Catalogue" xmlns:Elements="http://www.ecss.nl/smp/2025/Core/Elements" xmlns:Types="http://www.ecss.nl/smp/2025/Core/Types" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" Id="main" Name="main">
+  <Namespace Name="main">
+    <Type xsi:type="Types:Structure" Id="main.LocalStruct" Name="LocalStruct">
+      <Field Id="main.LocalStruct.external" Name="external">
+        <Type xlink:href="dependency.smpcat#dep.struct.indexed"/>
+      </Field>
+    </Type>
+  </Namespace>
+</Catalogue:Catalogue>
+`, 'utf-8');
+
+        const result = await runCliWithOutput(['import-smp', inputPath]);
+
+        expect(result.exitCode).toBe(0);
+        expect(fs.readFileSync(path.join(tempDir, 'demo.xsmpcat'), 'utf-8')).toContain('field dep.IndexedStruct external');
+    });
+
     test('imports an SMP configuration to an explicit output path', async () => {
         const inputPath = path.join(tempDir, 'demo.smpcfg');
         const outputPath = path.join(tempDir, 'generated', 'demo.xsmpcfg');

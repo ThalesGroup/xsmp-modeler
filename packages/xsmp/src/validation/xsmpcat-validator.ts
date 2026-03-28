@@ -977,7 +977,7 @@ export class XsmpcatValidator {
     checkReference(reference: ast.Reference, accept: ValidationAcceptor): void {
         if (this.checkTypeReference(accept, reference, reference.interface?.ref, ast.Reference.interface)
             && this.getSmpStandard(reference) === 'ECSS_SMP_2020'
-            && !ast.isInterface(reference.interface?.ref)) {
+            && !ast.isInterface(reference.interface.ref)) {
             accept('error', 'A Reference in ECSS_SMP_2020 shall target an Interface.', {
                 node: reference,
                 property: ast.Reference.interface

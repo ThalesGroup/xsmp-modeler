@@ -1,8 +1,5 @@
-import type { WorkspaceFolder } from 'vscode-languageserver-protocol';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { URI } from 'vscode-uri';
-import type { XsmpSharedServices } from '../../xsmp-module.js';
 import {
     detectSmpImportKind,
     extractHrefFragment,
@@ -14,15 +11,6 @@ import {
     type SmpXmlObject,
 } from './shared.js';
 import type { SmpWorkspaceIndex } from '../workspace-index.js';
-
-const ignoredSearchDirectories = new Set([
-    '.git',
-    '.tsbuildinfo',
-    'coverage',
-    'lib',
-    'node_modules',
-    'out',
-]);
 
 export interface SmpImportedTypeInfo {
     readonly qname: string;
@@ -40,18 +28,15 @@ interface SmpExternalDocumentIndex {
 
 export class SmpExternalReferenceResolver {
     protected readonly inputDirectory: string;
-    protected readonly searchRoots: readonly string[];
     protected readonly documentIndexCache = new Map<string, SmpExternalDocumentIndex | null>();
-    protected workspaceFileIndex: Map<string, string[]> | undefined;
-    protected readonly workspaceIndex?: SmpWorkspaceIndex;
+    protected readonly workspaceIndex: SmpWorkspaceIndex;
     protected readonly ambiguousHrefWarnings = new Set<string>();
     protected readonly mismatchedKindWarnings = new Set<string>();
     protected readonly unsupportedHrefWarnings = new Set<string>();
     protected readonly unresolvedIdWarnings = new Set<string>();
 
-    constructor(services: XsmpSharedServices, inputPath: string, workspaceIndex?: SmpWorkspaceIndex) {
+    constructor(inputPath: string, workspaceIndex: SmpWorkspaceIndex) {
         this.inputDirectory = path.dirname(path.resolve(inputPath));
-        this.searchRoots = collectSearchRoots(services.workspace.WorkspaceManager.workspaceFolders, this.inputDirectory);
         this.workspaceIndex = workspaceIndex;
     }
 
@@ -170,7 +155,7 @@ export class SmpExternalReferenceResolver {
             return undefined;
         }
 
-        const cachedIndex = this.workspaceIndex?.getCachedExternalDocumentIndex(externalPath) as SmpExternalDocumentIndex | null | undefined;
+        const cachedIndex = this.workspaceIndex.getCachedExternalDocumentIndex(externalPath) as SmpExternalDocumentIndex | null | undefined;
         if (cachedIndex !== undefined) {
             return cachedIndex ?? undefined;
         }
@@ -183,7 +168,7 @@ export class SmpExternalReferenceResolver {
             parsedDocument = parseSmpXml(fs.readFileSync(externalPath, 'utf-8'));
         } catch {
             this.documentIndexCache.set(externalPath, null);
-            this.workspaceIndex?.setCachedExternalDocumentIndex(externalPath, null);
+            this.workspaceIndex.setCachedExternalDocumentIndex(externalPath, null);
             return undefined;
         }
 
@@ -195,7 +180,7 @@ export class SmpExternalReferenceResolver {
                 warnings.push(`External ${fallbackLabel} file '${externalPath}' is not a supported SMP import document; falling back to title or fragment text.`);
             }
             this.documentIndexCache.set(externalPath, null);
-            this.workspaceIndex?.setCachedExternalDocumentIndex(externalPath, null);
+            this.workspaceIndex.setCachedExternalDocumentIndex(externalPath, null);
             return undefined;
         }
         if (expectedKinds && !expectedKinds.includes(kind)) {
@@ -209,7 +194,7 @@ export class SmpExternalReferenceResolver {
 
         const index = buildExternalDocumentIndex(kind, parsedDocument.root);
         this.documentIndexCache.set(externalPath, index);
-        this.workspaceIndex?.setCachedExternalDocumentIndex(externalPath, index);
+        this.workspaceIndex.setCachedExternalDocumentIndex(externalPath, index);
         return index;
     }
 
@@ -233,9 +218,6 @@ export class SmpExternalReferenceResolver {
             directCandidates.add(path.resolve(normalizedPart));
         } else {
             directCandidates.add(path.resolve(this.inputDirectory, normalizedPart));
-            for (const root of this.searchRoots) {
-                directCandidates.add(path.resolve(root, normalizedPart));
-            }
         }
 
         for (const candidate of directCandidates) {
@@ -245,89 +227,23 @@ export class SmpExternalReferenceResolver {
         }
 
         const basename = path.basename(normalizedPart);
-        const candidates = this.findWorkspaceCandidates(basename, normalizedPart);
+        const candidates = this.workspaceIndex.findWorkspaceCandidates(basename, normalizedPart, this.inputDirectory);
         if (candidates.length === 0) {
             return undefined;
         }
 
-        const selected = candidates[0];
-        if (candidates.length > 1 && !this.ambiguousHrefWarnings.has(`${filePart}:${selected}`)) {
-            this.ambiguousHrefWarnings.add(`${filePart}:${selected}`);
-            warnings.push(`Multiple SMP files match external ${fallbackLabel} href '${filePart}'; using '${selected}'.`);
-        }
-        return selected;
-    }
-
-    protected findWorkspaceCandidates(basename: string, normalizedPart: string): string[] {
-        if (this.workspaceIndex) {
-            return this.workspaceIndex.findWorkspaceCandidates(basename, normalizedPart, this.inputDirectory);
-        }
-        const index = this.getWorkspaceFileIndex();
-        const normalizedSuffix = normalizeForComparison(normalizedPart);
-        return [...(index.get(basename) ?? [])]
-            .filter(candidate => {
-                if (!normalizedPart.includes(path.sep) && !normalizedPart.includes('/')) {
-                    return true;
-                }
-                return normalizeForComparison(candidate).endsWith(normalizedSuffix);
-            })
-            .sort((left, right) => compareWorkspaceCandidates(left, right, this.inputDirectory));
-    }
-
-    protected getWorkspaceFileIndex(): Map<string, string[]> {
-        if (this.workspaceFileIndex) {
-            return this.workspaceFileIndex;
-        }
-
-        const index = new Map<string, string[]>();
-        for (const root of this.searchRoots) {
-            this.scanWorkspaceFiles(root, index);
-        }
-        this.workspaceFileIndex = index;
-        return index;
-    }
-
-    protected scanWorkspaceFiles(root: string, index: Map<string, string[]>): void {
-        if (!isDirectory(root)) {
-            return;
-        }
-
-        let entries: fs.Dirent[];
-        try {
-            entries = fs.readdirSync(root, { withFileTypes: true });
-        } catch {
-            return;
-        }
-
-        for (const entry of entries) {
-            if (entry.isDirectory()) {
-                if (!ignoredSearchDirectories.has(entry.name)) {
-                    this.scanWorkspaceFiles(path.join(root, entry.name), index);
-                }
-                continue;
+        if (candidates.length > 1) {
+            const warningKey = `${filePart}:${candidates.join('|')}`;
+            if (!this.ambiguousHrefWarnings.has(warningKey)) {
+                this.ambiguousHrefWarnings.add(warningKey);
+                warnings.push(
+                    `Multiple SMP files match external ${fallbackLabel} href '${filePart}': ${candidates.map(candidate => `'${candidate}'`).join(', ')}. Not selecting one.`,
+                );
             }
-            if (!entry.isFile()) {
-                continue;
-            }
-            if (!entry.name.endsWith('.smpcat')
-                && !entry.name.endsWith('.smpcfg')
-                && !entry.name.endsWith('.smplnk')
-                && !entry.name.endsWith('.smpasb')
-                && !entry.name.endsWith('.smpsed')
-                && !entry.name.endsWith('.smppkg')) {
-                continue;
-            }
-
-            const candidate = path.join(root, entry.name);
-            const existing = index.get(entry.name);
-            if (existing) {
-                if (!existing.includes(candidate)) {
-                    existing.push(candidate);
-                }
-            } else {
-                index.set(entry.name, [candidate]);
-            }
+            return undefined;
         }
+
+        return candidates[0];
     }
 }
 
@@ -468,17 +384,6 @@ function createExternalDocumentIndex(
     };
 }
 
-function collectSearchRoots(workspaceFolders: readonly WorkspaceFolder[] | undefined, inputDirectory: string): readonly string[] {
-    const searchRoots = new Set<string>([path.resolve(inputDirectory)]);
-    for (const folder of workspaceFolders ?? []) {
-        const uri = URI.parse(folder.uri);
-        if (uri.scheme === 'file') {
-            searchRoots.add(path.resolve(uri.fsPath));
-        }
-    }
-    return [...searchRoots];
-}
-
 function extractExternalFilePart(href: string | undefined): string | undefined {
     if (!href || href.startsWith('#')) {
         return undefined;
@@ -491,26 +396,8 @@ function normalizeSearchPath(value: string): string {
     return value.replaceAll('/', path.sep).replaceAll('\\', path.sep);
 }
 
-function normalizeForComparison(value: string): string {
-    return path.normalize(value).replaceAll('\\', '/');
-}
-
-function compareWorkspaceCandidates(left: string, right: string, inputDirectory: string): number {
-    const leftDistance = path.relative(inputDirectory, left).split(path.sep).length;
-    const rightDistance = path.relative(inputDirectory, right).split(path.sep).length;
-    return leftDistance - rightDistance || left.localeCompare(right);
-}
-
 function looksLikeRemoteUri(value: string): boolean {
     return /^https?:\/\//iu.test(value);
-}
-
-function isDirectory(candidate: string): boolean {
-    try {
-        return fs.statSync(candidate).isDirectory();
-    } catch {
-        return false;
-    }
 }
 
 function isFile(candidate: string): boolean {

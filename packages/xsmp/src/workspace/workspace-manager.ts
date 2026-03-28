@@ -16,7 +16,7 @@ export function resolveBuiltinDir(explicitDir?: string): string {
     ];
     const formattedCandidateDirs = candidateDirs.map(dir => `'${dir}'`).join(', ');
     for (const builtinDir of candidateDirs) {
-        if (fs.existsSync(path.join(builtinDir, 'ecss.smp@ECSS_SMP_2025.xsmpcat'))) {
+        if (fs.existsSync(path.join(builtinDir, 'ecss.smp.l1@ECSS_SMP_2025.xsmpcat'))) {
             return builtinDir;
         }
     }

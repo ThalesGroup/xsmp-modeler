@@ -26,7 +26,7 @@ const publicEntryPoints = {
     '@xsmp/tool-python': path.join(repoRoot, 'packages', 'xsmp-tool-python', 'src', 'index.ts'),
     '@xsmp/profile-xsmp-sdk': path.join(repoRoot, 'packages', 'xsmp-profile-xsmp-sdk', 'src', 'index.ts'),
     '@xsmp/profile-esa-cdk': path.join(repoRoot, 'packages', 'xsmp-profile-esa-cdk', 'src', 'index.ts'),
-    '@xsmp/profile-tas-mdk': path.join(repoRoot, 'packages', 'xsmp-profile-tas-mdk', 'src', 'index.ts'),
+    'xsmp-tas-mdk': path.join(repoRoot, 'packages', 'xsmp-tas-mdk', 'src', 'index.ts'),
 } as const;
 
 function escapeRegExp(value: string): string {

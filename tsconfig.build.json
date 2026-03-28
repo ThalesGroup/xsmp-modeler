@@ -7,7 +7,7 @@
         { "path": "./packages/xsmp-tool-python/tsconfig.src.json" },
         { "path": "./packages/xsmp-profile-xsmp-sdk/tsconfig.src.json" },
         { "path": "./packages/xsmp-profile-esa-cdk/tsconfig.src.json" },
-        { "path": "./packages/xsmp-profile-tas-mdk/tsconfig.src.json" },
+        { "path": "./packages/xsmp-tas-mdk/tsconfig.src.json" },
         { "path": "./packages/xsmp-cli/tsconfig.src.json" }
     ]
 }

@@ -37,6 +37,8 @@ afterEach(async () => {
     if (documents.length > 0) {
         await clearDocuments(services.shared, documents.splice(0));
     }
+    services.shared.SmpWorkspaceIndex.setEligibleSourcePaths([]);
+    await services.shared.SmpWorkspaceIndex.rebuildSearchRoots([]);
     while (tempDirs.length > 0) {
         fs.rmSync(tempDirs.pop()!, { recursive: true, force: true });
     }
@@ -67,7 +69,7 @@ describe('SMP importer', () => {
         const result = await importer.importFile({ inputPath });
         const importedText = fs.readFileSync(result.outputPath, 'utf-8');
         const projectDocument = await parseProject(
-            `project 'demo' using 'ECSS_SMP_2020'\nsource 'src'\n`,
+            'project \'demo\' using \'ECSS_SMP_2020\'\nsource \'src\'\n',
             { documentUri: URI.file(path.join(tempDir, 'xsmp.project')).toString() }
         );
         const document = await parseCatalogue(importedText, { documentUri: URI.file(path.join(tempDir, 'src', 'test.xsmpcat')).toString() });
@@ -125,7 +127,7 @@ describe('SMP importer', () => {
         const result = await importer.importFile({ inputPath });
         const importedText = fs.readFileSync(result.outputPath, 'utf-8');
         const projectDocument = await parseProject(
-            `project 'demo' using 'ECSS_SMP_2025'\nsource 'src'\ntool 'smp'\n`,
+            'project \'demo\' using \'ECSS_SMP_2025\'\nsource \'src\'\ntool \'smp\'\n',
             { documentUri: URI.file(path.join(tempDir, 'xsmp.project')).toString() }
         );
         const document = await parseConfiguration(importedText, { documentUri: URI.file(path.join(tempDir, 'src', 'test.xsmpcfg')).toString() });
@@ -335,6 +337,130 @@ describe('SMP importer', () => {
 
         expect(result.warnings).toEqual([]);
         expect(importedText).toContain('field dep.ExternalStruct external');
+    });
+
+    test('resolves external catalogue href ids from a prebuilt workspace index', async () => {
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-smp-import-indexed-cat-'));
+        tempDirs.push(tempDir);
+        const dependencyDirectory = path.join(tempDir, 'deps');
+        const inputDirectory = path.join(tempDir, 'inbox');
+        fs.mkdirSync(dependencyDirectory, { recursive: true });
+        fs.mkdirSync(inputDirectory, { recursive: true });
+
+        fs.writeFileSync(path.join(dependencyDirectory, 'dependency.smpcat'), `<?xml version="1.0" encoding="UTF-8"?>
+<Catalogue:Catalogue xmlns:Catalogue="http://www.ecss.nl/smp/2025/Smdl/Catalogue" xmlns:Elements="http://www.ecss.nl/smp/2025/Core/Elements" xmlns:Types="http://www.ecss.nl/smp/2025/Core/Types" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" Id="dep" Name="dependency">
+  <Namespace Name="dep">
+    <Type xsi:type="Types:Structure" Id="dep.struct.prebuilt" Name="PrebuiltStruct"/>
+  </Namespace>
+</Catalogue:Catalogue>
+`, 'utf-8');
+
+        const inputPath = path.join(inputDirectory, 'main.smpcat');
+        fs.writeFileSync(inputPath, `<?xml version="1.0" encoding="UTF-8"?>
+<Catalogue:Catalogue xmlns:Catalogue="http://www.ecss.nl/smp/2025/Smdl/Catalogue" xmlns:Elements="http://www.ecss.nl/smp/2025/Core/Elements" xmlns:Types="http://www.ecss.nl/smp/2025/Core/Types" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" Id="main" Name="main">
+  <Namespace Name="main">
+    <Type xsi:type="Types:Structure" Id="main.LocalStruct" Name="LocalStruct">
+      <Field Id="main.LocalStruct.external" Name="external">
+        <Type xlink:href="dependency.smpcat#dep.struct.prebuilt"/>
+      </Field>
+    </Type>
+  </Namespace>
+</Catalogue:Catalogue>
+`, 'utf-8');
+
+        const importer = new SmpImportService(services.shared);
+        const workspaceIndex = services.shared.SmpWorkspaceIndex;
+        await workspaceIndex.rebuildSearchRoots([tempDir]);
+
+        const result = await importer.renderImportedDocument({
+            inputPath,
+            outputUri: URI.file(path.join(inputDirectory, 'main.xsmpcat')),
+            workspaceIndex,
+        });
+
+        expect(result.warnings).toEqual([]);
+        expect(result.content).toContain('field dep.PrebuiltStruct external');
+    });
+
+    test('resolves external catalogue href ids from indexed subdirectories during standalone imports', async () => {
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-smp-import-subdir-cat-'));
+        tempDirs.push(tempDir);
+        const dependencyDirectory = path.join(tempDir, 'deps');
+        fs.mkdirSync(dependencyDirectory, { recursive: true });
+
+        fs.writeFileSync(path.join(dependencyDirectory, 'dependency.smpcat'), `<?xml version="1.0" encoding="UTF-8"?>
+<Catalogue:Catalogue xmlns:Catalogue="http://www.ecss.nl/smp/2025/Smdl/Catalogue" xmlns:Elements="http://www.ecss.nl/smp/2025/Core/Elements" xmlns:Types="http://www.ecss.nl/smp/2025/Core/Types" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" Id="dep" Name="dependency">
+  <Namespace Name="dep">
+    <Type xsi:type="Types:Structure" Id="dep.struct.indexed" Name="IndexedStruct"/>
+  </Namespace>
+</Catalogue:Catalogue>
+`, 'utf-8');
+
+        const inputPath = path.join(tempDir, 'main.smpcat');
+        fs.writeFileSync(inputPath, `<?xml version="1.0" encoding="UTF-8"?>
+<Catalogue:Catalogue xmlns:Catalogue="http://www.ecss.nl/smp/2025/Smdl/Catalogue" xmlns:Elements="http://www.ecss.nl/smp/2025/Core/Elements" xmlns:Types="http://www.ecss.nl/smp/2025/Core/Types" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" Id="main" Name="main">
+  <Namespace Name="main">
+    <Type xsi:type="Types:Structure" Id="main.LocalStruct" Name="LocalStruct">
+      <Field Id="main.LocalStruct.external" Name="external">
+        <Type xlink:href="dependency.smpcat#dep.struct.indexed"/>
+      </Field>
+    </Type>
+  </Namespace>
+</Catalogue:Catalogue>
+`, 'utf-8');
+
+        const importer = new SmpImportService(services.shared);
+        const result = await importer.importFile({ inputPath });
+        const importedText = fs.readFileSync(result.outputPath, 'utf-8');
+
+        expect(result.warnings).toEqual([]);
+        expect(importedText).toContain('field dep.IndexedStruct external');
+    });
+
+    test('warns when multiple indexed SMP files match the same external href without selecting one arbitrarily', async () => {
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-smp-import-ambiguous-cat-'));
+        tempDirs.push(tempDir);
+        const selectedPath = path.join(tempDir, 'a', 'dependency.smpcat');
+        const secondaryPath = path.join(tempDir, 'b', 'dependency.smpcat');
+        fs.mkdirSync(path.dirname(selectedPath), { recursive: true });
+        fs.mkdirSync(path.dirname(secondaryPath), { recursive: true });
+
+        fs.writeFileSync(selectedPath, `<?xml version="1.0" encoding="UTF-8"?>
+<Catalogue:Catalogue xmlns:Catalogue="http://www.ecss.nl/smp/2025/Smdl/Catalogue" xmlns:Elements="http://www.ecss.nl/smp/2025/Core/Elements" xmlns:Types="http://www.ecss.nl/smp/2025/Core/Types" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" Id="dep" Name="dependency">
+  <Namespace Name="dep">
+    <Type xsi:type="Types:Structure" Id="dep.struct.selected" Name="SelectedStruct"/>
+  </Namespace>
+</Catalogue:Catalogue>
+`, 'utf-8');
+        fs.writeFileSync(secondaryPath, `<?xml version="1.0" encoding="UTF-8"?>
+<Catalogue:Catalogue xmlns:Catalogue="http://www.ecss.nl/smp/2025/Smdl/Catalogue" xmlns:Elements="http://www.ecss.nl/smp/2025/Core/Elements" xmlns:Types="http://www.ecss.nl/smp/2025/Core/Types" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" Id="dep" Name="dependency">
+  <Namespace Name="dep">
+    <Type xsi:type="Types:Structure" Id="dep.struct.selected" Name="SecondaryStruct"/>
+  </Namespace>
+</Catalogue:Catalogue>
+`, 'utf-8');
+
+        const inputPath = path.join(tempDir, 'main.smpcat');
+        fs.writeFileSync(inputPath, `<?xml version="1.0" encoding="UTF-8"?>
+<Catalogue:Catalogue xmlns:Catalogue="http://www.ecss.nl/smp/2025/Smdl/Catalogue" xmlns:Elements="http://www.ecss.nl/smp/2025/Core/Elements" xmlns:Types="http://www.ecss.nl/smp/2025/Core/Types" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" Id="main" Name="main">
+  <Namespace Name="main">
+    <Type xsi:type="Types:Structure" Id="main.LocalStruct" Name="LocalStruct">
+      <Field Id="main.LocalStruct.external" Name="external">
+        <Type xlink:href="dependency.smpcat#dep.struct.selected"/>
+      </Field>
+    </Type>
+  </Namespace>
+</Catalogue:Catalogue>
+`, 'utf-8');
+
+        const importer = new SmpImportService(services.shared);
+        const result = await importer.importFile({ inputPath });
+        const importedText = fs.readFileSync(result.outputPath, 'utf-8');
+
+        expect(result.warnings).toEqual([
+            `Multiple SMP files match external field type href 'dependency.smpcat': '${selectedPath}', '${secondaryPath}'. Not selecting one.`,
+        ]);
+        expect(importedText).toContain('field dep.struct.selected external');
     });
 
     test('resolves external configuration includes by id when no xlink:title is present', async () => {

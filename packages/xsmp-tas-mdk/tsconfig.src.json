@@ -4,7 +4,7 @@
         "paths": {},
         "rootDir": "src",
         "outDir": "lib",
-        "tsBuildInfoFile": "./.tsbuildinfo/xsmp-profile-tas-mdk.src.tsbuildinfo"
+        "tsBuildInfoFile": "./.tsbuildinfo/xsmp-tas-mdk.src.tsbuildinfo"
     },
     "references": [
         { "path": "../xsmp/tsconfig.src.json" }

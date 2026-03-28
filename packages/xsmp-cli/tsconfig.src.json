@@ -13,7 +13,7 @@
         { "path": "../xsmp-tool-python/tsconfig.src.json" },
         { "path": "../xsmp-profile-xsmp-sdk/tsconfig.src.json" },
         { "path": "../xsmp-profile-esa-cdk/tsconfig.src.json" },
-        { "path": "../xsmp-profile-tas-mdk/tsconfig.src.json" }
+        { "path": "../xsmp-tas-mdk/tsconfig.src.json" }
     ],
     "include": [
         "src/**/*.ts"

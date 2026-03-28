@@ -6,6 +6,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { FileChangeType, type DidChangeWatchedFilesParams, type LocationLink, type TextDocumentPositionParams } from 'vscode-languageserver';
 import { createXsmpServices } from 'xsmp';
+import { createSmpMirrorDescriptor } from 'xsmp/smp';
 import { resolveServerFileContent } from 'xsmp/lsp';
 import { createBuiltinTestXsmpServices } from '../test-services.js';
 
@@ -442,6 +443,36 @@ namespace demo::avionics
 
         const avionicsDocumentAfter = services.shared.workspace.LangiumDocuments.getDocument(avionicsUri);
         expect(avionicsDocumentAfter?.diagnostics?.some(diagnostic => diagnostic.message.includes('Could not resolve reference'))).not.toBe(true);
+    });
+
+    test('keeps the server alive when a stale SMP mirror document is reopened', async () => {
+        const projectDir = createProject(tempDir, 'app', `
+project 'app'
+using 'ECSS_SMP_2025'
+source 'src'
+`, {});
+
+        const services = await createBuiltinTestXsmpServices(NodeFileSystem);
+        await services.shared.workspace.WorkspaceManager.initializeWorkspace([
+            { name: 'app', uri: URI.file(projectDir).toString() },
+        ]);
+
+        const staleSourcePath = path.join(projectDir, 'src', 'renamed-away.smpcat');
+        const staleDescriptor = createSmpMirrorDescriptor(staleSourcePath);
+        expect(staleDescriptor).toBeDefined();
+
+        const staleDocument = services.shared.workspace.LangiumDocumentFactory.fromString('', staleDescriptor!.mirrorUri);
+        services.shared.workspace.LangiumDocuments.addDocument(staleDocument);
+
+        await expect(
+            services.shared.workspace.DocumentBuilder.update(
+                [staleDescriptor!.mirrorUri],
+                [],
+                Cancellation.CancellationToken.None,
+            ),
+        ).resolves.toBeUndefined();
+
+        expect(services.shared.workspace.LangiumDocuments.getDocument(staleDescriptor!.mirrorUri)?.textDocument.getText()).toBe('');
     });
 });
 

@@ -1,7 +1,7 @@
 import { afterEach, beforeAll, describe, test } from 'vitest';
 import * as path from 'node:path';
-import { TasMdkGenerator, TasMdkPythonGenerator } from '@xsmp/profile-tas-mdk';
 import { setClangFormat, setGeneratedBy } from 'xsmp/generator';
+import { TasMdkGenerator, TasMdkPythonGenerator } from 'xsmp-tas-mdk';
 import {
     assertGeneratedTree,
     cleanupProfileGeneratorTestContext,
@@ -23,7 +23,7 @@ afterEach(async () => {
     await cleanupProfileGeneratorTestContext(context);
 });
 
-describe('@xsmp/profile-tas-mdk generators', () => {
+describe('xsmp-tas-mdk generators', () => {
     test('generates the expected C++ tree', async () => {
         const document = await parseProfileGeneratorFixture(context);
         const generator = new TasMdkGenerator(context.services.shared);

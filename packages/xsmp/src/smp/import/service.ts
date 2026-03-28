@@ -10,6 +10,10 @@ import { importLinkBase } from './linkbase.js';
 import { SmpExternalReferenceResolver } from './reference-resolver.js';
 import { importSchedule } from './schedule.js';
 import {
+    collectSmpSearchRoots,
+    type SmpWorkspaceIndex,
+} from '../workspace-index.js';
+import {
     detectSmpImportKind,
     fileExists,
     getDefaultImportedXsmpPath,
@@ -20,7 +24,6 @@ import {
     type SmpImportResult,
     type SmpXmlObject,
 } from './shared.js';
-import type { SmpWorkspaceIndex } from '../workspace-index.js';
 
 type SmpDocumentImporter = (
     root: SmpXmlObject,
@@ -79,14 +82,22 @@ export class SmpImportService {
         await this.awaitWorkspaceReady(request.workspaceIndex);
 
         const inputPath = path.resolve(request.inputPath);
+        const workspaceIndex = request.workspaceIndex ?? this.services.SmpWorkspaceIndex;
         const parsedDocument = await parseSmpXmlFile(inputPath);
         const kind = detectSmpImportKind(parsedDocument);
         if (!kind) {
             throw new Error(`Unsupported SMP XML root '${parsedDocument.rootKey}'. Supported imports are Catalogue, Configuration, Link Base, Assembly, and Schedule.`);
         }
 
+        await workspaceIndex.ensureSearchRoots(
+            collectSmpSearchRoots(
+                this.services.workspace.WorkspaceManager.workspaceFolders,
+                [path.dirname(inputPath)],
+            ),
+        );
+
         const warnings: string[] = [];
-        const referenceResolver = new SmpExternalReferenceResolver(this.services, inputPath, request.workspaceIndex);
+        const referenceResolver = new SmpExternalReferenceResolver(inputPath, workspaceIndex);
         const content = this.importParsedDocument(kind, parsedDocument.root, warnings, referenceResolver);
         await this.ensureImportedDocumentParses(content, request.outputUri);
 

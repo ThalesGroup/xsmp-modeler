@@ -41,7 +41,7 @@
             "@xsmp/tool-python": ["packages/xsmp-tool-python/src/index.ts"],
             "@xsmp/profile-xsmp-sdk": ["packages/xsmp-profile-xsmp-sdk/src/index.ts"],
             "@xsmp/profile-esa-cdk": ["packages/xsmp-profile-esa-cdk/src/index.ts"],
-            "@xsmp/profile-tas-mdk": ["packages/xsmp-profile-tas-mdk/src/index.ts"]
+            "xsmp-tas-mdk": ["packages/xsmp-tas-mdk/src/index.ts"]
         }
     },
     "include": [

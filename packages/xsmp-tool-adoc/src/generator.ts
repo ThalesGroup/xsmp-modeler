@@ -253,14 +253,14 @@ export class ADocGenerator implements XsmpGenerator {
         if (ref.ref) {
             return qualified && ast.isNamedElement(ref.ref) ? fqn(ref.ref, '::') : (ref.ref.name ?? '');
         }
-        return ref.$refText ?? '';
+        return ref.$refText;
     }
 
     private formatImplementation(model: ast.ModelInstance): string {
         if (model.implementation?.ref) {
             return fqn(model.implementation.ref, '::');
         }
-        return model.implementation?.$refText ?? model.strImplementation ?? '';
+        return model.implementation?.$refText || model.strImplementation || '';
     }
 
     private formatTemplateParameter(parameter: ast.TemplateParameter): { type: string; defaultValue: string } {
@@ -281,7 +281,7 @@ export class ADocGenerator implements XsmpGenerator {
     }
 
     private formatTemplateArgument(parameter: ast.TemplateArgument): string {
-        const name = parameter.parameter.ref?.name ?? parameter.parameter.$refText ?? '';
+        const name = parameter.parameter.ref?.name || parameter.parameter.$refText || '';
         switch (parameter.$type) {
             case ast.Int32Argument.$type:
                 return `${name} = ${(parameter as ast.Int32Argument).value.toString()}`;
@@ -708,7 +708,7 @@ export class ADocGenerator implements XsmpGenerator {
             [%autowidth.stretch]
             |===
             ${this.infoRow('Name', task.name)}
-            ${this.infoRow('Context', this.formatReferenceName(task.context, true))}
+            ${this.infoRow('Component', this.formatReferenceName(task.context, true))}
             |===
 
             ${task.elements.length > 0 ? s`
@@ -891,7 +891,7 @@ export class ADocGenerator implements XsmpGenerator {
             [%autowidth.stretch]
             |===
             ${this.infoRow('Path', this.formatPath(component.name))}
-            ${this.infoRow('Context', this.formatReferenceName(component.context, true))}
+            ${this.infoRow('Type', this.formatReferenceName(component.context, true))}
             |===
 
             ${this.renderConfigurationIncludes(includes, level + 1, 'Includes')}

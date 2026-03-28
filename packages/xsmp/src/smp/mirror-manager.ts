@@ -11,12 +11,15 @@ import { isSmpMirrorDocument } from '../builtins.js';
 import type { XsmpSharedServices } from '../xsmp-module.js';
 import { SmpImportService } from './import/service.js';
 import {
+    collectSmpSearchRoots,
+    type SmpWorkspaceIndex,
+} from './workspace-index.js';
+import {
     getSmpMirrorSourceUri,
     getXsmpHomologuePath,
     isSmpSourceFilePath,
     isXsmpSourceFilePath,
 } from './mirror-uri.js';
-import type { SmpWorkspaceIndex } from './workspace-index.js';
 
 const ignoredDirectories = new Set([
     '.git',
@@ -142,6 +145,12 @@ export class SmpMirrorManager {
         const eligibleSourcePaths = await this.collectEligibleSourcePaths();
 
         this.workspaceIndex.setEligibleSourcePaths(eligibleSourcePaths);
+        await this.workspaceIndex.rebuildSearchRoots(
+            collectSmpSearchRoots(
+                this.services.workspace.WorkspaceManager.workspaceFolders,
+                eligibleSourcePaths.map(sourcePath => path.dirname(sourcePath)),
+            ),
+        );
 
         for (const sourcePath of eligibleSourcePaths) {
             if (cancelToken.isCancellationRequested) {

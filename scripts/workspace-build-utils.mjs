@@ -10,9 +10,9 @@ export const builtinWorkspacePackages = [
     { name: '@xsmp/tool-python', shortName: 'tool-python', dir: path.join(repoRoot, 'packages', 'xsmp-tool-python') },
     { name: '@xsmp/profile-xsmp-sdk', shortName: 'profile-xsmp-sdk', dir: path.join(repoRoot, 'packages', 'xsmp-profile-xsmp-sdk') },
     { name: '@xsmp/profile-esa-cdk', shortName: 'profile-esa-cdk', dir: path.join(repoRoot, 'packages', 'xsmp-profile-esa-cdk') },
-    { name: '@xsmp/profile-tas-mdk', shortName: 'profile-tas-mdk', dir: path.join(repoRoot, 'packages', 'xsmp-profile-tas-mdk') },
+    { name: 'xsmp-tas-mdk', shortName: 'xsmp-tas-mdk', dir: path.join(repoRoot, 'packages', 'xsmp-tas-mdk') },
 ];
 
 export const vscodeBuiltinWorkspacePackages = builtinWorkspacePackages.filter(
-    builtinPackage => builtinPackage.name !== '@xsmp/profile-tas-mdk',
+    builtinPackage => builtinPackage.name !== 'xsmp-tas-mdk',
 );

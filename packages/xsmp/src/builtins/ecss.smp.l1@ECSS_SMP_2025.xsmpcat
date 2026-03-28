@@ -6,7 +6,7 @@
  * @version 1.0
  */
 
-catalogue ecss_smp_smp
+catalogue ecss_smp_l1
 
 /**
  * Namespace for standard attributes

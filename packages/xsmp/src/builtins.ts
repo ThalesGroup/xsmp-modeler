@@ -5,7 +5,7 @@ export const smpMirrorScheme = 'xsmp-smp';
 
 const standardBuiltinExportNames = new Map<string, string>([
     ['ecss.smp@ECSS_SMP_2020.xsmpcat', 'http://www.ecss.nl/smp/2019/Smdl'],
-    ['ecss.smp@ECSS_SMP_2025.xsmpcat', 'http://www.ecss.nl/smp/2019/Smdl'],
+    ['ecss.smp.l1@ECSS_SMP_2025.xsmpcat', 'http://www.ecss.nl/smp/2019/Smdl'],
     ['ecss.smp.l2@ECSS_SMP_2025.xsmpcat', 'ecss.smp.l2.smpcat'],
 ]);
 

@@ -1,0 +1,4 @@
+/**
+ * Thales Alenia Space specific TAS-MDK contribution
+ */
+profile 'org.eclipse.xsmp.profile.tas-mdk'

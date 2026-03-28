@@ -104,7 +104,9 @@ export class ProjectManager {
 
     protected computeStandaloneVisibleUris(document: LangiumDocument): Set<string> {
         const standard = this.getBuiltinStandard(document.uri) ?? 'ECSS_SMP_2020';
-        return this.collectCoreBuiltinUris(standard);
+        const uris = this.collectCoreBuiltinUris(standard);
+        uris.add(document.uri.toString());
+        return uris;
     }
 
     protected computeVisibleUris(project: ast.Project): Set<string> {

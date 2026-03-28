@@ -503,9 +503,6 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
             if (char === '{') {
                 return index;
             }
-            if (char === ':') {
-                return -1;
-            }
         }
         return -1;
     }
