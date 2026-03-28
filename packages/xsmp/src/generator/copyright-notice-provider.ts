@@ -16,8 +16,6 @@ export function getCopyrightNotice(document: LangiumDocument | undefined, prefix
 }
 
 const slPattern = /^\/\/ ?/;
-const mlEndsPattern = /(^\/\*+)|(\*+\/$)/g;
-const mlMiddlePattern = /\r?\n *\* ?/g;
 
 function computeCopyrightNotice(document: LangiumDocument): string | undefined {
 
@@ -41,9 +39,7 @@ function computeCopyrightNotice(document: LangiumDocument): string | undefined {
             }
 
             return processVariables(
-                node.text.replaceAll(mlEndsPattern, '')
-                    .replaceAll(mlMiddlePattern, '\n')
-                    .trim()
+                stripMultilineComment(node.text).trim()
             );
         }
         if (node.tokenType.name === 'SL_COMMENT') {
@@ -68,3 +64,60 @@ function processVariables(input: string): string {
         .replaceAll('${date}', now.toDateString());
 }
 
+function stripMultilineComment(input: string): string {
+    const lines = input
+        .replaceAll('\r\n', '\n')
+        .replaceAll('\r', '\n')
+        .split('\n');
+
+    if (lines.length === 0) {
+        return '';
+    }
+
+    lines[0] = stripMultilineCommentStart(lines[0]);
+    lines[lines.length - 1] = stripMultilineCommentEnd(lines[lines.length - 1]);
+
+    return lines.map((line, index) => index === 0 ? line : stripMultilineCommentBody(line)).join('\n');
+}
+
+function stripMultilineCommentStart(line: string): string {
+    if (!line.startsWith('/*')) {
+        return line;
+    }
+    let index = 2;
+    while (index < line.length && line[index] === '*') {
+        index++;
+    }
+    if (line[index] === ' ') {
+        index++;
+    }
+    return line.slice(index);
+}
+
+function stripMultilineCommentEnd(line: string): string {
+    if (!line.endsWith('*/')) {
+        return line;
+    }
+    let end = line.length - 2;
+    while (end > 0 && line[end - 1] === '*') {
+        end--;
+    }
+    if (end > 0 && line[end - 1] === ' ') {
+        end--;
+    }
+    return line.slice(0, end);
+}
+
+function stripMultilineCommentBody(line: string): string {
+    let index = 0;
+    while (index < line.length && line[index] === ' ') {
+        index++;
+    }
+    if (line[index] === '*') {
+        index++;
+        if (line[index] === ' ') {
+            index++;
+        }
+    }
+    return line.slice(index);
+}

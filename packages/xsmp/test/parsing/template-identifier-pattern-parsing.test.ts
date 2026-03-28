@@ -52,11 +52,15 @@ describe('Template identifier pattern parsing', () => {
 });
 
 function checkDocumentValid(document: LangiumDocument): string | undefined {
-    return document.parseResult.parserErrors.length
-        ? document.parseResult.parserErrors.map(error => error.message).join('\n')
-        : document.parseResult.value === undefined
-            ? `ParseResult is 'undefined'.`
-            : !isConfiguration(document.parseResult.value)
-                ? `Root AST object is a ${document.parseResult.value.$type}, expected a '${Configuration}'.`
-                : undefined;
+    if (document.parseResult.parserErrors.length) {
+        return document.parseResult.parserErrors.map(error => error.message).join('\n');
+    }
+    const root = document.parseResult.value;
+    if (root === undefined) {
+        return `ParseResult is 'undefined'.`;
+    }
+    if (!isConfiguration(root)) {
+        return `Root AST object is a ${String(root.$type)}, expected a '${Configuration}'.`;
+    }
+    return undefined;
 }

@@ -2,6 +2,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import * as crypto from 'node:crypto';
+import type { FileHandle } from 'node:fs/promises';
 import * as vscode from 'vscode';
 import type { XsmpStarterFileKind } from './file-wizard-templates.js';
 import {
@@ -42,13 +43,20 @@ export async function createXsmpStarterFileWizard(
     const content = template.content.replace('${uuid}', crypto.randomUUID());
     const filePath = path.join(targetDirectory, template.fileName);
 
-    if (fs.existsSync(filePath)) {
-        void vscode.window.showErrorMessage(`${template.label} file '${filePath}' already exists.`);
-        return;
-    }
-
     await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
-    await fs.promises.writeFile(filePath, content, 'utf8');
+    let fileHandle: FileHandle | undefined;
+    try {
+        fileHandle = await fs.promises.open(filePath, 'wx');
+        await fileHandle.writeFile(content, 'utf8');
+    } catch (error) {
+        if (isNodeErrorWithCode(error, 'EEXIST')) {
+            void vscode.window.showErrorMessage(`${template.label} file '${filePath}' already exists.`);
+            return;
+        }
+        throw error;
+    } finally {
+        await fileHandle?.close();
+    }
 
     const document = await vscode.workspace.openTextDocument(filePath);
     await vscode.window.showTextDocument(document);
@@ -132,4 +140,11 @@ async function promptStarterFileName(kind: XsmpStarterFileKind): Promise<string 
 
         await vscode.window.showErrorMessage('File name must follow the format [A-Za-z][A-Za-z0-9_.-]*');
     }
+}
+
+function isNodeErrorWithCode(error: unknown, code: string): error is NodeJS.ErrnoException {
+    return typeof error === 'object'
+        && error !== null
+        && 'code' in error
+        && error.code === code;
 }

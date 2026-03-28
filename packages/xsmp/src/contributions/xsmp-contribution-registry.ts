@@ -489,17 +489,21 @@ export class XsmpContributionRegistry {
         currentPath: string,
         collector: LangiumDocument[],
     ): Promise<void> {
-        const stat = await fs.promises.stat(currentPath);
-        if (stat.isDirectory()) {
-            const entries = await fs.promises.readdir(currentPath);
-            await Promise.all(entries.map(entry => this.collectBuiltinDocuments(extensionId, extensionRoot, path.join(currentPath, entry), collector)));
+        try {
+            const entries = await fs.promises.readdir(currentPath, { withFileTypes: true });
+            await Promise.all(entries.map(entry =>
+                this.collectBuiltinDocuments(extensionId, extensionRoot, path.join(currentPath, entry.name), collector)
+            ));
             return;
+        } catch (error) {
+            if (!isNodeErrorWithCode(error, 'ENOTDIR')) {
+                throw error;
+            }
         }
 
-        if (!stat.isFile() || !this.validFileExtensions.has(path.extname(currentPath))) {
+        if (!this.validFileExtensions.has(path.extname(currentPath))) {
             return;
         }
-
         const relativePath = path.relative(extensionRoot, currentPath);
         const content = await fs.promises.readFile(currentPath, 'utf-8');
         collector.push(this.documentFactory.fromString(content, contributionUri(extensionId, relativePath)));
@@ -655,6 +659,13 @@ export class XsmpContributionRegistry {
             Cancellation.CancellationToken.None,
         );
     }
+}
+
+function isNodeErrorWithCode(error: unknown, code: string): error is NodeJS.ErrnoException {
+    return typeof error === 'object'
+        && error !== null
+        && 'code' in error
+        && error.code === code;
 }
 
 export function resolveContributionManifestEntries(

@@ -26,7 +26,14 @@ ${constants.map(constName => `export const ${constName} = ast.${constName};`).jo
 
 `;
 
-const previousOutput = fs.existsSync(outputFile) ? fs.readFileSync(outputFile, 'utf-8') : undefined;
+let previousOutput;
+try {
+    previousOutput = fs.readFileSync(outputFile, 'utf-8');
+} catch (error) {
+    if (error?.code !== 'ENOENT') {
+        throw error;
+    }
+}
 if (previousOutput !== output) {
     fs.writeFileSync(outputFile, output, 'utf-8');
 }

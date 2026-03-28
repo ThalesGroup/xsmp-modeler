@@ -122,5 +122,19 @@ describe('Copyright provider tests', () => {
         );
     });
 
+    test('single line block copyright', async () => {
+        document = await parse(`
+            /* copyright notice */
+            catalogue Test`);
+
+        expect(
+            CopyrightNoticeProvider.getCopyrightNotice(document)
+        ).toBe('copyright notice');
+
+        expect(
+            CopyrightNoticeProvider.getCopyrightNotice(document, '//')
+        ).toBe('//copyright notice');
+    });
+
 
 });

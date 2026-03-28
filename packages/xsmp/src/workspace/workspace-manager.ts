@@ -99,22 +99,20 @@ export class XsmpWorkspaceManager extends DefaultWorkspaceManager {
         excludedTopLevelEntries: ReadonlySet<string> = new Set(),
     ): Promise<void> {
         try {
-            const entries = await fs.promises.readdir(currentDir);
+            const entries = await fs.promises.readdir(currentDir, { withFileTypes: true });
 
             await Promise.all(entries.map(async (entry) => {
-                if (relativePath.length === 0 && excludedTopLevelEntries.has(entry)) {
+                if (relativePath.length === 0 && excludedTopLevelEntries.has(entry.name)) {
                     return;
                 }
-                const entryPath = path.join(currentDir, entry);
-                const entryRelativePath = path.join(relativePath, entry);
+                const entryPath = path.join(currentDir, entry.name);
+                const entryRelativePath = path.join(relativePath, entry.name);
 
                 try {
-                    const stat = await fs.promises.stat(entryPath);
-
-                    if (stat.isDirectory()) {
+                    if (entry.isDirectory()) {
                         await this.loadBuiltinDocuments(entryPath, collector, entryRelativePath, excludedTopLevelEntries);
                     }
-                    else if (stat.isFile() && this.validFileExtension.includes(path.extname(entry))) {
+                    else if (entry.isFile() && this.validFileExtension.includes(path.extname(entry.name))) {
                         const content = await fs.promises.readFile(entryPath, 'utf-8');
                         collector(this.documentFactory.fromString(content, URI.parse(`${builtInScheme}:///${entryRelativePath}`)));
                     }

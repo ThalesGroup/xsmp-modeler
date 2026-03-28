@@ -138,9 +138,6 @@ export class EnumerationLiteralValue extends Value<EnumerationLiteralValue> {
     override primitiveTypeKind(): PTK { return PTK.Enum; }
 
 }
-const INT64_MAX = BigInt('0x7FFFFFFFFFFFFFFF');
-const UINT32_MAX = 0xFFFFFFFFn;
-const INT32_MAX = 0x7FFFFFFFn;
 export class IntegralValue extends Value<IntegralValue> {
     readonly value: bigint;
     readonly type: IntegralPTK;
@@ -165,13 +162,13 @@ export class IntegralValue extends Value<IntegralValue> {
         const value = BigInt(text);
 
         let type: IntegralPTK;
-        if (value > INT64_MAX) {
+        if (value > 0x7FFFFFFFFFFFFFFFn) {
             type = PTK.UInt64;
         }
-        else if (value > UINT32_MAX) {
+        else if (value > 0xFFFFFFFFn) {
             type = isUnsigned ? PTK.UInt64 : PTK.Int64;
         }
-        else if (value > INT32_MAX) {
+        else if (value > 0x7FFFFFFFn) {
             if (isUnsigned) {
                 type = isLong ? PTK.UInt64 : PTK.UInt32;
             } else {
