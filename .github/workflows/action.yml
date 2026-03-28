@@ -60,13 +60,11 @@ jobs:
           -Dsonar.projectKey=ydaveluy_xsmp-modeler
           -Dsonar.organization=ydaveluy
           -Dsonar.sources=packages/
-          -Dsonar.exclusions=**/generated/**,**/out/**,**/lib/**,**/.types/**,**/test/expected/**,**/test/expected/generator-cpp/**
+          -Dsonar.exclusions=**/generated/**,**/out/**,**/lib/**,**/.types/**,**/test/**,**/test/expected/**,**/test/expected/generator-cpp/**
           -Dsonar.c.file.suffixes=-
           -Dsonar.cpp.file.suffixes=-
           -Dsonar.objc.file.suffixes=-
           -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
           -Dsonar.coverage.exclusions=**/*.test.*
-          -Dsonar.tests=packages/
-          -Dsonar.test.inclusions=packages/*/test/**/*.test.ts
           -Dsonar.links.scm=https://github.com/ydaveluy/xsmp-modeler
           -Dsonar.links.issue=https://github.com/ydaveluy/xsmp-modeler/issues
