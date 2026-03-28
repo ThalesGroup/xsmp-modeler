@@ -48,7 +48,7 @@ jobs:
       shell: bash
       run: |
         npm run package -w xsmp-modeler -- --no-dependencies
-        npm run package:vscode -w @xsmp/profile-tas-mdk
+        npm run package -w xsmp-tas-mdk
     - name: SonarQube Scan
       uses: SonarSource/sonarqube-scan-action@v7.0.0
       env:
