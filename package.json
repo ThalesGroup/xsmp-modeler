@@ -51,7 +51,7 @@
         "concurrently": "^9.2.1",
         "esbuild": "^0.27.4",
         "eslint": "^10.1.0",
-        "langium": "4.2.0",
+        "langium": "4.2.1",
         "langium-cli": "4.2.0",
         "shx": "^0.4.0",
         "typescript": "^5.9.3",

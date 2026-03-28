@@ -59,7 +59,7 @@
         "test": "cd ../.. && npm run build && vitest run packages/xsmp-tas-mdk/test --config vitest.config.ts"
     },
     "dependencies": {
-        "langium": "4.2.0",
+        "langium": "4.2.1",
         "xsmp": "1.97.0"
     }
 }
