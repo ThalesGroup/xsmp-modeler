@@ -96,13 +96,13 @@ export class XsmpTypedPathResolver {
 
     getFieldCandidatesForType(type: RecoverableType | undefined): readonly ast.Field[] {
         const result = new Map<string, ast.Field>();
-        this.collectFieldMembers(type as ast.Type | undefined, result, new Set<ast.Type>());
+        this.collectFieldMembers(type, result, new Set<ast.Type>());
         return [...result.values()];
     }
 
     getComponentPathMembers(component: RecoverableComponent | undefined): ReadonlyArray<ast.Container | ast.Reference> {
         const result = new Map<string, ast.Container | ast.Reference>();
-        this.collectComponentPathMembers(component as ast.Type | undefined, result, new Set<ast.Type>());
+        this.collectComponentPathMembers(component, result, new Set<ast.Type>());
         return [...result.values()];
     }
 

@@ -677,7 +677,6 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
     override async generateComponentSourceGen(type: ast.Component, gen: boolean): Promise<string | undefined> {
         const name = this.name(type, gen);
         const base = this.componentBase(type);
-        //const fqn = this.fqn(type);
         const initializer = this.initializeMembers(type, gen);
         return s`
             ::TasMdk::Request::Handler<${name}>::CollectionType ${name}::requestHandlers;

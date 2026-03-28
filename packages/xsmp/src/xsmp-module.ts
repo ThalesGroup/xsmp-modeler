@@ -171,7 +171,7 @@ export type XsmpSharedServices = LangiumSharedServices & XsmpAddedSharedServices
 
 export const XsmpSharedModule: Module<XsmpSharedServices, DeepPartial<XsmpSharedServices>> = {
     AttributeHelper: (services) => new AttributeHelper(services),
-    IdentifierPatternService: (services) => new IdentifierPatternService(services),
+    IdentifierPatternService: () => new IdentifierPatternService(),
     PathService: (services) => new XsmpPathService(services),
     TypedPathResolver: (services) => new XsmpTypedPathResolver(services),
     CfgPathResolver: (services) => new XsmpcfgPathResolver(services),

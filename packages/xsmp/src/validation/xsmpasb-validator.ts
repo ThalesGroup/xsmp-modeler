@@ -442,7 +442,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
             return;
         }
         const targetOccurrence = source.ownerPath
-            ? this.resolveOccurrencePath(source.ownerPath as ast.Path, occurrence, rootOccurrence)
+            ? this.resolveOccurrencePath(source.ownerPath, occurrence, rootOccurrence)
             : occurrence;
         if (!targetOccurrence?.component) {
             return;

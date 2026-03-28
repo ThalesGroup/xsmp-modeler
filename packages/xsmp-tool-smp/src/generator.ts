@@ -170,7 +170,7 @@ export class SmpGenerator implements XsmpGenerator {
             case ast.ValueReference.$type:
                 return this.convertValueReference(type as ast.ValueReference);
         }
-        throw Error(`Unsupported type ${type.$type}`);
+        throw new Error(`Unsupported type ${type.$type}`);
     }
 
     protected convertType(type: ast.Type, typeName: string): Types.Type {
@@ -426,9 +426,8 @@ export class SmpGenerator implements XsmpGenerator {
         const itemType = expectedType?.itemType.ref;
         const itemValues = value.elements.map(element => this.convertValue(element, itemType));
         const normalizedStartIndex = value.startIndex !== undefined ? BigInt(value.startIndex) : undefined;
-        const startIndex = this.getSmpStandard(value) === 'ECSS_SMP_2025' && normalizedStartIndex !== undefined && normalizedStartIndex !== BigInt(0)
-            ? normalizedStartIndex
-            : undefined;
+        const hasStartIndex = normalizedStartIndex !== undefined && normalizedStartIndex !== BigInt(0);
+        const startIndex = this.getSmpStandard(value) === 'ECSS_SMP_2025' && hasStartIndex ? normalizedStartIndex : undefined;
         const simpleArrayType = expectedType && this.attrHelper.isSimpleArray(expectedType)
             ? this.getSimpleArrayValueXsiType(itemType)
             : undefined;
@@ -962,7 +961,7 @@ export class SmpGenerator implements XsmpGenerator {
 
         const nextPositionalField = (): ast.Field | undefined => {
             while (positionalIndex < fields.length) {
-                const field = fields[positionalIndex++] as ast.Field;
+                const field = fields[positionalIndex++];
                 if (field.name && !usedFields.has(field.name)) {
                     return field;
                 }
@@ -1056,12 +1055,12 @@ export class SmpGenerator implements XsmpGenerator {
 
         return value.elements.map(element => {
             if (ast.isCfgStructureFieldValue(element)) {
-                const field = (element.field ? fieldsByName.get(element.field) : undefined) as ast.Field | undefined;
+                const field = element.field ? fieldsByName.get(element.field) : undefined;
                 if (field?.name && !usedFields.has(field.name)) {
                     usedFields.add(field.name);
                 }
                 return {
-                    ...this.convertValue(element.value, element.unsafe ? undefined : field?.type.ref as ast.Type | undefined),
+                    ...this.convertValue(element.value, element.unsafe ? undefined : field?.type.ref),
                     '@Field': element.field,
                 } as Types.Value;
             }

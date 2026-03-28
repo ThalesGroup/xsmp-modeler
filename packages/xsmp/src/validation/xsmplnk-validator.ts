@@ -248,7 +248,7 @@ export class XsmplnkValidator {
             finalBindings?: TemplateBindings;
             invalidMessage?: string;
         } = source.ownerPath
-            ? this.pathResolver.getLinkBaseEndpointPathResolution(source.ownerPath as ast.Path)
+            ? this.pathResolver.getLinkBaseEndpointPathResolution(source.ownerPath)
             : {
                 active: true,
                 finalComponent: this.pathResolver.getInterfaceLinkEndpointContext(link, 'owner').component,
@@ -266,7 +266,7 @@ export class XsmplnkValidator {
             return;
         }
         const componentPath = source.ownerPath
-            ? this.getAbsoluteComponentPath(link, source.ownerPath as ast.Path)
+            ? this.getAbsoluteComponentPath(link, source.ownerPath)
             : this.getAbsoluteComponentPath(link);
         if (!componentPath) {
             return;

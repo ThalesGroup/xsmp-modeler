@@ -489,7 +489,10 @@ export function renderImportedValue(node: SmpXmlObject, warnings: string[]): str
             return `${renderStringLiteral(getAttribute(node, 'Value') ?? '')}d`;
         case 'EnumerationValue': {
             const literal = getAttribute(node, 'Literal');
-            return literal ? literal : `${getAttribute(node, 'Value') ?? '0'}lit`;
+            if (literal !== undefined) {
+                return literal;
+            }
+            return `${getAttribute(node, 'Value') ?? '0'}lit`;
         }
         default: {
             const numericSuffix = scalarValueSuffixes.get(valueType);

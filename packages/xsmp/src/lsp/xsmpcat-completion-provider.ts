@@ -684,8 +684,7 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
         }
         if (ast.isStructure(type)) {
             return `{${this.attrHelper.getAllFields(type).map(field => {
-                const currentField = field as ast.Field;
-                return `.${currentField.name} = ${this.getXsmpcatDefaultValueForType(currentField.type?.ref)}`;
+                return `.${field.name} = ${this.getXsmpcatDefaultValueForType(field.type?.ref)}`;
             }).join(', ')}}`;
         }
         if (ast.isEnumeration(type)) {
@@ -712,7 +711,7 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
             case PTK.UInt64:
                 return '0UL';
             case PTK.Char8:
-                return "'\\0'";
+                return String.raw`'\0'`;
             case PTK.String8:
                 return '""';
             case PTK.DateTime:

@@ -29,7 +29,7 @@ export class XsmpTypeProvider {
             const type = this.getType(node.$container);
             if (ast.isStructure(type)) {
                 const field = this.attrHelper.getAllFields(type).toArray().at(node.$containerIndex!);
-                if (field) { return (field as ast.Field).type?.ref; }
+                if (field) { return field.type?.ref; }
             }
             else if (ast.isArrayType(type)) {
                 return type.itemType?.ref;

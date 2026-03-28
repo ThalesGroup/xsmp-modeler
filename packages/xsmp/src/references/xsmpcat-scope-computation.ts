@@ -51,11 +51,6 @@ export class XsmpcatScopeComputation implements ScopeComputation {
     computeTypeExports(document: LangiumDocument, type: ast.Type, exportedDescriptions: AstNodeDescription[], typeName: string) {
         //Export the Type
         exportedDescriptions.push(this.descriptions.createDescription(type, typeName, document));
-
-        /*const uuid = this.documlentationHelper.getUuid(type)?.toString().trim();
-        if(uuid) {
-            exportedDescriptions.push(this.descriptions.createDescription(type, uuid, document));
-        }*/
         switch (type.$type) {
             case ast.Enumeration.$type: {
                 const elementBaseName = `${typeName}.`;

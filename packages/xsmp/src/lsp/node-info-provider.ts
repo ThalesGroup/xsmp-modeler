@@ -32,7 +32,12 @@ export class XsmpNodeInfoProvider {
             case ast.Float.$type: return (node as ast.Float).primitiveType?.$refText ?? 'Smp::Float64';
             case ast.ModelInstance.$type: return (node as ast.ModelInstance).implementation?.$refText ?? (node as ast.ModelInstance).strImplementation;
             case ast.ValueReference.$type: return (node as ast.ValueReference).type?.$refText + '*';
-            case ast.ArrayType.$type: return `${(node as ast.ArrayType).itemType?.$refText}[${getValueAs((node as ast.ArrayType).size, PTK.Int64)?.getValue()}]`;
+            case ast.ArrayType.$type: {
+                const arrayType = node as ast.ArrayType;
+                const size = getValueAs(arrayType.size, PTK.Int64)?.getValue();
+                const sizeText = size?.toString() ?? '';
+                return `${arrayType.itemType?.$refText}[${sizeText}]`;
+            }
             case ast.Operation.$type: return (node as ast.Operation).returnParameter?.type?.$refText ?? 'void';
             case ast.Property.$type: return (node as ast.Property).type?.$refText;
             case ast.Reference.$type: return (node as ast.Reference).interface?.$refText + this.getMultiplicity(node as ast.NamedElementWithMultiplicity);

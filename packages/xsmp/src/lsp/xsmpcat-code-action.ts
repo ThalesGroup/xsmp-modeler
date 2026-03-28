@@ -4,7 +4,7 @@ import { CodeActionKind, TextEdit, type Diagnostic } from 'vscode-languageserver
 import type { CodeActionParams } from 'vscode-languageserver-protocol';
 import type { CodeAction, Command } from 'vscode-languageserver-types';
 import * as  IssueCodes from '../validation/xsmpcat-issue-codes.js';
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
 
 export class XsmpcatCodeActionProvider implements CodeActionProvider {
 

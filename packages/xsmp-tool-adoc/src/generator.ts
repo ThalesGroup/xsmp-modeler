@@ -100,6 +100,18 @@ export class ADocGenerator implements XsmpGenerator {
 
     // ========== Shared Rendering Helpers ==========
 
+    private stringifyShortValue(value: unknown): string | undefined {
+        if (value === undefined || value === null) {
+            return undefined;
+        }
+        if (typeof value === 'object' && value.toString === Object.prototype.toString) {
+            return undefined;
+        }
+
+        const rendered = String(value);
+        return rendered === '[object Object]' ? undefined : rendered;
+    }
+
     /**
      * Get a short representation of an expression value.
      */
@@ -117,8 +129,7 @@ export class ADocGenerator implements XsmpGenerator {
         try {
             const value = getValue(expr);
             if (value) {
-                const rendered = value.toString();
-                return rendered === '[object Object]' ? undefined : rendered;
+                return this.stringifyShortValue(value);
             }
         } catch {
             // ignore solver exceptions
@@ -140,9 +151,7 @@ export class ADocGenerator implements XsmpGenerator {
                 results.push(this.getShortValue(expression.expr) ?? '?');
             } else {
                 try {
-                    const value = getValue(expression);
-                    const rendered = value?.toString();
-                    results.push(rendered && rendered !== '[object Object]' ? rendered : '?');
+                    results.push(this.stringifyShortValue(getValue(expression)) ?? '?');
                 } catch {
                     results.push('?');
                 }

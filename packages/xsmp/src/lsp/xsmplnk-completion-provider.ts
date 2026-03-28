@@ -27,9 +27,10 @@ export class XsmplnkCompletionProvider extends XsmpCompletionProviderBase {
         switch (keyword.value) {
             case 'link': {
                 const assemblies = this.getCrossReferenceNames(context, ast.LinkBase, ast.LinkBase.assembly);
+                const assemblySnippet = assemblies.length > 0 ? ` for ${this.createChoicePlaceholder(2, assemblies, 'Assembly')}` : '';
                 acceptor(context, this.createKeywordSnippet(
                     keyword,
-                    `link ${this.createPlaceholder(1, 'Name')}${assemblies.length > 0 ? ` for ${this.createChoicePlaceholder(2, assemblies, 'Assembly')}` : ''}\n$0`,
+                    `link ${this.createPlaceholder(1, 'Name')}${assemblySnippet}\n$0`,
                     'Link Base Definition'
                 ));
                 break;
@@ -47,9 +48,10 @@ export class XsmplnkCompletionProvider extends XsmpCompletionProviderBase {
 
         if (this.isAtStatementPrefix(context) && !linkBase && !componentLinkBase) {
             const assemblies = this.getCrossReferenceNames(context, ast.LinkBase, ast.LinkBase.assembly);
+            const assemblySnippet = assemblies.length > 0 ? ` for ${this.createChoicePlaceholder(2, assemblies, 'Assembly')}` : '';
             acceptor(context, this.createSnippetItem(
                 'Link Base',
-                `link ${this.createPlaceholder(1, 'Name')}${assemblies.length > 0 ? ` for ${this.createChoicePlaceholder(2, assemblies, 'Assembly')}` : ''}\n$0`,
+                `link ${this.createPlaceholder(1, 'Name')}${assemblySnippet}\n$0`,
                 'Link Base Definition'
             ));
         } else if (this.isAtStatementPrefix(context) && componentLinkBase) {

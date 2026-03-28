@@ -236,8 +236,9 @@ export class SmpExternalReferenceResolver {
             const warningKey = `${filePart}:${candidates.join('|')}`;
             if (!this.ambiguousHrefWarnings.has(warningKey)) {
                 this.ambiguousHrefWarnings.add(warningKey);
+                const candidateList = candidates.map(candidate => `'${candidate}'`).join(', ');
                 warnings.push(
-                    `Multiple SMP files match external ${fallbackLabel} href '${filePart}': ${candidates.map(candidate => `'${candidate}'`).join(', ')}. Not selecting one.`,
+                    `Multiple SMP files match external ${fallbackLabel} href '${filePart}': ${candidateList}. Not selecting one.`,
                 );
             }
             return undefined;

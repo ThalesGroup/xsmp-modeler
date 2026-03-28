@@ -28,7 +28,7 @@ export class XsmpDocumentBuilder extends DefaultDocumentBuilder {
         const state = this.buildState.get(document.uri.toString());
         if (state) {
             state.result ??= {};
-            const newCategories = options.categories ?? ValidationCategory.all;
+            const newCategories = options.categories ?? ValidationCategory.defaults;
             if (state.result.validationChecks) {
                 state.result.validationChecks.push(...newCategories);
             } else {

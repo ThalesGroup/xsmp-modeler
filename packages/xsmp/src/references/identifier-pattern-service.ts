@@ -1,5 +1,4 @@
 import * as partialAst from '../generated/ast-partial.js';
-import type { XsmpSharedServices } from '../xsmp-module.js';
 
 type RecoverableIdentifierPattern = partialAst.IdentifierPattern;
 type RecoverablePathNamedSegment = partialAst.PathNamedSegment;
@@ -26,8 +25,6 @@ export interface IdentifierMatchResult<T> {
 }
 
 export class IdentifierPatternService {
-    constructor(_services: XsmpSharedServices) { }
-
     stringifyPattern(pattern: RecoverableIdentifierPattern | undefined): string | undefined {
         if (!pattern) {
             return undefined;
@@ -214,9 +211,9 @@ export class IdentifierPatternService {
             return this.parseTextPattern(pattern);
         }
         if ('text' in pattern && 'parts' in pattern) {
-            return pattern as IdentifierPatternView;
+            return pattern;
         }
-        return this.getViewFromPattern(pattern as partialAst.IdentifierPattern);
+        return this.getViewFromPattern(pattern);
     }
 
     protected parseTemplateToken(text: string | undefined): string | undefined {

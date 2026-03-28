@@ -22,7 +22,7 @@ export function registerEmbeddedDocumentation(context: vscode.ExtensionContext):
             createXsmpDocumentSelector(),
             {
                 provideHover(document, position) {
-                    const range = document.getWordRangeAtPosition(position, /[A-Za-z_][A-Za-z0-9_]*/);
+                    const range = document.getWordRangeAtPosition(position, /[A-Za-z_]\w*/);
                     if (!range) {
                         return undefined;
                     }

@@ -386,7 +386,7 @@ export class XsmpcatValidator {
                 const arraySize = Solver.getValue(type.size)?.integralValue(PTK.UInt64)?.getValue();
                 if (arraySize) {
                     const collectionSize = expression.elements.length,
-                        size = collectionSize < arraySize ? collectionSize : arraySize;
+                        size = Math.min(collectionSize, Number(arraySize));
                     for (let i = 0; i < size; ++i) { this.checkExpression(type.itemType?.ref, expression.elements[i], accept); }
                     const more = expression.elements.at(Number(arraySize));
                     if (more) {
@@ -407,7 +407,7 @@ export class XsmpcatValidator {
                 const fields = this.attrHelper.getAllFields(type).toArray(),
                     fieldCount = fields.length,
                     collectionSize = expression.elements.length,
-                    size = collectionSize < fieldCount ? collectionSize : fieldCount;
+                    size = Math.min(collectionSize, fieldCount);
                 for (let i = 0; i < size; ++i) {
                     let exp: ast.Expression | undefined = expression.elements[i];
                     const field = fields[i] as ast.Field;
@@ -617,7 +617,7 @@ export class XsmpcatValidator {
                         });
                     }
                 }
-                else if (!(ast.isConstant(member) || ast.isProperty(member)) || duplicates.find(d => d.$container === member.$container)) {
+                else if (!(ast.isConstant(member) || ast.isProperty(member)) || duplicates.some(d => d.$container === member.$container)) {
                     accept('error', 'Duplicated identifier.', {
                         node: member,
                         property: ast.NamedElement.name,

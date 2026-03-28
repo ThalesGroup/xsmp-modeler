@@ -139,8 +139,8 @@ export class EnumerationLiteralValue extends Value<EnumerationLiteralValue> {
 
 }
 const INT64_MAX = BigInt('0x7FFFFFFFFFFFFFFF');
-const UINT32_MAX = 0xFFFF_FFFFn;
-const INT32_MAX = 0x7FFF_FFFFn;
+const UINT32_MAX = 0xFFFFFFFFn;
+const INT32_MAX = 0x7FFFFFFFn;
 export class IntegralValue extends Value<IntegralValue> {
     readonly value: bigint;
     readonly type: IntegralPTK;
@@ -177,13 +177,10 @@ export class IntegralValue extends Value<IntegralValue> {
             } else {
                 type = isLong ? PTK.Int64 : PTK.UInt32;
             }
-        }
-        else {
-            if (isUnsigned) {
-                type = isLong ? PTK.UInt64 : PTK.UInt32;
-            } else {
-                type = isLong ? PTK.Int64 : PTK.Int32;
-            }
+        } else if (isUnsigned) {
+            type = isLong ? PTK.UInt64 : PTK.UInt32;
+        } else {
+            type = isLong ? PTK.Int64 : PTK.Int32;
         }
 
         const result = new IntegralValue(value, type);
@@ -288,7 +285,7 @@ export class FloatValue extends Value<FloatValue> {
 
     override getValue(): number { return this.value; }
     override primitiveTypeKind(): FloatingPTK { return this.type; }
-    override boolValue(): BoolValue { return new BoolValue(this.value !== 0.); }
+    override boolValue(): BoolValue { return new BoolValue(this.value !== 0); }
     override integralValue(type: IntegralPTK): IntegralValue | undefined {
         try {
             return new IntegralValue(BigInt(this.value), type);

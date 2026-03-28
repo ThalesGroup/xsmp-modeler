@@ -228,9 +228,7 @@ export class EsaCdkGenerator extends GapPatternCppGenerator {
     override headerIncludesComponent(type: ast.Component): Include[] {
 
         const includes = super.headerIncludesComponent(type);
-        includes.push('Smp/ISimulator.h');
-        includes.push('Smp/IComposite.h');
-        includes.push('Smp/PrimitiveTypes.h');
+        includes.push('Smp/ISimulator.h', 'Smp/IComposite.h', 'Smp/PrimitiveTypes.h');
 
         if (!type.base) {
             includes.push(`esa/ecss/smp/cdk/${type.$type}.h`);
@@ -260,8 +258,7 @@ export class EsaCdkGenerator extends GapPatternCppGenerator {
         const includes = super.sourceIncludesComponent(type);
 
         if (this.hasInvokableMembers(type)) {
-            includes.push('Smp/IPublication.h');
-            includes.push('esa/ecss/smp/cdk/Request.h');
+            includes.push('Smp/IPublication.h', 'esa/ecss/smp/cdk/Request.h');
         }
         return includes;
     }

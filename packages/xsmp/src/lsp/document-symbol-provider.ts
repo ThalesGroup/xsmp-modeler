@@ -78,7 +78,8 @@ export class XsmpDocumentSymbolProvider implements DocumentSymbolProvider {
             case ast.ConfigurationUsage.$type: {
                 const usage = node as ast.ConfigurationUsage;
                 const includePath = this.pathService.stringifyPath(usage.path);
-                return `include ${this.getReferenceText(usage.configuration)}${includePath ? ` at ${includePath}` : ''}`;
+                const includeLocation = includePath ? ` at ${includePath}` : '';
+                return `include ${this.getReferenceText(usage.configuration)}${includeLocation}`;
             }
             case ast.GlobalEventHandler.$type: {
                 const handler = node as ast.GlobalEventHandler;
@@ -96,7 +97,8 @@ export class XsmpDocumentSymbolProvider implements DocumentSymbolProvider {
                 const link = node as ast.InterfaceLink;
                 const sourcePath = this.pathService.stringifyPath(link.sourcePath) ?? '<unknown>';
                 const backReference = this.pathService.stringifyLocalNamedReference(link.backReference);
-                return `interface link ${sourcePath} -> ${this.pathService.stringifyPath(link.clientPath)}${backReference ? `:${backReference}` : ''}`;
+                const backReferenceSuffix = backReference ? `:${backReference}` : '';
+                return `interface link ${sourcePath} -> ${this.pathService.stringifyPath(link.clientPath)}${backReferenceSuffix}`;
             }
             case ast.OperationCall.$type: {
                 const call = node as ast.OperationCall;
@@ -120,7 +122,8 @@ export class XsmpDocumentSymbolProvider implements DocumentSymbolProvider {
             }
             case ast.ExecuteTask.$type: {
                 const execute = node as ast.ExecuteTask;
-                return `execute ${this.getReferenceText(execute.task)}${execute.root ? ` at ${this.pathService.stringifyPath(execute.root)}` : ''}`;
+                const executeRoot = execute.root ? ` at ${this.pathService.stringifyPath(execute.root)}` : '';
+                return `execute ${this.getReferenceText(execute.task)}${executeRoot}`;
             }
             case ast.EmitGlobalEvent.$type: {
                 const emit = node as ast.EmitGlobalEvent;
@@ -144,7 +147,8 @@ export class XsmpDocumentSymbolProvider implements DocumentSymbolProvider {
             }
             case ast.GlobalEventTriggeredEvent.$type: {
                 const event = node as ast.GlobalEventTriggeredEvent;
-                return `event ${this.getReferenceText(event.task)} on ${this.quote(event.startEvent)}${event.stopEvent ? ` until ${this.quote(event.stopEvent)}` : ''}`;
+                const stopEvent = event.stopEvent ? ` until ${this.quote(event.stopEvent)}` : '';
+                return `event ${this.getReferenceText(event.task)} on ${this.quote(event.startEvent)}${stopEvent}`;
             }
         }
         if (!ast.reflection.isSubtype(node.$type, ast.NamedElement.$type)) {

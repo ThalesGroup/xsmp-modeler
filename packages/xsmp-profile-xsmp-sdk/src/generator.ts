@@ -243,18 +243,13 @@ export class XsmpSdkGenerator extends GapPatternCppGenerator {
     }
     override  headerIncludesComponent(type: ast.Component): Include[] {
         const includes = super.headerIncludesComponent(type);
-        includes.push('Smp/ISimulator.h');
-        includes.push('Smp/IComposite.h');
-        includes.push('Smp/PrimitiveTypes.h');
+        includes.push('Smp/ISimulator.h', 'Smp/IComposite.h', 'Smp/PrimitiveTypes.h');
 
         if (!type.base) {
             includes.push(`Xsmp/${type.$type}.h`);
         }
         if (this.hasInvokableMembers(type)) {
-            includes.push('map');
-            includes.push('Smp/IRequest.h');
-            includes.push('functional');
-            includes.push('string_view');
+            includes.push('map', 'Smp/IRequest.h', 'functional', 'string_view');
         }
         if (type.elements.some(ast.isContainer)) {
             includes.push('Xsmp/Composite.h');

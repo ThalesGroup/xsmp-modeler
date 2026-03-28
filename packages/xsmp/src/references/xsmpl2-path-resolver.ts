@@ -573,7 +573,7 @@ export class Xsmpl2PathResolver {
         if (!baseNode) {
             return {
                 active: false,
-                ownerPath: parts?.ownerPath as ast.Path | undefined,
+                ownerPath: parts?.ownerPath,
                 ownerText: parts?.ownerText ?? '.',
                 referenceText: parts?.referenceText ?? '',
                 namedSegments,
@@ -583,7 +583,7 @@ export class Xsmpl2PathResolver {
         if (!parts?.referenceSegment) {
             return {
                 active: true,
-                ownerPath: parts?.ownerPath as ast.Path | undefined,
+                ownerPath: parts?.ownerPath,
                 ownerText: parts?.ownerText ?? '.',
                 referenceText: parts?.referenceText ?? '',
                 invalidMessage: 'The interface source path shall end with a Reference name.',
@@ -596,13 +596,13 @@ export class Xsmpl2PathResolver {
         let ownerComponent = baseNode.component;
         let ownerBindings = baseNode.bindings;
         if (parts.ownerPath) {
-            const ownerResolution = this.resolveAssemblyInstancePath(parts.ownerPath as ast.Path, baseNode);
+            const ownerResolution = this.resolveAssemblyInstancePath(parts.ownerPath, baseNode);
             this.mergeNamedSegments(namedSegments, ownerResolution.namedSegments);
             this.mergeSegmentBindings(segmentBindings, ownerResolution.segmentBindings);
             if (!ownerResolution.active || ownerResolution.invalidMessage || !ownerResolution.finalComponent) {
                 return {
                     active: ownerResolution.active,
-                    ownerPath: parts.ownerPath as ast.Path,
+                    ownerPath: parts.ownerPath,
                     ownerText: parts.ownerText,
                     referenceText: parts.referenceText,
                     finalComponent: ownerResolution.finalComponent,
@@ -624,7 +624,7 @@ export class Xsmpl2PathResolver {
         if (!ast.isReference(resolvedReference)) {
             return {
                 active: true,
-                ownerPath: parts.ownerPath as ast.Path | undefined,
+                ownerPath: parts.ownerPath,
                 ownerText: parts.ownerText,
                 referenceText: parts.referenceText,
                 finalComponent: ownerComponent,
@@ -637,7 +637,7 @@ export class Xsmpl2PathResolver {
         }
         return {
             active: true,
-            ownerPath: parts.ownerPath as ast.Path | undefined,
+            ownerPath: parts.ownerPath,
             ownerText: parts.ownerText,
             referenceText: parts.referenceText,
             finalElement: resolvedReference,
@@ -657,7 +657,7 @@ export class Xsmpl2PathResolver {
         if (!baseStack) {
             return {
                 active: false,
-                ownerPath: parts?.ownerPath as ast.Path | undefined,
+                ownerPath: parts?.ownerPath,
                 ownerText: parts?.ownerText ?? '.',
                 referenceText: parts?.referenceText ?? '',
                 namedSegments,
@@ -667,7 +667,7 @@ export class Xsmpl2PathResolver {
         if (!parts?.referenceSegment) {
             return {
                 active: true,
-                ownerPath: parts?.ownerPath as ast.Path | undefined,
+                ownerPath: parts?.ownerPath,
                 ownerText: parts?.ownerText ?? '.',
                 referenceText: parts?.referenceText ?? '',
                 invalidMessage: 'The interface source path shall end with a Reference name.',
@@ -680,12 +680,12 @@ export class Xsmpl2PathResolver {
         let ownerComponent = baseStack.at(-1);
         const ownerBindings = bindings;
         if (parts.ownerPath) {
-            const ownerResolution = this.typedPathResolver.resolveComponentPath(parts.ownerPath as ast.Path, baseStack, bindings);
+            const ownerResolution = this.typedPathResolver.resolveComponentPath(parts.ownerPath, baseStack, bindings);
             this.mergeNamedSegments(namedSegments, ownerResolution.namedSegments);
             if (!ownerResolution.active || ownerResolution.invalidMessage || !ownerResolution.finalComponent) {
                 return {
                     active: ownerResolution.active,
-                    ownerPath: parts.ownerPath as ast.Path,
+                    ownerPath: parts.ownerPath,
                     ownerText: parts.ownerText,
                     referenceText: parts.referenceText,
                     finalComponent: ownerResolution.finalComponent,
@@ -706,7 +706,7 @@ export class Xsmpl2PathResolver {
         if (!ast.isReference(resolvedReference)) {
             return {
                 active: true,
-                ownerPath: parts.ownerPath as ast.Path | undefined,
+                ownerPath: parts.ownerPath,
                 ownerText: parts.ownerText,
                 referenceText: parts.referenceText,
                 finalComponent: ownerComponent,
@@ -720,7 +720,7 @@ export class Xsmpl2PathResolver {
 
         return {
             active: true,
-            ownerPath: parts.ownerPath as ast.Path | undefined,
+            ownerPath: parts.ownerPath,
             ownerText: parts.ownerText,
             referenceText: parts.referenceText,
             finalElement: resolvedReference,

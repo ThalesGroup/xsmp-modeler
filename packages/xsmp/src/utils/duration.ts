@@ -103,7 +103,7 @@ export function serialize(value: bigint) {
         rval += '.';
         rval += (nanos < ZERO ? -nanos : nanos).toString().padStart(9, '0');
         while (rval.endsWith('0')) {
-            rval = rval.slice(0, rval.length - 1);
+            rval = rval.slice(0, -1);
         }
     }
     rval += 'S';

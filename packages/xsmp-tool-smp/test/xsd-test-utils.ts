@@ -118,7 +118,7 @@ function prepareL2SchemaBundle(tmpDir: string): Record<'linkbase' | 'assembly' |
                 .replaceAll('schemaLocation="xlink.xsd"', 'schemaLocation="../xlink.xsd"')
                 .replaceAll('schemaLocation="Elements.xsd"', 'schemaLocation="../Core/Elements.xsd"')
                 .replaceAll('schemaLocation="Types.xsd"', 'schemaLocation="../Core/Types.xsd"')
-                .replaceAll(/Elements:DayTimeDuration/g, 'xsd:duration')
+                .replaceAll('Elements:DayTimeDuration', 'xsd:duration')
         );
     }
 

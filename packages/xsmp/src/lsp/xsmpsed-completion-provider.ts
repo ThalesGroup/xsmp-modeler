@@ -377,11 +377,12 @@ export class XsmpsedCompletionProvider extends XsmpCompletionProviderBase {
             return task.name ?? 'Task';
         }
         const templateArguments = parameters.map((parameter, index) => {
-            const defaultValue = ast.isStringParameter(parameter)
-                ? (parameter.value ?? '"value"')
-                : ast.isInt32Parameter(parameter)
-                    ? (parameter.value?.toString() ?? '0')
-                    : 'value';
+            let defaultValue = 'value';
+            if (ast.isStringParameter(parameter)) {
+                defaultValue = parameter.value ?? '"value"';
+            } else if (ast.isInt32Parameter(parameter)) {
+                defaultValue = parameter.value?.toString() ?? '0';
+            }
             return `${parameter.name ?? `arg${index + 1}`} = ${this.createPlaceholder(index + 1, defaultValue)}`;
         });
         return `${task.name ?? 'Task'}<${templateArguments.join(', ')}> at ${this.createPlaceholder(parameters.length + 1, 'path')}`;

@@ -835,12 +835,11 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
             if (ast.isStructure(type)) {
                 const fields = this.attrHelper.getAllFields(type).toArray();
                 const elements = fields.flatMap(field => {
-                    const currentField = field as ast.Field;
-                    if (!currentField.name) {
+                    if (!field.name) {
                         return [];
                     }
-                    const fieldDefault = this.getDefaultValueForType(currentField.type?.ref, mode, true, depth + 1) || '""';
-                    return [`${currentField.name} = ${fieldDefault}`];
+                    const fieldDefault = this.getDefaultValueForType(field.type?.ref, mode, true, depth + 1) || '""';
+                    return [`${field.name} = ${fieldDefault}`];
                 });
                 return `{ ${elements.join(', ')} }`;
             }

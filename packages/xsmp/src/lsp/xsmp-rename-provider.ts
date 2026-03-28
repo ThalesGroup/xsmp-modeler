@@ -63,7 +63,7 @@ export class XsmpRenameProvider extends DefaultRenameProvider {
                     break;
                 }
                 else {
-                    if (oldName.indexOf('.') === -1)
+                    if (!oldName.includes('.'))
                         break;
                     oldName = oldName.slice(oldName.indexOf('.') + 1);
                     newName = newName.slice(newName.indexOf('.') + 1);
