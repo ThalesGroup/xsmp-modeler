@@ -5,7 +5,7 @@
     "type": "module",
     "engineStrict": true,
     "engines": {
-        "node": ">=20.10.0",
+        "node": ">=20.19.0",
         "npm": ">=10.2.3"
     },
     "workspaces": [
@@ -59,7 +59,7 @@
         "vitest": "^4.1.2"
     },
     "volta": {
-        "node": "20.10.0",
+        "node": "20.19.0",
         "npm": "10.2.3"
     }
 }
