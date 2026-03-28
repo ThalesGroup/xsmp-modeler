@@ -203,6 +203,41 @@ Root: demo.Root
 
         expect(getMessages(document).filter(message => message === 'Paths shall not contain \'..\'.')).toHaveLength(5);
     });
+
+    test('requires at least one component link base', async () => {
+        const document = await parseInProject(`link Demo for DemoAsm
+`, `assembly DemoAsm
+
+Root: demo.Root
+{
+    child += Leaf: demo.Child
+}
+`);
+
+        expect(getMessages(document)).toEqual([
+            'A Link Base shall contain at least one Component Link Base.',
+        ]);
+    });
+
+    test('requires typed component paths and at least one link per component link base', async () => {
+        const document = await parseInProject(`link Demo for DemoAsm
+
+logger
+{
+}
+`, `assembly DemoAsm
+
+Root: demo.Root
+{
+    child += Leaf: demo.Child
+}
+`);
+
+        expect(getMessages(document)).toEqual(expect.arrayContaining([
+            'The Component Link Base path shall resolve to a typed Component.',
+            'A Component Link Base shall contain at least one Link.',
+        ]));
+    });
 });
 
 async function parseInProject(source: string, assemblySource?: string): Promise<LangiumDocument<LinkBase>> {

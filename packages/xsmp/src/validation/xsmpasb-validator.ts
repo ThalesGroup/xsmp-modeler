@@ -1,15 +1,15 @@
 import { AstUtils, type ValidationAcceptor, type ValidationChecks } from 'langium';
 import * as ast from '../generated/ast-partial.js';
 import type { XsmpasbServices } from '../xsmpasb-module.js';
-import { checkNoParentTraversal, checkRelativePath, hasParentTraversal, isAbsolutePath, isValidExpandedL2Identifier } from './l2-validator-utils.js';
+import { checkNoParentTraversal, checkRelativePath, hasParentTraversal, isAbsolutePath, isValidExpandedPathIdentifier } from './instance-validator-utils.js';
 import { checkName } from './name-validator-utils.js';
-import type { Xsmpl2PathResolver } from '../references/xsmpl2-path-resolver.js';
+import type { XsmpInstancePathResolver } from '../references/xsmp-instance-path-resolver.js';
 import type { TemplateBindings } from '../references/identifier-pattern-service.js';
 import { PTK } from '../utils/primitive-type-kind.js';
 import * as Solver from '../utils/solver.js';
 import * as XsmpUtils from '../utils/xsmp-utils.js';
 import { XsmpcfgValidator } from './xsmpcfg-validator.js';
-import { checkTemplatedL2PathSegments, collectUsedTemplateParameterNames, createTemplateBindings, warnUnusedTemplateParameters } from './template-parameter-validator-utils.js';
+import { checkTemplatedPathSegments, collectUsedTemplateParameterNames, createTemplateBindings, warnUnusedTemplateParameters } from './template-parameter-validator-utils.js';
 
 export function registerXsmpasbValidationChecks(services: XsmpasbServices) {
     const registry = services.validation.ValidationRegistry;
@@ -36,11 +36,11 @@ export function registerXsmpasbValidationChecks(services: XsmpasbServices) {
 }
 
 export class XsmpasbValidator extends XsmpcfgValidator {
-    protected readonly l2PathResolver: Xsmpl2PathResolver;
+    protected readonly instancePathResolver: XsmpInstancePathResolver;
 
     constructor(services: XsmpasbServices) {
         super(services);
-        this.l2PathResolver = services.shared.L2PathResolver;
+        this.instancePathResolver = services.shared.InstancePathResolver;
     }
 
     checkAssembly(assembly: ast.Assembly, accept: ValidationAcceptor): void {
@@ -106,7 +106,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
         if (!subInstance.container || subInstance.container.unsafe) {
             return;
         }
-        const container = this.l2PathResolver.getLocalNamedReferenceTarget(subInstance.container);
+        const container = this.instancePathResolver.getLocalNamedReferenceTarget(subInstance.container);
         if (!ast.isContainer(container)) {
             accept('error', 'The selected container shall resolve to a Container of the current Component.', {
                 node: subInstance,
@@ -147,7 +147,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
         }
         checkNoParentTraversal(accept, configuration, configuration.name, ast.AssemblyComponentConfiguration.name);
         checkRelativePath(accept, configuration, configuration.name, ast.AssemblyComponentConfiguration.name, 'InstancePath');
-        const resolution = this.l2PathResolver.getAssemblyComponentPathResolution(configuration.name);
+        const resolution = this.instancePathResolver.getAssemblyComponentPathResolution(configuration.name);
         this.acceptPathError(resolution.invalidMessage, resolution.invalidNode, accept);
         if (resolution.active && !resolution.invalidMessage && !resolution.finalComponent) {
             accept('error', 'The configured instance shall resolve to a typed Component.', { node: configuration, property: ast.AssemblyComponentConfiguration.name });
@@ -158,7 +158,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
         if (!handler.entryPoint || handler.entryPoint.unsafe) {
             return;
         }
-        const entryPoint = this.l2PathResolver.getLocalNamedReferenceTarget(handler.entryPoint);
+        const entryPoint = this.instancePathResolver.getLocalNamedReferenceTarget(handler.entryPoint);
         if (!ast.isEntryPoint(entryPoint)) {
             accept('error', 'The selected entry point shall resolve to an EntryPoint of the current Component.', {
                 node: handler,
@@ -181,7 +181,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
                 property: ast.FieldValue.field
             });
         }
-        const resolution = this.l2PathResolver.getAssemblyFieldPathResolution(fieldValue.field);
+        const resolution = this.instancePathResolver.getAssemblyFieldPathResolution(fieldValue.field);
         this.acceptPathError(resolution.invalidMessage, resolution.invalidNode, accept);
         if (resolution.active && !resolution.invalidMessage && resolution.finalType && fieldValue.value) {
             this.checkAssemblyValueAgainstType(fieldValue.value, resolution.finalType, accept);
@@ -208,7 +208,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
     checkOperationCall(call: ast.OperationCall, accept: ValidationAcceptor): void {
         const operationRef = call.operation;
         if (operationRef && !operationRef.unsafe) {
-            const operation = this.l2PathResolver.getLocalNamedReferenceTarget(operationRef);
+            const operation = this.instancePathResolver.getLocalNamedReferenceTarget(operationRef);
             if (!ast.isOperation(operation)) {
                 accept('error', 'The selected operation shall resolve to an Operation of the current Component.', {
                     node: call,
@@ -238,7 +238,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
         if (!propertyRef || propertyRef.unsafe) {
             return;
         }
-        const target = this.l2PathResolver.getLocalNamedReferenceTarget(propertyRef);
+        const target = this.instancePathResolver.getLocalNamedReferenceTarget(propertyRef);
         if (!ast.isProperty(target)) {
             accept('error', 'The selected property shall resolve to a Property of the current Component.', {
                 node: property,
@@ -290,7 +290,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
             if (!subInstance.container || subInstance.container.unsafe) {
                 continue;
             }
-            const container = this.l2PathResolver.getLocalNamedReferenceTarget(subInstance.container);
+            const container = this.instancePathResolver.getLocalNamedReferenceTarget(subInstance.container);
             if (!ast.isContainer(container)) {
                 continue;
             }
@@ -348,7 +348,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
         if (!link) {
             return;
         }
-        const target = this.l2PathResolver.getLocalNamedReferenceTarget(reference);
+        const target = this.instancePathResolver.getLocalNamedReferenceTarget(reference);
         if (!ast.isReference(target)) {
             accept('error', `The selected reference shall resolve to a Reference of the ${sourceSide} Component.`, {
                 node: link,
@@ -357,7 +357,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
             return;
         }
         const expectedType = ast.isReferenceType(target.interface?.ref) ? target.interface.ref : undefined;
-        const oppositeContext = this.l2PathResolver.getInterfaceLinkEndpointContext(link, 'owner');
+        const oppositeContext = this.instancePathResolver.getInterfaceLinkEndpointContext(link, 'owner');
         if (expectedType && oppositeContext.component && !XsmpUtils.isBaseOfReferenceType(expectedType, oppositeContext.component)) {
             accept('error', `The selected reference shall be compatible with the ${targetSide} Component.`, {
                 node: link,
@@ -371,12 +371,12 @@ export class XsmpasbValidator extends XsmpcfgValidator {
         if (!sourcePath || sourcePath.unsafe) {
             return;
         }
-        const resolution = this.l2PathResolver.getInterfaceLinkSourceResolution(link);
+        const resolution = this.instancePathResolver.getInterfaceLinkSourceResolution(link);
         if (!resolution.active || resolution.invalidMessage || !ast.isReference(resolution.finalElement)) {
             return;
         }
         const expectedType = ast.isReferenceType(resolution.finalElement.interface?.ref) ? resolution.finalElement.interface.ref : undefined;
-        const oppositeContext = this.l2PathResolver.getInterfaceLinkEndpointContext(link, 'client');
+        const oppositeContext = this.instancePathResolver.getInterfaceLinkEndpointContext(link, 'client');
         if (expectedType && oppositeContext.component && !XsmpUtils.isBaseOfReferenceType(expectedType, oppositeContext.component)) {
             accept('error', 'The selected source reference shall be compatible with the Client Component.', {
                 node: link,
@@ -447,7 +447,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
         if (!targetOccurrence?.component) {
             return;
         }
-        const targetReference = this.l2PathResolver.resolveReferenceSegmentTarget(source.referenceSegment, targetOccurrence.component, targetOccurrence.bindings);
+        const targetReference = this.instancePathResolver.resolveReferenceSegmentTarget(source.referenceSegment, targetOccurrence.component, targetOccurrence.bindings);
         if (!targetReference) {
             return;
         }
@@ -491,8 +491,8 @@ export class XsmpasbValidator extends XsmpcfgValidator {
             }
         }
         const resolution = ast.isInterfaceLink(link) && property === ast.InterfaceLink.sourcePath
-            ? this.l2PathResolver.getInterfaceLinkSourceResolution(link)
-            : this.l2PathResolver.getAssemblyLinkPathResolution(path);
+            ? this.instancePathResolver.getInterfaceLinkSourceResolution(link)
+            : this.instancePathResolver.getAssemblyLinkPathResolution(path);
         this.acceptPathError(resolution.invalidMessage, resolution.invalidNode, accept);
         if (absoluteMessage && isAbsolutePath(path)) {
             if (property === ast.InterfaceLink.sourcePath && ast.isInterfaceLink(link)) {
@@ -752,7 +752,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
             if (container.property?.unsafe) {
                 return undefined;
             }
-            const target = this.l2PathResolver.getLocalNamedReferenceTarget(container.property);
+            const target = this.instancePathResolver.getLocalNamedReferenceTarget(container.property);
             return ast.isProperty(target) ? target.type?.ref : undefined;
         }
         if (ast.isParameterValue(container) && container.value === value) {
@@ -782,7 +782,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
                 : undefined;
             return field?.type?.ref;
         }
-        const resolution = this.l2PathResolver.getAssemblyFieldPathResolution(fieldValue.field);
+        const resolution = this.instancePathResolver.getAssemblyFieldPathResolution(fieldValue.field);
         if (!resolution.active || resolution.invalidMessage) {
             return undefined;
         }
@@ -797,7 +797,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
         if (!call || call.operation?.unsafe) {
             return undefined;
         }
-        const target = this.l2PathResolver.getLocalNamedReferenceTarget(call.operation);
+        const target = this.instancePathResolver.getLocalNamedReferenceTarget(call.operation);
         if (!ast.isOperation(target)) {
             return undefined;
         }
@@ -862,7 +862,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
 
         const bindings = this.getAssemblyTemplateBindings(assembly);
         const concreteName = this.identifierPatternService.substitute(pattern, bindings);
-        if (concreteName !== undefined && !isValidExpandedL2Identifier(concreteName)) {
+        if (concreteName !== undefined && !isValidExpandedPathIdentifier(concreteName)) {
             accept('error', `The expanded name '${concreteName}' is not valid for SMP Level 2.`, {
                 node,
                 property: ast.NamedElement.name
@@ -873,7 +873,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
     protected checkAssemblyPathTemplateParameters(path: ast.Path, accept: ValidationAcceptor): boolean {
         const assembly = AstUtils.getContainerOfType(path, ast.isAssembly);
         const available = new Set((assembly?.parameters ?? []).map(parameter => parameter.name));
-        return checkTemplatedL2PathSegments(
+        return checkTemplatedPathSegments(
             path,
             available,
             this.getAssemblyTemplateBindings(assembly),
@@ -982,7 +982,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
         if (!referenceName) {
             return undefined;
         }
-        return this.l2PathResolver.getComponentMembersByKind(component, ['reference'])
+        return this.instancePathResolver.getComponentMembersByKind(component, ['reference'])
             .find((candidate): candidate is ast.Reference => ast.isReference(candidate) && candidate.name === referenceName);
     }
 

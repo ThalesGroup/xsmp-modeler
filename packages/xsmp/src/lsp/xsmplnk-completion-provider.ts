@@ -93,7 +93,7 @@ export class XsmplnkCompletionProvider extends XsmpCompletionProviderBase {
         }
         const componentLinkBase = this.getRecoveryContainerOfType(context, ast.isComponentLinkBase);
         const component = componentLinkBase
-            ? this.l2PathResolver.getEffectiveComponentLinkBaseComponent(componentLinkBase)
+            ? this.instancePathResolver.getEffectiveComponentLinkBaseComponent(componentLinkBase)
             : undefined;
         if (!component) {
             return;
@@ -123,7 +123,7 @@ export class XsmplnkCompletionProvider extends XsmpCompletionProviderBase {
         const colonIndex = linePrefix.lastIndexOf(':');
         if (arrowIndex >= 0 && colonIndex > arrowIndex) {
             const fallbackComponent = this.getFallbackInterfaceComponent(context, true);
-            for (const candidate of this.l2PathResolver.getComponentMembersByKind(fallbackComponent, ['reference'])) {
+            for (const candidate of this.instancePathResolver.getComponentMembersByKind(fallbackComponent, ['reference'])) {
                 if (ast.isReference(candidate) && candidate.name) {
                     acceptor(context, this.createContextualValueItem(
                         context,
@@ -137,7 +137,7 @@ export class XsmplnkCompletionProvider extends XsmpCompletionProviderBase {
         }
 
         const ownerComponent = this.getFallbackInterfaceComponent(context, false);
-        for (const candidate of this.l2PathResolver.getComponentMembersByKind(ownerComponent, ['reference'])) {
+        for (const candidate of this.instancePathResolver.getComponentMembersByKind(ownerComponent, ['reference'])) {
             if (ast.isReference(candidate) && candidate.name) {
                 acceptor(context, this.createContextualValueItem(
                     context,
@@ -152,7 +152,7 @@ export class XsmplnkCompletionProvider extends XsmpCompletionProviderBase {
     protected getFallbackInterfaceComponent(context: CompletionContext, afterArrow: boolean): ast.Component | undefined {
         const componentLinkBase = this.getRecoveryContainerOfType(context, ast.isComponentLinkBase);
         const rootComponent = componentLinkBase
-            ? this.l2PathResolver.getEffectiveComponentLinkBaseComponent(componentLinkBase)
+            ? this.instancePathResolver.getEffectiveComponentLinkBaseComponent(componentLinkBase)
             : undefined;
         if (!rootComponent) {
             return undefined;
@@ -183,7 +183,7 @@ export class XsmplnkCompletionProvider extends XsmpCompletionProviderBase {
             if (!trimmed || trimmed === '.') {
                 continue;
             }
-            const member: ast.Container | ast.Reference | undefined = this.l2PathResolver
+            const member: ast.Container | ast.Reference | undefined = this.instancePathResolver
                 .getComponentPathMembers(current)
                 .find(candidate => candidate.name === trimmed);
             current = member ? this.typedPathResolver.getChildComponentForPathMember(member) : undefined;

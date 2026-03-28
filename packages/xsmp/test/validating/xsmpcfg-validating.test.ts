@@ -247,6 +247,78 @@ describe('Validating Xsmpcfg', () => {
             'StartIndex is only available in ECSS_SMP_2025.',
         ]);
     });
+
+    test('infers types for positional structure and array values', async () => {
+        const document = await parseInProject(`configuration Demo
+/Root: demo.Root
+{
+    state = {
+        1,
+        true,
+        [1, 2]
+    }
+}
+`);
+
+        expect(getMessages(document)).toEqual([]);
+    });
+
+    test('reports array overflow, duplicate structure fields, and excess positional structure values', async () => {
+        const document = await parseInProject(`configuration Demo
+/Root: demo.Root
+{
+    simpleValues = [2: 7, 8, 9]
+    state = {
+        count = 1i32,
+        count = 2i32,
+        true,
+        [1i32, 2i32],
+        false
+    }
+}
+`);
+
+        expect(getMessages(document)).toEqual(expect.arrayContaining([
+            'The array value shall not exceed 4 item(s) when StartIndex is applied.',
+            "The structure field 'count' shall not be initialized more than once.",
+            'The structure value shall not contain more values than the fields of demo.Counters.',
+        ]));
+    });
+
+    test('rejects non-collection values for typed array and structure fields', async () => {
+        const document = await parseInProject(`configuration Demo
+/Root: demo.Root
+{
+    simpleValues = true
+    state = false
+}
+`);
+
+        expect(getMessages(document)).toEqual(expect.arrayContaining([
+            'The value shall be compatible with type demo.SimpleIntQuad.',
+            'The value shall be compatible with type demo.Counters.',
+        ]));
+    });
+
+    test('resolves include paths from an assembly context and reports missing placeholders', async () => {
+        const valid = await parseInProject(`configuration Demo
+/Root: DemoAsm
+{
+    include Other at Child{Lane}
+}
+`);
+        expect(getMessages(valid)).toEqual([]);
+
+        const invalid = await parseInProject(`configuration Demo
+/Root: DemoAsm
+{
+    include Other at Child{Missing}
+}
+`);
+        expect(getMessages(invalid)).toEqual([
+            "The placeholder '{Missing}' shall resolve to a Template Argument of the enclosing Assembly context.",
+        ]);
+    });
 });
 
 async function parseInProject(source: string, standard: 'ECSS_SMP_2020' | 'ECSS_SMP_2025' = 'ECSS_SMP_2025'): Promise<LangiumDocument<Configuration>> {

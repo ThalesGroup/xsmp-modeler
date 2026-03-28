@@ -3,18 +3,18 @@ import * as ast from '../generated/ast-partial.js';
 import * as Duration from '../utils/duration.js';
 
 const dateTimeRegex = /^\d{4}-\d{2}-\d{2}T.+$/;
-const l2ExpandedIdentifierRegex = /^[_a-zA-Z]\w*$/;
-type L2PathLike = string | ast.Path | undefined;
+const pathIdentifierRegex = /^[_a-zA-Z]\w*$/;
+type PathLikeValue = string | ast.Path | undefined;
 
 function isParentSegment(segment: ast.PathElement | ast.PathSegment): boolean {
     return ast.isPathParentSegment(ast.isPathMember(segment) ? segment.segment : segment);
 }
 
-export function isAbsolutePath(path: L2PathLike): boolean {
+export function isAbsolutePath(path: PathLikeValue): boolean {
     return typeof path === 'string' ? path.startsWith('/') : path?.absolute ?? false;
 }
 
-export function hasParentTraversal(path: L2PathLike): boolean {
+export function hasParentTraversal(path: PathLikeValue): boolean {
     if (typeof path === 'string') {
         return path.includes('..');
     }
@@ -32,7 +32,7 @@ export function hasParentTraversal(path: L2PathLike): boolean {
 export function checkNoParentTraversal<N extends AstNode>(
     accept: ValidationAcceptor,
     node: N,
-    path: L2PathLike,
+    path: PathLikeValue,
     property: Properties<N>,
 ): void {
     if (hasParentTraversal(path)) {
@@ -43,7 +43,7 @@ export function checkNoParentTraversal<N extends AstNode>(
 export function checkRelativePath<N extends AstNode>(
     accept: ValidationAcceptor,
     node: N,
-    path: L2PathLike,
+    path: PathLikeValue,
     property: Properties<N>,
     label: string,
 ): void {
@@ -96,6 +96,6 @@ export function checkNonNegativeBigInt<N extends AstNode>(
     }
 }
 
-export function isValidExpandedL2Identifier(value: string | undefined): value is string {
-    return value !== undefined && l2ExpandedIdentifierRegex.test(value);
+export function isValidExpandedPathIdentifier(value: string | undefined): value is string {
+    return value !== undefined && pathIdentifierRegex.test(value);
 }

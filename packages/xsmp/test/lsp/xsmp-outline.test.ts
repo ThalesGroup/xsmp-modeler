@@ -11,7 +11,7 @@ const expectConfigurationSymbols = expectSymbols(services.xsmpcfg);
 const expectLinkBaseSymbols = expectSymbols(services.xsmplnk);
 const expectScheduleSymbols = expectSymbols(services.xsmpsed);
 
-describe('L2 Outlines', () => {
+describe('XSMP Outlines', () => {
     test('Catalogue outline exposes details and deprecated markers for core named elements', async () => {
         await expectCatalogueSymbols({
             text: `

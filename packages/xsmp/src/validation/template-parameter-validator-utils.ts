@@ -2,7 +2,7 @@ import { AstUtils, type AstNode, type ValidationAcceptor } from 'langium';
 import * as ast from '../generated/ast-partial.js';
 import type { IdentifierPatternService } from '../references/identifier-pattern-service.js';
 import type { XsmpPathService } from '../references/xsmp-path-service.js';
-import { isValidExpandedL2Identifier } from './l2-validator-utils.js';
+import { isValidExpandedPathIdentifier } from './instance-validator-utils.js';
 
 export function collectUsedTemplateParameterNames(
     root: AstNode,
@@ -61,7 +61,7 @@ export function createTemplateBindings(parameters: readonly ast.TemplateParamete
     return bindings;
 }
 
-export function checkTemplatedL2PathSegments(
+export function checkTemplatedPathSegments(
     path: ast.Path,
     availableTemplateNames: ReadonlySet<string | undefined>,
     bindings: ReadonlyMap<string, string>,
@@ -86,7 +86,7 @@ export function checkTemplatedL2PathSegments(
         }
         const pattern = identifierPatternService.getSegmentPattern(namedSegment);
         const concreteText = identifierPatternService.substitute(pattern, bindings);
-        if (identifierPatternService.hasTemplate(pattern) && concreteText !== undefined && !isValidExpandedL2Identifier(concreteText)) {
+        if (identifierPatternService.hasTemplate(pattern) && concreteText !== undefined && !isValidExpandedPathIdentifier(concreteText)) {
             valid = false;
             accept('error', `The expanded path segment '${concreteText}' is not valid for SMP Level 2.`, {
                 node: namedSegment

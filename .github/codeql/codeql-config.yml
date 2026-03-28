@@ -1,0 +1,12 @@
+name: "XSMP CodeQL"
+
+paths-ignore:
+  - "packages/**/generated/**"
+  - "packages/**/out/**"
+  - "packages/**/lib/**"
+  - "packages/**/.types/**"
+  - "packages/**/test/expected/**"
+  - "packages/**/test/expected/generator-cpp/**"
+
+queries:
+  - uses: security-and-quality

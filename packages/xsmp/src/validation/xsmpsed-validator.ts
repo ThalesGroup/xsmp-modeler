@@ -7,11 +7,11 @@ import {
     checkValidDateTime,
     checkValidDuration,
     checkNoParentTraversal,
-} from './l2-validator-utils.js';
+} from './instance-validator-utils.js';
 import { checkName } from './name-validator-utils.js';
-import type { Xsmpl2PathResolver } from '../references/xsmpl2-path-resolver.js';
+import type { XsmpInstancePathResolver } from '../references/xsmp-instance-path-resolver.js';
 import * as XsmpUtils from '../utils/xsmp-utils.js';
-import { checkTemplatedL2PathSegments, collectUsedTemplateParameterNames, createTemplateBindings, warnUnusedTemplateParameters } from './template-parameter-validator-utils.js';
+import { checkTemplatedPathSegments, collectUsedTemplateParameterNames, createTemplateBindings, warnUnusedTemplateParameters } from './template-parameter-validator-utils.js';
 import { XsmpcfgValidator } from './xsmpcfg-validator.js';
 
 export function registerXsmpsedValidationChecks(services: XsmpsedServices) {
@@ -39,11 +39,11 @@ export function registerXsmpsedValidationChecks(services: XsmpsedServices) {
 }
 
 export class XsmpsedValidator extends XsmpcfgValidator {
-    protected readonly l2PathResolver: Xsmpl2PathResolver;
+    protected readonly instancePathResolver: XsmpInstancePathResolver;
 
     constructor(services: XsmpsedServices) {
         super(services);
-        this.l2PathResolver = services.shared.L2PathResolver;
+        this.instancePathResolver = services.shared.InstancePathResolver;
     }
 
     checkSchedule(schedule: ast.Schedule, accept: ValidationAcceptor): void {
@@ -125,7 +125,7 @@ export class XsmpsedValidator extends XsmpcfgValidator {
         if (!propertyPath || propertyPath.unsafe || !property.value) {
             return;
         }
-        const resolution = this.l2PathResolver.getScheduleActivityPathResolution(propertyPath);
+        const resolution = this.instancePathResolver.getScheduleActivityPathResolution(propertyPath);
         if (resolution.active && !resolution.invalidMessage && resolution.finalType) {
             this.checkValueAgainstType(property.value, resolution.finalType, accept);
         }
@@ -136,7 +136,7 @@ export class XsmpsedValidator extends XsmpcfgValidator {
         this.checkActivityPath(operationPath, accept);
         const resolution = !operationPath || operationPath.unsafe
             ? undefined
-            : this.l2PathResolver.getScheduleActivityPathResolution(operationPath);
+            : this.instancePathResolver.getScheduleActivityPathResolution(operationPath);
         if (resolution?.active && !resolution.invalidMessage && ast.isOperation(resolution.finalElement)) {
             this.checkCallParameters(call, resolution.finalElement, accept);
         }
@@ -162,10 +162,10 @@ export class XsmpsedValidator extends XsmpcfgValidator {
             return;
         }
         checkNoParentTraversal(accept, execute, execute.root, ast.ExecuteTask.root);
-        const resolution = this.l2PathResolver.getScheduleActivityPathResolution(execute.root);
+        const resolution = this.instancePathResolver.getScheduleActivityPathResolution(execute.root);
         this.acceptPathError(resolution.invalidMessage, resolution.invalidNode, accept);
         const expectedTask = execute.task?.ref;
-        const expectedComponent = expectedTask ? this.l2PathResolver.getEffectiveTaskExecutionContext(expectedTask) : undefined;
+        const expectedComponent = expectedTask ? this.instancePathResolver.getEffectiveTaskExecutionContext(expectedTask) : undefined;
         if (!resolution.active || resolution.invalidMessage || !resolution.finalComponent || !expectedComponent) {
             return;
         }
@@ -244,7 +244,7 @@ export class XsmpsedValidator extends XsmpcfgValidator {
             return;
         }
         checkNoParentTraversal(accept, path, path, ast.Path.elements);
-        const resolution = this.l2PathResolver.getScheduleActivityPathResolution(path);
+        const resolution = this.instancePathResolver.getScheduleActivityPathResolution(path);
         this.acceptPathError(resolution.invalidMessage, resolution.invalidNode, accept);
     }
 
@@ -288,7 +288,7 @@ export class XsmpsedValidator extends XsmpcfgValidator {
         if (!setProperty.propertyPath || setProperty.propertyPath.unsafe) {
             return undefined;
         }
-        const resolution = this.l2PathResolver.getScheduleActivityPathResolution(setProperty.propertyPath);
+        const resolution = this.instancePathResolver.getScheduleActivityPathResolution(setProperty.propertyPath);
         if (!resolution.active || resolution.invalidMessage) {
             return undefined;
         }
@@ -304,7 +304,7 @@ export class XsmpsedValidator extends XsmpcfgValidator {
         if (!operationPath || operationPath.unsafe) {
             return undefined;
         }
-        const resolution = this.l2PathResolver.getScheduleActivityPathResolution(operationPath);
+        const resolution = this.instancePathResolver.getScheduleActivityPathResolution(operationPath);
         if (!resolution.active || resolution.invalidMessage || !ast.isOperation(resolution.finalElement)) {
             return undefined;
         }
@@ -314,7 +314,7 @@ export class XsmpsedValidator extends XsmpcfgValidator {
     protected override checkPathTemplateParameters(path: ast.Path, accept: ValidationAcceptor): boolean {
         const templateContext = this.getPathTemplateContext(path);
         const available = new Set(templateContext.parameters.map(parameter => parameter.name));
-        return checkTemplatedL2PathSegments(
+        return checkTemplatedPathSegments(
             path,
             available,
             templateContext.bindings,

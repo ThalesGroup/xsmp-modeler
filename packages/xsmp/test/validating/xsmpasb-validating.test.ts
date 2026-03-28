@@ -20,6 +20,15 @@ const catalogueSource = `catalogue Demo
 namespace demo
 {
     public event FlagEvent extends Smp.Bool
+    @SimpleArray
+    public array SimpleIntQuad = Smp.Int32[4]
+
+    public struct Counters
+    {
+        field Smp.Int32 count
+        field Smp.Bool enabled
+        field SimpleIntQuad values
+    }
 
     public model Child
     {
@@ -27,6 +36,14 @@ namespace demo
         field Smp.Float64 ratio
         input field Smp.Int32 inValue
         output field Smp.Int32 outValue
+        reference Smp.IComponent backLogger
+        reference Smp.IService backService
+
+        entrypoint step
+        {
+            in inValue
+            out outValue
+        }
 
         eventsink demo.FlagEvent inbound
         eventsource demo.FlagEvent outbound
@@ -36,14 +53,25 @@ namespace demo
     {
         field Smp.Bool enabledState
         field Smp.Int32 countState
+        field Counters state
+        field Smp.Char8 grade
+        field Smp.String8 label
         output field Smp.Int32 outValue
         input field Smp.Int32 inValue
         container Child child = demo.Child
         reference Smp.IComponent logger
+        reference Smp.IService serviceRef
 
         public property Smp.Bool enabled -> enabledState
+        readOnly property Smp.Bool status -> enabledState
         public property Smp.Int32 count -> countState
         public def void apply(in Smp.Int32 nextCount, in Smp.Float64 nextRatio)
+
+        entrypoint step
+        {
+            in inValue
+            out outValue
+        }
 
         eventsink demo.FlagEvent inbound
         eventsource demo.FlagEvent outbound
@@ -286,6 +314,99 @@ Root: demo.Root
         expect(getMessages(document)).toEqual([
             "The Template Parameter 'Unused' is not used.",
         ]);
+    });
+
+    test('requires explicit template values and validates expanded instance names', async () => {
+        const document = await parseInProject(`assembly <Lane: string, Index: int32, Bad = "1bad"> Demo
+
+Root: demo.Root
+{
+    child += {Bad}: demo.Child
+}
+`);
+
+        expect(getMessages(document)).toEqual(expect.arrayContaining([
+            'A Template Argument shall have a Value feature.',
+            "The expanded name '1bad' is not valid for SMP Level 2.",
+        ]));
+        expect(getMessages(document).filter(message => message === 'A Template Argument shall have a Value feature.')).toHaveLength(2);
+    });
+
+    test('validates subscriptions, operation parameters, and writable properties', async () => {
+        const document = await parseInProject(`assembly Demo
+
+configure child
+{
+    subscribe count -> "Tick"
+}
+
+Root: demo.Root
+{
+    property status = true
+    call enabled(nextCount = 1i32)
+    call apply(nextCount = 1i32, nextCount = 2i32, missing = 3i32, nextRatio = true)
+    child += Child: demo.Child
+}
+`);
+
+        expect(getMessages(document)).toEqual(expect.arrayContaining([
+            'The selected entry point shall resolve to an EntryPoint of the current Component.',
+            'A PropertyValue shall target a writable Property.',
+            'The selected operation shall resolve to an Operation of the current Component.',
+            'Duplicated parameter name.',
+            "The parameter 'missing' shall resolve to a Parameter of operation apply.",
+            'The value shall be compatible with type Smp.Float64.',
+        ]));
+    });
+
+    test('validates assembly structure and array values', async () => {
+        const document = await parseInProject(`assembly Demo
+
+Root: demo.Root
+{
+    state = {
+        count = true,
+        missing = 1i32,
+        values = [2: 7, 8, 9],
+        false,
+        true
+    }
+    grade = "A"
+    label = 'A'
+}
+`);
+
+        expect(getMessages(document)).toEqual(expect.arrayContaining([
+            'The value shall be compatible with type Smp.Int32.',
+            "The structure field path 'missing' does not exist on type demo.Counters.",
+            'The array value shall not exceed 4 item(s) when StartIndex is applied.',
+            'The structure value shall not contain more values than the fields of demo.Counters.',
+            'The value shall be compatible with type Smp.Char8.',
+            'The value shall be compatible with type Smp.String8.',
+        ]));
+    });
+
+    test('validates interface links against endpoint types and path constraints', async () => {
+        const document = await parseInProject(`assembly Demo
+
+Root: demo.Root
+{
+    child += Child: demo.Child
+    field link ../outValue -> /child.inValue
+    interface link serviceRef -> child
+    interface link ../logger -> child
+    interface link logger -> child:outValue
+    interface link logger -> child:backService
+}
+`);
+
+        expect(getMessages(document)).toEqual(expect.arrayContaining([
+            'Paths shall not contain \'..\'.',
+            'The Client Path shall refer to the current Model Instance or one of its children.',
+            'The selected source reference shall be compatible with the Client Component.',
+            'The selected reference shall resolve to a Reference of the Client Component.',
+            'The selected reference shall be compatible with the Owner Component.',
+        ]));
     });
 });
 

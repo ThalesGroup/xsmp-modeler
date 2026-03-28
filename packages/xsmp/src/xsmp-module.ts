@@ -20,7 +20,7 @@ import { XsmpPathService } from './references/xsmp-path-service.js';
 import { IdentifierPatternService } from './references/identifier-pattern-service.js';
 import { XsmpTypedPathResolver } from './references/xsmp-typed-path-resolver.js';
 import { XsmpcfgPathResolver } from './references/xsmpcfg-path-resolver.js';
-import { Xsmpl2PathResolver } from './references/xsmpl2-path-resolver.js';
+import { XsmpInstancePathResolver } from './references/xsmp-instance-path-resolver.js';
 import { XsmpNodeInfoProvider } from './lsp/node-info-provider.js';
 import { DocumentationHelper } from './utils/documentation-helper.js';
 import { AttributeHelper } from './utils/attribute-helper.js';
@@ -148,7 +148,7 @@ export interface XsmpAddedSharedServices {
     readonly PathService: XsmpPathService,
     readonly TypedPathResolver: XsmpTypedPathResolver,
     readonly CfgPathResolver: XsmpcfgPathResolver,
-    readonly L2PathResolver: Xsmpl2PathResolver,
+    readonly InstancePathResolver: XsmpInstancePathResolver,
     readonly DocumentGenerator: XsmpDocumentGenerator,
     readonly TypeProvider: XsmpTypeProvider,
     readonly lsp: {
@@ -175,7 +175,7 @@ export const XsmpSharedModule: Module<XsmpSharedServices, DeepPartial<XsmpShared
     PathService: (services) => new XsmpPathService(services),
     TypedPathResolver: (services) => new XsmpTypedPathResolver(services),
     CfgPathResolver: (services) => new XsmpcfgPathResolver(services),
-    L2PathResolver: (services) => new Xsmpl2PathResolver(services),
+    InstancePathResolver: (services) => new XsmpInstancePathResolver(services),
     DocumentGenerator: (services) => new XsmpDocumentGenerator(services),
     DocumentationHelper: (services) => new DocumentationHelper(services),
     ContributionRegistry: (services) => new XsmpContributionRegistry(services),

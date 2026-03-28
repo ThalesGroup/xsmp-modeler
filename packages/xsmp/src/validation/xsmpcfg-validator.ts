@@ -6,7 +6,7 @@ import type { XsmpPathService } from '../references/xsmp-path-service.js';
 import type { XsmpcfgPathResolver } from '../references/xsmpcfg-path-resolver.js';
 import type { AttributeHelper } from '../utils/attribute-helper.js';
 import { checkName } from './name-validator-utils.js';
-import { checkTemplatedL2PathSegments, createTemplateBindings } from './template-parameter-validator-utils.js';
+import { checkTemplatedPathSegments, createTemplateBindings } from './template-parameter-validator-utils.js';
 import * as Solver from '../utils/solver.js';
 import { PTK } from '../utils/primitive-type-kind.js';
 import * as XsmpUtils from '../utils/xsmp-utils.js';
@@ -117,7 +117,7 @@ export class XsmpcfgValidator {
     protected checkPathTemplateParameters(path: ast.Path, accept: ValidationAcceptor): boolean {
         const templateContext = this.getPathTemplateContext(path);
         const available = new Set(templateContext?.parameters.map(parameter => parameter.name));
-        return checkTemplatedL2PathSegments(
+        return checkTemplatedPathSegments(
             path,
             available,
             templateContext?.bindings ?? new Map(),

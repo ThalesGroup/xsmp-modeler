@@ -14,7 +14,7 @@ import {
 import * as ast from '../generated/ast-partial.js';
 import type * as partialAst from '../generated/ast-partial.js';
 import type { XsmpcfgPathResolver } from '../references/xsmpcfg-path-resolver.js';
-import type { Xsmpl2PathResolver } from '../references/xsmpl2-path-resolver.js';
+import type { XsmpInstancePathResolver } from '../references/xsmp-instance-path-resolver.js';
 import type { XsmpPathService } from '../references/xsmp-path-service.js';
 import type { XsmpTypedPathResolver } from '../references/xsmp-typed-path-resolver.js';
 import type { XsmpTypeProvider } from '../references/type-provider.js';
@@ -24,7 +24,7 @@ import type { DocumentationHelper } from '../utils/documentation-helper.js';
 import * as XsmpUtils from '../utils/xsmp-utils.js';
 import type { XsmpServices } from '../xsmp-module.js';
 
-type CompletionValueMode = 'cfg' | 'l2';
+type CompletionValueMode = 'cfg' | 'path';
 type RecoverableXsmpNode = AstNode & partialAst.XsmpAstType;
 type RelativeComponentContext = {
     path: string;
@@ -38,7 +38,7 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
     protected readonly pathService: XsmpPathService;
     protected readonly typedPathResolver: XsmpTypedPathResolver;
     protected readonly cfgPathResolver: XsmpcfgPathResolver;
-    protected readonly l2PathResolver: Xsmpl2PathResolver;
+    protected readonly instancePathResolver: XsmpInstancePathResolver;
 
     constructor(services: XsmpServices) {
         super(services);
@@ -48,7 +48,7 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
         this.pathService = services.shared.PathService;
         this.typedPathResolver = services.shared.TypedPathResolver;
         this.cfgPathResolver = services.shared.CfgPathResolver;
-        this.l2PathResolver = services.shared.L2PathResolver;
+        this.instancePathResolver = services.shared.InstancePathResolver;
     }
 
     override async getCompletion(document: LangiumDocument, params: CompletionParams, cancelToken?: CancellationToken) {
@@ -648,7 +648,7 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
         return basePath === '.' ? memberName : `${basePath}.${memberName}`;
     }
 
-    protected createOperationCallText(operation: ast.Operation, mode: CompletionValueMode = 'l2'): string {
+    protected createOperationCallText(operation: ast.Operation, mode: CompletionValueMode = 'path'): string {
         if (operation.parameter.length === 0) {
             return `${operation.name ?? 'operation'}()`;
         }
@@ -662,7 +662,7 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
     protected createPropertyAssignmentText(
         propertyName: string,
         type: ast.Type | undefined,
-        mode: CompletionValueMode = 'l2',
+        mode: CompletionValueMode = 'path',
     ): string {
         const defaultValue = this.getDefaultValueForType(type, mode, false) || 'value';
         return `${propertyName} = ${this.createPlaceholder(1, defaultValue)}`;
@@ -677,15 +677,15 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
     }
 
     protected getOperations(component: ast.Component | undefined): readonly ast.Operation[] {
-        return this.l2PathResolver.getComponentMembersByKind(component, ['operation']).filter(ast.isOperation);
+        return this.instancePathResolver.getComponentMembersByKind(component, ['operation']).filter(ast.isOperation);
     }
 
     protected getProperties(component: ast.Component | undefined): readonly ast.Property[] {
-        return this.l2PathResolver.getComponentMembersByKind(component, ['property']).filter(ast.isProperty);
+        return this.instancePathResolver.getComponentMembersByKind(component, ['property']).filter(ast.isProperty);
     }
 
     protected getEntryPoints(component: ast.Component | undefined): readonly ast.EntryPoint[] {
-        return this.l2PathResolver.getComponentMembersByKind(component, ['entryPoint']).filter(ast.isEntryPoint);
+        return this.instancePathResolver.getComponentMembersByKind(component, ['entryPoint']).filter(ast.isEntryPoint);
     }
 
     protected addContextualFieldLinkCompletions(
@@ -694,14 +694,14 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
         component: ast.Component | undefined,
     ): void {
         for (const ownerContext of this.getRelativeComponentContexts(component)) {
-            const outputs = this.l2PathResolver.getComponentMembersByKind(ownerContext.component, ['outputField']);
+            const outputs = this.instancePathResolver.getComponentMembersByKind(ownerContext.component, ['outputField']);
             for (const output of outputs) {
                 if (!ast.isField(output) || !output.name) {
                     continue;
                 }
                 const ownerPath = this.qualifyRelativeMemberPath(ownerContext.path, output.name);
                 for (const clientContext of this.getRelativeComponentContexts(component)) {
-                    const inputs = this.l2PathResolver.getComponentMembersByKind(clientContext.component, ['inputField']);
+                    const inputs = this.instancePathResolver.getComponentMembersByKind(clientContext.component, ['inputField']);
                     for (const input of inputs) {
                         if (!ast.isField(input) || !input.name) {
                             continue;
@@ -726,14 +726,14 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
         component: ast.Component | undefined,
     ): void {
         for (const ownerContext of this.getRelativeComponentContexts(component)) {
-            const sources = this.l2PathResolver.getComponentMembersByKind(ownerContext.component, ['eventSource']);
+            const sources = this.instancePathResolver.getComponentMembersByKind(ownerContext.component, ['eventSource']);
             for (const source of sources) {
                 if (!ast.isEventSource(source) || !source.name) {
                     continue;
                 }
                 const ownerPath = this.qualifyRelativeMemberPath(ownerContext.path, source.name);
                 for (const clientContext of this.getRelativeComponentContexts(component)) {
-                    const sinks = this.l2PathResolver.getComponentMembersByKind(clientContext.component, ['eventSink']);
+                    const sinks = this.instancePathResolver.getComponentMembersByKind(clientContext.component, ['eventSink']);
                     for (const sink of sinks) {
                         if (!ast.isEventSink(sink) || !sink.name) {
                             continue;
@@ -758,7 +758,7 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
         component: ast.Component | undefined,
     ): void {
         for (const ownerContext of this.getRelativeComponentContexts(component)) {
-            const references = this.l2PathResolver.getComponentMembersByKind(ownerContext.component, ['reference']);
+            const references = this.instancePathResolver.getComponentMembersByKind(ownerContext.component, ['reference']);
             for (const reference of references) {
                 if (!ast.isReference(reference) || !reference.name) {
                     continue;
@@ -771,7 +771,7 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
                     if (expectedType && !XsmpUtils.isBaseOfReferenceType(expectedType, clientContext.component)) {
                         continue;
                     }
-                    const backReference = this.l2PathResolver.getComponentMembersByKind(clientContext.component, ['reference'])
+                    const backReference = this.instancePathResolver.getComponentMembersByKind(clientContext.component, ['reference'])
                         .find(candidate =>
                             ast.isReference(candidate)
                             && ast.isReferenceType(candidate.interface?.ref)

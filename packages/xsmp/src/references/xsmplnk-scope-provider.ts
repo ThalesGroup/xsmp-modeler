@@ -11,7 +11,7 @@ import type {
 } from 'langium';
 import { AstUtils, EMPTY_SCOPE, MapScope, StreamScope, WorkspaceCache, stream } from 'langium';
 import * as ast from '../generated/ast-partial.js';
-import type { Xsmpl2PathResolver } from './xsmpl2-path-resolver.js';
+import type { XsmpInstancePathResolver } from './xsmp-instance-path-resolver.js';
 import type { ProjectManager } from '../workspace/project-manager.js';
 import type { XsmplnkServices } from '../xsmplnk-module.js';
 
@@ -19,7 +19,7 @@ export class XsmplnkScopeProvider implements ScopeProvider {
     protected readonly descriptions: AstNodeDescriptionProvider;
     protected readonly globalScopeCache: WorkspaceCache<URI, Map<string, Scope>>;
     protected readonly indexManager: IndexManager;
-    protected readonly pathResolver: Xsmpl2PathResolver;
+    protected readonly pathResolver: XsmpInstancePathResolver;
     protected readonly projectManager: ProjectManager;
     protected readonly reflection: AstReflection;
 
@@ -27,7 +27,7 @@ export class XsmplnkScopeProvider implements ScopeProvider {
         this.descriptions = services.workspace.AstNodeDescriptionProvider;
         this.globalScopeCache = new WorkspaceCache<URI, Map<string, Scope>>(services.shared);
         this.indexManager = services.shared.workspace.IndexManager;
-        this.pathResolver = services.shared.L2PathResolver;
+        this.pathResolver = services.shared.InstancePathResolver;
         this.projectManager = services.shared.workspace.ProjectManager;
         this.reflection = services.shared.AstReflection;
     }

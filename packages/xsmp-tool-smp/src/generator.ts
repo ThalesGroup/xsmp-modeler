@@ -16,7 +16,7 @@ import { isGeneratedBy, type TaskAcceptor, type XsmpGenerator, getCopyrightNotic
 import { create } from 'xmlbuilder2';
 import { getStandardBuiltinExportName, isStandardBuiltinLibrary, xsmpVersion, type XsmpSharedServices } from 'xsmp';
 import type { ProjectManager } from 'xsmp/workspace';
-import type { XsmpPathService, XsmpcfgPathResolver, Xsmpl2PathResolver } from 'xsmp/references';
+import type { XsmpPathService, XsmpcfgPathResolver, XsmpInstancePathResolver } from 'xsmp/references';
 
 const Duration = XsmpUtils;
 const Solver = XsmpUtils;
@@ -32,14 +32,14 @@ export class SmpGenerator implements XsmpGenerator {
     protected readonly attrHelper: AttributeHelper;
     protected readonly pathService: XsmpPathService;
     protected readonly cfgPathResolver: XsmpcfgPathResolver;
-    protected readonly l2PathResolver: Xsmpl2PathResolver;
+    protected readonly instancePathResolver: XsmpInstancePathResolver;
     protected readonly projectManager: ProjectManager;
     protected readonly smdlGenFolder = 'smdl-gen';
 
     constructor(services: XsmpSharedServices) {
         this.pathService = services.PathService;
         this.cfgPathResolver = services.CfgPathResolver;
-        this.l2PathResolver = services.L2PathResolver;
+        this.instancePathResolver = services.InstancePathResolver;
         this.docHelper = services.DocumentationHelper;
         this.attrHelper = services.AttributeHelper;
         this.projectManager = services.workspace.ProjectManager;
@@ -774,7 +774,7 @@ export class SmpGenerator implements XsmpGenerator {
         if (!ast.isPath(fieldValue.field) || fieldValue.field.unsafe) {
             return undefined;
         }
-        const resolution = this.l2PathResolver.getAssemblyFieldPathResolution(fieldValue.field);
+        const resolution = this.instancePathResolver.getAssemblyFieldPathResolution(fieldValue.field);
         if (!resolution.active || resolution.invalidMessage) {
             return undefined;
         }
@@ -785,7 +785,7 @@ export class SmpGenerator implements XsmpGenerator {
         if (propertyValue.property.unsafe) {
             return undefined;
         }
-        const target = this.l2PathResolver.getLocalNamedReferenceTarget(propertyValue.property);
+        const target = this.instancePathResolver.getLocalNamedReferenceTarget(propertyValue.property);
         return ast.isProperty(target) ? target.type.ref : undefined;
     }
 
@@ -793,7 +793,7 @@ export class SmpGenerator implements XsmpGenerator {
         if (propertyValue.propertyPath.unsafe) {
             return undefined;
         }
-        const resolution = this.l2PathResolver.getScheduleActivityPathResolution(propertyValue.propertyPath);
+        const resolution = this.instancePathResolver.getScheduleActivityPathResolution(propertyValue.propertyPath);
         if (!resolution.active || resolution.invalidMessage) {
             return undefined;
         }
@@ -810,7 +810,7 @@ export class SmpGenerator implements XsmpGenerator {
             if (scheduleCall.operationPath.unsafe) {
                 return undefined;
             }
-            const resolution = this.l2PathResolver.getScheduleActivityPathResolution(scheduleCall.operationPath);
+            const resolution = this.instancePathResolver.getScheduleActivityPathResolution(scheduleCall.operationPath);
             const operation = ast.isOperation(resolution.finalElement) ? resolution.finalElement : undefined;
             return operation?.parameter.find(parameter => parameter.name === parameterValue.parameter)?.type.ref;
         }
@@ -819,7 +819,7 @@ export class SmpGenerator implements XsmpGenerator {
         if (!assemblyCall || assemblyCall.operation.unsafe) {
             return undefined;
         }
-        const target = this.l2PathResolver.getLocalNamedReferenceTarget(assemblyCall.operation);
+        const target = this.instancePathResolver.getLocalNamedReferenceTarget(assemblyCall.operation);
         const operation = ast.isOperation(target) ? target : undefined;
         return operation?.parameter.find(parameter => parameter.name === parameterValue.parameter)?.type.ref;
     }

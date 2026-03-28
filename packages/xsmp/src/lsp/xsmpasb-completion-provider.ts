@@ -114,7 +114,7 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
                 }
                 return this.createReferenceLikeItem(
                     nodeDescription,
-                    this.createPropertyAssignmentText(nodeDescription.name, nodeDescription.node.type?.ref, 'l2'),
+                    this.createPropertyAssignmentText(nodeDescription.name, nodeDescription.node.type?.ref, 'path'),
                     'Writable property of the current component.'
                 );
             }
@@ -131,7 +131,7 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
                 if (!nodeDescription.name) {
                     return undefined;
                 }
-                const defaultValue = this.getDefaultValueForType(nodeDescription.node.type?.ref, 'l2', true) || 'value';
+                const defaultValue = this.getDefaultValueForType(nodeDescription.node.type?.ref, 'path', true) || 'value';
                 return this.createReferenceLikeItem(
                     nodeDescription,
                     `${nodeDescription.name} = ${this.createPlaceholder(1, defaultValue)}`,
@@ -230,11 +230,11 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
         if (!component) {
             return;
         }
-        for (const field of this.l2PathResolver.getFieldCandidatesForType(component)) {
+        for (const field of this.instancePathResolver.getFieldCandidatesForType(component)) {
             if (!field.name) {
                 continue;
             }
-            const defaultValue = this.getDefaultValueForType(field.type?.ref, 'l2', true) || 'value';
+            const defaultValue = this.getDefaultValueForType(field.type?.ref, 'path', true) || 'value';
             acceptor(context, this.createContextualValueItem(
                 context,
                 field.name,
@@ -361,7 +361,7 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
             acceptor(context, this.createContextualValueItem(
                 context,
                 `property ${candidate.name}`,
-                `property ${this.createPropertyAssignmentText(candidate.name, candidate.type?.ref, 'l2')}`,
+                `property ${this.createPropertyAssignmentText(candidate.name, candidate.type?.ref, 'path')}`,
                 `Property value for ${candidate.name}.`
             ));
         }
@@ -373,7 +373,7 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
             acceptor(context, this.createContextualValueItem(
                 context,
                 `call ${candidate.name}`,
-                `call ${this.createOperationCallText(candidate, 'l2')}`,
+                `call ${this.createOperationCallText(candidate, 'path')}`,
                 `Operation call for ${candidate.name}.`
             ));
         }
@@ -391,7 +391,7 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
                 acceptor(context, this.createContextualValueItem(
                     context,
                     candidate.name,
-                    this.createOperationCallText(candidate, 'l2'),
+                    this.createOperationCallText(candidate, 'path'),
                     `Operation of ${candidate.$container.name}.`
                 ));
             }
@@ -405,7 +405,7 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
                 acceptor(context, this.createContextualValueItem(
                     context,
                     candidate.name,
-                    this.createPropertyAssignmentText(candidate.name, candidate.type?.ref, 'l2'),
+                    this.createPropertyAssignmentText(candidate.name, candidate.type?.ref, 'path'),
                     `Writable property of ${candidate.$container.name}.`
                 ));
             }
@@ -433,8 +433,8 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
         const node = this.getRecoveryAstNode(context);
         const fieldValue = AstUtils.getContainerOfType(node, ast.isFieldValue);
         if (fieldValue?.field) {
-            const targetType = this.l2PathResolver.getAssemblyFieldPathResolution(fieldValue.field).finalType;
-            for (const item of this.getSimpleValueCompletions(targetType, 'l2', true)) {
+            const targetType = this.instancePathResolver.getAssemblyFieldPathResolution(fieldValue.field).finalType;
+            for (const item of this.getSimpleValueCompletions(targetType, 'path', true)) {
                 acceptor(context, item);
             }
             return;
@@ -442,9 +442,9 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
 
         const propertyValue = AstUtils.getContainerOfType(node, ast.isPropertyValue);
         if (propertyValue) {
-            const property = this.l2PathResolver.getLocalNamedReferenceTarget(propertyValue.property);
+            const property = this.instancePathResolver.getLocalNamedReferenceTarget(propertyValue.property);
             const targetType = ast.isProperty(property) ? property.type?.ref : undefined;
-            for (const item of this.getSimpleValueCompletions(targetType, 'l2', false)) {
+            for (const item of this.getSimpleValueCompletions(targetType, 'path', false)) {
                 acceptor(context, item);
             }
             return;
@@ -452,12 +452,12 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
 
         const parameterValue = AstUtils.getContainerOfType(node, ast.isParameterValue);
         const operationCall = parameterValue ? AstUtils.getContainerOfType(parameterValue, ast.isOperationCall) : undefined;
-        const operation = operationCall ? this.l2PathResolver.getLocalNamedReferenceTarget(operationCall.operation) : undefined;
+        const operation = operationCall ? this.instancePathResolver.getLocalNamedReferenceTarget(operationCall.operation) : undefined;
         const parameterName = parameterValue?.parameter;
         const parameter = ast.isOperation(operation)
             ? operation.parameter.find(candidate => candidate.name === parameterName)
             : undefined;
-        for (const item of this.getSimpleValueCompletions(parameter?.type?.ref, 'l2', false)) {
+        for (const item of this.getSimpleValueCompletions(parameter?.type?.ref, 'path', false)) {
             acceptor(context, item);
         }
     }
@@ -478,7 +478,7 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
             return implementation;
         }
         const configuration = this.getCurrentBlockComponentConfiguration(context);
-        const resolution = configuration?.name ? this.l2PathResolver.getAssemblyComponentPathResolution(configuration.name) : undefined;
+        const resolution = configuration?.name ? this.instancePathResolver.getAssemblyComponentPathResolution(configuration.name) : undefined;
         return resolution?.finalComponent;
     }
 
@@ -583,7 +583,7 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
             ? parentModel.implementation.ref
             : undefined;
         const container = subInstance && parentComponent
-            ? this.l2PathResolver.getSubInstanceContainerForCompletion(subInstance, parentComponent)
+            ? this.instancePathResolver.getSubInstanceContainerForCompletion(subInstance, parentComponent)
             : undefined;
         return ast.isReferenceType(container?.type?.ref) ? container.type.ref : undefined;
     }

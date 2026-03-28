@@ -240,6 +240,37 @@ task Worker on demo.Child
 
         expect(getMessages(document).filter(message => message === 'Paths shall not contain \'..\'.')).toHaveLength(2);
     });
+
+    test('requires explicit schedule template values and unique names', async () => {
+        const document = await parseInProject(`schedule <Root: string, Root = "root", Lane: int32> Demo
+
+task Main on demo.Root
+{
+}
+`);
+
+        const messages = getMessages(document);
+        expect(messages).toEqual(expect.arrayContaining([
+            'Duplicated template argument name.',
+            'A Template Argument shall have a Value feature.',
+        ]));
+        expect(messages.filter(message => message === 'A Template Argument shall have a Value feature.')).toHaveLength(2);
+    });
+
+    test('validates duplicate and unknown schedule operation parameters', async () => {
+        const document = await parseInProject(`schedule <Root = "root"> Demo
+
+task Main on demo.Root
+{
+    call apply(nextCount = 1i32, nextCount = 2i32, missing = 3i32)
+}
+`);
+
+        expect(getMessages(document)).toEqual(expect.arrayContaining([
+            'Duplicated parameter name.',
+            "The parameter 'missing' shall resolve to a Parameter of operation apply.",
+        ]));
+    });
 });
 
 async function parseInProject(source: string, assemblyText?: string): Promise<LangiumDocument<Schedule>> {

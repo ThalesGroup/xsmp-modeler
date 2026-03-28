@@ -15,7 +15,7 @@ import * as XsmpUtils from '../utils/xsmp-utils.js';
 type RecoverableType = ast.Type;
 type RecoverableComponent = ast.Component;
 
-export interface L2PathResolution<T extends ast.NamedElement = ast.NamedElement> {
+export interface InstancePathResolution<T extends ast.NamedElement = ast.NamedElement> {
     active: boolean;
     finalElement?: T;
     finalType?: ast.Type;
@@ -52,7 +52,7 @@ interface TaskExecutionContext {
     assemblyContext?: AssemblyPathContext;
 }
 
-export interface InterfaceLinkSourceResolution extends L2PathResolution<ast.Reference> {
+export interface InterfaceLinkSourceResolution extends InstancePathResolution<ast.Reference> {
     ownerPath?: ast.Path;
     ownerText: string;
     referenceText: string;
@@ -81,17 +81,17 @@ type MemberKind =
     | 'eventSink'
     | 'eventSource';
 
-export class Xsmpl2PathResolver {
+export class XsmpInstancePathResolver {
     protected readonly pathService: XsmpPathService;
     protected readonly identifierPatternService: IdentifierPatternService;
     protected readonly typedPathResolver: XsmpTypedPathResolver;
     protected readonly assemblyNodeCache: WorkspaceCache<ast.ModelInstance, Map<string, AssemblyNode>>;
     protected readonly assemblyConfigPathCache: WorkspaceCache<ast.Path, AsbInstancePathResolution>;
-    protected readonly assemblyFieldPathCache: WorkspaceCache<ast.Path, L2PathResolution<ast.Field>>;
-    protected readonly assemblyLinkPathCache: WorkspaceCache<ast.Path, L2PathResolution>;
-    protected readonly linkBaseComponentPathCache: WorkspaceCache<ast.Path, L2PathResolution>;
-    protected readonly linkBaseEndpointPathCache: WorkspaceCache<ast.Path, L2PathResolution>;
-    protected readonly scheduleActivityPathCache: WorkspaceCache<ast.Path, L2PathResolution>;
+    protected readonly assemblyFieldPathCache: WorkspaceCache<ast.Path, InstancePathResolution<ast.Field>>;
+    protected readonly assemblyLinkPathCache: WorkspaceCache<ast.Path, InstancePathResolution>;
+    protected readonly linkBaseComponentPathCache: WorkspaceCache<ast.Path, InstancePathResolution>;
+    protected readonly linkBaseEndpointPathCache: WorkspaceCache<ast.Path, InstancePathResolution>;
+    protected readonly scheduleActivityPathCache: WorkspaceCache<ast.Path, InstancePathResolution>;
     protected readonly componentLinkBaseStackCache: WorkspaceCache<ast.ComponentLinkBase, readonly ast.Component[] | undefined>;
     protected readonly taskExecutionContextCache: WorkspaceCache<ast.Task, TaskExecutionContext | undefined>;
 
@@ -101,11 +101,11 @@ export class Xsmpl2PathResolver {
         this.typedPathResolver = services.TypedPathResolver;
         this.assemblyNodeCache = new WorkspaceCache<ast.ModelInstance, Map<string, AssemblyNode>>(services);
         this.assemblyConfigPathCache = new WorkspaceCache<ast.Path, AsbInstancePathResolution>(services);
-        this.assemblyFieldPathCache = new WorkspaceCache<ast.Path, L2PathResolution<ast.Field>>(services);
-        this.assemblyLinkPathCache = new WorkspaceCache<ast.Path, L2PathResolution>(services);
-        this.linkBaseComponentPathCache = new WorkspaceCache<ast.Path, L2PathResolution>(services);
-        this.linkBaseEndpointPathCache = new WorkspaceCache<ast.Path, L2PathResolution>(services);
-        this.scheduleActivityPathCache = new WorkspaceCache<ast.Path, L2PathResolution>(services);
+        this.assemblyFieldPathCache = new WorkspaceCache<ast.Path, InstancePathResolution<ast.Field>>(services);
+        this.assemblyLinkPathCache = new WorkspaceCache<ast.Path, InstancePathResolution>(services);
+        this.linkBaseComponentPathCache = new WorkspaceCache<ast.Path, InstancePathResolution>(services);
+        this.linkBaseEndpointPathCache = new WorkspaceCache<ast.Path, InstancePathResolution>(services);
+        this.scheduleActivityPathCache = new WorkspaceCache<ast.Path, InstancePathResolution>(services);
         this.componentLinkBaseStackCache = new WorkspaceCache<ast.ComponentLinkBase, readonly ast.Component[] | undefined>(services);
         this.taskExecutionContextCache = new WorkspaceCache<ast.Task, TaskExecutionContext | undefined>(services);
     }
@@ -389,23 +389,23 @@ export class Xsmpl2PathResolver {
         return this.resolveAssemblyInstancePath(path, this.getAssemblyBaseNode(context), context, inheritedBindings);
     }
 
-    getAssemblyFieldPathResolution(path: ast.Path): L2PathResolution<ast.Field> {
+    getAssemblyFieldPathResolution(path: ast.Path): InstancePathResolution<ast.Field> {
         return this.assemblyFieldPathCache.get(path, () => this.computeAssemblyFieldPathResolution(path));
     }
 
-    getAssemblyLinkPathResolution(path: ast.Path): L2PathResolution {
+    getAssemblyLinkPathResolution(path: ast.Path): InstancePathResolution {
         return this.assemblyLinkPathCache.get(path, () => this.computeAssemblyLinkPathResolution(path));
     }
 
-    getLinkBaseComponentPathResolution(path: ast.Path): L2PathResolution {
+    getLinkBaseComponentPathResolution(path: ast.Path): InstancePathResolution {
         return this.linkBaseComponentPathCache.get(path, () => this.computeLinkBaseComponentPathResolution(path));
     }
 
-    getLinkBaseEndpointPathResolution(path: ast.Path): L2PathResolution {
+    getLinkBaseEndpointPathResolution(path: ast.Path): InstancePathResolution {
         return this.linkBaseEndpointPathCache.get(path, () => this.computeLinkBaseEndpointPathResolution(path));
     }
 
-    getScheduleActivityPathResolution(path: ast.Path): L2PathResolution {
+    getScheduleActivityPathResolution(path: ast.Path): InstancePathResolution {
         return this.scheduleActivityPathCache.get(path, () => this.computeScheduleActivityPathResolution(path));
     }
 
@@ -423,7 +423,7 @@ export class Xsmpl2PathResolver {
         return this.resolveAssemblyComponentPathInContext(path, baseContext);
     }
 
-    protected computeAssemblyFieldPathResolution(path: ast.Path): L2PathResolution<ast.Field> {
+    protected computeAssemblyFieldPathResolution(path: ast.Path): InstancePathResolution<ast.Field> {
         const fieldValue = AstUtils.getContainerOfType(path, ast.isFieldValue);
         if (!fieldValue) {
             return this.inactiveResolution();
@@ -432,7 +432,7 @@ export class Xsmpl2PathResolver {
         const configuration = AstUtils.getContainerOfType(fieldValue, ast.isAssemblyComponentConfiguration);
         if (configuration?.name) {
             const target = this.getAssemblyComponentPathResolution(configuration.name);
-            return this.typedFieldResolutionToL2(
+            return this.typedFieldResolutionToInstancePath(
                 this.typedPathResolver.resolveFieldPath(path, target.finalComponent, componentModeFieldPathMessages, target.finalBindings),
                 target.finalBindings
             );
@@ -440,7 +440,7 @@ export class Xsmpl2PathResolver {
 
         const model = AstUtils.getContainerOfType(fieldValue, ast.isModelInstance);
         const assemblyNode = model ? this.getAssemblyNode(model, this.getAssemblyTemplateBindings(path)) : undefined;
-        return this.typedFieldResolutionToL2(
+        return this.typedFieldResolutionToInstancePath(
             this.typedPathResolver.resolveFieldPath(path, assemblyNode?.component, componentModeFieldPathMessages, assemblyNode?.bindings),
             assemblyNode?.bindings
         );
@@ -502,7 +502,7 @@ export class Xsmpl2PathResolver {
         return {};
     }
 
-    protected computeAssemblyLinkPathResolution(path: ast.Path): L2PathResolution {
+    protected computeAssemblyLinkPathResolution(path: ast.Path): InstancePathResolution {
         const link = AstUtils.getContainerOfType(path, ast.isLink);
         const model = link ? AstUtils.getContainerOfType(link, ast.isModelInstance) : undefined;
         const baseNode = model ? this.getAssemblyNode(model, this.getAssemblyTemplateBindings(path)) : undefined;
@@ -528,13 +528,13 @@ export class Xsmpl2PathResolver {
         return this.inactiveResolution();
     }
 
-    protected computeLinkBaseComponentPathResolution(path: ast.Path): L2PathResolution {
+    protected computeLinkBaseComponentPathResolution(path: ast.Path): InstancePathResolution {
         const baseStack = this.getBaseStackForLinkBaseComponentPath(path);
         const bindings = this.getLinkBaseTemplateBindings(path);
-        return this.typedComponentResolutionToL2(baseStack ? this.typedPathResolver.resolveComponentPath(path, baseStack, bindings) : undefined, bindings);
+        return this.typedComponentResolutionToInstancePath(baseStack ? this.typedPathResolver.resolveComponentPath(path, baseStack, bindings) : undefined, bindings);
     }
 
-    protected computeLinkBaseEndpointPathResolution(path: ast.Path): L2PathResolution {
+    protected computeLinkBaseEndpointPathResolution(path: ast.Path): InstancePathResolution {
         const link = AstUtils.getContainerOfType(path, ast.isLink);
         const componentLinkBase = link ? AstUtils.getContainerOfType(link, ast.isComponentLinkBase) : undefined;
         const baseStack = componentLinkBase ? this.getComponentLinkBaseComponentStack(componentLinkBase) : undefined;
@@ -553,7 +553,7 @@ export class Xsmpl2PathResolver {
             if (path === link.sourcePath) {
                 return this.computeLinkBaseInterfaceLinkSourceResolution(path);
             }
-            return this.typedComponentResolutionToL2(this.typedPathResolver.resolveComponentPath(path, baseStack, bindings), bindings);
+            return this.typedComponentResolutionToInstancePath(this.typedPathResolver.resolveComponentPath(path, baseStack, bindings), bindings);
         }
 
         return this.inactiveResolution();
@@ -731,17 +731,17 @@ export class Xsmpl2PathResolver {
         };
     }
 
-    protected computeScheduleActivityPathResolution(path: ast.Path): L2PathResolution {
+    protected computeScheduleActivityPathResolution(path: ast.Path): InstancePathResolution {
         const task = AstUtils.getContainerOfType(path.$container, ast.isTask);
         const taskContext = task ? this.getTaskExecutionContext(task) : undefined;
         const bindings = this.mergeTemplateBindings(this.getScheduleTemplateBindings(path), taskContext?.bindings);
         if (ast.isExecuteTask(path.$container)) {
             if (taskContext?.assemblyContext) {
-                return this.assemblyInstanceResolutionToL2(
+                return this.assemblyInstanceResolutionToInstancePath(
                     this.resolveAssemblyComponentPathInContext(path, taskContext.assemblyContext, bindings)
                 );
             }
-            return this.typedComponentResolutionToL2(
+            return this.typedComponentResolutionToInstancePath(
                 taskContext?.componentStack ? this.typedPathResolver.resolveComponentPath(path, taskContext.componentStack, bindings) : undefined,
                 bindings
             );
@@ -905,7 +905,7 @@ export class Xsmpl2PathResolver {
         };
     }
 
-    protected resolveAssemblyInstancePathAsMember(path: ast.Path, baseNode: AssemblyNode | undefined): L2PathResolution {
+    protected resolveAssemblyInstancePathAsMember(path: ast.Path, baseNode: AssemblyNode | undefined): InstancePathResolution {
         const resolution = this.resolveAssemblyInstancePath(path, baseNode);
         return {
             active: resolution.active,
@@ -923,7 +923,7 @@ export class Xsmpl2PathResolver {
         context: AssemblyPathContext | undefined,
         memberKinds: MemberKind[],
         inheritedBindings?: TemplateBindings,
-    ): L2PathResolution {
+    ): InstancePathResolution {
         return this.resolveAssemblyMemberPath(path, this.getAssemblyBaseNode(context), memberKinds, inheritedBindings);
     }
 
@@ -932,7 +932,7 @@ export class Xsmpl2PathResolver {
         baseNode: AssemblyNode | undefined,
         memberKinds: MemberKind[],
         inheritedBindings?: TemplateBindings,
-    ): L2PathResolution {
+    ): InstancePathResolution {
         const namedSegments = new Map<ast.PathNamedSegment, readonly ast.NamedElement[]>();
         const segmentBindings = new Map<ast.PathNamedSegment, TemplateBindings | undefined>();
         if (!baseNode) {
@@ -1056,7 +1056,7 @@ export class Xsmpl2PathResolver {
         baseNode: AssemblyNode | undefined,
         requiredKind: 'inputField' | 'outputField',
         inheritedBindings?: TemplateBindings,
-    ): L2PathResolution<ast.Field> {
+    ): InstancePathResolution<ast.Field> {
         const namedSegments = new Map<ast.PathNamedSegment, readonly ast.NamedElement[]>();
         const segmentBindings = new Map<ast.PathNamedSegment, TemplateBindings | undefined>();
         if (!baseNode) {
@@ -1188,7 +1188,7 @@ export class Xsmpl2PathResolver {
         context: AssemblyPathContext | undefined,
         requiredKind: 'inputField' | 'outputField',
         inheritedBindings?: TemplateBindings,
-    ): L2PathResolution<ast.Field> {
+    ): InstancePathResolution<ast.Field> {
         return this.resolveAssemblyFieldEndpointPath(path, this.getAssemblyBaseNode(context), requiredKind, inheritedBindings);
     }
 
@@ -1197,8 +1197,8 @@ export class Xsmpl2PathResolver {
         baseStack: readonly ast.Component[] | undefined,
         memberKinds: MemberKind[],
         bindings?: TemplateBindings,
-    ): L2PathResolution {
-        return this.typedMemberResolutionToL2(this.typedPathResolver.resolveComponentMemberPath(path, baseStack, {
+    ): InstancePathResolution {
+        return this.typedMemberResolutionToInstancePath(this.typedPathResolver.resolveComponentMemberPath(path, baseStack, {
             getFinalCandidates: (component) => this.getComponentMembers(component, memberKinds),
             getFinalType: (element) => this.getMemberType(element),
             indexMessage: 'This path kind shall not use array indices.',
@@ -1213,8 +1213,8 @@ export class Xsmpl2PathResolver {
         baseStack: readonly ast.Component[] | undefined,
         requiredKind: 'inputField' | 'outputField',
         bindings?: TemplateBindings,
-    ): L2PathResolution<ast.Field> {
-        return this.typedMemberResolutionToL2(this.typedPathResolver.resolveComponentFieldPath(path, baseStack, {
+    ): InstancePathResolution<ast.Field> {
+        return this.typedMemberResolutionToInstancePath(this.typedPathResolver.resolveComponentFieldPath(path, baseStack, {
             getFinalCandidates: (component) => this.getComponentMembers(component, [requiredKind]) as ast.Field[],
             indexMessage: 'Field paths shall start with a Field.',
             containerOrReferenceMessage: (segmentText) => `The path segment '${segmentText}' shall resolve to a Container or Reference of the current Component.`,
@@ -1226,7 +1226,7 @@ export class Xsmpl2PathResolver {
         }, bindings), bindings);
     }
 
-    protected typedFieldResolutionToL2(resolution: TypedFieldPathResolution, bindings?: TemplateBindings): L2PathResolution<ast.Field> {
+    protected typedFieldResolutionToInstancePath(resolution: TypedFieldPathResolution, bindings?: TemplateBindings): InstancePathResolution<ast.Field> {
         return {
             active: resolution.active,
             finalElement: resolution.finalField,
@@ -1239,7 +1239,7 @@ export class Xsmpl2PathResolver {
         };
     }
 
-    protected typedComponentResolutionToL2(resolution: TypedComponentPathResolution | undefined, bindings?: TemplateBindings): L2PathResolution {
+    protected typedComponentResolutionToInstancePath(resolution: TypedComponentPathResolution | undefined, bindings?: TemplateBindings): InstancePathResolution {
         if (!resolution) {
             return this.inactiveResolution();
         }
@@ -1254,7 +1254,7 @@ export class Xsmpl2PathResolver {
         };
     }
 
-    protected typedMemberResolutionToL2<T extends ast.NamedElement>(resolution: TypedMemberPathResolution<T>, bindings?: TemplateBindings): L2PathResolution<T> {
+    protected typedMemberResolutionToInstancePath<T extends ast.NamedElement>(resolution: TypedMemberPathResolution<T>, bindings?: TemplateBindings): InstancePathResolution<T> {
         return {
             active: resolution.active,
             finalElement: resolution.finalElement,
@@ -1268,7 +1268,7 @@ export class Xsmpl2PathResolver {
         };
     }
 
-    protected inactiveResolution<T extends ast.NamedElement>(): L2PathResolution<T> {
+    protected inactiveResolution<T extends ast.NamedElement>(): InstancePathResolution<T> {
         return { active: false, namedSegments: new Map(), segmentBindings: new Map() };
     }
 
@@ -1336,7 +1336,7 @@ export class Xsmpl2PathResolver {
             : undefined;
     }
 
-    protected assemblyInstanceResolutionToL2(resolution: AsbInstancePathResolution): L2PathResolution {
+    protected assemblyInstanceResolutionToInstancePath(resolution: AsbInstancePathResolution): InstancePathResolution {
         return {
             active: resolution.active,
             finalComponent: resolution.finalComponent,

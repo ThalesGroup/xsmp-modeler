@@ -2,12 +2,12 @@ import { AstUtils, type AstNode, type ValidationAcceptor, type ValidationChecks 
 import * as ast from '../generated/ast-partial.js';
 import type { XsmplnkServices } from '../xsmplnk-module.js';
 import { checkName } from './name-validator-utils.js';
-import type { Xsmpl2PathResolver } from '../references/xsmpl2-path-resolver.js';
+import type { XsmpInstancePathResolver } from '../references/xsmp-instance-path-resolver.js';
 import type { IdentifierPatternService, TemplateBindings } from '../references/identifier-pattern-service.js';
 import type { XsmpPathService } from '../references/xsmp-path-service.js';
-import { checkTemplatedL2PathSegments, createTemplateBindings } from './template-parameter-validator-utils.js';
+import { checkTemplatedPathSegments, createTemplateBindings } from './template-parameter-validator-utils.js';
 import * as XsmpUtils from '../utils/xsmp-utils.js';
-import { checkNoParentTraversal } from './l2-validator-utils.js';
+import { checkNoParentTraversal } from './instance-validator-utils.js';
 
 export function registerXsmplnkValidationChecks(services: XsmplnkServices) {
     const registry = services.validation.ValidationRegistry;
@@ -23,13 +23,13 @@ export function registerXsmplnkValidationChecks(services: XsmplnkServices) {
 }
 
 export class XsmplnkValidator {
-    protected readonly pathResolver: Xsmpl2PathResolver;
+    protected readonly pathResolver: XsmpInstancePathResolver;
     protected readonly identifierPatternService: IdentifierPatternService;
     protected readonly pathService: XsmpPathService;
     protected readonly componentLinkBasePathCache: WeakMap<ast.ComponentLinkBase, string[] | undefined> = new WeakMap();
 
     constructor(services: XsmplnkServices) {
-        this.pathResolver = services.shared.L2PathResolver;
+        this.pathResolver = services.shared.InstancePathResolver;
         this.identifierPatternService = services.shared.IdentifierPatternService;
         this.pathService = services.shared.PathService;
     }
@@ -302,7 +302,7 @@ export class XsmplnkValidator {
             return !this.pathHasTemplate(path);
         }
         const available = new Set(assembly.parameters.map(parameter => parameter.name));
-        return checkTemplatedL2PathSegments(
+        return checkTemplatedPathSegments(
             path,
             available,
             this.getAssemblyTemplateBindings(assembly),

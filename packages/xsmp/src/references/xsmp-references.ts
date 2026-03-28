@@ -40,7 +40,7 @@ export class XsmpReferences extends DefaultReferences {
             ).matches;
             return matches.length === 1 ? [matches[0]] : [];
         }
-        const target = this.services.shared.L2PathResolver.getNamedSegmentTarget(patternSegment);
+        const target = this.services.shared.InstancePathResolver.getNamedSegmentTarget(patternSegment);
         return target ? [target] : [];
     }
 

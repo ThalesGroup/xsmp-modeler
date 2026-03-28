@@ -7,7 +7,7 @@ import {
     type TypedFieldPathResolution,
     type XsmpTypedPathResolver
 } from './xsmp-typed-path-resolver.js';
-import type { AssemblyPathContext, Xsmpl2PathResolver } from './xsmpl2-path-resolver.js';
+import type { AssemblyPathContext, XsmpInstancePathResolver } from './xsmp-instance-path-resolver.js';
 
 type RecoverableType = ast.Type;
 
@@ -38,14 +38,14 @@ export class XsmpcfgPathResolver {
     protected readonly fieldPathCache: WorkspaceCache<ast.Path, CfgFieldPathResolution>;
     protected readonly configurationContextCache: WorkspaceCache<ast.ComponentConfiguration, CfgConfigurationContext | undefined>;
     protected readonly typedPathResolver: XsmpTypedPathResolver;
-    protected readonly l2PathResolver: Xsmpl2PathResolver;
+    protected readonly instancePathResolver: XsmpInstancePathResolver;
 
     constructor(services: XsmpSharedServices) {
         this.componentPathCache = new WorkspaceCache<ast.Path, CfgComponentPathResolution>(services);
         this.fieldPathCache = new WorkspaceCache<ast.Path, CfgFieldPathResolution>(services);
         this.configurationContextCache = new WorkspaceCache<ast.ComponentConfiguration, CfgConfigurationContext | undefined>(services);
         this.typedPathResolver = services.TypedPathResolver;
-        this.l2PathResolver = services.L2PathResolver;
+        this.instancePathResolver = services.InstancePathResolver;
     }
 
     getNamedSegmentCandidates(segment: ast.PathNamedSegment | undefined): readonly ast.NamedElement[] {
@@ -118,7 +118,7 @@ export class XsmpcfgPathResolver {
 
         if (explicitAssembly) {
             return this.toAssemblyConfigurationContext(
-                this.l2PathResolver.getAssemblyPathContextForAssembly(explicitAssembly)
+                this.instancePathResolver.getAssemblyPathContextForAssembly(explicitAssembly)
             );
         }
 
@@ -156,7 +156,7 @@ export class XsmpcfgPathResolver {
         context: CfgConfigurationContext | undefined,
     ): CfgComponentPathResolution {
         if (context?.assemblyContext) {
-            const resolution = this.l2PathResolver.resolveAssemblyComponentPathInContext(path, context.assemblyContext);
+            const resolution = this.instancePathResolver.resolveAssemblyComponentPathInContext(path, context.assemblyContext);
             return {
                 active: resolution.active,
                 finalComponent: resolution.finalComponent,

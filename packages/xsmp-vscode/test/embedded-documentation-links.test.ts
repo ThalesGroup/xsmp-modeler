@@ -66,14 +66,50 @@ describe('embedded documentation links', () => {
             title: 'XSMP schedule reference',
             anchor: 'mission-event',
         });
+        expect(getEmbeddedDocumentationTarget('xsmpsed', 'event', 'event Bootstrap epoch "2026-03-28T10:00:00Z"')).toEqual({
+            keyword: 'event',
+            page: 'languages/xsmpsed.md',
+            title: 'XSMP schedule reference',
+            anchor: 'epoch-event',
+        });
+        expect(getEmbeddedDocumentationTarget('xsmpsed', 'event', 'event Bootstrap simulation "PT10S"')).toEqual({
+            keyword: 'event',
+            page: 'languages/xsmpsed.md',
+            title: 'XSMP schedule reference',
+            anchor: 'simulation-event',
+        });
+        expect(getEmbeddedDocumentationTarget('xsmpsed', 'repeat', 'event Bootstrap zulu "2026-03-28T10:00:00Z" repeat "PT1M"')).toEqual({
+            keyword: 'repeat',
+            page: 'languages/xsmpsed.md',
+            title: 'XSMP schedule reference',
+            anchor: 'zulu-event',
+        });
+        expect(getEmbeddedDocumentationTarget('xsmpsed', 'repeat', 'event Dispatch on "Ready" repeat "PT1M"')).toEqual({
+            keyword: 'repeat',
+            page: 'languages/xsmpsed.md',
+            title: 'XSMP schedule reference',
+            anchor: 'global-event-triggered-event',
+        });
         expect(getEmbeddedDocumentationTarget('xsmpsed', 'on', 'task Bootstrap on demo.orbit.Platform')).toEqual({
             keyword: 'on',
             page: 'languages/xsmpsed.md',
             title: 'XSMP schedule reference',
             anchor: 'tasks',
         });
+        expect(getEmbeddedDocumentationTarget('xsmpsed', 'on', 'event Dispatch on "Ready" until "PT5S"')).toEqual({
+            keyword: 'on',
+            page: 'languages/xsmpsed.md',
+            title: 'XSMP schedule reference',
+            anchor: 'global-event-triggered-event',
+        });
         expect(getEmbeddedDocumentationTarget('xsmpsed', 'using', 'event Dispatch on "Ready" using mission delay "PT5S"')).toEqual({
             keyword: 'using',
+            page: 'languages/xsmpsed.md',
+            title: 'XSMP schedule reference',
+            anchor: 'global-event-triggered-event',
+        });
+        expect(getEmbeddedDocumentationTarget('xsmpsed', 'until', 'event Dispatch on "Ready" until mission "PT5S"')).toEqual({
+            keyword: 'until',
             page: 'languages/xsmpsed.md',
             title: 'XSMP schedule reference',
             anchor: 'global-event-triggered-event',
@@ -98,5 +134,6 @@ describe('embedded documentation links', () => {
     test('ignores unknown language and keyword combinations', () => {
         expect(getEmbeddedDocumentationTarget('xsmpcfg', 'assembly')).toBeUndefined();
         expect(getEmbeddedDocumentationTarget('unknown', 'project')).toBeUndefined();
+        expect(getEmbeddedDocumentationTarget('xsmpsed', 'later', 'task Bootstrap call demo.orbit.Platform.step')).toBeUndefined();
     });
 });

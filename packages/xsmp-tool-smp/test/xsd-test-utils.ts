@@ -17,7 +17,7 @@ export type SmpStandard = 'ECSS_SMP_2020' | 'ECSS_SMP_2025';
 const xsdRoot = path.resolve(__dirname, 'xsd');
 const l1Spec2020Root = path.join(xsdRoot, 'l1-2020');
 const l1Spec2025Root = path.join(xsdRoot, 'l1-2025');
-const l2SpecRoot = path.join(xsdRoot, 'l2', 'Smdl');
+const smdlSpecRoot = path.join(xsdRoot, 'l2', 'Smdl');
 const xmllintExecutable = resolveXmllintExecutable();
 
 const xmlSchemaStub = `<?xml version="1.0"?>
@@ -90,7 +90,7 @@ function prepareL1SchemaBundle(tmpDir: string, standard: SmpStandard): Record<'c
     };
 }
 
-function prepareL2SchemaBundle(tmpDir: string): Record<'linkbase' | 'assembly' | 'schedule', string> {
+function prepareSmdlSchemaBundle(tmpDir: string): Record<'linkbase' | 'assembly' | 'schedule', string> {
     const schemaRoot = path.join(tmpDir, 'l2');
     const coreRoot = path.join(schemaRoot, 'Core');
     const smdlRoot = path.join(schemaRoot, 'Smdl');
@@ -101,9 +101,9 @@ function prepareL2SchemaBundle(tmpDir: string): Record<'linkbase' | 'assembly' |
     fs.copyFileSync(path.join(l1Spec2020Root, 'Core', 'Elements.xsd'), path.join(coreRoot, 'Elements.xsd'));
     fs.copyFileSync(path.join(l1Spec2020Root, 'Core', 'Types.xsd'), path.join(coreRoot, 'Types.xsd'));
     fs.copyFileSync(path.join(l1Spec2020Root, 'xlink.xsd'), path.join(schemaRoot, 'xlink.xsd'));
-    fs.copyFileSync(path.join(l2SpecRoot, 'LinkBase.xsd'), path.join(smdlRoot, 'LinkBase.xsd'));
-    fs.copyFileSync(path.join(l2SpecRoot, 'Assembly.xsd'), path.join(smdlRoot, 'Assembly.xsd'));
-    fs.copyFileSync(path.join(l2SpecRoot, 'Schedule.xsd'), path.join(smdlRoot, 'Schedule.xsd'));
+    fs.copyFileSync(path.join(smdlSpecRoot, 'LinkBase.xsd'), path.join(smdlRoot, 'LinkBase.xsd'));
+    fs.copyFileSync(path.join(smdlSpecRoot, 'Assembly.xsd'), path.join(smdlRoot, 'Assembly.xsd'));
+    fs.copyFileSync(path.join(smdlSpecRoot, 'Schedule.xsd'), path.join(smdlRoot, 'Schedule.xsd'));
 
     const xmlSchemaPath = path.join(schemaRoot, 'xml.xsd');
     fs.writeFileSync(xmlSchemaPath, xmlSchemaStub);
@@ -137,7 +137,7 @@ export function assertXmlConformsToXsd(xmlPath: string, kind: SmpSchemaKind, sta
     try {
         const schemaPath = kind === 'catalogue' || kind === 'package' || kind === 'configuration'
             ? prepareL1SchemaBundle(tmpDir, standard)[kind]
-            : prepareL2SchemaBundle(tmpDir)[kind];
+            : prepareSmdlSchemaBundle(tmpDir)[kind];
 
         execFileSync(xmllintExecutable, ['--noout', '--schema', schemaPath, xmlPath], {
             encoding: 'utf8',

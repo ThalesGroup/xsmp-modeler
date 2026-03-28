@@ -2,7 +2,7 @@ import type { AstNode, AstNodeDescription, AstNodeDescriptionProvider, AstReflec
 import * as ast from '../generated/ast-partial.js';
 import { AstUtils, EMPTY_SCOPE, MapScope, StreamScope, WorkspaceCache, stream } from 'langium';
 import type { IdentifierPatternService, TemplateBindings } from './identifier-pattern-service.js';
-import type { Xsmpl2PathResolver } from './xsmpl2-path-resolver.js';
+import type { XsmpInstancePathResolver } from './xsmp-instance-path-resolver.js';
 import type { ProjectManager } from '../workspace/project-manager.js';
 import type { XsmpServices } from '../xsmp-module.js';
 
@@ -12,7 +12,7 @@ export class XsmpsedScopeProvider implements ScopeProvider {
     protected readonly globalScopeCache: WorkspaceCache<URI, Map<string, Scope>>;
     protected readonly projectManager: ProjectManager;
     protected readonly descriptions: AstNodeDescriptionProvider;
-    protected readonly pathResolver: Xsmpl2PathResolver;
+    protected readonly pathResolver: XsmpInstancePathResolver;
     protected readonly identifierPatternService: IdentifierPatternService;
 
     constructor(services: XsmpServices) {
@@ -21,7 +21,7 @@ export class XsmpsedScopeProvider implements ScopeProvider {
         this.globalScopeCache = new WorkspaceCache<URI, Map<string, Scope>>(services.shared);
         this.projectManager = services.shared.workspace.ProjectManager;
         this.descriptions = services.workspace.AstNodeDescriptionProvider;
-        this.pathResolver = services.shared.L2PathResolver;
+        this.pathResolver = services.shared.InstancePathResolver;
         this.identifierPatternService = services.shared.IdentifierPatternService;
     }
 
