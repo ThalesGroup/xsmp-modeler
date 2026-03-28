@@ -23,10 +23,8 @@ export class XsmpcfgCompletionProvider extends XsmpCompletionProviderBase {
     }
 
     protected override createKeywordSnippets(context: CompletionContext, keyword: GrammarAST.Keyword, acceptor: CompletionAcceptor): void {
-        switch (keyword.value) {
-            case 'configuration':
-                acceptor(context, this.createKeywordSnippet(keyword, 'configuration ${1:Name}\n$0', 'Configuration Definition'));
-                break;
+        if (keyword.value === 'configuration') {
+            acceptor(context, this.createKeywordSnippet(keyword, 'configuration ${1:Name}\n$0', 'Configuration Definition'));
         }
     }
 

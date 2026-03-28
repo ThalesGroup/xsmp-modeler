@@ -988,13 +988,7 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
     protected override defineOperation(op: ast.Operation): string | undefined {
         if (this.attrHelper.isConstructor(op)) // constructor declared in gen folder
             return undefined;
-        else if (this.attrHelper.isStatic(op) || !this.attrHelper.isVirtual(op)) // static or not virtual method declared in gen folder
-            return `${this.type(op.returnParameter)} ${op.$container.name}::${this.operationName(op)}(${op.parameter.map(param => this.defineParameter(param)).join(', ')})${this.attrHelper.isConst(op) ? ' const' : ''} {
-                    // TODO
-                    ${op.returnParameter ? `return ${this.defaultReturn(op.returnParameter)};` : ''}
-                }
-                `;
-        else if (!this.attrHelper.isAbstract(op)) // override virtual method
+        if (this.attrHelper.isStatic(op) || !this.attrHelper.isVirtual(op) || !this.attrHelper.isAbstract(op))
             return `${this.type(op.returnParameter)} ${op.$container.name}::${this.operationName(op)}(${op.parameter.map(param => this.defineParameter(param)).join(', ')})${this.attrHelper.isConst(op) ? ' const' : ''} {
                     // TODO
                     ${op.returnParameter ? `return ${this.defaultReturn(op.returnParameter)};` : ''}
@@ -1104,7 +1098,8 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
         let visibility = initialVisibility;
         if (declaration !== undefined) {
             visibility = getRealVisibility(element);
-            buffer.push(`${visibility !== initialVisibility ? VisibilityKind[visibility] + ':\n' : ''}${declaration}`);
+            const visibilityHeader = visibility === initialVisibility ? '' : `${VisibilityKind[visibility]}:\n`;
+            buffer.push(`${visibilityHeader}${declaration}`);
         }
         return visibility;
     }

@@ -278,10 +278,11 @@ function renderInterface(node: SmpXmlObject, context: CatalogueImportContext, cu
         ...getChildObjects(node, 'Property').map(member => renderProperty(member, context, currentNamespace, false)),
         ...getChildObjects(node, 'Operation').map(member => renderOperation(member, context, currentNamespace, false)),
     ];
+    const basesText = bases.length > 0 ? ` extends ${bases.join(', ')}` : '';
 
     return joinBlocks([
         header,
-        `${renderVisibility(node)}interface ${name}${bases.length > 0 ? ` extends ${bases.join(', ')}` : ''}`,
+        `${renderVisibility(node)}interface ${name}${basesText}`,
         '{',
         members.length > 0 ? indentBlock(joinBlocks(members, '\n\n')) : '',
         '}',
@@ -309,10 +310,11 @@ function renderComponent(node: SmpXmlObject, context: CatalogueImportContext, cu
         ...getChildObjects(node, 'Container').map(member => renderContainer(member, context, currentNamespace)),
         ...getChildObjects(node, 'Reference').map(member => renderReference(member, context, currentNamespace)),
     ];
+    const implementedText = implemented.length > 0 ? ` implements ${implemented.join(', ')}` : '';
 
     return joinBlocks([
         header,
-        `${renderVisibility(node)}${abstractPrefix}${keyword} ${name}${renderExtends(node, 'Base', context, currentNamespace)}${implemented.length > 0 ? ` implements ${implemented.join(', ')}` : ''}`,
+        `${renderVisibility(node)}${abstractPrefix}${keyword} ${name}${renderExtends(node, 'Base', context, currentNamespace)}${implementedText}`,
         '{',
         members.length > 0 ? indentBlock(joinBlocks(members, '\n\n')) : '',
         '}',
@@ -358,10 +360,13 @@ function renderProperty(node: SmpXmlObject, context: CatalogueImportContext, cur
         extraTags: getAttribute(node, 'Category') ? [`@category ${getAttribute(node, 'Category')}`] : [],
         currentNamespace,
     });
+    const getRaisesText = getRaises.length > 0 ? ` get throws ${getRaises.join(', ')}` : '';
+    const setRaisesText = setRaises.length > 0 ? ` set throws ${setRaises.join(', ')}` : '';
+    const attachedFieldText = attachedField ? ` -> ${renderCatalogueReferenceText(attachedField, context, currentNamespace, 'attached field')}` : '';
 
     return joinBlocks([
         header,
-        `${prefix}property ${renderCatalogueReferenceText(typeLink, context, currentNamespace, 'property type')} ${getAttribute(node, 'Name')}${getRaises.length > 0 ? ` get throws ${getRaises.join(', ')}` : ''}${setRaises.length > 0 ? ` set throws ${setRaises.join(', ')}` : ''}${attachedField ? ` -> ${renderCatalogueReferenceText(attachedField, context, currentNamespace, 'attached field')}` : ''}`,
+        `${prefix}property ${renderCatalogueReferenceText(typeLink, context, currentNamespace, 'property type')} ${getAttribute(node, 'Name')}${getRaisesText}${setRaisesText}${attachedFieldText}`,
     ], '\n');
 }
 
@@ -392,10 +397,11 @@ function renderOperation(node: SmpXmlObject, context: CatalogueImportContext, cu
         ? renderReturnParameter(returnParameter, context, currentNamespace)
         : 'void';
     const renderedParameters = inputParameters.map(parameter => renderParameter(parameter, context, currentNamespace)).join(', ');
+    const raisedExceptionsText = raisedExceptions.length > 0 ? ` throws ${raisedExceptions.join(', ')}` : '';
 
     return joinBlocks([
         header,
-        `${renderVisibility(node, allowVisibility)}def ${renderedReturn} ${getAttribute(node, 'Name')}(${renderedParameters})${raisedExceptions.length > 0 ? ` throws ${raisedExceptions.join(', ')}` : ''}`,
+        `${renderVisibility(node, allowVisibility)}def ${renderedReturn} ${getAttribute(node, 'Name')}(${renderedParameters})${raisedExceptionsText}`,
     ], '\n');
 }
 
@@ -412,9 +418,10 @@ function renderContainer(node: SmpXmlObject, context: CatalogueImportContext, cu
     const typeLink = getChild(node, 'Type') as SmpXmlObject | undefined;
     const defaultComponent = getChild(node, 'DefaultComponent') as SmpXmlObject | undefined;
     const header = renderHeader(node, context, { defaultId: `${currentNamespace}.${getAttribute(node, 'Name')}`, currentNamespace });
+    const defaultComponentText = defaultComponent ? ` = ${renderCatalogueReferenceText(defaultComponent, context, currentNamespace, 'default component')}` : '';
     return joinBlocks([
         header,
-        `container ${renderCatalogueReferenceText(typeLink, context, currentNamespace, 'container type')}${renderMultiplicity(node)} ${getAttribute(node, 'Name')}${defaultComponent ? ` = ${renderCatalogueReferenceText(defaultComponent, context, currentNamespace, 'default component')}` : ''}`,
+        `container ${renderCatalogueReferenceText(typeLink, context, currentNamespace, 'container type')}${renderMultiplicity(node)} ${getAttribute(node, 'Name')}${defaultComponentText}`,
     ], '\n');
 }
 
@@ -480,16 +487,19 @@ function renderParameter(node: SmpXmlObject, context: CatalogueImportContext, cu
     const typeLink = getChild(node, 'Type') as SmpXmlObject | undefined;
     const attributes = renderAppliedAttributes(getChildObjects(node, 'Metadata'), context, currentNamespace);
     const direction = getAttribute(node, 'Direction');
+    const attributePrefix = attributes.length > 0 ? `${attributes.join(' ')} ` : '';
     const prefix = direction && direction !== 'return' ? `${direction} ` : '';
     const renderedDefault = renderDefaultValue(node, 'Default', context, currentNamespace, typeLink);
-    return `${attributes.join(' ')}${attributes.length > 0 ? ' ' : ''}${prefix}${renderCatalogueReferenceText(typeLink, context, currentNamespace, 'parameter type')} ${getAttribute(node, 'Name')}${renderedDefault}`;
+    return `${attributePrefix}${prefix}${renderCatalogueReferenceText(typeLink, context, currentNamespace, 'parameter type')} ${getAttribute(node, 'Name')}${renderedDefault}`;
 }
 
 function renderReturnParameter(node: SmpXmlObject, context: CatalogueImportContext, currentNamespace: string): string {
     const typeLink = getChild(node, 'Type') as SmpXmlObject | undefined;
     const attributes = renderAppliedAttributes(getChildObjects(node, 'Metadata'), context, currentNamespace);
     const name = getAttribute(node, 'Name');
-    return `${attributes.join(' ')}${attributes.length > 0 ? ' ' : ''}${renderCatalogueReferenceText(typeLink, context, currentNamespace, 'return type')}${name && name !== 'return' ? ` ${name}` : ''}`;
+    const attributePrefix = attributes.length > 0 ? `${attributes.join(' ')} ` : '';
+    const nameSuffix = name && name !== 'return' ? ` ${name}` : '';
+    return `${attributePrefix}${renderCatalogueReferenceText(typeLink, context, currentNamespace, 'return type')}${nameSuffix}`;
 }
 
 function renderDefaultValue(node: SmpXmlObject, childName: string, context: CatalogueImportContext, currentNamespace: string, expectedType?: SmpXmlObject): string {

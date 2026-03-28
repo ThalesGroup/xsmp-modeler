@@ -12,6 +12,7 @@ const documents: LangiumDocument[] = [];
 beforeAll(async () => {
     services = await createBuiltinTestXsmpServices(EmptyFileSystem);
     parseRoot = parseHelper<ProjectRoot>(services.xsmpproject);
+    await services.shared.workspace.WorkspaceManager.initializeWorkspace([]);
 });
 
 afterEach(async () => {
@@ -98,6 +99,73 @@ to@@
 
         const toolItem = items.find(item => item.label === `tool '${preferredToolId}'`);
         expect(toolItem?.textEdit?.newText).toContain("tool '");
+    });
+
+    test('filters already used contributions and keeps dependency suggestions ordered', async () => {
+        const toolIds = services.shared.ContributionRegistry.getContributionSummaries('tool').map(summary => summary.id);
+        const profileIds = services.shared.ContributionRegistry.getContributionSummaries('profile').map(summary => summary.id);
+        expect(toolIds.length).toBeGreaterThan(1);
+        expect(profileIds.length).toBeGreaterThan(1);
+
+        const [usedToolId, remainingToolId] = toolIds;
+        const [usedProfileId, remainingProfileId] = profileIds;
+
+        const foundationDocument = await parseRoot(
+            "project 'foundation'\ndependency 'mission'\n",
+            { documentUri: 'memory:///foundation/xsmp.project' }
+        );
+        const sharedDocument = await parseRoot(
+            "project 'shared'\n",
+            { documentUri: 'memory:///shared/xsmp.project' }
+        );
+        const projectText = `project 'mission' using 'ECSS_SMP_2025'
+tool '${usedToolId}'
+profile '${usedProfileId}'
+@@
+`;
+        const projectDocument = await parseRoot(projectText.replace('@@', ''), { documentUri: 'memory:///mission/xsmp.project' });
+        documents.push(foundationDocument, sharedDocument, projectDocument);
+        await services.shared.workspace.DocumentBuilder.build(documents, { validation: true });
+
+        const items = await getCompletionItems(projectDocument, projectText.indexOf('@@'));
+        const dependencyLabels = labels(items).filter(label => label.startsWith("dependency '"));
+        expect(dependencyLabels).toEqual(["dependency 'foundation'", "dependency 'shared'"]);
+        expect(labels(items)).not.toContain("dependency 'mission'");
+        expect(labels(items)).toContain(`tool '${remainingToolId}'`);
+        expect(labels(items)).not.toContain(`tool '${usedToolId}'`);
+        expect(labels(items)).toContain(`profile '${remainingProfileId}'`);
+        expect(labels(items)).not.toContain(`profile '${usedProfileId}'`);
+    });
+
+    test('falls back to contextual snippets when all dependencies and contributions are already used', async () => {
+        const preferredProfileId = services.shared.ContributionRegistry.getPreferredContributionId('profile') ?? 'profile';
+        const preferredToolId = services.shared.ContributionRegistry.getPreferredContributionId('tool') ?? 'tool';
+        const allProfileStatements = services.shared.ContributionRegistry
+            .getContributionSummaries('profile')
+            .map(summary => `profile '${summary.id}'`)
+            .join('\n');
+        const allToolStatements = services.shared.ContributionRegistry
+            .getContributionSummaries('tool')
+            .map(summary => `tool '${summary.id}'`)
+            .join('\n');
+        const projectText = `project 'mission' using 'ECSS_SMP_2025'
+source 'smdl'
+${allProfileStatements}
+${allToolStatements}
+@@
+`;
+        const projectDocument = await parseRoot(projectText.replace('@@', ''), { documentUri: 'memory:///mission/xsmp.project' });
+        documents.push(projectDocument);
+        await services.shared.workspace.DocumentBuilder.build(documents, { validation: false });
+
+        const items = await getCompletionItems(projectDocument, projectText.indexOf('@@'));
+        expect(labels(items)).toContain(`profile '${preferredProfileId}'`);
+        expect(labels(items)).toContain(`tool '${preferredToolId}'`);
+        expect(labels(items)).toContain("dependency '<project-name>'");
+
+        expect(findSnippetItem(items, `profile '${preferredProfileId}'`)?.textEdit?.newText).toContain(`profile '\${1:${preferredProfileId}}'`);
+        expect(findSnippetItem(items, `tool '${preferredToolId}'`)?.textEdit?.newText).toContain(`tool '\${1:${preferredToolId}}'`);
+        expect(findSnippetItem(items, "dependency '<project-name>'")?.textEdit?.newText).toContain("dependency '${1:project}'");
     });
 });
 

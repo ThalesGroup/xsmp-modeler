@@ -29,7 +29,8 @@ export function importSchedule(
     const scheduleName = sanitizeReferenceText(getAttribute(rootNode, 'Name') ?? '__schedule__');
     const parameters = getChildObjects(rootNode, 'Parameter')
         .map(parameter => renderImportedTemplateParameter(parameter, warnings));
-    const header = `schedule${parameters.length > 0 ? ` <${parameters.join(', ')}>` : ''} ${scheduleName}${renderScheduleHeaderTimes(rootNode)}`;
+    const parameterText = parameters.length > 0 ? ` <${parameters.join(', ')}>` : '';
+    const header = `schedule${parameterText} ${scheduleName}${renderScheduleHeaderTimes(rootNode)}`;
     const taskNames = new Set<string>();
     const taskReferenceById = new Map<string, string>();
     for (const task of getChildObjects(rootNode, 'Task')) {
@@ -102,7 +103,9 @@ function renderActivity(
             );
             const argumentsText = getChildObjects(node, 'Argument').map(argument => renderImportedTemplateArgument(argument, warnings));
             const root = getAttribute(node, 'Root');
-            return `execute ${task}${argumentsText.length > 0 ? `<${argumentsText.join(', ')}>` : ''}${root ? ` at ${root}` : ''}`;
+            const argumentsSuffix = argumentsText.length > 0 ? `<${argumentsText.join(', ')}>` : '';
+            const rootSuffix = root ? ` at ${root}` : '';
+            return `execute ${task}${argumentsSuffix}${rootSuffix}`;
         }
         case 'SetProperty': {
             const propertyPath = getChildText(node, 'PropertyPath') ?? '__property__';
@@ -149,7 +152,10 @@ function renderEvent(
             const stopEvent = getAttribute(node, 'StopEvent');
             const timeKind = renderTimeKind(getAttribute(node, 'TimeKind'));
             const delay = getAttribute(node, 'Delay');
-            return `event ${task} on ${renderStringLiteral(getAttribute(node, 'StartEvent') ?? '')}${stopEvent ? ` until ${renderStringLiteral(stopEvent)}` : ''}${timeKind ? ` using ${timeKind}` : ''}${delay ? ` delay ${renderStringLiteral(delay)}` : ''}${cycle}`;
+            const stopEventSuffix = stopEvent ? ` until ${renderStringLiteral(stopEvent)}` : '';
+            const timeKindSuffix = timeKind ? ` using ${timeKind}` : '';
+            const delaySuffix = delay ? ` delay ${renderStringLiteral(delay)}` : '';
+            return `event ${task} on ${renderStringLiteral(getAttribute(node, 'StartEvent') ?? '')}${stopEventSuffix}${timeKindSuffix}${delaySuffix}${cycle}`;
         }
         default:
             warnings.push(`Unsupported schedule event type '${getAttribute(node, 'xsi:type') ?? 'Schedule:Event'}'.`);
@@ -205,7 +211,8 @@ function renderEventCycle(node: SmpXmlObject): string {
     if (!cycleTime || (cycleTime === 'PT0S' && repeatCount === undefined)) {
         return '';
     }
-    return ` cycle ${renderStringLiteral(cycleTime)}${repeatCount !== undefined ? ` repeat ${repeatCount}` : ''}`;
+    const repeatSuffix = repeatCount !== undefined ? ` repeat ${repeatCount}` : '';
+    return ` cycle ${renderStringLiteral(cycleTime)}${repeatSuffix}`;
 }
 
 function renderTimeKind(value: string | undefined): string | undefined {

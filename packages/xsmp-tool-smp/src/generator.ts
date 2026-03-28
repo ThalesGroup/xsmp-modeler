@@ -425,7 +425,8 @@ export class SmpGenerator implements XsmpGenerator {
     protected convertRuntimeArrayValue(value: ast.ArrayValue, expectedType: ast.ArrayType | undefined): Types.Value {
         const itemType = expectedType?.itemType.ref;
         const itemValues = value.elements.map(element => this.convertValue(element, itemType));
-        const normalizedStartIndex = value.startIndex !== undefined ? BigInt(value.startIndex) : undefined;
+        const startIndexValue = value.startIndex;
+        const normalizedStartIndex = startIndexValue === undefined ? undefined : BigInt(startIndexValue);
         const hasStartIndex = normalizedStartIndex !== undefined && normalizedStartIndex !== BigInt(0);
         const startIndex = this.getSmpStandard(value) === 'ECSS_SMP_2025' && hasStartIndex ? normalizedStartIndex : undefined;
         const simpleArrayType = expectedType && this.attrHelper.isSimpleArray(expectedType)
@@ -1045,7 +1046,7 @@ export class SmpGenerator implements XsmpGenerator {
 
         const nextPositionalField = (): ast.Field | undefined => {
             while (positionalIndex < fields.length) {
-                const field = fields[positionalIndex++] as ast.Field;
+                const field = fields[positionalIndex++];
                 if (field.name && !usedFields.has(field.name)) {
                     return field;
                 }

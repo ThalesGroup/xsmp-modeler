@@ -104,12 +104,13 @@ export class ADocGenerator implements XsmpGenerator {
         if (value === undefined || value === null) {
             return undefined;
         }
+        if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
+            return value.toString();
+        }
         if (typeof value === 'object' && value.toString === Object.prototype.toString) {
             return undefined;
         }
-
-        const rendered = String(value);
-        return rendered === '[object Object]' ? undefined : rendered;
+        return typeof value.toString === 'function' ? value.toString() : undefined;
     }
 
     /**
@@ -1504,6 +1505,11 @@ export class ADocGenerator implements XsmpGenerator {
         const hasParameters = element.parameter.length > 0 || element.returnParameter !== undefined;
         const hasDefaultValue = element.parameter.some(p => p.default !== undefined);
         const hasDescription = element.parameter.some(e => this.docHelper.getDescription(e) !== undefined);
+        const returnParameterSection = element.returnParameter
+            ? s`
+                |return |${element.returnParameter.name ?? 'return'} |${this.crossReference(element.returnParameter.type, element.returnParameter)}${this.inlineOptionalCell(hasDefaultValue, '')}${this.inlineOptionalCell(hasDescription, this.escapeDescription(this.docHelper.getDescription(element.returnParameter)))}
+            `
+            : '';
         return s`
             ===== Operation ${element.name}
             ${this.docHelper.getDescription(element)}
@@ -1516,9 +1522,7 @@ export class ADocGenerator implements XsmpGenerator {
                 ${element.parameter.map(param => s`
                     |${param.direction ?? 'in'} |${param.name} |${this.crossReference(param.type, param)}${this.inlineOptionalCell(hasDefaultValue, this.getShortValue(param.default))}${this.inlineOptionalCell(hasDescription, this.escapeDescription(this.docHelper.getDescription(param)))}
                 `).join('\n')}
-                ${element.returnParameter ? s`
-                    |return |${element.returnParameter.name ?? 'return'} |${this.crossReference(element.returnParameter.type, element.returnParameter)}${this.inlineOptionalCell(hasDefaultValue, '')}${this.inlineOptionalCell(hasDescription, this.escapeDescription(this.docHelper.getDescription(element.returnParameter)))}
-                ` : ''}
+                ${returnParameterSection}
                 |===
             ` : undefined}
         `;

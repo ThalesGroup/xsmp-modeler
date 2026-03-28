@@ -32,10 +32,8 @@ export class XsmpsedCompletionProvider extends XsmpCompletionProviderBase {
     }
 
     protected override createKeywordSnippets(context: CompletionContext, keyword: GrammarAST.Keyword, acceptor: CompletionAcceptor): void {
-        switch (keyword.value) {
-            case 'schedule':
-                acceptor(context, this.createKeywordSnippet(keyword, 'schedule ${1:Name}\n$0', 'Schedule Definition'));
-                break;
+        if (keyword.value === 'schedule') {
+            acceptor(context, this.createKeywordSnippet(keyword, 'schedule ${1:Name}\n$0', 'Schedule Definition'));
         }
     }
 
@@ -385,6 +383,7 @@ export class XsmpsedCompletionProvider extends XsmpCompletionProviderBase {
             }
             return `${parameter.name ?? `arg${index + 1}`} = ${this.createPlaceholder(index + 1, defaultValue)}`;
         });
-        return `${task.name ?? 'Task'}<${templateArguments.join(', ')}> at ${this.createPlaceholder(parameters.length + 1, 'path')}`;
+        const taskName = task.name ?? 'Task';
+        return `${taskName}<${templateArguments.join(', ')}> at ${this.createPlaceholder(parameters.length + 1, 'path')}`;
     }
 }

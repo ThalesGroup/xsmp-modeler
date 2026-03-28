@@ -35,7 +35,7 @@ export class XsmpNodeInfoProvider {
             case ast.ArrayType.$type: {
                 const arrayType = node as ast.ArrayType;
                 const size = getValueAs(arrayType.size, PTK.Int64)?.getValue();
-                const sizeText = size?.toString() ?? '';
+                const sizeText = size === undefined ? '' : size.toString();
                 return `${arrayType.itemType?.$refText}[${sizeText}]`;
             }
             case ast.Operation.$type: return (node as ast.Operation).returnParameter?.type?.$refText ?? 'void';

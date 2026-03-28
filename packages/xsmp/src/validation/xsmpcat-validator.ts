@@ -410,7 +410,7 @@ export class XsmpcatValidator {
                     size = Math.min(collectionSize, fieldCount);
                 for (let i = 0; i < size; ++i) {
                     let exp: ast.Expression | undefined = expression.elements[i];
-                    const field = fields[i] as ast.Field;
+                    const field = fields[i];
                     if (ast.isDesignatedInitializer(exp)) {
                         if (exp.field?.ref !== field) {
                             accept('error', `Invalid field name, expecting ${field.name}.`, { node: exp, property: ast.DesignatedInitializer.field, data: diagnosticData(IssueCodes.InvalidFieldName) });
@@ -449,8 +449,12 @@ export class XsmpcatValidator {
 
         if (this.checkTypeReference(accept, constant, constant.type?.ref, ast.Constant.type)) {
             const type = constant.type.ref as ast.PrimitiveType;
-            if (!constant.value) { accept('error', 'A Constant must have an initialization value.', { node: constant, keyword: 'constant', data: diagnosticData(IssueCodes.MissingValue) }); }
-            else { this.checkExpression(type, constant.value, accept); }
+            if (constant.value) {
+                this.checkExpression(type, constant.value, accept);
+            }
+            else {
+                accept('error', 'A Constant must have an initialization value.', { node: constant, keyword: 'constant', data: diagnosticData(IssueCodes.MissingValue) });
+            }
         }
     }
 
@@ -535,10 +539,7 @@ export class XsmpcatValidator {
                 data: { code: IssueCodes.MissingUuid, actionRange: this.docHelper.getJSDoc(type)?.range ?? { start: type.$cstNode?.range.start, end: type.$cstNode?.range.start } }
             });
         }
-        else if (!XsmpUtils.isUUID(uuid.toString().trim())) {
-            accept('error', 'The UUID is invalid.', { node: type, range: uuid.range, data: diagnosticData(IssueCodes.InvalidUuid) });
-        }
-        else {
+        else if (XsmpUtils.isUUID(uuid.toString().trim())) {
             const duplicates = this.globalCache.get('uuids', () => this.computeUuidsForTypes()).get(uuid.toString().trim());
             if (duplicates.length > 1 && !isBuiltinLibrary(AstUtils.getDocument(type).uri)) {
                 accept('error', 'Duplicated UUID.', {
@@ -548,6 +549,9 @@ export class XsmpcatValidator {
                     relatedInformation: duplicates.filter(d => d.node !== type).map(d => ({ location: Location.create(d.documentUri.toString(), d.nameSegment!.range), message: d.name }))
                 });
             }
+        }
+        else {
+            accept('error', 'The UUID is invalid.', { node: type, range: uuid.range, data: diagnosticData(IssueCodes.InvalidUuid) });
         }
         const duplicates = this.getDuplicatedName(type);
         if (duplicates.length > 1) {
@@ -1065,7 +1069,7 @@ export class XsmpcatValidator {
 
     }
     checkParameter(parameter: ast.Parameter, accept: ValidationAcceptor): void {
-        if (this.checkTypeReference(accept, parameter, parameter.type?.ref, ast.Parameter.type)) { this.checkExpression(parameter.type.ref, parameter.default, accept); } //TODO isByPointer
+        if (this.checkTypeReference(accept, parameter, parameter.type?.ref, ast.Parameter.type)) { this.checkExpression(parameter.type.ref, parameter.default, accept); } // ByPointer is validated separately below.
 
         const isByPointer = this.attrHelper.attribute(parameter, 'Attributes.ByPointer');
         if (this.attrHelper.isAttributeTrue(isByPointer) && this.attrHelper.isAttributeTrue(this.attrHelper.attribute(parameter, 'Attributes.ByReference'))) {

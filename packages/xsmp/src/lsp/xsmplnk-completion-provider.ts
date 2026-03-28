@@ -24,17 +24,14 @@ export class XsmplnkCompletionProvider extends XsmpCompletionProviderBase {
     }
 
     protected override createKeywordSnippets(context: CompletionContext, keyword: GrammarAST.Keyword, acceptor: CompletionAcceptor): void {
-        switch (keyword.value) {
-            case 'link': {
-                const assemblies = this.getCrossReferenceNames(context, ast.LinkBase, ast.LinkBase.assembly);
-                const assemblySnippet = assemblies.length > 0 ? ` for ${this.createChoicePlaceholder(2, assemblies, 'Assembly')}` : '';
-                acceptor(context, this.createKeywordSnippet(
-                    keyword,
-                    `link ${this.createPlaceholder(1, 'Name')}${assemblySnippet}\n$0`,
-                    'Link Base Definition'
-                ));
-                break;
-            }
+        if (keyword.value === 'link') {
+            const assemblies = this.getCrossReferenceNames(context, ast.LinkBase, ast.LinkBase.assembly);
+            const assemblySnippet = assemblies.length > 0 ? ` for ${this.createChoicePlaceholder(2, assemblies, 'Assembly')}` : '';
+            acceptor(context, this.createKeywordSnippet(
+                keyword,
+                `link ${this.createPlaceholder(1, 'Name')}${assemblySnippet}\n$0`,
+                'Link Base Definition'
+            ));
         }
     }
 

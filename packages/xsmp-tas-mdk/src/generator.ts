@@ -439,6 +439,7 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
         const rawFqn = this.name(this.fqn(type), gen);
         const hasConstructor = fields.some(f => f.default !== undefined);
         const name = this.name(type, gen);
+        const fieldInitializerSeparator = fields.length === 0 ? '' : ',';
 
         return s`
         ${this.comment(type)}struct ${name} {
@@ -469,7 +470,7 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
                         Smp::IObject *parent, Smp::ViewKind view,
                         const Smp::Publication::ITypeRegistry *type_registry, Smp::Uuid typeUuid,
                         const raw_type &default_value = raw_type{}) :
-                        ::TasMdk::Types::StructureType<Opts...>(name, description, parent, view, type_registry->GetType(typeUuid))${fields.length === 0 ? '' : ','}
+                        ::TasMdk::Types::StructureType<Opts...>(name, description, parent, view, type_registry->GetType(typeUuid))${fieldInitializerSeparator}
                        ${fields.map(field => s`
                             /// ${field.name} initialization
                             ${field.name}{"${field.name}", ${this.description(field)}, this, ${this.viewKind(field, 'view')},  type_registry, ${this.uuid(field.type.ref)}, default_value.${field.name}}
@@ -817,16 +818,17 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
 
     protected generateRqHandlerProperty(property: ast.Property, _gen: boolean): string {
         const accessKind = getAccessKind(property);
-        return s`
-            ${accessKind !== 'writeOnly' ? `
+        const hasGetter = accessKind === undefined || accessKind === 'readOnly' || accessKind === 'readWrite';
+        const hasSetter = accessKind === undefined || accessKind === 'writeOnly' || accessKind === 'readWrite';
+        const getterHandler = hasGetter ? `
                 if (handlers.find("get_${property.name}") == handlers.end()) {
                     handlers["get_${property.name}"] = [](_Type & component, ::Smp::IRequest* request) {
                         /// Invoke get_${property.name}
                         request->SetReturnValue({${this.primitiveTypeKind(property.type.ref)}, component.get_${property.name}()});
                     };
                 }
-                `: undefined}
-            ${accessKind !== 'readOnly' ? `
+                ` : undefined;
+        const setterHandler = hasSetter ? `
                 if (handlers.find("set_${property.name}") == handlers.end()) {
                     handlers["set_${property.name}"] = [](_Type & component, ::Smp::IRequest* request) {
                         /// Invoke set_${property.name}
@@ -835,7 +837,10 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
                         component.set_${property.name}(${property.name});
                     };
                 }
-                `: undefined}
+                ` : undefined;
+        return s`
+            ${getterHandler}
+            ${setterHandler}
             `;
     }
     private isCdkFieldType(type: ast.Type | undefined): boolean {

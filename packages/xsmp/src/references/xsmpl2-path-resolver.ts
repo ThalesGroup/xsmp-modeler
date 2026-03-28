@@ -119,7 +119,7 @@ export class Xsmpl2PathResolver {
     }
 
     getComponentMembersByKind(component: RecoverableComponent | undefined, kinds: readonly MemberKind[]): readonly ast.NamedElement[] {
-        return this.getComponentMembers(component as ast.Component | undefined, kinds);
+        return this.getComponentMembers(component, kinds);
     }
 
     resolveReferenceSegmentTarget(
@@ -762,17 +762,18 @@ export class Xsmpl2PathResolver {
                 : this.resolveComponentMemberPath(path, taskContext.componentStack, ['property'], bindings);
         }
         if (ast.isTransfer(path.$container)) {
+            const fieldKind = path === path.$container.outputFieldPath ? 'outputField' : 'inputField';
             return taskContext.assemblyContext
                 ? this.resolveAssemblyFieldEndpointPathInContext(
                     path,
                     taskContext.assemblyContext,
-                    path === path.$container.outputFieldPath ? 'outputField' : 'inputField',
+                    fieldKind,
                     bindings,
                 )
                 : this.resolveComponentFieldEndpointPath(
                     path,
                     taskContext.componentStack,
-                    path === path.$container.outputFieldPath ? 'outputField' : 'inputField',
+                    fieldKind,
                     bindings
                 );
         }
@@ -1413,7 +1414,7 @@ export class Xsmpl2PathResolver {
         return this.getSubInstanceContainer(subInstance, component);
     }
 
-    protected getComponentMembers(component: ast.Component | undefined, kinds: readonly MemberKind[]): readonly ast.NamedElement[] {
+    protected getComponentMembers(component: RecoverableComponent | undefined, kinds: readonly MemberKind[]): readonly ast.NamedElement[] {
         const result = new Map<string, ast.NamedElement>();
         this.collectComponentMembers(component, result, new Set<ast.Type>(), kinds);
         return [...result.values()];

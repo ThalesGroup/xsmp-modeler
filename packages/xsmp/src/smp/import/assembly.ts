@@ -37,10 +37,11 @@ export function importAssembly(
     if (!model || typeof model !== 'object' || Array.isArray(model)) {
         throw new Error('Malformed SMP Assembly XML: missing root Model element.');
     }
+    const parameterText = parameters.length > 0 ? ` <${parameters.join(', ')}>` : '';
 
     return joinBlocks([
         renderDocumentHeader(rootNode),
-        `assembly${parameters.length > 0 ? ` <${parameters.join(', ')}>` : ''} ${sanitizeReferenceText(getAttribute(rootNode, 'Name') ?? '__assembly__')}`,
+        `assembly${parameterText} ${sanitizeReferenceText(getAttribute(rootNode, 'Name') ?? '__assembly__')}`,
         ...configurations,
         renderModelInstance(model as SmpXmlObject, warnings, referenceResolver),
     ].filter(Boolean), '\n\n').trimEnd() + '\n';
@@ -91,8 +92,11 @@ function renderAssemblyInstance(
     const linkBaseName = renderAssemblyDocumentReference(getTextAttributeOrChild(node, 'LinkBase'), warnings, referenceResolver, 'assembly link base', ['linkbase']);
     const body = getChildObjects(node, 'ModelConfiguration')
         .map(configuration => renderAssemblyComponentConfiguration(configuration, warnings));
+    const argumentsSuffix = argumentsText.length > 0 ? `<${argumentsText.join(', ')}>` : '';
+    const configurationSuffix = configurationName ? ` using config ${configurationName}` : '';
+    const linkBaseSuffix = linkBaseName ? ` using link ${linkBaseName}` : '';
 
-    const signature = `${container} += ${name}: ${assemblyName}${argumentsText.length > 0 ? `<${argumentsText.join(', ')}>` : ''}${configurationName ? ` using config ${configurationName}` : ''}${linkBaseName ? ` using link ${linkBaseName}` : ''}`;
+    const signature = `${container} += ${name}: ${assemblyName}${argumentsSuffix}${configurationSuffix}${linkBaseSuffix}`;
     return renderOptionalBlock(signature, body, { header, bodySeparator: '\n\n' });
 }
 

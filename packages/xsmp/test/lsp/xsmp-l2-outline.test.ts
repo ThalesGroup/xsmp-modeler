@@ -1,16 +1,55 @@
 import { EmptyFileSystem } from 'langium';
 import { expectSymbols } from 'langium/test';
 import { describe, expect, test } from 'vitest';
-import { SymbolKind, type DocumentSymbol } from 'vscode-languageserver';
+import { SymbolKind, SymbolTag, type DocumentSymbol } from 'vscode-languageserver';
 import { createXsmpServices } from 'xsmp';
 
 const services = createXsmpServices(EmptyFileSystem);
+const expectCatalogueSymbols = expectSymbols(services.xsmpcat);
 const expectAssemblySymbols = expectSymbols(services.xsmpasb);
 const expectConfigurationSymbols = expectSymbols(services.xsmpcfg);
 const expectLinkBaseSymbols = expectSymbols(services.xsmplnk);
 const expectScheduleSymbols = expectSymbols(services.xsmpsed);
 
 describe('L2 Outlines', () => {
+    test('Catalogue outline exposes details and deprecated markers for core named elements', async () => {
+        await expectCatalogueSymbols({
+            text: `
+                catalogue Demo
+                namespace demo
+                {
+                    public interface ILogger
+                    {
+                    }
+
+                    /**
+                     * Legacy implementation.
+                     * @deprecated Use Sensor instead.
+                     */
+                    public model Legacy
+                    {
+                    }
+
+                    public model Root
+                    {
+                        container demo.Legacy* sensors
+                        reference demo.ILogger? logger
+                    }
+                }
+            `,
+            parseOptions: { documentUri: 'test.xsmpcat' },
+            assert: (symbols) => {
+                const legacy = findSymbol(symbols, 'Legacy');
+                const sensors = findSymbol(symbols, 'sensors');
+                const logger = findSymbol(symbols, 'logger');
+
+                expect(legacy?.tags).toEqual([SymbolTag.Deprecated]);
+                expect(sensors?.detail).toBe('demo.Legacy*');
+                expect(logger?.detail).toBe('demo.ILogger?');
+            }
+        });
+    });
+
     test('Assembly outline exposes configurations and nested instances', async () => {
         await expectAssemblySymbols({
             text: `
@@ -145,4 +184,17 @@ function kindToString(kind: SymbolKind): string {
         case SymbolKind.Module: return 'Module';
         default: return `Kind(${kind})`;
     }
+}
+
+function findSymbol(symbols: DocumentSymbol[], name: string): DocumentSymbol | undefined {
+    for (const symbol of symbols) {
+        if (symbol.name === name) {
+            return symbol;
+        }
+        const nested = findSymbol(symbol.children ?? [], name);
+        if (nested) {
+            return nested;
+        }
+    }
+    return undefined;
 }

@@ -64,7 +64,8 @@ function renderConfigurationUsage(
 ): string {
     const configuration = renderConfigurationReferenceText(getChild(node, 'Configuration') as SmpXmlObject | undefined, warnings, referenceResolver, 'configuration include');
     const path = getAttribute(node, 'Path');
-    return `include ${configuration}${path ? ` at ${path}` : ''}`;
+    const pathSuffix = path ? ` at ${path}` : '';
+    return `include ${configuration}${pathSuffix}`;
 }
 
 function renderConfigurationFieldValue(node: SmpXmlObject, warnings: string[]): string {

@@ -34,10 +34,8 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
     }
 
     protected override createKeywordSnippets(context: CompletionContext, keyword: GrammarAST.Keyword, acceptor: CompletionAcceptor): void {
-        switch (keyword.value) {
-            case 'assembly':
-                acceptor(context, this.createKeywordSnippet(keyword, 'assembly ${1:Name}\n$0', 'Assembly Definition'));
-                break;
+        if (keyword.value === 'assembly') {
+            acceptor(context, this.createKeywordSnippet(keyword, 'assembly ${1:Name}\n$0', 'Assembly Definition'));
         }
     }
 

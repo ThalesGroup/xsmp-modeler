@@ -359,17 +359,7 @@ export class XsmpcfgValidator {
         const fields = this.pathResolver.getFieldCandidatesForType(type);
         const fieldsByName = new Map(fields.filter((field): field is ast.Field & { name: string } => !!field.name).map(field => [field.name, field] as const));
         const usedFields = new Set<string>();
-        let positionalIndex = 0;
-
-        const nextPositionalField = (): ast.Field | undefined => {
-            while (positionalIndex < fields.length) {
-                const field = fields[positionalIndex++];
-                if (field.name && !usedFields.has(field.name)) {
-                    return field;
-                }
-            }
-            return undefined;
-        };
+        const nextPositionalField = this.createNextUnusedFieldSelector(fields, usedFields);
 
         for (const element of value.elements) {
             if (ast.isCfgStructureFieldValue(element)) {
@@ -561,17 +551,7 @@ export class XsmpcfgValidator {
         const fields = this.pathResolver.getFieldCandidatesForType(type);
         const fieldsByName = new Map(fields.filter((field): field is ast.Field & { name: string } => !!field.name).map(field => [field.name, field] as const));
         const usedFields = new Set<string>();
-        let positionalIndex = 0;
-
-        const nextPositionalField = (): ast.Field | undefined => {
-            while (positionalIndex < fields.length) {
-                const field = fields[positionalIndex++];
-                if (field.name && !usedFields.has(field.name)) {
-                    return field;
-                }
-            }
-            return undefined;
-        };
+        const nextPositionalField = this.createNextUnusedFieldSelector(fields, usedFields);
 
         for (const element of structureValue.elements) {
             if (ast.isCfgStructureFieldValue(element)) {
@@ -595,5 +575,18 @@ export class XsmpcfgValidator {
         }
 
         return undefined;
+    }
+
+    protected createNextUnusedFieldSelector(fields: readonly ast.Field[], usedFields: ReadonlySet<string>): () => ast.Field | undefined {
+        let positionalIndex = 0;
+        return (): ast.Field | undefined => {
+            while (positionalIndex < fields.length) {
+                const field = fields[positionalIndex++];
+                if (field.name && !usedFields.has(field.name)) {
+                    return field;
+                }
+            }
+            return undefined;
+        };
     }
 }

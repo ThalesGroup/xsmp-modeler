@@ -408,7 +408,7 @@ export abstract class CppGenerator implements XsmpGenerator {
     }
 
     protected generateType(_type: ast.Type, _projectUri: URI, _notice: string | undefined, _acceptTask: TaskAcceptor) {
-        //TODO
+        // Implemented by subclasses.
     }
     protected async format(path: string, content: string): Promise<string> {
         if (!isClangFormatEnabled()) {
@@ -515,15 +515,20 @@ export abstract class CppGenerator implements XsmpGenerator {
                 const type = this.typeProvider.getType(expr);
                 const elements = (expr as ast.CollectionLiteral).elements;
                 if (ast.isArrayType(type) && ast.isArrayType(type.itemType.ref)) {
-                    return `{ ${elements.map(element => `{${this.expression(element)}}`).join(', ')}}`;
+                    const nestedArrayElements = elements
+                        .map(element => `{${this.expression(element)}}`)
+                        .join(', ');
+                    return `{ ${nestedArrayElements}}`;
                 }
                 if (ast.isStructure(type)) {
-                    return `{ ${elements.map(element => {
+                    const structureElements = elements.map(element => {
                         const rendered = this.expression(element);
                         return ast.isArrayType(this.typeProvider.getType(element)) ? `{${rendered}}` : rendered;
-                    }).join(', ')}}`;
+                    }).join(', ');
+                    return `{ ${structureElements}}`;
                 }
-                return `{ ${elements.map(element => this.expression(element)).join(', ')}}`;
+                const literalElements = elements.map(element => this.expression(element)).join(', ');
+                return `{ ${literalElements}}`;
             }
             case ast.DesignatedInitializer.$type: return `/* .${(expr as ast.DesignatedInitializer).field.ref?.name} = */${this.expression((expr as ast.DesignatedInitializer).expr)}`;
             case ast.UnaryOperation.$type: return `${(expr as ast.UnaryOperation).feature}${this.expression((expr as ast.UnaryOperation).operand)}`;
@@ -804,10 +809,13 @@ export abstract class CppGenerator implements XsmpGenerator {
     isForwardable(type: ast.Type | undefined): type is ast.Type {
         return type !== undefined && (ast.isStructure(type) || ast.isReferenceType(type));
     }
-    headerIncludesAssociation(element: ast.Association): Include[] {
+    protected headerIncludesPointerMember(element: ast.Association | ast.Property): Include[] {
         if (this.attrHelper.isByPointer(element) && this.isForwardable(element.type.ref))
             return [ForwardedType.create(element.type.ref)];
         return [element.type.ref];
+    }
+    headerIncludesAssociation(element: ast.Association): Include[] {
+        return this.headerIncludesPointerMember(element);
     }
     headerIncludesConstant(element: ast.Constant): Include[] {
         return [element.type.ref, ...this.expressionIncludes(element.value)];
@@ -818,15 +826,16 @@ export abstract class CppGenerator implements XsmpGenerator {
     headerIncludesEntryPoint(_element: ast.EntryPoint): Include[] {
         return [];
     }
-    headerIncludesEventSink(element: ast.EventSink): Include[] {
+    protected headerIncludesEventEndpoint(element: ast.EventSink | ast.EventSource): Include[] {
         if (ast.isEventType(element.type.ref) && element.type.ref.eventArgs)
             return ['Smp/PrimitiveTypes.h'];
         return [];
     }
+    headerIncludesEventSink(element: ast.EventSink): Include[] {
+        return this.headerIncludesEventEndpoint(element);
+    }
     headerIncludesEventSource(element: ast.EventSource): Include[] {
-        if (ast.isEventType(element.type.ref) && element.type.ref.eventArgs)
-            return ['Smp/PrimitiveTypes.h'];
-        return [];
+        return this.headerIncludesEventEndpoint(element);
     }
     headerIncludesField(element: ast.Field): Include[] {
         return [element.type.ref, ...this.expressionIncludes(element.default)];
@@ -842,9 +851,7 @@ export abstract class CppGenerator implements XsmpGenerator {
         return [...this.headerIncludesParameter(element.returnParameter), ...element.parameter.flatMap(param => this.headerIncludesParameter(param))];
     }
     headerIncludesProperty(element: ast.Property): Include[] {
-        if (this.attrHelper.isByPointer(element) && this.isForwardable(element.type.ref))
-            return [ForwardedType.create(element.type.ref)];
-        return [element.type.ref];
+        return this.headerIncludesPointerMember(element);
     }
     headerIncludesReference(element: ast.Reference): Include[] {
         return [element.interface.ref];
@@ -919,10 +926,13 @@ export abstract class CppGenerator implements XsmpGenerator {
             default: return [];
         }
     }
-    sourceIncludesAssociation(element: ast.Association): Include[] {
+    protected sourceIncludesPointerMember(element: ast.Association | ast.Property): Include[] {
         if (this.attrHelper.isByPointer(element) && this.isForwardable(element.type.ref))
             return [element.type.ref];
         return [];
+    }
+    sourceIncludesAssociation(element: ast.Association): Include[] {
+        return this.sourceIncludesPointerMember(element);
     }
     sourceIncludesConstant(_element: ast.Constant): Include[] {
         return [];
@@ -951,9 +961,7 @@ export abstract class CppGenerator implements XsmpGenerator {
         return [...this.sourceIncludesParameter(element.returnParameter), ...element.parameter.flatMap(param => this.sourceIncludesParameter(param))];
     }
     sourceIncludesProperty(element: ast.Property): Include[] {
-        if (this.attrHelper.isByPointer(element) && this.isForwardable(element.type.ref))
-            return [element.type.ref];
-        return [];
+        return this.sourceIncludesPointerMember(element);
     }
     sourceIncludesReference(_element: ast.Reference): Include[] {
         return [];
@@ -990,19 +998,18 @@ export abstract class CppGenerator implements XsmpGenerator {
         }
         return includes;
     }
-    sourceIncludesInteger(type: ast.Integer): Include[] {
+    protected sourceIncludesBoundedType(type: ast.Integer | ast.Float): Include[] {
         const includes = [
             ...this.expressionIncludes(type.minimum),
             ...this.expressionIncludes(type.maximum)
         ];
         return (type.minimum === undefined || type.maximum === undefined) ? ['limits', ...includes] : includes;
     }
+    sourceIncludesInteger(type: ast.Integer): Include[] {
+        return this.sourceIncludesBoundedType(type);
+    }
     sourceIncludesFloat(type: ast.Float): Include[] {
-        const includes = [
-            ...this.expressionIncludes(type.minimum),
-            ...this.expressionIncludes(type.maximum)
-        ];
-        return (type.minimum === undefined || type.maximum === undefined) ? ['limits', ...includes] : includes;
+        return this.sourceIncludesBoundedType(type);
     }
     sourceIncludesComponent(type: ast.Component): Include[] {
         return [...type.elements.flatMap(element => this.sourceIncludes(element))];
@@ -1437,10 +1444,18 @@ export abstract class CppGenerator implements XsmpGenerator {
 
         if (ast.isArrayType(type)) {
             const value = Solver.getValueAs(type.size, PTK.Int64)?.integralValue(PTK.Int64)?.getValue();
-            return value ? `{${new Array(Number(value)).fill(this.getDefaultValueForType(type.itemType.ref)).join(', ')}}` : '{}';
+            if (!value) {
+                return '{}';
+            }
+            const itemDefaultValue = this.getDefaultValueForType(type.itemType.ref);
+            const defaultItems = new Array(Number(value)).fill(itemDefaultValue).join(', ');
+            return `{${defaultItems}}`;
         }
         if (ast.isStructure(type)) {
-            return `{${this.attrHelper.getAllFields(type).map(f => `/*.${f.name ?? '<field>'} = */${this.getDefaultValueForType(f.type?.ref as ast.Type | undefined)}`).join(', ')}}`;
+            const defaultFields = this.attrHelper.getAllFields(type)
+                .map(field => `/*.${field.name ?? '<field>'} = */${this.getDefaultValueForType(field.type?.ref as ast.Type | undefined)}`)
+                .join(', ');
+            return `{${defaultFields}}`;
         }
 
         if (ast.isEnumeration(type)) {

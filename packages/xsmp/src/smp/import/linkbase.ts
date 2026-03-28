@@ -39,7 +39,8 @@ export function renderImportedLink(node: SmpXmlObject, warnings: string[]): stri
         case 'InterfaceLink': {
             const sourcePath = renderInterfaceLinkSourcePath(getChildText(node, 'OwnerPath'), getChildText(node, 'Reference'));
             const backReference = getChildText(node, 'BackReference');
-            return `interface link ${sourcePath} -> ${clientPath}${backReference ? `:${sanitizeReferenceText(backReference)}` : ''}`;
+            const backReferenceSuffix = backReference ? `:${sanitizeReferenceText(backReference)}` : '';
+            return `interface link ${sourcePath} -> ${clientPath}${backReferenceSuffix}`;
         }
         default:
             warnings.push(`Unsupported link type '${getAttribute(node, 'xsi:type') ?? 'LinkBase:Link'}'; importing as field link.`);

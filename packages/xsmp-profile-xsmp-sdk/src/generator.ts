@@ -490,14 +490,24 @@ export class XsmpSdkGenerator extends GapPatternCppGenerator {
 
     protected generateRqHandlerOperation(op: ast.Operation, gen: boolean): string {
         const r = op.returnParameter;
-        const invokation = `component->${this.operationName(op)}(${op.parameter.map(param => `${this.attrHelper.isByPointer(param) ? '&' : ''}p_${param.name}`).join(', ')})`;
+        const parameterArguments = op.parameter
+            .map(param => `${this.attrHelper.isByPointer(param) ? '&' : ''}p_${param.name}`)
+            .join(', ');
+        const invokation = `component->${this.operationName(op)}(${parameterArguments})`;
+        const requestParameter = r || op.parameter.length > 0 ? 'request' : '';
+        const componentType = this.name(op.$container, gen);
+        const parameterInitializers = op.parameter.map(param => this.initParameter(param)).join('\n');
+        const parameterSetters = op.parameter.map(param => this.setParameter(param)).join('\n');
+        const invocationStatement = r
+            ? `::Xsmp::Request::setReturnValue(request, ${this.primitiveTypeKind(r.type.ref)}, ${invokation})`
+            : invokation;
         return s`
             // Handler for Operation ${op.name}
             {"${op.name}",
-            [](${this.name(op.$container, gen)}* component, ::Smp::IRequest *${r || op.parameter.length > 0 ? 'request' : ''}) {
-                ${op.parameter.map(param => this.initParameter(param)).join('\n')}
-                ${r ? `::Xsmp::Request::setReturnValue(request, ${this.primitiveTypeKind(r.type.ref)}, ${invokation})` : `${invokation}`};
-                ${op.parameter.map(param => this.setParameter(param)).join('\n')}
+            [](${componentType}* component, ::Smp::IRequest *${requestParameter}) {
+                ${parameterInitializers}
+                ${invocationStatement};
+                ${parameterSetters}
             }},
 
             `;
@@ -518,12 +528,14 @@ export class XsmpSdkGenerator extends GapPatternCppGenerator {
                 // only declare the parameter
                 return `${this.fqn(param.type.ref)} p_${param.name}${this.directListInitializer(param.default)};`;
             case 'in':
-            case 'inout':
+            case 'inout': {
                 // declare and initialize the parameter
+                const defaultExpression = param.default ? `, ${this.expression(param.default)}` : '';
                 if (ast.isSimpleType(param.type.ref)) {
-                    return `auto p_${param.name} = ::Xsmp::Request::get<${this.fqn(param.type.ref)}>(component, request, "${param.name}", ${this.primitiveTypeKind(param.type.ref)}${param.default ? `, ${this.expression(param.default)}` : ''});`;
+                    return `auto p_${param.name} = ::Xsmp::Request::get<${this.fqn(param.type.ref)}>(component, request, "${param.name}", ${this.primitiveTypeKind(param.type.ref)}${defaultExpression});`;
                 }
-                return `auto p_${param.name} = ::Xsmp::Request::get<${this.fqn(param.type.ref)}>(component, request, "${param.name}", ${this.uuid(param.type.ref)}${param.default ? `, ${this.expression(param.default)}` : ''});`;
+                return `auto p_${param.name} = ::Xsmp::Request::get<${this.fqn(param.type.ref)}>(component, request, "${param.name}", ${this.uuid(param.type.ref)}${defaultExpression});`;
+            }
         }
     }
 
@@ -544,23 +556,27 @@ export class XsmpSdkGenerator extends GapPatternCppGenerator {
     protected generateRqHandlerProperty(property: ast.Property, gen: boolean): string {
         const accessKind = getAccessKind(property);
         const cmp = this.name(property.$container, gen);
-        return s`
-            ${accessKind !== 'writeOnly' ? `
+        const hasGetter = accessKind === undefined || accessKind === 'readOnly' || accessKind === 'readWrite';
+        const hasSetter = accessKind === undefined || accessKind === 'writeOnly' || accessKind === 'readWrite';
+        const getterHandler = hasGetter ? `
                 // Getter handler for Property ${property.name}
                 {"get_${property.name}",
                 [](${cmp}* component, ::Smp::IRequest *request) {
                     ::Xsmp::Request::setReturnValue(request, ${this.primitiveTypeKind(property.type.ref)}, component->get_${property.name}());
                 }},
                 
-                `: undefined}
-            ${accessKind !== 'readOnly' ? `
+                ` : undefined;
+        const setterHandler = hasSetter ? `
                 // Setter handler for Property ${property.name}
                 {"set_${property.name}",
                 [](${cmp}* component, ::Smp::IRequest *request) {
                     component->set_${property.name}(::Xsmp::Request::get<${this.fqn(property.type.ref)}>(component, request, "${property.name}", ${this.primitiveTypeKind(property.type.ref)}));
                 }},
                 
-                `: undefined}
+                ` : undefined;
+        return s`
+            ${getterHandler}
+            ${setterHandler}
             `;
     }
     private isCdkFieldType(type: ast.Type | undefined): boolean {

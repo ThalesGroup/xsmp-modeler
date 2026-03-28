@@ -215,6 +215,98 @@ namespace app
         expect(fs.existsSync(path.join(projectDir, 'smdl-gen', 'app.smppkg'))).toBe(true);
     });
 
+    test('generates outputs for multiple active tools including python bindings', async () => {
+        const projectDir = createProject(tempDir, 'mission-demo', `
+project "mission-demo" using "ECSS_SMP_2025"
+source "smdl"
+tool "smp"
+tool "python"
+`, {
+            'smdl/mission_demo.xsmpcat': `
+catalogue mission_demo
+
+namespace mission
+{
+    /** @uuid bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb */
+    model Root
+    {
+    }
+
+    namespace control
+    {
+        /** @uuid cccccccc-cccc-cccc-cccc-cccccccccccc */
+        model Leaf
+        {
+        }
+    }
+}
+`,
+        });
+
+        const result = await runCliWithOutput(['generate', projectDir]);
+
+        expect(result.exitCode).toBe(0);
+        expect(result.stdout).toContain('Generated outputs for project "mission-demo".');
+        expect(fs.existsSync(path.join(projectDir, 'smdl-gen', 'mission_demo.smpcat'))).toBe(true);
+        expect(fs.existsSync(path.join(projectDir, 'smdl-gen', 'mission_demo.smppkg'))).toBe(true);
+
+        const packageInit = fs.readFileSync(path.join(projectDir, 'python', 'mission_demo', '__init__.py'), 'utf-8');
+        const missionInit = fs.readFileSync(path.join(projectDir, 'python', 'mission_demo', 'mission', '__init__.py'), 'utf-8');
+        const controlInit = fs.readFileSync(path.join(projectDir, 'python', 'mission_demo', 'mission', 'control', '__init__.py'), 'utf-8');
+
+        expect(packageInit).toContain('from . import mission');
+        expect(missionInit).toContain('from . import control');
+        expect(missionInit).toContain('class Root:');
+        expect(missionInit).toContain('ecss_smp.Smp.Uuid("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")');
+        expect(controlInit).toContain('class Leaf:');
+        expect(controlInit).toContain('ecss_smp.Smp.Uuid("cccccccc-cccc-cccc-cccc-cccccccccccc")');
+    });
+
+    test('validates a project with a resolved dependency from an explicit workspace root', async () => {
+        const workspaceRoot = path.join(tempDir, 'workspace');
+        createProject(workspaceRoot, 'foundation', `
+project "foundation" using "ECSS_SMP_2025"
+source "smdl"
+`, {
+            'smdl/foundation.xsmpcat': `
+catalogue foundation
+
+namespace foundation
+{
+    /** @uuid dddddddd-dddd-dddd-dddd-dddddddddddd */
+    public struct Base
+    {
+    }
+}
+`,
+        });
+        const projectsRoot = path.join(tempDir, 'projects');
+        const projectDir = createProject(projectsRoot, 'app', `
+project "app" using "ECSS_SMP_2025"
+source "smdl"
+dependency "foundation"
+`, {
+            'smdl/app.xsmpcat': `
+catalogue app
+
+namespace app
+{
+    /** @uuid eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee */
+    struct UsesDependency
+    {
+        field foundation.Base base
+    }
+}
+`,
+        });
+
+        const result = await runCliWithOutput(['validate', projectDir, '--workspace-root', workspaceRoot]);
+
+        expect(result.exitCode).toBe(0);
+        expect(result.stdout).toContain('0 errors, 0 warnings');
+        expect(result.stderr).toBe('');
+    });
+
     test('blocks generation when a visible dependency has errors', async () => {
         createProject(tempDir, 'foundation', `
 project "foundation" using "ECSS_SMP_2025"

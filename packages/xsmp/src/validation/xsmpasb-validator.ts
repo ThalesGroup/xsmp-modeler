@@ -637,17 +637,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
 
         const fields = this.pathResolver.getFieldCandidatesForType(type);
         const usedFields = new Set<string>();
-        let positionalIndex = 0;
-
-        const nextPositionalField = (): ast.Field | undefined => {
-            while (positionalIndex < fields.length) {
-                const field = fields[positionalIndex++];
-                if (field.name && !usedFields.has(field.name)) {
-                    return field;
-                }
-            }
-            return undefined;
-        };
+        const nextPositionalField = this.createNextUnusedFieldSelector(fields, usedFields);
 
         for (const element of value.elements) {
             if (ast.isFieldValue(element) && element.field) {
@@ -821,17 +811,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
     ): ast.Type | undefined {
         const fields = this.pathResolver.getFieldCandidatesForType(type);
         const usedFields = new Set<string>();
-        let positionalIndex = 0;
-
-        const nextPositionalField = (): ast.Field | undefined => {
-            while (positionalIndex < fields.length) {
-                const field = fields[positionalIndex++];
-                if (field.name && !usedFields.has(field.name)) {
-                    return field;
-                }
-            }
-            return undefined;
-        };
+        const nextPositionalField = this.createNextUnusedFieldSelector(fields, usedFields);
 
         for (const element of structureValue.elements) {
             if (ast.isFieldValue(element)) {
@@ -940,10 +920,11 @@ export class XsmpasbValidator extends XsmpcfgValidator {
             if (ast.isAssemblyInstance(instance)) {
                 const childAssembly = ast.isAssembly(instance.assembly?.ref) ? instance.assembly.ref : undefined;
                 const childBindings = childAssembly ? this.createTemplateBindings(childAssembly.parameters, instance.arguments) : undefined;
+                const childStack = childAssembly && !stack.has(childAssembly)
+                    ? new Set([...stack, childAssembly])
+                    : stack;
                 const childOccurrence = childAssembly
-                    ? (stack.has(childAssembly)
-                        ? this.createAssemblyOccurrence(childAssembly, childAssembly.model, childBindings, childPath, stack)
-                        : this.createAssemblyOccurrence(childAssembly, childAssembly.model, childBindings, childPath, new Set([...stack, childAssembly])))
+                    ? this.createAssemblyOccurrence(childAssembly, childAssembly.model, childBindings, childPath, childStack)
                     : undefined;
                 if (childOccurrence) {
                     children.push({ name: concreteName, occurrence: childOccurrence });
@@ -1048,6 +1029,19 @@ export class XsmpasbValidator extends XsmpcfgValidator {
 
     private stripStringQuotes(text: string): string {
         return text.startsWith('"') && text.endsWith('"') ? text.slice(1, -1) : text;
+    }
+
+    protected override createNextUnusedFieldSelector(fields: readonly ast.Field[], usedFields: ReadonlySet<string>): () => ast.Field | undefined {
+        let positionalIndex = 0;
+        return (): ast.Field | undefined => {
+            while (positionalIndex < fields.length) {
+                const field = fields[positionalIndex++];
+                if (field.name && !usedFields.has(field.name)) {
+                    return field;
+                }
+            }
+            return undefined;
+        };
     }
 }
 

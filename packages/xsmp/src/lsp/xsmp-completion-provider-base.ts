@@ -1,6 +1,5 @@
 import { AstUtils, GrammarAST, type AstNode, type AstNodeDescription, type LangiumDocument, type MaybePromise, type ReferenceInfo } from 'langium';
 import { DefaultCompletionProvider, type CompletionAcceptor, type CompletionContext, type CompletionValueItem, type NextFeature } from 'langium/lsp';
-import type { MarkupContent } from 'vscode-languageserver';
 import {
     CompletionItemKind,
     CompletionItemTag,
@@ -10,6 +9,7 @@ import {
     type CompletionItem,
     type CompletionParams,
     type CancellationToken,
+    type MarkupContent,
 } from 'vscode-languageserver';
 import * as ast from '../generated/ast-partial.js';
 import type * as partialAst from '../generated/ast-partial.js';
@@ -455,52 +455,60 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
         let inString = false;
         let inLineComment = false;
         let inBlockComment = false;
-        for (let index = start; index < text.length; index++) {
+        let index = start;
+        while (index < text.length) {
             const char = text[index];
             const next = text[index + 1];
             if (inLineComment) {
                 if (char === '\n') {
                     inLineComment = false;
                 }
+                index++;
                 continue;
             }
             if (inBlockComment) {
                 if (char === '*' && next === '/') {
                     inBlockComment = false;
-                    index++;
+                    index += 2;
+                    continue;
                 }
+                index++;
                 continue;
             }
             if (inString) {
                 if (char === '\\') {
-                    index++;
+                    index += 2;
+                    continue;
                 } else if (char === '"') {
                     inString = false;
                 }
+                index++;
                 continue;
             }
             if (char === '/' && next === '/') {
                 inLineComment = true;
-                index++;
+                index += 2;
                 continue;
             }
             if (char === '/' && next === '*') {
                 inBlockComment = true;
-                index++;
+                index += 2;
                 continue;
             }
             if (char === '"') {
                 inString = true;
+                index++;
                 continue;
             }
             const templatePlaceholderEnd = this.findTemplatePlaceholderEnd(text, index);
             if (templatePlaceholderEnd >= 0) {
-                index = templatePlaceholderEnd;
+                index = templatePlaceholderEnd + 1;
                 continue;
             }
             if (char === '{') {
                 return index;
             }
+            index++;
         }
         return -1;
     }
@@ -510,47 +518,54 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
         let inString = false;
         let inLineComment = false;
         let inBlockComment = false;
-        for (let index = openBrace; index < text.length; index++) {
+        let index = openBrace;
+        while (index < text.length) {
             const char = text[index];
             const next = text[index + 1];
             if (inLineComment) {
                 if (char === '\n') {
                     inLineComment = false;
                 }
+                index++;
                 continue;
             }
             if (inBlockComment) {
                 if (char === '*' && next === '/') {
                     inBlockComment = false;
-                    index++;
+                    index += 2;
+                    continue;
                 }
+                index++;
                 continue;
             }
             if (inString) {
                 if (char === '\\') {
-                    index++;
+                    index += 2;
+                    continue;
                 } else if (char === '"') {
                     inString = false;
                 }
+                index++;
                 continue;
             }
             if (char === '/' && next === '/') {
                 inLineComment = true;
-                index++;
+                index += 2;
                 continue;
             }
             if (char === '/' && next === '*') {
                 inBlockComment = true;
-                index++;
+                index += 2;
                 continue;
             }
             if (char === '"') {
                 inString = true;
+                index++;
                 continue;
             }
             const templatePlaceholderEnd = this.findTemplatePlaceholderEnd(text, index);
             if (templatePlaceholderEnd >= 0) {
-                index = templatePlaceholderEnd;
+                index = templatePlaceholderEnd + 1;
                 continue;
             }
             if (char === '{') {
@@ -561,6 +576,7 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
                     return index;
                 }
             }
+            index++;
         }
         return -1;
     }
@@ -574,7 +590,7 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
             return -1;
         }
         index++;
-        while (/[\w]/.test(text[index] ?? '')) {
+        while (/\w/.test(text[index] ?? '')) {
             index++;
         }
         return text[index] === '}' ? index : -1;

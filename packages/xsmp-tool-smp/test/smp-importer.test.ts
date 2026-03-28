@@ -253,6 +253,41 @@ describe('SMP importer', () => {
         expect(regenerated).toBe(fs.readFileSync(path.resolve(__dirname, 'test.smplnk'), 'utf-8'));
     });
 
+    test('imports interface links with back references and preserves unsupported links as field links', async () => {
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-smp-import-lnk-interface-'));
+        tempDirs.push(tempDir);
+        const inputPath = path.join(tempDir, 'demo.smplnk');
+        fs.writeFileSync(inputPath, `<?xml version="1.0" encoding="UTF-8"?>
+<LinkBase:LinkBase xmlns:Elements="http://www.ecss.nl/smp/2019/Core/Elements" xmlns:LinkBase="http://www.ecss.nl/smp/2025/Smdl/LinkBase" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" Id="Demo" Name="Demo">
+  <Component Path="/">
+    <Link xsi:type="LinkBase:InterfaceLink">
+      <OwnerPath>svc</OwnerPath>
+      <Reference>ref</Reference>
+      <ClientPath>client</ClientPath>
+      <BackReference>back</BackReference>
+    </Link>
+    <Link xsi:type="LinkBase:CustomLink">
+      <OwnerPath>raw.out</OwnerPath>
+      <ClientPath>raw.in</ClientPath>
+    </Link>
+  </Component>
+</LinkBase:LinkBase>
+`, 'utf-8');
+
+        const importer = new SmpImportService(services.shared);
+        const result = await importer.importFile({ inputPath });
+        const importedText = fs.readFileSync(result.outputPath, 'utf-8');
+        const document = await parseLinkBase(importedText, { documentUri: URI.file(result.outputPath).toString() });
+
+        expect(result.kind).toBe('linkbase');
+        expect(result.warnings).toEqual([
+            "Unsupported link type 'LinkBase:CustomLink'; importing as field link.",
+        ]);
+        expect(importedText).toContain('interface link svc.ref -> client:back');
+        expect(importedText).toContain('field link raw.out -> raw.in');
+        expect(document.parseResult.parserErrors).toHaveLength(0);
+    });
+
     test('imports an assembly and regenerates the same SMP XML', async () => {
         const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-smp-import-asb-'));
         tempDirs.push(tempDir);
@@ -275,6 +310,86 @@ describe('SMP importer', () => {
         expect(regenerated).toBe(fs.readFileSync(path.resolve(__dirname, 'test.smpasb'), 'utf-8'));
     });
 
+    test('imports assembly invocations, handlers, and unresolved document references into usable XSMP assembly syntax', async () => {
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-smp-import-asb-fallbacks-'));
+        tempDirs.push(tempDir);
+        const inputPath = path.join(tempDir, 'demo.smpasb');
+        fs.writeFileSync(inputPath, `<?xml version="1.0" encoding="UTF-8"?>
+<Assembly:Assembly xmlns:Elements="http://www.ecss.nl/smp/2019/Core/Elements" xmlns:Types="http://www.ecss.nl/smp/2019/Core/Types" xmlns:LinkBase="http://www.ecss.nl/smp/2025/Smdl/LinkBase" xmlns:Assembly="http://www.ecss.nl/smp/2025/Smdl/Assembly" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" Id="Demo" Name="Demo">
+  <ComponentConfiguration InstancePath=".">
+    <Invocation xsi:type="Assembly:OperationCall" Operation="bootstrap">
+      <Parameter Parameter="count">
+        <Value xsi:type="Types:Int32Value" Value="1"/>
+      </Parameter>
+    </Invocation>
+    <Invocation xsi:type="Assembly:PropertyValue" Property="mode">
+      <Value xsi:type="Types:String8Value" Value="safe"/>
+    </Invocation>
+    <Invocation xsi:type="Assembly:CustomInvocation"/>
+    <GlobalEventHandler EntryPointName="Start" GlobalEventName="Boot"/>
+    <FieldValue xsi:type="Types:BoolValue" Value="true" Field="enabled"/>
+  </ComponentConfiguration>
+  <Model Name="Root">
+    <Assembly Container="child" Name="Child" Assembly="missing/dep.smpasb" Configuration="configs/cfg.smpcfg" LinkBase="links/demo.smplnk">
+      <Argument Name="count" xsi:type="Assembly:Int32Argument" Value="2"/>
+      <Argument Name="mode" xsi:type="Assembly:StringArgument" Value="safe"/>
+      <ModelConfiguration InstancePath="child">
+        <Invocation xsi:type="Assembly:PropertyValue" Property="mode">
+          <Value xsi:type="Types:String8Value" Value="warmup"/>
+        </Invocation>
+      </ModelConfiguration>
+    </Assembly>
+    <Model Container="child" Name="Leaf" Implementation="demo::Leaf">
+      <GlobalEventHandler EntryPointName="OnTick" GlobalEventName="Tick"/>
+    </Model>
+  </Model>
+</Assembly:Assembly>
+`, 'utf-8');
+
+        const importer = new SmpImportService(services.shared);
+        const result = await importer.importFile({ inputPath });
+        const importedText = fs.readFileSync(result.outputPath, 'utf-8');
+        const document = await parseAssembly(importedText, { documentUri: URI.file(result.outputPath).toString() });
+
+        expect(result.kind).toBe('assembly');
+        expect(result.warnings).toEqual([
+            "Unsupported assembly invocation type 'Assembly:CustomInvocation'.",
+            'Missing model implementation; using placeholder string implementation.',
+            "Could not resolve assembly reference 'missing/dep.smpasb'; using 'dep'.",
+            "Could not resolve assembly configuration 'configs/cfg.smpcfg'; using 'cfg'.",
+            "Could not resolve assembly link base 'links/demo.smplnk'; using 'demo'.",
+        ]);
+        expect(importedText).toContain('configure .');
+        expect(importedText).toContain('call bootstrap(count=1i32)');
+        expect(importedText).toContain('property mode = "safe"');
+        expect(importedText).toContain('/* unsupported invocation */');
+        expect(importedText).toContain('subscribe Start -> "Boot"');
+        expect(importedText).toContain('enabled = true');
+        expect(importedText).toContain('Root: "__missing__"');
+        expect(importedText).toContain('child += Child: dep<count = 2, mode = "safe"> using config cfg using link demo');
+        expect(importedText).toContain('configure child');
+        expect(importedText).toContain('property mode = "warmup"');
+        expect(importedText).toContain('child += Leaf: demo.Leaf');
+        expect(importedText).toContain('subscribe OnTick -> "Tick"');
+        expect(document.parseResult.parserErrors).toHaveLength(0);
+    });
+
+    test('rejects malformed assembly files that do not declare a root model', async () => {
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-smp-import-asb-malformed-'));
+        tempDirs.push(tempDir);
+        const inputPath = path.join(tempDir, 'broken.smpasb');
+        fs.writeFileSync(inputPath, `<?xml version="1.0" encoding="UTF-8"?>
+<Assembly:Assembly xmlns:Elements="http://www.ecss.nl/smp/2019/Core/Elements" xmlns:Types="http://www.ecss.nl/smp/2019/Core/Types" xmlns:LinkBase="http://www.ecss.nl/smp/2025/Smdl/LinkBase" xmlns:Assembly="http://www.ecss.nl/smp/2025/Smdl/Assembly" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" Id="Broken" Name="Broken">
+  <ComponentConfiguration InstancePath=".">
+    <FieldValue xsi:type="Types:Int32Value" Value="1" Field="count"/>
+  </ComponentConfiguration>
+</Assembly:Assembly>
+`, 'utf-8');
+
+        const importer = new SmpImportService(services.shared);
+        await expect(importer.importFile({ inputPath })).rejects.toThrow(/missing root Model element/u);
+    });
+
     test('imports a schedule and regenerates the same SMP XML', async () => {
         const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-smp-import-sed-'));
         tempDirs.push(tempDir);
@@ -295,6 +410,78 @@ describe('SMP importer', () => {
         const generator = new SmpGenerator(services.shared);
         const regenerated = await generator.doGenerateSchedule(document.parseResult.value, undefined);
         expect(regenerated).toBe(fs.readFileSync(path.resolve(__dirname, 'test.smpsed'), 'utf-8'));
+    });
+
+    test('imports schedule headers, task execution, and unsupported nodes into readable schedule syntax', async () => {
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-smp-import-sed-runtime-'));
+        tempDirs.push(tempDir);
+        const inputPath = path.join(tempDir, 'demo.smpsed');
+        fs.writeFileSync(inputPath, `<?xml version="1.0" encoding="UTF-8"?>
+<Schedule:Schedule xmlns:Elements="http://www.ecss.nl/smp/2019/Core/Elements" xmlns:Types="http://www.ecss.nl/smp/2019/Core/Types" xmlns:LinkBase="http://www.ecss.nl/smp/2025/Smdl/LinkBase" xmlns:Assembly="http://www.ecss.nl/smp/2025/Smdl/Assembly" xmlns:Schedule="http://www.ecss.nl/smp/2025/Smdl/Schedule" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" Id="BootFlow" Name="BootFlow" EpochTime="2026-01-01T00:00:00Z" MissionStart="PT10S">
+  <Task Id="BootFlow.Worker" Name="Worker"/>
+  <Task Id="BootFlow.Main" Name="Main">
+    <Activity Id="BootFlow.Main.ExecuteWorker" Name="ExecuteWorker" xsi:type="Schedule:ExecuteTask" Root="/AssemblyRoot">
+      <Task xlink:title="Worker" xlink:href="#BootFlow.Worker"/>
+      <Argument Name="count" xsi:type="Schedule:Int32Argument" Value="2"/>
+      <Argument Name="mode" xsi:type="Schedule:StringArgument" Value="safe"/>
+    </Activity>
+    <Activity Id="BootFlow.Main.Custom" Name="Custom" xsi:type="Schedule:CustomActivity"/>
+  </Task>
+  <Event Id="BootFlow.Startup" Name="Startup" xsi:type="Schedule:GlobalEventTriggeredEvent" CycleTime="PT30S" RepeatCount="4" StartEvent="BootCompleted" StopEvent="ShutdownRequested" TimeKind="SimulationTime" Delay="PT5S">
+    <Task xlink:title="Main" xlink:href="#BootFlow.Main"/>
+  </Event>
+  <Event Id="BootFlow.Unsupported" Name="Unsupported" xsi:type="Schedule:CustomEvent">
+    <Task xlink:title="Worker" xlink:href="#BootFlow.Worker"/>
+  </Event>
+</Schedule:Schedule>
+`, 'utf-8');
+
+        const importer = new SmpImportService(services.shared);
+        const result = await importer.importFile({ inputPath });
+        const importedText = fs.readFileSync(result.outputPath, 'utf-8');
+        const document = await parseSchedule(importedText, { documentUri: URI.file(result.outputPath).toString() });
+
+        expect(result.kind).toBe('schedule');
+        expect(result.warnings).toEqual([
+            "Unsupported schedule activity type 'Schedule:CustomActivity'.",
+            "Unsupported schedule event type 'Schedule:CustomEvent'.",
+        ]);
+        expect(importedText).toContain('schedule BootFlow epoch "2026-01-01T00:00:00Z" mission "PT10S"');
+        expect(importedText).toContain('task Worker');
+        expect(importedText).toContain('execute Worker<count = 2, mode = "safe"> at /AssemblyRoot');
+        expect(importedText).toContain('/* unsupported activity */');
+        expect(importedText).toContain('event Main on "BootCompleted" until "ShutdownRequested" using simulation delay "PT5S" cycle "PT30S" repeat 4');
+        expect(importedText).toContain('/* unsupported event for Worker */');
+        expect(document.parseResult.parserErrors).toHaveLength(0);
+    });
+
+    test('falls back to task titles when external schedule task ids cannot be resolved', async () => {
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-smp-import-sed-missing-id-'));
+        tempDirs.push(tempDir);
+        fs.writeFileSync(path.join(tempDir, 'external.smpsed'), `<?xml version="1.0" encoding="UTF-8"?>
+<Schedule:Schedule xmlns:Schedule="http://www.ecss.nl/smp/2025/Smdl/Schedule" xmlns:Elements="http://www.ecss.nl/smp/2019/Core/Elements" xmlns:Types="http://www.ecss.nl/smp/2019/Core/Types" xmlns:LinkBase="http://www.ecss.nl/smp/2025/Smdl/LinkBase" xmlns:Assembly="http://www.ecss.nl/smp/2025/Smdl/Assembly" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" Id="Hidden" Name="Hidden">
+  <Task Id="Hidden.OtherTask" Name="OtherTask"/>
+</Schedule:Schedule>
+`, 'utf-8');
+        const inputPath = path.join(tempDir, 'main.smpsed');
+        fs.writeFileSync(inputPath, `<?xml version="1.0" encoding="UTF-8"?>
+<Schedule:Schedule xmlns:Schedule="http://www.ecss.nl/smp/2025/Smdl/Schedule" xmlns:Elements="http://www.ecss.nl/smp/2019/Core/Elements" xmlns:Types="http://www.ecss.nl/smp/2019/Core/Types" xmlns:LinkBase="http://www.ecss.nl/smp/2025/Smdl/LinkBase" xmlns:Assembly="http://www.ecss.nl/smp/2025/Smdl/Assembly" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" Id="Main" Name="Main">
+  <Task Id="Main.Root" Name="Root">
+    <Activity Id="Main.Root.ExecuteTask1" Name="ExecuteTask1" xsi:type="Schedule:ExecuteTask">
+      <Task xlink:title="FallbackTask" xlink:href="external.smpsed#Hidden/MissingTask"/>
+    </Activity>
+  </Task>
+</Schedule:Schedule>
+`, 'utf-8');
+
+        const importer = new SmpImportService(services.shared);
+        const result = await importer.importFile({ inputPath });
+        const importedText = fs.readFileSync(result.outputPath, 'utf-8');
+
+        expect(result.warnings).toEqual([
+            "Could not resolve external task reference id 'Hidden/MissingTask' from 'external.smpsed#Hidden/MissingTask'; falling back to title or fragment text.",
+        ]);
+        expect(importedText).toContain('execute FallbackTask');
     });
 
     test('rejects unsupported SMP XML roots', async () => {
