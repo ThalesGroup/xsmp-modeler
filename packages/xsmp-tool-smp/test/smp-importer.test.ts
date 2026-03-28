@@ -10,6 +10,7 @@ import { SmpImportService } from 'xsmp/smp';
 import { detectSmpImportKind, getDefaultImportedXsmpPath, parseSmpXml } from 'xsmp/smp';
 import { SmpGenerator } from '@xsmp/tool-smp';
 import { setGeneratedBy } from 'xsmp/generator';
+import { rebuildTestDocuments } from './test-services.js';
 
 let services: ReturnType<typeof createXsmpServices>;
 let parseProject: ReturnType<typeof parseHelper<ast.Project>>;
@@ -65,7 +66,13 @@ describe('SMP importer', () => {
         const importer = new SmpImportService(services.shared);
         const result = await importer.importFile({ inputPath });
         const importedText = fs.readFileSync(result.outputPath, 'utf-8');
-        const document = await parseCatalogue(importedText, { documentUri: URI.file(result.outputPath).toString() });
+        const projectDocument = await parseProject(
+            `project 'demo' using 'ECSS_SMP_2020'\nsource 'src'\n`,
+            { documentUri: URI.file(path.join(tempDir, 'xsmp.project')).toString() }
+        );
+        const document = await parseCatalogue(importedText, { documentUri: URI.file(path.join(tempDir, 'src', 'test.xsmpcat')).toString() });
+        documents.push(projectDocument, document);
+        await rebuildTestDocuments(services, [projectDocument, document]);
 
         expect(result.kind).toBe('catalogue');
         expect(result.warnings).toEqual([]);
@@ -76,6 +83,36 @@ describe('SMP importer', () => {
         const generator = new SmpGenerator(services.shared);
         const regenerated = await generator.doGenerateCatalogue(document.parseResult.value, undefined);
         expect(regenerated).toBe(fs.readFileSync(path.resolve(__dirname, 'test.smpcat'), 'utf-8'));
+    });
+
+    test('imports 2025 Reference.Type and Realization into XSMP catalogue syntax', async () => {
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-smp-import-cat-2025-'));
+        tempDirs.push(tempDir);
+        const inputPath = path.join(tempDir, 'demo.smpcat');
+        fs.writeFileSync(inputPath, `<?xml version="1.0" encoding="UTF-8"?>
+<Catalogue:Catalogue xmlns:Catalogue="http://www.ecss.nl/smp/2025/Smdl/Catalogue" xmlns:Elements="http://www.ecss.nl/smp/2025/Core/Elements" xmlns:Types="http://www.ecss.nl/smp/2025/Core/Types" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" Id="demo" Name="Demo">
+  <Namespace Name="demo">
+    <Type xsi:type="Catalogue:Interface" Id="demo.IBus" Name="IBus"/>
+    <Type xsi:type="Catalogue:Model" Id="demo.Child" Name="Child"/>
+    <Type xsi:type="Catalogue:Model" Id="demo.Root" Name="Root">
+      <Realization Id="demo.Root.bus" Name="bus">
+        <Interface xlink:href="#demo.IBus" xlink:title="demo.IBus"/>
+      </Realization>
+      <Reference Id="demo.Root.childRef" Name="childRef">
+        <Type xlink:href="#demo.Child" xlink:title="demo.Child"/>
+      </Reference>
+    </Type>
+  </Namespace>
+</Catalogue:Catalogue>
+`, 'utf-8');
+
+        const importer = new SmpImportService(services.shared);
+        const result = await importer.importFile({ inputPath });
+        const importedText = fs.readFileSync(result.outputPath, 'utf-8');
+
+        expect(result.warnings).toEqual([]);
+        expect(importedText).toContain('reference Child childRef');
+        expect(importedText).toContain('realization IBus bus');
     });
 
     test('imports a configuration and regenerates the same SMP XML', async () => {
@@ -103,6 +140,93 @@ describe('SMP importer', () => {
         const generator = new SmpGenerator(services.shared);
         const regenerated = await generator.doGenerateConfiguration(document.parseResult.value, undefined);
         expect(regenerated).toBe(fs.readFileSync(path.resolve(__dirname, 'test.smpcfg'), 'utf-8'));
+    });
+
+    test('imports StartIndex array values into configuration syntax', async () => {
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-smp-import-cfg-start-index-'));
+        tempDirs.push(tempDir);
+        const inputPath = path.join(tempDir, 'demo.smpcfg');
+        fs.writeFileSync(inputPath, `<?xml version="1.0" encoding="UTF-8"?>
+<Configuration:Configuration xmlns:Configuration="http://www.ecss.nl/smp/2025/Smdl/Configuration" xmlns:Elements="http://www.ecss.nl/smp/2025/Core/Elements" xmlns:Types="http://www.ecss.nl/smp/2025/Core/Types" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" Id="cfg" Name="Demo">
+  <Component Path=".">
+    <FieldValue xsi:type="Types:Int32ArrayValue" Field="simpleValues">
+      <StartIndex>2</StartIndex>
+      <ItemValue xsi:type="Types:Int32Value" Value="5"/>
+      <ItemValue xsi:type="Types:Int32Value" Value="6"/>
+    </FieldValue>
+  </Component>
+</Configuration:Configuration>
+`, 'utf-8');
+
+        const importer = new SmpImportService(services.shared);
+        const result = await importer.importFile({ inputPath });
+        const importedText = fs.readFileSync(result.outputPath, 'utf-8');
+
+        expect(result.warnings).toEqual([]);
+        expect(importedText).toContain('simpleValues = [2: 5i32, 6i32]');
+    });
+
+    test('imports nullptr defaults for reference-like parameters without quoted strings', async () => {
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-smp-import-nullptr-'));
+        tempDirs.push(tempDir);
+        const inputPath = path.join(tempDir, 'demo.smpcat');
+        fs.writeFileSync(inputPath, `<?xml version="1.0" encoding="UTF-8"?>
+<Catalogue:Catalogue xmlns:Catalogue="http://www.ecss.nl/smp/2025/Smdl/Catalogue" xmlns:Elements="http://www.ecss.nl/smp/2025/Core/Elements" xmlns:Types="http://www.ecss.nl/smp/2025/Core/Types" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" Id="demo" Name="Demo">
+  <Namespace Name="demo">
+    <Type xsi:type="Catalogue:Interface" Id="demo.ITarget" Name="ITarget"/>
+    <Type xsi:type="Catalogue:Interface" Id="demo.IHolder" Name="IHolder" Visibility="public">
+      <Operation Id="demo.IHolder.SetTarget" Name="SetTarget" Visibility="public">
+        <Parameter Id="demo.IHolder.SetTarget.target" Name="target" Direction="inout">
+          <Type xlink:href="#demo.ITarget" xlink:title="demo.ITarget"/>
+          <Default xsi:type="Types:String8Value" Value="nullptr"/>
+        </Parameter>
+      </Operation>
+    </Type>
+  </Namespace>
+</Catalogue:Catalogue>
+`, 'utf-8');
+
+        const importer = new SmpImportService(services.shared);
+        const result = await importer.importFile({ inputPath });
+        const importedText = fs.readFileSync(result.outputPath, 'utf-8');
+
+        expect(result.warnings).toEqual([]);
+        expect(importedText).toContain('def void SetTarget(inout ITarget target = nullptr)');
+        expect(importedText).not.toContain('"nullptr"');
+        expect(importedText).not.toContain('public def void SetTarget');
+    });
+
+    test('warns when importing catalogue default values with non-zero StartIndex', async () => {
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-smp-import-cat-start-index-'));
+        tempDirs.push(tempDir);
+        const inputPath = path.join(tempDir, 'demo.smpcat');
+        fs.writeFileSync(inputPath, `<?xml version="1.0" encoding="UTF-8"?>
+<Catalogue:Catalogue xmlns:Catalogue="http://www.ecss.nl/smp/2025/Smdl/Catalogue" xmlns:Elements="http://www.ecss.nl/smp/2025/Core/Elements" xmlns:Types="http://www.ecss.nl/smp/2025/Core/Types" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" Id="demo" Name="Demo">
+  <Namespace Name="demo">
+    <Type xsi:type="Types:PrimitiveType" Id="demo.Int32" Name="Int32"/>
+    <Type xsi:type="Types:Array" Id="demo.SimpleIntQuad" Name="SimpleIntQuad">
+      <ItemType xlink:href="#demo.Int32" xlink:title="demo.Int32"/>
+      <Size xsi:type="Types:Int32Value" Value="4"/>
+    </Type>
+    <Type xsi:type="Catalogue:Model" Id="demo.Root" Name="Root">
+      <Field Id="demo.Root.simpleValues" Name="simpleValues">
+        <Type xlink:href="#demo.SimpleIntQuad" xlink:title="demo.SimpleIntQuad"/>
+        <Default xsi:type="Types:Int32ArrayValue">
+          <StartIndex>1</StartIndex>
+          <ItemValue xsi:type="Types:Int32Value" Value="2"/>
+        </Default>
+      </Field>
+    </Type>
+  </Namespace>
+</Catalogue:Catalogue>
+`, 'utf-8');
+
+        const importer = new SmpImportService(services.shared);
+        const result = await importer.importFile({ inputPath });
+
+        expect(result.warnings).toEqual([
+            "Catalogue array default value StartIndex='1' is not representable in XSMP and was discarded.",
+        ]);
     });
 
     test('imports a link base and regenerates the same SMP XML', async () => {

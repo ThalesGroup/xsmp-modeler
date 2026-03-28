@@ -7,6 +7,7 @@ import type { IdentifierPatternService, TemplateBindings } from '../references/i
 import type { XsmpPathService } from '../references/xsmp-path-service.js';
 import { checkTemplatedL2PathSegments, createTemplateBindings } from './template-parameter-validator-utils.js';
 import * as XsmpUtils from '../utils/xsmp-utils.js';
+import { checkNoParentTraversal } from './l2-validator-utils.js';
 
 export function registerXsmplnkValidationChecks(services: XsmplnkServices) {
     const registry = services.validation.ValidationRegistry;
@@ -54,6 +55,7 @@ export class XsmplnkValidator {
         const path = linkBase.name;
         if (path && !path.unsafe) {
             if (this.checkPathTemplateParameters(path, accept)) {
+                checkNoParentTraversal(accept, linkBase, path, ast.ComponentLinkBase.name);
                 const resolution = this.pathResolver.getLinkBaseComponentPathResolution(path);
                 this.acceptPathError(resolution.invalidMessage, resolution.invalidNode, accept);
                 if (resolution.active && !resolution.invalidMessage && !resolution.finalComponent) {
@@ -113,6 +115,11 @@ export class XsmplnkValidator {
         }
         if (!this.checkPathTemplateParameters(path, accept)) {
             return;
+        }
+        if (link) {
+            checkNoParentTraversal(accept, link, path, propertyOrAccept === ast.InterfaceLink.sourcePath ? ast.InterfaceLink.sourcePath : ast.InterfaceLink.clientPath);
+        } else {
+            checkNoParentTraversal(accept, path, path, ast.Path.elements);
         }
         const resolution = link && propertyOrAccept === ast.InterfaceLink.sourcePath
             ? this.pathResolver.getInterfaceLinkSourceResolution(link)

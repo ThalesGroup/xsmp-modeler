@@ -23,6 +23,8 @@ const catalogueSource = `catalogue Demo
 namespace demo
 {
     public event FlagEvent extends Smp.Bool
+    @SimpleArray
+    public array SimpleIntQuad = Smp.Int32[4]
 
     public model Child
     {
@@ -38,6 +40,7 @@ namespace demo
     public model Root
     {
         field Smp.Int32 countState
+        field SimpleIntQuad simpleValues
         output field Smp.Int32 outValue
         container Child child = demo.Child
         public property Smp.Int32 count -> countState
@@ -140,6 +143,29 @@ Root: demo.Root
         expect(actualXml).toContain('<Value xsi:type="Types:Int32Value" Value="4"/>');
         expect(actualXml).toContain('<Parameter Parameter="nextRatio">');
         expect(actualXml).toContain('<Value xsi:type="Types:Float64Value" Value="2.5"/>');
+    });
+
+    test('serializes StartIndex for simple arrays in ECSS_SMP_2025 assemblies', async () => {
+        const generator = new SmpGenerator(services.shared);
+        const document = await parseSource(`assembly Demo
+
+configure .
+{
+    simpleValues = [2: 3, 4]
+}
+
+Root: demo.Root
+{
+}
+`);
+        setGeneratedBy(false);
+
+        const actualXml = checkDocumentValid(document) ??
+            await generator.doGenerateAssembly(document.parseResult.value, undefined);
+
+        expect(actualXml).toContain('<FieldValue xsi:type="Types:Int32ArrayValue" Field="simpleValues">');
+        expect(actualXml).toContain('<StartIndex>2</StartIndex>');
+        expect(actualXml).toContain('<ItemValue xsi:type="Types:Int32Value" Value="3"/>');
     });
 });
 

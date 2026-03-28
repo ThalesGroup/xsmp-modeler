@@ -604,9 +604,15 @@ export class XsmpasbValidator extends XsmpcfgValidator {
             return;
         }
 
+        this.checkArrayStartIndex(value, type, accept);
+
         const maxSize = Solver.getValue(type.size)?.integralValue(PTK.Int64)?.getValue();
-        if (maxSize !== undefined && BigInt(value.elements.length) > maxSize) {
-            accept('error', `The array value shall not contain more than ${maxSize} item(s).`, { node: value });
+        const startIndex = value.startIndex !== undefined ? BigInt(value.startIndex) : BigInt(0);
+        const occupiedSize = BigInt(value.elements.length) + startIndex;
+        if (maxSize !== undefined && occupiedSize > maxSize) {
+            accept('error', startIndex !== BigInt(0)
+                ? `The array value shall not exceed ${maxSize} item(s) when StartIndex is applied.`
+                : `The array value shall not contain more than ${maxSize} item(s).`, { node: value });
         }
 
         if (!type.itemType?.ref) {

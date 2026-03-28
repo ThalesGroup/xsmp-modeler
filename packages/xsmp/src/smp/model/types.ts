@@ -131,7 +131,9 @@ export interface Value {
 
 export interface SimpleValue extends Value { }
 
-export interface SimpleArrayValue extends Value { }
+export interface SimpleArrayValue extends Value {
+    StartIndex?: bigint;
+}
 
 export interface ArrayValue extends Value {
     ItemValue?: Value[];
@@ -282,4 +284,3 @@ export interface Attribute extends Metadata {
     Type: Xlink;
     Value: Value;
 }
-

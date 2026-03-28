@@ -1,23 +1,38 @@
-import { beforeAll, describe, expect, test } from "vitest";
-import { EmptyFileSystem, type LangiumDocument } from "langium";
+import { afterEach, beforeAll, describe, expect, test } from "vitest";
+import { EmptyFileSystem, type LangiumDocument, URI } from "langium";
 import { expandToString as s } from "langium/generate";
-import { parseHelper } from "langium/test";
+import { clearDocuments, parseHelper, type ParseHelperOptions } from "langium/test";
 import { DiagnosticSeverity, type Diagnostic } from "vscode-languageserver-types";
 import { createXsmpServices } from 'xsmp';
-import { Catalogue, isCatalogue, } from 'xsmp/ast-partial';
-import * as path from 'path';
-import * as fs from 'fs';
+import { Catalogue, Project, isCatalogue } from 'xsmp/ast-partial';
+import { rebuildTestDocuments } from '../test-services.js';
+import * as path from 'node:path';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
 
 let services: ReturnType<typeof createXsmpServices>;
+let parseProject: ReturnType<typeof parseHelper<Project>>;
 let parse: ReturnType<typeof parseHelper<Catalogue>>;
 let document: LangiumDocument<Catalogue> | undefined;
+const documents: LangiumDocument[] = [];
+const tempDirs: string[] = [];
 
 beforeAll(async () => {
     services = createXsmpServices(EmptyFileSystem);
+    parseProject = parseHelper<Project>(services.xsmpproject);
     const doParse = parseHelper<Catalogue>(services.xsmpcat);
-    parse = (input: string) => doParse(input, { validation: true });
+    parse = (input: string, options?: ParseHelperOptions) => doParse(input, { validation: true, ...options });
 
     await services.shared.workspace.WorkspaceManager.initializeWorkspace([]);
+});
+
+afterEach(async () => {
+    if (documents.length > 0) {
+        await clearDocuments(services.shared, documents.splice(0));
+    }
+    while (tempDirs.length > 0) {
+        fs.rmSync(tempDirs.pop()!, { recursive: true, force: true });
+    }
 });
 
 describe('Validating Xsmpcat', () => {
@@ -88,6 +103,66 @@ describe('Validating Xsmpcat', () => {
         expect(errorMessages).not.toContain('Invalid element.');
     });
 
+    test('rejects component references and realizations in ECSS_SMP_2020', async () => {
+        const projectDocument = await parseCatalogueInProject(`
+            catalogue Demo
+
+            namespace demo
+            {
+                /** @uuid 5f7c28f2-f0e0-4b7d-96f0-45bbf3f0f140 */
+                public interface IBus
+                {
+                }
+
+                /** @uuid 0d52d6cb-715f-4f37-bde4-d0dcb0531f81 */
+                public model Child
+                {
+                }
+
+                /** @uuid 9f070b9c-4a9f-46f0-9555-5b505fe97f28 */
+                public model Root
+                {
+                    reference demo.Child childRef
+                    realization demo.IBus bus
+                }
+            }
+        `, 'ECSS_SMP_2020');
+
+        const messages = (projectDocument.diagnostics ?? []).map(diagnostic => diagnostic.message);
+        expect(messages).toEqual(expect.arrayContaining([
+            'A Reference in ECSS_SMP_2020 shall target an Interface.',
+            'Realization is only available in ECSS_SMP_2025.',
+        ]));
+    });
+
+    test('accepts component references and realizations in ECSS_SMP_2025', async () => {
+        const projectDocument = await parseCatalogueInProject(`
+            catalogue Demo
+
+            namespace demo
+            {
+                /** @uuid 44d7a689-c4a8-4531-b422-c2cf4bd8cc8a */
+                public interface IBus
+                {
+                }
+
+                /** @uuid d66d74aa-db7d-4611-a66b-0e9f6c0f4be6 */
+                public model Child
+                {
+                }
+
+                /** @uuid 0bb8778b-2d90-4a09-ab60-02f0fa56e0a7 */
+                public model Root
+                {
+                    reference demo.Child childRef
+                    realization demo.IBus bus
+                }
+            }
+        `, 'ECSS_SMP_2025');
+
+        expect((projectDocument.diagnostics ?? []).filter(d => d.severity === DiagnosticSeverity.Error)).toHaveLength(0);
+    });
+
 });
 
 function checkDocumentValid(document: LangiumDocument): string | undefined {
@@ -101,4 +176,21 @@ function checkDocumentValid(document: LangiumDocument): string | undefined {
 
 function diagnosticToString(d: Diagnostic) {
     return `[${d.range.start.line}:${d.range.start.character}..${d.range.end.line}:${d.range.end.character}]: ${d.message}`;
+}
+
+async function parseCatalogueInProject(source: string, standard: 'ECSS_SMP_2020' | 'ECSS_SMP_2025'): Promise<LangiumDocument<Catalogue>> {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmpcat-validating-'));
+    tempDirs.push(tempDir);
+
+    const projectDocument = await parseProject(
+        `project "Demo" using "${standard}"\nsource "src"\n`,
+        { documentUri: URI.file(path.join(tempDir, 'xsmp.project')).toString() }
+    );
+    const catalogueDocument = await parse(source, {
+        documentUri: URI.file(path.join(tempDir, 'src', 'demo.xsmpcat')).toString(),
+    });
+
+    documents.push(projectDocument, catalogueDocument);
+    await rebuildTestDocuments(services, [projectDocument, catalogueDocument]);
+    return catalogueDocument;
 }

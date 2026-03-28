@@ -197,7 +197,7 @@ task Main on demo.Root
     });
 
     test('accepts assembly execution contexts and resolves inherited template parameters in paths', async () => {
-        const document = await parseInProject(`schedule Demo
+        const document = await parseInProject(`schedule <Root = "root"> Demo
 
 task Main on DemoAsm
 {
@@ -207,6 +207,38 @@ task Main on DemoAsm
 `, assemblySource);
 
         expect(getMessages(document)).toEqual([]);
+    });
+
+    test('requires a root String8 parameter even when the schedule only uses task-scoped paths', async () => {
+        const document = await parseInProject(`schedule Demo
+
+task Main on demo.Root
+{
+    call reset()
+}
+`);
+
+        expect(getMessages(document)).toEqual([
+            'A Schedule shall declare at least one String8 Template Argument for the root path.',
+        ]);
+    });
+
+    test('rejects parent traversal in schedule paths', async () => {
+        const document = await parseInProject(`schedule <Root = "root"> Demo
+
+task Main on demo.Root
+{
+    call ../child.reset()
+    execute Worker at ../child
+}
+
+task Worker on demo.Child
+{
+    call reset()
+}
+`);
+
+        expect(getMessages(document).filter(message => message === 'Paths shall not contain \'..\'.')).toHaveLength(2);
     });
 });
 

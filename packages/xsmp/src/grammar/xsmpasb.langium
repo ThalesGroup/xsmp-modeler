@@ -271,7 +271,7 @@ OptFieldValue returns FieldValue:
     (field=Path '=')?value=Value;
 
 ArrayValue returns ArrayValue:
-    '[' (elements+=Value (','elements+=Value)*)? ']';
+    '[' (startIndex=INT ':')? (elements+=Value (','elements+=Value)*)? ']';
 
 StructureValue returns StructureValue:
     '{' (elements+=OptFieldValue (','elements+=OptFieldValue)*)? '}';

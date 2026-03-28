@@ -5,12 +5,14 @@ import type { XsmpcfgServices } from '../xsmpcfg-module.js';
 import type { XsmpAddedSharedServices } from '../xsmp-module.js';
 import type { XsmpPathService } from '../references/xsmp-path-service.js';
 import type { XsmpcfgPathResolver } from '../references/xsmpcfg-path-resolver.js';
+import type { AttributeHelper } from '../utils/attribute-helper.js';
 import { checkName } from './name-validator-utils.js';
 import { checkTemplatedL2PathSegments, createTemplateBindings } from './template-parameter-validator-utils.js';
 import * as Solver from '../utils/solver.js';
 import { PTK } from '../utils/primitive-type-kind.js';
 import * as XsmpUtils from '../utils/xsmp-utils.js';
 import type { IdentifierPatternService, TemplateBindings } from '../references/identifier-pattern-service.js';
+import type { ProjectManager } from '../workspace/project-manager.js';
 
 export function registerXsmpcfgValidationChecks(services: XsmpcfgServices) {
     const registry = services.validation.ValidationRegistry;
@@ -27,18 +29,22 @@ export function registerXsmpcfgValidationChecks(services: XsmpcfgServices) {
 }
 
 type XsmpcfgValidationServices = {
-    shared: Pick<XsmpAddedSharedServices, 'CfgPathResolver' | 'IdentifierPatternService' | 'PathService'>;
+    shared: Pick<XsmpAddedSharedServices, 'AttributeHelper' | 'CfgPathResolver' | 'IdentifierPatternService' | 'PathService' | 'workspace'>;
 };
 
 export class XsmpcfgValidator {
+    protected readonly attrHelper: AttributeHelper;
     protected readonly pathResolver: XsmpcfgPathResolver;
     protected readonly pathService: XsmpPathService;
     protected readonly identifierPatternService: IdentifierPatternService;
+    protected readonly projectManager: ProjectManager;
 
     constructor(services: XsmpcfgValidationServices | XsmpcfgServices) {
+        this.attrHelper = services.shared.AttributeHelper;
         this.pathResolver = services.shared.CfgPathResolver;
         this.identifierPatternService = services.shared.IdentifierPatternService;
         this.pathService = services.shared.PathService;
+        this.projectManager = services.shared.workspace.ProjectManager;
     }
 
     checkConfiguration(configuration: ast.Configuration, accept: ValidationAcceptor): void {
@@ -302,9 +308,15 @@ export class XsmpcfgValidator {
             return;
         }
 
+        this.checkArrayStartIndex(value, type, accept);
+
         const maxSize = Solver.getValue(type.size)?.integralValue(PTK.Int64)?.getValue();
-        if (maxSize !== undefined && BigInt(value.elements.length) > maxSize) {
-            accept('error', `The array value shall not contain more than ${maxSize} item(s).`, { node: value, data: diagnosticData('xsmpcfg.array.size') });
+        const startIndex = value.startIndex !== undefined ? BigInt(value.startIndex) : BigInt(0);
+        const occupiedSize = BigInt(value.elements.length) + startIndex;
+        if (maxSize !== undefined && occupiedSize > maxSize) {
+            accept('error', startIndex !== BigInt(0)
+                ? `The array value shall not exceed ${maxSize} item(s) when StartIndex is applied.`
+                : `The array value shall not contain more than ${maxSize} item(s).`, { node: value, data: diagnosticData('xsmpcfg.array.size') });
         }
 
         if (!type.itemType?.ref) {
@@ -316,6 +328,24 @@ export class XsmpcfgValidator {
             : value.elements.length;
         for (let index = 0; index < size; index++) {
             this.checkValueAgainstType(value.elements[index], type.itemType.ref, accept);
+        }
+    }
+
+    protected checkArrayStartIndex(value: ast.ArrayValue, type: ast.ArrayType, accept: ValidationAcceptor): void {
+        if (value.startIndex === undefined) {
+            return;
+        }
+        if (this.getSmpStandard(value) !== 'ECSS_SMP_2025') {
+            accept('error', 'StartIndex is only available in ECSS_SMP_2025.', {
+                node: value,
+                property: ast.ArrayValue.startIndex
+            });
+        }
+        if (!this.attrHelper.isSimpleArray(type)) {
+            accept('error', 'StartIndex is only allowed for SimpleArray values.', {
+                node: value,
+                property: ast.ArrayValue.startIndex
+            });
         }
     }
 
@@ -465,6 +495,10 @@ export class XsmpcfgValidator {
             return Number.parseFloat(String(value.value));
         }
         return undefined;
+    }
+
+    protected getSmpStandard(node: AstNode): string {
+        return this.projectManager.getProject(AstUtils.getDocument(node))?.standard ?? 'ECSS_SMP_2020';
     }
 
     protected checkUnsuffixedNumericValue(value: ast.Value, kind: 'integer' | 'floating-point', accept: ValidationAcceptor): void {

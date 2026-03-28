@@ -227,8 +227,8 @@ function renderStructure(node: SmpXmlObject, context: CatalogueImportContext, cu
         currentNamespace,
     });
     const members = [
-        ...getChildObjects(node, 'Constant').map(member => renderConstant(member, context, currentNamespace)),
-        ...getChildObjects(node, 'Field').map(member => renderField(member, context, currentNamespace)),
+        ...getChildObjects(node, 'Constant').map(member => renderConstant(member, context, currentNamespace, false)),
+        ...getChildObjects(node, 'Field').map(member => renderField(member, context, currentNamespace, false)),
     ];
 
     return joinBlocks([
@@ -274,9 +274,9 @@ function renderInterface(node: SmpXmlObject, context: CatalogueImportContext, cu
     });
     const bases = getChildObjects(node, 'Base').map(base => renderCatalogueReferenceText(base, context, currentNamespace, 'interface base'));
     const members = [
-        ...getChildObjects(node, 'Constant').map(member => renderConstant(member, context, currentNamespace)),
-        ...getChildObjects(node, 'Property').map(member => renderProperty(member, context, currentNamespace)),
-        ...getChildObjects(node, 'Operation').map(member => renderOperation(member, context, currentNamespace)),
+        ...getChildObjects(node, 'Constant').map(member => renderConstant(member, context, currentNamespace, false)),
+        ...getChildObjects(node, 'Property').map(member => renderProperty(member, context, currentNamespace, false)),
+        ...getChildObjects(node, 'Operation').map(member => renderOperation(member, context, currentNamespace, false)),
     ];
 
     return joinBlocks([
@@ -300,6 +300,7 @@ function renderComponent(node: SmpXmlObject, context: CatalogueImportContext, cu
         ...getChildObjects(node, 'Constant').map(member => renderConstant(member, context, currentNamespace)),
         ...getChildObjects(node, 'Operation').map(member => renderOperation(member, context, currentNamespace)),
         ...getChildObjects(node, 'Property').map(member => renderProperty(member, context, currentNamespace)),
+        ...getChildObjects(node, 'Realization').map(member => renderRealization(member, context, currentNamespace)),
         ...getChildObjects(node, 'EntryPoint').map(member => renderEntryPoint(member, context, currentNamespace)),
         ...getChildObjects(node, 'EventSink').map(member => renderEventSink(member, context, currentNamespace)),
         ...getChildObjects(node, 'EventSource').map(member => renderEventSource(member, context, currentNamespace)),
@@ -318,20 +319,20 @@ function renderComponent(node: SmpXmlObject, context: CatalogueImportContext, cu
     ].filter(Boolean), '\n');
 }
 
-function renderConstant(node: SmpXmlObject, context: CatalogueImportContext, currentNamespace: string): string {
+function renderConstant(node: SmpXmlObject, context: CatalogueImportContext, currentNamespace: string, allowVisibility = true): string {
     const typeLink = getChild(node, 'Type') as SmpXmlObject | undefined;
     const header = renderHeader(node, context, { defaultId: `${currentNamespace}.${getAttribute(node, 'Name')}`, currentNamespace });
     return joinBlocks([
         header,
-        `${renderVisibility(node)}constant ${renderCatalogueReferenceText(typeLink, context, currentNamespace, 'constant type')} ${getAttribute(node, 'Name')}${renderDefaultValue(node, 'Value', context, currentNamespace, typeLink)}`,
+        `${renderVisibility(node, allowVisibility)}constant ${renderCatalogueReferenceText(typeLink, context, currentNamespace, 'constant type')} ${getAttribute(node, 'Name')}${renderDefaultValue(node, 'Value', context, currentNamespace, typeLink)}`,
     ], '\n');
 }
 
-function renderField(node: SmpXmlObject, context: CatalogueImportContext, currentNamespace: string): string {
+function renderField(node: SmpXmlObject, context: CatalogueImportContext, currentNamespace: string, allowVisibility = true): string {
     const typeLink = getChild(node, 'Type') as SmpXmlObject | undefined;
     const header = renderHeader(node, context, { defaultId: `${currentNamespace}.${getAttribute(node, 'Name')}`, currentNamespace });
     const modifiers = [
-        renderVisibility(node).trim(),
+        renderVisibility(node, allowVisibility).trim(),
         parseBooleanAttribute(node, 'Input') ? 'input' : '',
         parseBooleanAttribute(node, 'Output') ? 'output' : '',
         parseBooleanAttribute(node, 'State') === false ? 'transient' : '',
@@ -344,13 +345,13 @@ function renderField(node: SmpXmlObject, context: CatalogueImportContext, curren
     ], '\n');
 }
 
-function renderProperty(node: SmpXmlObject, context: CatalogueImportContext, currentNamespace: string): string {
+function renderProperty(node: SmpXmlObject, context: CatalogueImportContext, currentNamespace: string, allowVisibility = true): string {
     const typeLink = getChild(node, 'Type') as SmpXmlObject | undefined;
     const attachedField = getChild(node, 'AttachedField') as SmpXmlObject | undefined;
     const getRaises = getChildObjects(node, 'GetRaises').map(entry => renderCatalogueReferenceText(entry, context, currentNamespace, 'property getter exception'));
     const setRaises = getChildObjects(node, 'SetRaises').map(entry => renderCatalogueReferenceText(entry, context, currentNamespace, 'property setter exception'));
     const access = getAttribute(node, 'Access');
-    const modifiers = [renderVisibility(node).trim(), access].filter(Boolean).join(' ');
+    const modifiers = [renderVisibility(node, allowVisibility).trim(), access].filter(Boolean).join(' ');
     const prefix = modifiers ? `${modifiers} ` : '';
     const header = renderHeader(node, context, {
         defaultId: `${currentNamespace}.${getAttribute(node, 'Name')}`,
@@ -364,7 +365,7 @@ function renderProperty(node: SmpXmlObject, context: CatalogueImportContext, cur
     ], '\n');
 }
 
-function renderOperation(node: SmpXmlObject, context: CatalogueImportContext, currentNamespace: string): string {
+function renderOperation(node: SmpXmlObject, context: CatalogueImportContext, currentNamespace: string, allowVisibility = true): string {
     const parameters = getChildObjects(node, 'Parameter');
     const returnParameter = parameters.find(parameter => getAttribute(parameter, 'Direction') === 'return');
     const inputParameters = parameters.filter(parameter => getAttribute(parameter, 'Direction') !== 'return');
@@ -394,7 +395,7 @@ function renderOperation(node: SmpXmlObject, context: CatalogueImportContext, cu
 
     return joinBlocks([
         header,
-        `${renderVisibility(node)}def ${renderedReturn} ${getAttribute(node, 'Name')}(${renderedParameters})${raisedExceptions.length > 0 ? ` throws ${raisedExceptions.join(', ')}` : ''}`,
+        `${renderVisibility(node, allowVisibility)}def ${renderedReturn} ${getAttribute(node, 'Name')}(${renderedParameters})${raisedExceptions.length > 0 ? ` throws ${raisedExceptions.join(', ')}` : ''}`,
     ], '\n');
 }
 
@@ -418,11 +419,20 @@ function renderContainer(node: SmpXmlObject, context: CatalogueImportContext, cu
 }
 
 function renderReference(node: SmpXmlObject, context: CatalogueImportContext, currentNamespace: string): string {
+    const typeLink = (getChild(node, 'Type') as SmpXmlObject | undefined) ?? (getChild(node, 'Interface') as SmpXmlObject | undefined);
+    const header = renderHeader(node, context, { defaultId: `${currentNamespace}.${getAttribute(node, 'Name')}`, currentNamespace });
+    return joinBlocks([
+        header,
+        `reference ${renderCatalogueReferenceText(typeLink, context, currentNamespace, 'reference type')}${renderMultiplicity(node)} ${getAttribute(node, 'Name')}`,
+    ], '\n');
+}
+
+function renderRealization(node: SmpXmlObject, context: CatalogueImportContext, currentNamespace: string): string {
     const interfaceLink = getChild(node, 'Interface') as SmpXmlObject | undefined;
     const header = renderHeader(node, context, { defaultId: `${currentNamespace}.${getAttribute(node, 'Name')}`, currentNamespace });
     return joinBlocks([
         header,
-        `reference ${renderCatalogueReferenceText(interfaceLink, context, currentNamespace, 'reference interface')}${renderMultiplicity(node)} ${getAttribute(node, 'Name')}`,
+        `realization ${renderCatalogueReferenceText(interfaceLink, context, currentNamespace, 'realization interface')} ${getAttribute(node, 'Name')}`,
     ], '\n');
 }
 
@@ -500,6 +510,9 @@ function renderCatalogueValue(value: SmpXmlObject, context: CatalogueImportConte
         case 'Char8Value':
             return `${fieldPrefix}${renderCharacterLiteral(getAttribute(value, 'Value') ?? '')}`;
         case 'String8Value':
+            if ((getAttribute(value, 'Value') ?? '') === 'nullptr' && canRenderNullptr(resolvedExpectedType)) {
+                return `${fieldPrefix}nullptr`;
+            }
             return `${fieldPrefix}${renderStringLiteral(getAttribute(value, 'Value') ?? '')}`;
         case 'DateTimeValue':
             return `${fieldPrefix}${renderStringLiteral(getAttribute(value, 'Value') ?? '')}`;
@@ -555,6 +568,10 @@ function renderCatalogueValue(value: SmpXmlObject, context: CatalogueImportConte
         case 'UInt32ArrayValue':
         case 'UInt64ArrayValue':
         case 'UInt8ArrayValue': {
+            const startIndex = getChildText(value, 'StartIndex');
+            if (startIndex && startIndex !== '0') {
+                context.warnings.push(`Catalogue array default value StartIndex='${startIndex}' is not representable in XSMP and was discarded.`);
+            }
             const inferredItemValueType = inferArrayItemValueType(valueType);
             const itemType = resolvedExpectedType && getXsiTypeLocalName(resolvedExpectedType.node) === 'Array'
                 ? getChild(resolvedExpectedType.node, 'ItemType') as SmpXmlObject | undefined
@@ -704,6 +721,9 @@ function renderTypeTags(node: SmpXmlObject): string[] {
     for (const usage of asArray(getChild(node, 'Usage')).filter((value): value is string => typeof value === 'string')) {
         tags.push(`@usage ${usage}`);
     }
+    if (getXsiTypeLocalName(node) === 'AttributeType' && getAttribute(node, 'Name') === 'Static' && !tags.includes('@usage Constant')) {
+        tags.push('@usage Constant');
+    }
     const platform = getChildObjects(node, 'Platform').find(entry => getAttribute(entry, 'Name') === 'cpp');
     if (platform) {
         const nativeType = getAttribute(platform, 'Type');
@@ -722,9 +742,31 @@ function renderTypeTags(node: SmpXmlObject): string[] {
     return tags;
 }
 
-function renderVisibility(node: SmpXmlObject): string {
+function renderVisibility(node: SmpXmlObject, allowVisibility = true): string {
+    if (!allowVisibility) {
+        return '';
+    }
     const visibility = getAttribute(node, 'Visibility');
     return visibility ? `${visibility} ` : '';
+}
+
+function canRenderNullptr(typeInfo: TypeInfo | undefined): boolean {
+    if (!typeInfo) {
+        return false;
+    }
+    switch (getXsiTypeLocalName(typeInfo.node)) {
+        case 'Array':
+        case 'AttributeType':
+        case 'Enumeration':
+        case 'Float':
+        case 'Integer':
+        case 'PrimitiveType':
+        case 'String':
+        case 'Structure':
+            return false;
+        default:
+            return true;
+    }
 }
 
 function renderExtends(node: SmpXmlObject, childName: string, context: CatalogueImportContext, currentNamespace: string): string {

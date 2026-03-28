@@ -23,6 +23,8 @@ const catalogueSource = `catalogue Demo
 namespace demo
 {
     public array IntPair = Smp.Int32[2]
+    @SimpleArray
+    public array SimpleIntQuad = Smp.Int32[4]
 
     public struct Counters
     {
@@ -39,6 +41,7 @@ namespace demo
     public model Root
     {
         field Counters state
+        field SimpleIntQuad simpleValues
         field Smp.Bool flag
         field Smp.Float64 ratio
         container Child child
@@ -103,9 +106,31 @@ describe('SMP configuration generator tests', () => {
             fs.rmSync(tmpDir, { recursive: true, force: true });
         }
     });
+
+    test('serializes StartIndex for simple arrays in ECSS_SMP_2025 configurations', async () => {
+        const generator = new SmpGenerator(services.shared);
+        const document = await parseSource(`configuration Demo
+/Root: demo.Root
+{
+    simpleValues = [1: 2, 3]
+}
+`);
+        setGeneratedBy(false);
+
+        const actualXml = checkDocumentValid(document) ??
+            await generator.doGenerateConfiguration(document.parseResult.value, undefined);
+
+        expect(actualXml).toContain('<FieldValue xsi:type="Types:Int32ArrayValue" Field="simpleValues">');
+        expect(actualXml).toContain('<StartIndex>1</StartIndex>');
+        expect(actualXml).toContain('<ItemValue xsi:type="Types:Int32Value" Value="2"/>');
+    });
 });
 
 async function parseFixture(fileName: string): Promise<LangiumDocument<ast.Configuration>> {
+    return parseSource(fs.readFileSync(path.resolve(__dirname, 'test.xsmpcfg')).toString(), fileName);
+}
+
+async function parseSource(source: string, fileName = 'demo.xsmpcfg'): Promise<LangiumDocument<ast.Configuration>> {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-smp-configuration-fixture-'));
     tempDirs.push(tempDir);
 
@@ -118,7 +143,7 @@ source "src"
     const catalogueDocument = await parseCatalogue(catalogueSource, {
         documentUri: URI.file(path.join(tempDir, 'src', 'demo.xsmpcat')).toString(),
     });
-    const configurationDocument = await parseConfiguration(fs.readFileSync(path.resolve(__dirname, 'test.xsmpcfg')).toString(), {
+    const configurationDocument = await parseConfiguration(source, {
         documentUri: URI.file(path.join(tempDir, 'src', fileName)).toString(),
     });
 

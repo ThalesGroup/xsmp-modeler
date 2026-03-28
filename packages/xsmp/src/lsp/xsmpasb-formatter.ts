@@ -26,7 +26,7 @@ export class XsmpasbFormatter extends XsmpFormatterBase {
             case ast.ParameterValue.$type: return this.formatAssignment(this.getNodeFormatter(node));
             case ast.PropertyValue.$type: return this.formatPropertyValue(node as ast.PropertyValue, this.getNodeFormatter(node));
             case ast.FieldValue.$type: return this.formatAssignment(this.getNodeFormatter(node));
-            case ast.ArrayValue.$type: return this.formatSquareList(this.getNodeFormatter(node));
+            case ast.ArrayValue.$type: return this.formatArrayValue(node as ast.ArrayValue, this.getNodeFormatter(node));
             case ast.StructureValue.$type: return this.formatInlineCollection(this.getNodeFormatter(node));
         }
     }
@@ -75,5 +75,12 @@ export class XsmpasbFormatter extends XsmpFormatterBase {
     protected formatPropertyValue(node: ast.PropertyValue, formatter: NodeFormatter<ast.PropertyValue>): void {
         formatter.keyword('property').append(Formatting.oneSpace());
         this.formatAssignment(formatter);
+    }
+
+    protected formatArrayValue(node: ast.ArrayValue, formatter: NodeFormatter<ast.ArrayValue>): void {
+        this.formatSquareList(formatter);
+        if (node.startIndex !== undefined) {
+            formatter.keyword(':').prepend(Formatting.noSpace()).append(node.elements.length > 0 ? Formatting.oneSpace() : Formatting.noSpace());
+        }
     }
 }

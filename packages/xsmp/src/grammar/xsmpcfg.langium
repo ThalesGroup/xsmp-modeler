@@ -77,7 +77,7 @@ CfgStructureFieldValue returns CfgStructureFieldValue:
     )? field=ValidID '=' value=Value;
 
 ArrayValue returns ArrayValue:
-    '[' (elements+=Value (','elements+=Value)*)? ']';
+    '[' (startIndex=INT ':')? (elements+=Value (','elements+=Value)*)? ']';
 
 StructureValue returns StructureValue:
     '{' (elements+=CfgStructureValueElement (','elements+=CfgStructureValueElement)*)? '}';

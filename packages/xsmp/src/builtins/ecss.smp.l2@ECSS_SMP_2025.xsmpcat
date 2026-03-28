@@ -1,0 +1,71 @@
+/**
+ * @title SMDL Catalogue for ecss.smp.l2
+ * @creator UMF
+ * @version 1.0.0
+ */
+
+catalogue ecss_smp_l2
+
+/**
+ * @id _2021x_2_f3c035c_1711991963170_704901_3292
+ */
+namespace Smp
+{
+    /**
+     * SMP Level 2 extension of the ISimulator interface. It provides convenience methods to load SMPL2 compliant Assemblies, Schedules and Linkbases.
+     *
+     * @uuid 2d220884-d9aa-35b9-a24d-adf5fd88868d
+     * @id _2021x_2_f3c035c_1711992041486_513898_3293
+     */
+    public interface ISimulatorL2 extends Smp.ISimulator
+    {
+        /**
+         * This operation loads an SMPL2 Assembly file and tries to assemble all contained models and connections. The given assembly is validated during this construction step and will fail if components are missing or the file is malformated.
+         *
+         * @param assemblyPath Path to the assembly file to load.
+        This needs to be a valid path name given the constraints of the operating system.
+         * @param parentPath Path to the top-level composite to which the top-level node of the Assembly shall be added.
+        In case of an empty or invalid path, the Simulator (composite implementing ISimulator) is used as parent.
+         * @param containerName Name of the container of the parent composite to add the top-level node of the assembly to.
+        In case that the parent is the simulator, this defaults to the "Models" container.
+         * @param rootInstanceName Name to give to the top-level node of the assembly.
+        If empty, this parameter is ignored (i.e. the name of the top-level element in the assembly is used).
+        This additional parameter allows loading several instances of the same assembly (with different root instance name) under the same parent.
+        In case the given name is not a valid name, this throws an exception InvalidObjectName.
+        In case that the parent already has a child with the given name, this throws an exception DuplicateName.
+         * @id _2021x_2_f3c035c_1711992193509_865143_3295
+         */
+        def void LoadAssembly(in Smp.String8 assemblyPath, in Smp.String8 parentPath, in Smp.String8 containerName, in Smp.String8 rootInstanceName) throws Smp.FileNotFound, Smp.InvalidFile, Smp.InvalidSimulatorState, Smp.InvalidObjectName, Smp.DuplicateName
+
+        /**
+         * This operation loads an SMPL2 LinkBase file and tries to connect all referenced models. The given Linkbase is validated during this construction step and will fail if components are missing or the file is malformated.
+         *
+         * @param linkBasePath Path to the LinkBase file to load.
+        This needs to be a valid path name given the constraints of the operating system.
+         * @param parentPath Path to the top-level component to which all absolute paths in the link base are relative to.
+        In case of an empty or invalid path, the Simulator (composite implementing ISimulator) is used as parent.
+         * @id _2021x_2_f3c035c_1712000402747_236323_3512
+         */
+        def void LoadLinkBase(in Smp.String8 linkBasePath, in Smp.String8 parentPath) throws Smp.FileNotFound, Smp.InvalidFile, Smp.InvalidSimulatorState
+
+        /**
+         * This operation loads a SMPL2 Schedule file and tries to schedule all events. The given schedule is validated during this processing step and will fail if events are missing or the file is malformated.
+         *
+         * @param schedulePath Path to the schedule file to load.
+        This needs to be a valid path name given the constraints of the operating system.
+         * @id _2021x_2_f3c035c_1712000403524_870727_3518
+         */
+        def void LoadSchedule(in Smp.String8 schedulePath) throws Smp.FileNotFound, Smp.InvalidFile, Smp.InvalidSimulatorState
+
+        /**
+         * This operation loads an SMPL1 Configuration file and tries to set all field values container within the file.
+         *
+         * @param configurationPath Path to the configuration file to load.
+        This needs to be a valid path name given the constraints of the operating system.
+         * @param parentPath Path to the top-level component to which all absolute paths in the configuration are relative to.
+        In case of an empty or invalid path, the Simulator (composite implementing ISimulator) is used as parent.
+         * @id _2021x_2_f810373_1740845566414_666910_3302
+         */
+        def void LoadConfiguration(in Smp.String8 configurationPath, in Smp.String8 parentPath) throws Smp.FileNotFound, Smp.InvalidFile, Smp.InvalidSimulatorState
+    }
+}

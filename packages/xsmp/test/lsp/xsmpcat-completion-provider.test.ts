@@ -97,12 +97,16 @@ namespace Attribute
         expect(labels(items)).toContain('Int32');
     });
 
-    test('builds the reference snippet from interface types', async () => {
+    test('builds reference and realization snippets from visible reference types', async () => {
         const referenceText = `
         catalogue Demo
         namespace demo
         {
             public interface Bus
+            {
+            }
+
+            public model Child
             {
             }
 
@@ -116,13 +120,19 @@ namespace Attribute
         document = await parse(referenceCursor.text, { documentUri: 'memory:///completion-reference.xsmpcat' });
         let items = await getCompletionItems(document, referenceCursor.cursor);
         expect(labels(items)).toContain('Bus');
+        expect(labels(items)).toContain('Child');
         expect(labels(items)).toContain('demo.Bus');
+        expect(labels(items)).toContain('demo.Child');
 
         const snippetCursor = extractCursor(`
         catalogue Demo
         namespace demo
         {
             public interface Bus
+            {
+            }
+
+            public model Child
             {
             }
 
@@ -141,6 +151,13 @@ namespace Attribute
         );
         expect(referenceSnippet?.insertText).toContain('Bus');
         expect(referenceSnippet?.insertText).toContain('demo.Bus');
+
+        const realizationSnippet = items.find(item =>
+            item.label === 'Realization'
+            && item.kind === CompletionItemKind.Snippet
+            && item.insertTextFormat === InsertTextFormat.Snippet
+        );
+        expect(realizationSnippet?.insertText).toContain('demo.Bus');
     });
 });
 

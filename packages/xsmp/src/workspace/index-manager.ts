@@ -8,9 +8,24 @@ import type { ProjectManager } from './project-manager.js';
  */
 export class XsmpIndexManager extends DefaultIndexManager {
     protected readonly projectManager: () => ProjectManager;
+
     constructor(services: XsmpSharedServices) {
         super(services);
         this.projectManager = () => services.workspace.ProjectManager;
+    }
+
+    getReferencedDocumentUris(document: LangiumDocument, visibleUris?: ReadonlySet<string>): Set<string> {
+        const referencedUris = new Set<string>();
+        for (const reference of this.referenceIndex.get(document.uri.toString()) ?? []) {
+            if (reference.local) {
+                continue;
+            }
+            const targetUri = reference.targetUri.toString();
+            if (!visibleUris || visibleUris.has(targetUri)) {
+                referencedUris.add(targetUri);
+            }
+        }
+        return referencedUris;
     }
 
     /**

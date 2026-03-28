@@ -225,7 +225,7 @@ Model returns Model:
     'model' name=ValidID (/** A single base model to extends from */'extends' base=[Component:QualifiedName] )?
         (/** Interface(s) to inherit from */'implements' interface+=[Interface:QualifiedName] (',' interface+=[Interface:QualifiedName])*)?
     '{'
-        elements+=(Constant|Field|Property|Operation|Association|Container|Reference|EntryPoint|EventSink|EventSource)*
+        elements+=(Constant|Field|Property|Operation|Association|Container|Reference|Realization|EntryPoint|EventSink|EventSource)*
     '}';
 
 
@@ -248,7 +248,7 @@ Service returns Service:
     'service' name=ValidID (/** A single base service to extends from */'extends' base=[Component:QualifiedName] )?
         (/** Interface(s) to inherit from */'implements' interface+=[Interface:QualifiedName] (',' interface+=[Interface:QualifiedName])*)?
     '{'
-        elements+=(Constant|Field|Property|Operation|Association|Container|Reference|EntryPoint|EventSink|EventSource)*
+        elements+=(Constant|Field|Property|Operation|Association|Container|Reference|Realization|EntryPoint|EventSink|EventSource)*
     '}';
 
 ArrayType returns ArrayType:
@@ -549,17 +549,31 @@ Container returns Container:
 Reference returns Reference:
     attributes+=Attribute*
     /**
-     * `reference <interface>[?|*|+|[<bounds>]] <name>`
+     * `reference <type>[?|*|+|[<bounds>]] <name>`
      *
      * Declares an aggregation reference to external components.
-     * References are typed by interfaces, which keeps the component loosely coupled to its environment.
+     * References are typed by a reference type, which can be an interface or a component depending on the selected SMP revision.
      *
      * **Example**
      * ```xsmp
      * reference demo.foundation.ILogger* loggers
      * ```
      */
-    'reference' interface=[Interface:QualifiedName] MultiplicityDeclaration name=ValidID;
+    'reference' interface=[ReferenceType:QualifiedName] MultiplicityDeclaration name=ValidID;
+
+Realization returns Realization:
+    attributes+=Attribute*
+    /**
+     * `realization <interface> <name>`
+     *
+     * Declares that the enclosing component realizes a specific interface under a named slot.
+     *
+     * **Example**
+     * ```xsmp
+     * realization demo.foundation.ICommandable commandable
+     * ```
+     */
+    'realization' interface=[Interface:QualifiedName] name=ValidID;
 
 fragment MultiplicityDeclaration:
     (optional?='?' | multiplicity=Multiplicity | multiplicity=ShortMultiplicity)?;

@@ -184,6 +184,25 @@ Root: demo.Root
             "The Reference 'logger' of component path '/' shall not be connected more than 1 time(s).",
         ]);
     });
+
+    test('rejects parent traversal in component, owner, client, and source link paths', async () => {
+        const document = await parseInProject(`link Demo for DemoAsm
+
+../child
+{
+    field link ../outValue -> child/../inValue
+    interface link ../logger -> ../child:backLogger
+}
+`, `assembly DemoAsm
+
+Root: demo.Root
+{
+    child += Leaf: demo.Child
+}
+`);
+
+        expect(getMessages(document).filter(message => message === 'Paths shall not contain \'..\'.')).toHaveLength(5);
+    });
 });
 
 async function parseInProject(source: string, assemblySource?: string): Promise<LangiumDocument<LinkBase>> {

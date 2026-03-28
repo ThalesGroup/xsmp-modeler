@@ -39,6 +39,7 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
         'association',
         'container',
         'reference',
+        'realization',
         'entrypoint',
         'eventsink',
         'eventsource',
@@ -109,6 +110,9 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
                 && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node);
         }
         if (this.isReferenceProperty(refInfo, ast.Reference, ast.Reference.interface)) {
+            return desc => ast.isReferenceType(desc.node) && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node);
+        }
+        if (this.isReferenceProperty(refInfo, ast.Realization, ast.Realization.interface)) {
             return desc => ast.isInterface(desc.node) && XsmpUtils.isTypeVisibleFrom(refInfo.container, desc.node);
         }
         if (this.isReferenceProperty(refInfo, ast.Model, ast.Component.base)) {
@@ -278,6 +282,9 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
         if (this.isReferenceProperty(refInfo, ast.Reference, ast.Reference.interface)) {
             return this.createTypedMemberSnippet(nodeDescription, 'reference', 'Reference Definition', false, '*');
         }
+        if (this.isReferenceProperty(refInfo, ast.Realization, ast.Realization.interface)) {
+            return this.createTypedMemberSnippet(nodeDescription, 'realization', 'Realization Definition');
+        }
         if (this.isReferenceProperty(refInfo, ast.EventSink, ast.EventSink.type)) {
             return this.createTypedMemberSnippet(nodeDescription, 'eventsink', 'Event Sink Definition');
         }
@@ -409,8 +416,15 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
             case 'reference':
                 acceptor(context, this.createKeywordSnippet(
                     keyword,
-                    `reference ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Reference, ast.Reference.interface), 'demo.Interface')}* ${this.createPlaceholder(2, 'name')}`,
+                    `reference ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Reference, ast.Reference.interface), 'demo.Target')}* ${this.createPlaceholder(2, 'name')}`,
                     'Reference Definition'
+                ));
+                break;
+            case 'realization':
+                acceptor(context, this.createKeywordSnippet(
+                    keyword,
+                    `realization ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Realization, ast.Realization.interface), 'demo.Interface')} ${this.createPlaceholder(2, 'name')}`,
+                    'Realization Definition'
                 ));
                 break;
             case 'entrypoint':
@@ -572,8 +586,13 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
             ));
             acceptor(context, this.createSnippetItem(
                 'Reference',
-                `reference ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Reference, ast.Reference.interface), 'demo.Interface')}* ${this.createPlaceholder(2, 'name')}`,
+                `reference ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Reference, ast.Reference.interface), 'demo.Target')}* ${this.createPlaceholder(2, 'name')}`,
                 'Reference Definition'
+            ));
+            acceptor(context, this.createSnippetItem(
+                'Realization',
+                `realization ${this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, ast.Realization, ast.Realization.interface), 'demo.Interface')} ${this.createPlaceholder(2, 'name')}`,
+                'Realization Definition'
             ));
             acceptor(context, this.createSnippetItem('Entry Point', 'entrypoint ${1:name}', 'Entry Point Definition'));
             acceptor(context, this.createSnippetItem(

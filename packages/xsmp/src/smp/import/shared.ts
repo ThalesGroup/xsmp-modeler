@@ -497,7 +497,12 @@ export function renderImportedValue(node: SmpXmlObject, warnings: string[]): str
                 return `${getAttribute(node, 'Value') ?? '0'}${numericSuffix}`;
             }
             if (arrayValueTypes.has(valueType)) {
-                return `[${getChildObjects(node, 'ItemValue').map(item => renderImportedValue(item, warnings)).join(', ')}]`;
+                const items = getChildObjects(node, 'ItemValue').map(item => renderImportedValue(item, warnings)).join(', ');
+                const startIndex = getChildText(node, 'StartIndex');
+                if (startIndex && startIndex !== '0') {
+                    return items ? `[${startIndex}: ${items}]` : `[${startIndex}:]`;
+                }
+                return `[${items}]`;
             }
             if (valueType === 'StructureValue') {
                 return `{ ${getChildObjects(node, 'FieldValue').map(item => renderImportedStructureFieldValue(item, warnings)).join(', ')} }`;

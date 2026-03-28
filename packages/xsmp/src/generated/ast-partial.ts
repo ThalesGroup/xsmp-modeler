@@ -149,6 +149,7 @@ export type RangeKind_Exclusive = AstUtils.DeepPartialAstNode<ast.RangeKind_Excl
 export type RangeKind_Inclusive = AstUtils.DeepPartialAstNode<ast.RangeKind_Inclusive>;
 export type RangeKind_MaxInclusive = AstUtils.DeepPartialAstNode<ast.RangeKind_MaxInclusive>;
 export type RangeKind_MinInclusive = AstUtils.DeepPartialAstNode<ast.RangeKind_MinInclusive>;
+export type Realization = AstUtils.DeepPartialAstNode<ast.Realization>;
 export type Reference = AstUtils.DeepPartialAstNode<ast.Reference>;
 export type ReferenceType = AstUtils.DeepPartialAstNode<ast.ReferenceType>;
 export type Resolvable = AstUtils.DeepPartialAstNode<ast.Resolvable>;
@@ -561,6 +562,9 @@ export function isPublicable(item: unknown): item is Publicable {
 export function isQualifiedName(item: unknown): item is QualifiedName {
     return ast.isQualifiedName(item);
 }
+export function isRealization(item: unknown): item is Realization {
+    return ast.isRealization(item);
+}
 export function isReference(item: unknown): item is Reference {
     return ast.isReference(item);
 }
@@ -797,6 +801,7 @@ export const ProjectRoot = ast.ProjectRoot;
 export const Property = ast.Property;
 export const PropertyValue = ast.PropertyValue;
 export const Publicable = ast.Publicable;
+export const Realization = ast.Realization;
 export const Reference = ast.Reference;
 export const ReferenceType = ast.ReferenceType;
 export const Resolvable = ast.Resolvable;

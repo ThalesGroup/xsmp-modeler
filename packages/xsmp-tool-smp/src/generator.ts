@@ -18,7 +18,7 @@ import * as Solver from 'xsmp/utils';
 import { isGeneratedBy, type TaskAcceptor, type XsmpGenerator, getCopyrightNotice } from 'xsmp/generator';
 import { create } from 'xmlbuilder2';
 import { type FloatingPTK, type IntegralPTK, PTK, VisibilityKind, type DocumentationHelper, type AttributeHelper } from 'xsmp/utils';
-import { xsmpVersion, type XsmpSharedServices } from 'xsmp';
+import { getStandardBuiltinExportName, isStandardBuiltinLibrary, xsmpVersion, type XsmpSharedServices } from 'xsmp';
 import type { ProjectManager } from 'xsmp/workspace';
 import type { XsmpPathService, XsmpcfgPathResolver, Xsmpl2PathResolver } from 'xsmp/references';
 
@@ -221,6 +221,9 @@ export class SmpGenerator implements XsmpGenerator {
             Constant: component.elements.filter(ast.isConstant).map(this.convertConstant, this),
             Property: component.elements.filter(ast.isProperty).map(this.convertProperty, this),
             Operation: component.elements.filter(ast.isOperation).map(this.convertOperation, this),
+            Realization: this.getSmpStandard(component) === 'ECSS_SMP_2025'
+                ? component.elements.filter(ast.isRealization).map(this.convertRealization, this)
+                : undefined,
             Base: component.base ? this.convertXlink(component.base, component) : undefined,
             Interface: component.interface.map(i => this.convertXlink(i, component), this),
             EntryPoint: component.elements.filter(ast.isEntryPoint).map(this.convertEntryPoint, this),
@@ -244,11 +247,19 @@ export class SmpGenerator implements XsmpGenerator {
         };
     }
     protected convertReference(reference: ast.Reference): Catalogue.Reference {
+        const standard = this.getSmpStandard(reference);
         return {
             ...this.convertNamedElement(reference),
-            Interface: this.convertXlink(reference.interface, reference),
+            Interface: standard === 'ECSS_SMP_2020' ? this.convertXlink(reference.interface, reference) : undefined,
+            Type: standard === 'ECSS_SMP_2025' ? this.convertXlink(reference.interface, reference) : undefined,
             '@Lower': XsmpUtils.getLower(reference),
             '@Upper': XsmpUtils.getUpper(reference),
+        };
+    }
+    protected convertRealization(realization: ast.Realization): Catalogue.Realization {
+        return {
+            ...this.convertNamedElement(realization),
+            Interface: this.convertXlink(realization.interface, realization),
         };
     }
     protected convertEventSink(eventSink: ast.EventSink): Catalogue.EventSink {
@@ -383,6 +394,53 @@ export class SmpGenerator implements XsmpGenerator {
         return { '@xsi:type': 'Types:ArrayValue', ItemValue: expression.elements.map(e => this.convertTypedValue(type.itemType.ref, e), this) } as Types.ArrayValue;
     }
 
+    protected getSimpleArrayValueXsiType(type: ast.Type | undefined): string | undefined {
+        switch (XsmpUtils.getPTK(type)) {
+            case PTK.Bool: return 'Types:BoolArrayValue';
+            case PTK.Char8: return 'Types:Char8ArrayValue';
+            case PTK.DateTime: return 'Types:DateTimeArrayValue';
+            case PTK.Duration: return 'Types:DurationArrayValue';
+            case PTK.Enum: return 'Types:EnumerationArrayValue';
+            case PTK.Float32: return 'Types:Float32ArrayValue';
+            case PTK.Float64: return 'Types:Float64ArrayValue';
+            case PTK.Int8: return 'Types:Int8ArrayValue';
+            case PTK.Int16: return 'Types:Int16ArrayValue';
+            case PTK.Int32: return 'Types:Int32ArrayValue';
+            case PTK.Int64: return 'Types:Int64ArrayValue';
+            case PTK.String8: return 'Types:String8ArrayValue';
+            case PTK.UInt8: return 'Types:UInt8ArrayValue';
+            case PTK.UInt16: return 'Types:UInt16ArrayValue';
+            case PTK.UInt32: return 'Types:UInt32ArrayValue';
+            case PTK.UInt64: return 'Types:UInt64ArrayValue';
+            case PTK.None:
+            default:
+                return undefined;
+        }
+    }
+
+    protected convertRuntimeArrayValue(value: ast.ArrayValue, expectedType: ast.ArrayType | undefined): Types.Value {
+        const itemType = expectedType?.itemType.ref;
+        const itemValues = value.elements.map(element => this.convertValue(element, itemType));
+        const normalizedStartIndex = value.startIndex !== undefined ? BigInt(value.startIndex) : undefined;
+        const startIndex = this.getSmpStandard(value) === 'ECSS_SMP_2025' && normalizedStartIndex !== undefined && normalizedStartIndex !== BigInt(0)
+            ? normalizedStartIndex
+            : undefined;
+        const simpleArrayType = expectedType && this.attrHelper.isSimpleArray(expectedType)
+            ? this.getSimpleArrayValueXsiType(itemType)
+            : undefined;
+        if (simpleArrayType) {
+            return {
+                '@xsi:type': simpleArrayType,
+                StartIndex: startIndex,
+                ItemValue: itemValues,
+            } as Types.ArrayValue;
+        }
+        return {
+            '@xsi:type': 'Types:ArrayValue',
+            ItemValue: itemValues,
+        } as Types.ArrayValue;
+    }
+
     protected convertStructureValue(type: ast.Structure, expression: ast.CollectionLiteral): Types.StructureValue {
         const fields = this.attrHelper.getAllFields(type).toArray();
         return { '@xsi:type': 'Types:StructureValue', FieldValue: expression.elements.map((e, index) => this.convertTypedValue(fields.at(index)?.type?.ref as ast.Type | undefined, e), this) };
@@ -438,10 +496,9 @@ export class SmpGenerator implements XsmpGenerator {
         if (!document) {
             return undefined;
         }
-        let fileName = UriUtils.basename(AstUtils.getDocument(document).uri).replace(/\.xsmp([a-z0-9]+)$/i, '.smp$1');
-        if (fileName === 'ecss.smp@ECSS_SMP_2020.smpcat') { fileName = 'http://www.ecss.nl/smp/2019/Smdl'; }
-        else if (fileName === 'ecss.smp@ECSS_SMP_2025.smpcat') { fileName = 'http://www.ecss.nl/smp/2019/Smdl'; }
-        return fileName;
+        const documentUri = AstUtils.getDocument(document).uri;
+        return getStandardBuiltinExportName(documentUri)
+            ?? UriUtils.basename(documentUri).replace(/\.xsmp([a-z0-9]+)$/i, '.smp$1');
     }
 
     protected convertXlink(link: Reference<ast.NamedElement>, context: AstNode | undefined): xlink.Xlink {
@@ -602,7 +659,7 @@ export class SmpGenerator implements XsmpGenerator {
             doc = AstUtils.getDocument(catalogue),
             namespaces = this.getL1Namespaces(catalogue),
             dependencies = [...new Set(doc.references.filter((e): e is Reference => isReference(e) && !!e.ref && !ast.isInterface(e.ref)).map(e => AstUtils.getDocument(e.ref!).parseResult.value).filter(ast.isCatalogue)
-                .filter(e => e !== catalogue && e.name !== 'ecss_smp_smp'))].sort((l, r) => l.name.localeCompare(r.name));
+                .filter(e => e !== catalogue && !isStandardBuiltinLibrary(AstUtils.getDocument(e).uri)))].sort((l, r) => l.name.localeCompare(r.name));
         return {
             '@xmlns:Elements': namespaces.elements,
             '@xmlns:Types': namespaces.types,
@@ -1062,8 +1119,7 @@ export class SmpGenerator implements XsmpGenerator {
             }
             case ast.String8Value.$type: return { '@xsi:type': 'Types:String8Value', '@Value': (value as ast.String8Value).value } as Types.String8Value;
             case ast.ArrayValue.$type: {
-                const itemType = ast.isArrayType(expectedType) ? expectedType.itemType.ref : undefined;
-                return { '@xsi:type': 'Types:ArrayValue', ItemValue: (value as ast.ArrayValue).elements.map(element => this.convertValue(element, itemType)) } as Types.ArrayValue;
+                return this.convertRuntimeArrayValue(value as ast.ArrayValue, ast.isArrayType(expectedType) ? expectedType : undefined);
             }
             case ast.StructureValue.$type:
                 return { '@xsi:type': 'Types:StructureValue', FieldValue: this.convertStructureElements(value as ast.StructureValue, expectedType) } as Types.StructureValue;

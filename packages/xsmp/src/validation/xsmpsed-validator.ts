@@ -6,6 +6,7 @@ import {
     isAbsolutePath,
     checkValidDateTime,
     checkValidDuration,
+    checkNoParentTraversal,
 } from './l2-validator-utils.js';
 import { checkName } from './name-validator-utils.js';
 import type { Xsmpl2PathResolver } from '../references/xsmpl2-path-resolver.js';
@@ -61,13 +62,11 @@ export class XsmpsedValidator extends XsmpcfgValidator {
             }
         }
 
-        const hasRootParameter = schedule.parameters.some(ast.isStringParameter);
+        const stringParameters = schedule.parameters.filter(ast.isStringParameter);
+        const hasRootParameter = stringParameters.length > 0;
         const hasAnyRelativePath = schedule.elements.filter(ast.isTask).some(task => task.elements.some(activity => this.activityUsesRelativePath(activity)));
-        const hasUnanchoredRelativePath = schedule.elements
-            .filter(ast.isTask)
-            .some(task => !task.context?.ref && task.elements.some(activity => this.activityUsesRelativePath(activity)));
-        if (hasUnanchoredRelativePath && !hasRootParameter) {
-            accept('error', 'A Schedule using relative paths shall declare at least one String8 Template Argument for the root path.', {
+        if (!hasRootParameter) {
+            accept('error', 'A Schedule shall declare at least one String8 Template Argument for the root path.', {
                 node: schedule,
                 property: ast.Schedule.parameters
             });
@@ -75,11 +74,14 @@ export class XsmpsedValidator extends XsmpcfgValidator {
 
         const usedTemplateNames = collectUsedTemplateParameterNames(schedule, this.identifierPatternService);
         if (hasAnyRelativePath) {
-            for (const parameter of schedule.parameters) {
-                if (ast.isStringParameter(parameter) && parameter.name) {
+            for (const parameter of stringParameters) {
+                if (parameter.name) {
                     usedTemplateNames.add(parameter.name);
                 }
             }
+        } else if (stringParameters[0]?.name) {
+            // The first String8 parameter acts as the implicit schedule root anchor.
+            usedTemplateNames.add(stringParameters[0].name);
         }
         warnUnusedTemplateParameters(schedule.parameters, usedTemplateNames, accept);
     }
@@ -159,6 +161,7 @@ export class XsmpsedValidator extends XsmpcfgValidator {
         if (!this.checkPathTemplateParameters(execute.root, accept)) {
             return;
         }
+        checkNoParentTraversal(accept, execute, execute.root, ast.ExecuteTask.root);
         const resolution = this.l2PathResolver.getScheduleActivityPathResolution(execute.root);
         this.acceptPathError(resolution.invalidMessage, resolution.invalidNode, accept);
         const expectedTask = execute.task?.ref;
@@ -240,6 +243,7 @@ export class XsmpsedValidator extends XsmpcfgValidator {
         if (!this.checkPathTemplateParameters(path, accept)) {
             return;
         }
+        checkNoParentTraversal(accept, path, path, ast.Path.elements);
         const resolution = this.l2PathResolver.getScheduleActivityPathResolution(path);
         this.acceptPathError(resolution.invalidMessage, resolution.invalidNode, accept);
     }

@@ -21,6 +21,8 @@ const catalogueSource = `catalogue Demo
 namespace demo
 {
     public array IntPair = Smp.Int32[2]
+    @SimpleArray
+    public array SimpleIntQuad = Smp.Int32[4]
     public integer TinyCounter extends Smp.UInt8 in 1 ... 3
     public float SmallRatio extends Smp.Float32 in 0.0 ..< 2.0
 
@@ -41,6 +43,7 @@ namespace demo
         field Smp.UInt8 byteValue
         field TinyCounter tiny
         field SmallRatio smallRatio
+        field SimpleIntQuad simpleValues
         field Counters state
         field Smp.Bool flag
         field Smp.Float64 ratio
@@ -212,14 +215,46 @@ describe('Validating Xsmpcfg', () => {
 
         expect(getMessages(document)).toEqual([]);
     });
+
+    test('accepts StartIndex for simple arrays in ECSS_SMP_2025 and rejects unsupported cases', async () => {
+        const valid2025 = await parseInProject(`configuration Demo
+/Root: demo.Root
+{
+    simpleValues = [1: 2, 3]
+}
+`);
+        expect(getMessages(valid2025)).toEqual([]);
+
+        const invalid2025 = await parseInProject(`configuration Demo
+/Root: demo.Root
+{
+    state = {
+        values = [1: 2]
+    }
+}
+`);
+        expect(getMessages(invalid2025)).toEqual([
+            'StartIndex is only allowed for SimpleArray values.',
+        ]);
+
+        const invalid2020 = await parseInProject(`configuration Demo
+/Root: demo.Root
+{
+    simpleValues = [1: 2, 3]
+}
+`, 'ECSS_SMP_2020');
+        expect(getMessages(invalid2020)).toEqual([
+            'StartIndex is only available in ECSS_SMP_2025.',
+        ]);
+    });
 });
 
-async function parseInProject(source: string): Promise<LangiumDocument<Configuration>> {
+async function parseInProject(source: string, standard: 'ECSS_SMP_2020' | 'ECSS_SMP_2025' = 'ECSS_SMP_2025'): Promise<LangiumDocument<Configuration>> {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmpcfg-validating-'));
     tempDirs.push(tempDir);
 
     const projectDocument = await parseProject(
-        `project "Demo" using "ECSS_SMP_2025"
+        `project "Demo" using "${standard}"
 source "src"
 `,
         { documentUri: URI.file(path.join(tempDir, 'xsmp.project')).toString() }

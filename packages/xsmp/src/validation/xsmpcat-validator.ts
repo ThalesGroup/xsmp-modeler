@@ -1,6 +1,6 @@
 import {
     AstUtils, MultiMap, type ValidationAcceptor, type ValidationChecks, WorkspaceCache, diagnosticData,
-    type AstNode, type IndexManager, type Properties, type URI,
+    type AstNode, type Properties, type URI,
     type AstNodeDescription, type LangiumDocument
 } from 'langium';
 import * as ast from '../generated/ast-partial.js';
@@ -15,6 +15,7 @@ import { VisibilityKind } from '../utils/visibility-kind.js';
 import { type DocumentationHelper } from '../utils/documentation-helper.js';
 import { type AttributeHelper } from '../utils/attribute-helper.js';
 import type { ProjectManager } from '../workspace/project-manager.js';
+import type { XsmpIndexManager } from '../workspace/index-manager.js';
 import { checkName } from './name-validator-utils.js';
 
 /**
@@ -48,6 +49,7 @@ export function registerXsmpcatValidationChecks(services: XsmpcatServices) {
             ArrayType: validator.checkArrayType,
             AttributeType: validator.checkAttributeType,
             EntryPoint: validator.checkEntryPoint,
+            Realization: validator.checkRealization,
             Service: validator.checkService,
             Catalogue: validator.checkCatalogue,
             Property: validator.checkProperty,
@@ -66,24 +68,26 @@ const validUsages = new Set(['NamedElement', 'Array', 'Association', 'AttributeT
         'Class', 'Component', 'Constant', 'Container', 'Document', 'EntryPoint', 'Enumeration',
         'EnumerationLiteral', 'EventSink', 'EventSource', 'EventType', 'Exception', 'Field', 'Float',
         'Integer', 'Interface', 'LanguageType', 'Model', 'Namespace', 'NativeType', 'Operation', 'Parameter',
-        'PrimitiveType', 'Property', 'ReferenceType', 'Reference', 'Service', 'SimpleType', 'String',
+        'PrimitiveType', 'Property', 'Realization', 'ReferenceType', 'Reference', 'Service', 'SimpleType', 'String',
         'Structure', 'Type', 'ValueReference', 'ValueType', 'VisibilityElement']);
 
 /**
  * Implementation of custom validations.
  */
 export class XsmpcatValidator {
-    protected readonly indexManager: IndexManager;
+    protected readonly indexManager: XsmpIndexManager;
     protected readonly globalCache: WorkspaceCache<string, MultiMap<string, AstNodeDescription>>;
     protected readonly visibleCache: WorkspaceCache<URI, MultiMap<string, AstNodeDescription>>;
+    protected readonly catalogueCycleCache: WorkspaceCache<URI, Map<string, AstNodeDescription[]>>;
     protected readonly docHelper: DocumentationHelper;
     protected readonly attrHelper: AttributeHelper;
     protected readonly projectManager: ProjectManager;
 
     constructor(services: XsmpcatServices) {
-        this.indexManager = services.shared.workspace.IndexManager;
+        this.indexManager = services.shared.workspace.IndexManager as XsmpIndexManager;
         this.globalCache = new WorkspaceCache<string, MultiMap<string, AstNodeDescription>>(services.shared);
         this.visibleCache = new WorkspaceCache<URI, MultiMap<string, AstNodeDescription>>(services.shared);
+        this.catalogueCycleCache = new WorkspaceCache<URI, Map<string, AstNodeDescription[]>>(services.shared);
         this.docHelper = services.shared.DocumentationHelper;
         this.attrHelper = services.shared.AttributeHelper;
         this.projectManager = services.shared.workspace.ProjectManager;
@@ -119,6 +123,105 @@ export class XsmpcatValidator {
             map.add(element.name, element);
         }
         return map;
+    }
+
+    private computeVisibleCatalogueUris(document: LangiumDocument): Set<string> {
+        const visibleUris = this.projectManager.getVisibleUris(document);
+        if (visibleUris) {
+            return new Set(visibleUris);
+        }
+        return new Set(
+            this.indexManager.allElements(ast.Catalogue.$type)
+                .map(description => description.documentUri.toString())
+                .toArray()
+        );
+    }
+
+    private computeCatalogueCycles(document: LangiumDocument): Map<string, AstNodeDescription[]> {
+        const visibleUris = this.computeVisibleCatalogueUris(document);
+        const catalogueDescriptions = this.indexManager.allElements(ast.Catalogue.$type, visibleUris)
+            .filter((description): description is AstNodeDescription & { node: ast.Catalogue } => ast.isCatalogue(description.node))
+            .toArray();
+        const descriptionByUri = new Map<string, AstNodeDescription & { node: ast.Catalogue }>();
+        for (const description of catalogueDescriptions) {
+            descriptionByUri.set(description.documentUri.toString(), description);
+        }
+
+        const graph = new Map<string, string[]>();
+        for (const description of catalogueDescriptions) {
+            const dependencies = [...this.indexManager.getReferencedDocumentUris(AstUtils.getDocument(description.node), visibleUris)]
+                .filter(uri => uri !== description.documentUri.toString() && descriptionByUri.has(uri));
+            graph.set(description.documentUri.toString(), dependencies);
+        }
+
+        const cycles = new Map<string, AstNodeDescription[]>();
+        for (const component of this.computeStronglyConnectedComponents(graph)) {
+            if (component.length < 2) {
+                continue;
+            }
+            const componentDescriptions = component
+                .map(uri => descriptionByUri.get(uri))
+                .filter((description): description is AstNodeDescription & { node: ast.Catalogue } => description !== undefined);
+            for (const description of componentDescriptions) {
+                cycles.set(
+                    description.documentUri.toString(),
+                    componentDescriptions.filter(other => other.documentUri.toString() !== description.documentUri.toString()),
+                );
+            }
+        }
+
+        return cycles;
+    }
+
+    private computeStronglyConnectedComponents(graph: ReadonlyMap<string, readonly string[]>): string[][] {
+        let index = 0;
+        const stack: string[] = [];
+        const indices = new Map<string, number>();
+        const lowLinks = new Map<string, number>();
+        const onStack = new Set<string>();
+        const components: string[][] = [];
+
+        const visit = (node: string): void => {
+            indices.set(node, index);
+            lowLinks.set(node, index);
+            index += 1;
+            stack.push(node);
+            onStack.add(node);
+
+            for (const dependency of graph.get(node) ?? []) {
+                if (!indices.has(dependency)) {
+                    visit(dependency);
+                    lowLinks.set(node, Math.min(lowLinks.get(node)!, lowLinks.get(dependency)!));
+                } else if (onStack.has(dependency)) {
+                    lowLinks.set(node, Math.min(lowLinks.get(node)!, indices.get(dependency)!));
+                }
+            }
+
+            if (lowLinks.get(node) !== indices.get(node)) {
+                return;
+            }
+
+            const component: string[] = [];
+            let current: string | undefined;
+            do {
+                current = stack.pop();
+                if (current === undefined) {
+                    break;
+                }
+                onStack.delete(current);
+                component.push(current);
+            } while (current !== node);
+
+            components.push(component);
+        };
+
+        for (const node of graph.keys()) {
+            if (!indices.has(node)) {
+                visit(node);
+            }
+        }
+
+        return components;
     }
     private getDuplicatedName(element: ast.Type | ast.Namespace): readonly AstNodeDescription[] {
         const document = AstUtils.getDocument(element);
@@ -165,9 +268,12 @@ export class XsmpcatValidator {
             (type === ast.Interface.$type && property === ast.Interface.base)
             || (type === ast.Model.$type && property === ast.Component.interface)
             || (type === ast.Service.$type && property === ast.Component.interface)
-            || (type === ast.Reference.$type && property === ast.Reference.interface)
+            || (type === ast.Realization.$type && property === ast.Realization.interface)
         ) {
             return ast.Interface.$type;
+        }
+        if (type === ast.Reference.$type && property === ast.Reference.interface) {
+            return ast.ReferenceType.$type;
         }
         if (type === ast.Model.$type && property === ast.Component.base) {
             return ast.Model.$type;
@@ -788,6 +894,23 @@ export class XsmpcatValidator {
         if (catalogue.$document && !isBuiltinLibrary(catalogue.$document.uri) && !this.projectManager.getProject(catalogue.$document)) {
             accept('warning', 'This Catalogue is not contained in a project.', { node: catalogue, keyword: 'catalogue' });
         }
+        if (catalogue.$document && !isBuiltinLibrary(catalogue.$document.uri)) {
+            const cycleParticipants = this.catalogueCycleCache
+                .get(catalogue.$document.uri, () => this.computeCatalogueCycles(catalogue.$document!))
+                .get(catalogue.$document.uri.toString());
+            if (cycleParticipants && cycleParticipants.length > 0) {
+                accept('error', 'Catalogues shall not have circular dependencies.', {
+                    node: catalogue,
+                    keyword: 'catalogue',
+                    relatedInformation: cycleParticipants
+                        .filter(participant => participant.nameSegment)
+                        .map(participant => ({
+                            location: Location.create(participant.documentUri.toString(), participant.nameSegment!.range),
+                            message: participant.name,
+                        })),
+                });
+            }
+        }
     }
 
     checkProperty(property: ast.Property, accept: ValidationAcceptor): void {
@@ -852,12 +975,35 @@ export class XsmpcatValidator {
     }
 
     checkReference(reference: ast.Reference, accept: ValidationAcceptor): void {
-        this.checkTypeReference(accept, reference, reference.interface?.ref, ast.Reference.interface);
+        if (this.checkTypeReference(accept, reference, reference.interface?.ref, ast.Reference.interface)
+            && this.getSmpStandard(reference) === 'ECSS_SMP_2020'
+            && !ast.isInterface(reference.interface?.ref)) {
+            accept('error', 'A Reference in ECSS_SMP_2020 shall target an Interface.', {
+                node: reference,
+                property: ast.Reference.interface
+            });
+        }
+    }
+
+    checkRealization(realization: ast.Realization, accept: ValidationAcceptor): void {
+        this.checkTypeReference(accept, realization, realization.interface?.ref, ast.Realization.interface);
+        if (this.getSmpStandard(realization) !== 'ECSS_SMP_2025') {
+            accept('error', 'Realization is only available in ECSS_SMP_2025.', {
+                node: realization,
+                keyword: 'realization'
+            });
+        }
     }
 
     checkValueReference(valueReference: ast.ValueReference, accept: ValidationAcceptor): void {
         this.checkModifier(valueReference, [ast.isVisibilityModifiers], accept);
         this.checkTypeReference(accept, valueReference, valueReference.type?.ref, ast.ValueReference.type);
+    }
+
+    protected getSmpStandard(node: AstNode): string {
+        const document = AstUtils.getDocument(node);
+        return this.projectManager.getProject(document)?.standard
+            ?? (document.uri.path.includes('@ECSS_SMP_2025') ? 'ECSS_SMP_2025' : 'ECSS_SMP_2020');
     }
 
     checkOperation(operation: ast.Operation, accept: ValidationAcceptor): void {

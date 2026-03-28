@@ -12,6 +12,7 @@ export class XsmpcatFormatter extends AbstractFormatter {
             case ast.ReturnParameter.$type: return this.formatReturnParameter(node as ast.ReturnParameter, this.getNodeFormatter(node));
             case ast.Container.$type: return this.formatContainer(node as ast.Container, this.getNodeFormatter(node));
             case ast.Reference.$type: return this.formatReference(node as ast.Reference, this.getNodeFormatter(node));
+            case ast.Realization.$type: return this.formatRealization(node as ast.Realization, this.getNodeFormatter(node));
             case ast.Multiplicity.$type: return this.formatMultiplicity(node as ast.Multiplicity, this.getNodeFormatter(node));
             case ast.EntryPoint.$type: return this.formatEntryPoint(node as ast.EntryPoint, this.getNodeFormatter(node));
             case ast.EventSource.$type: return this.formatEventSource(node as ast.EventSource, this.getNodeFormatter(node));
@@ -77,6 +78,11 @@ export class XsmpcatFormatter extends AbstractFormatter {
         formatter.property(ast.Reference.name).prepend(Formatting.oneSpace());
         formatter.property(ast.Reference.optional).prepend(Formatting.noSpace());
         formatter.property(ast.Reference.multiplicity).prepend(Formatting.noSpace());
+    }
+
+    formatRealization(node: ast.Realization, formatter: NodeFormatter<ast.Realization>) {
+        formatter.property(ast.Realization.interface).prepend(Formatting.oneSpace());
+        formatter.property(ast.Realization.name).prepend(Formatting.oneSpace());
     }
 
     formatMultiplicity(node: ast.Multiplicity, formatter: NodeFormatter<ast.Multiplicity>) {

@@ -84,9 +84,27 @@ export class ProjectManager {
     getVisibleUris(document: LangiumDocument): Set<string> | undefined {
 
         const project = this.getProject(document);
-        if (!project) return isBuiltinLibrary(document.uri) ? new Set(document.uri.toString()) : undefined;
+        if (!project) {
+            return this.visibleUrisCache.get(document.uri, () => {
+                if (isBuiltinLibrary(document.uri)) {
+                    return this.computeBuiltinVisibleUris(document);
+                }
+                return this.computeStandaloneVisibleUris(document);
+            });
+        }
 
         return this.visibleUrisCache.get(document.uri, () => this.computeVisibleUris(project));
+    }
+
+    protected computeBuiltinVisibleUris(document: LangiumDocument): Set<string> {
+        const uris = this.collectCoreBuiltinUris(this.getBuiltinStandard(document.uri));
+        uris.add(document.uri.toString());
+        return uris;
+    }
+
+    protected computeStandaloneVisibleUris(document: LangiumDocument): Set<string> {
+        const standard = this.getBuiltinStandard(document.uri) ?? 'ECSS_SMP_2020';
+        return this.collectCoreBuiltinUris(standard);
     }
 
     protected computeVisibleUris(project: ast.Project): Set<string> {
@@ -156,5 +174,34 @@ export class ProjectManager {
             }
         }
         return false;
+    }
+
+    protected getBuiltinStandard(uri: URI): string | undefined {
+        for (const standard of SmpStandards) {
+            if (uri.path.includes(`@${standard}`)) {
+                return standard;
+            }
+        }
+        return undefined;
+    }
+
+    protected collectCoreBuiltinUris(standard: string | undefined): Set<string> {
+        const uris = new Set<string>();
+        this.documents.all.forEach(candidate => {
+            if (!isBuiltinLibrary(candidate.uri) || this.contributionRegistry.isContributionDocument(candidate.uri)) {
+                return;
+            }
+            const candidateStandard = this.getBuiltinStandard(candidate.uri);
+            if (!standard) {
+                if (!candidateStandard) {
+                    uris.add(candidate.uri.toString());
+                }
+                return;
+            }
+            if (!candidateStandard || candidateStandard === standard) {
+                uris.add(candidate.uri.toString());
+            }
+        });
+        return uris;
     }
 }

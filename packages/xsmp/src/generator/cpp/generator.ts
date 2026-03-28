@@ -16,6 +16,7 @@ import { OperatorKind } from '../../utils/operator-kind.js';
 import { type DocumentationHelper } from '../../utils/documentation-helper.js';
 import { type AttributeHelper } from '../../utils/attribute-helper.js';
 import { ViewKind } from '../../utils/view_kind.js';
+import { isStandardBuiltinLibrary } from '../../builtins.js';
 
 export enum CxxStandard { CXX_STD_11 = 0, CXX_STD_14 = 1, CXX_STD_17 = 2 }
 
@@ -399,8 +400,11 @@ export abstract class CppGenerator implements XsmpGenerator {
         // current Catalogue is not a dependency
         dependencies.delete(catalogue);
 
-        // Remove ecss_smp_smp and sort dependencies by name
-        return Array.from(dependencies).filter(dep => dep !== undefined).filter(dep => dep.name !== 'ecss_smp_smp').toSorted((a, b) => a.name.localeCompare(b.name));
+        // Remove standard SMP builtins and sort dependencies by name
+        return Array.from(dependencies)
+            .filter(dep => dep !== undefined)
+            .filter(dep => !isStandardBuiltinLibrary(AstUtils.getDocument(dep).uri))
+            .toSorted((a, b) => a.name.localeCompare(b.name));
     }
 
     private generateNamespace(namespace: ast.Namespace, projectUri: URI, notice: string | undefined, acceptTask: TaskAcceptor) {

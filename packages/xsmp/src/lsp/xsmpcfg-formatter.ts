@@ -13,7 +13,7 @@ export class XsmpcfgFormatter extends XsmpFormatterBase {
             case ast.ComponentConfiguration.$type: return this.formatComponentConfiguration(node as ast.ComponentConfiguration, this.getNodeFormatter(node));
             case ast.ConfigurationUsage.$type: return this.formatConfigurationUsage(node as ast.ConfigurationUsage, this.getNodeFormatter(node));
             case ast.FieldValue.$type: return this.formatAssignment(this.getNodeFormatter(node));
-            case ast.ArrayValue.$type: return this.formatSquareList(this.getNodeFormatter(node));
+            case ast.ArrayValue.$type: return this.formatArrayValue(node as ast.ArrayValue, this.getNodeFormatter(node));
             case ast.StructureValue.$type: return this.formatInlineCollection(this.getNodeFormatter(node));
         }
     }
@@ -42,5 +42,12 @@ export class XsmpcfgFormatter extends XsmpFormatterBase {
             formatter.keyword('unsafe').append(Formatting.oneSpace());
         }
         this.formatAssignment(formatter);
+    }
+
+    protected formatArrayValue(node: ast.ArrayValue, formatter: NodeFormatter<ast.ArrayValue>): void {
+        this.formatSquareList(formatter);
+        if (node.startIndex !== undefined) {
+            formatter.keyword(':').prepend(Formatting.noSpace()).append(node.elements.length > 0 ? Formatting.oneSpace() : Formatting.noSpace());
+        }
     }
 }
