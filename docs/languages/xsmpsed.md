@@ -90,7 +90,7 @@ A **Task** defines one reusable execution body made of task activities.
 ### Syntax
 
 ```text
-task <name> [on <component-type>]
+task <name> [on <component-or-assembly>]
 {
     <activity>*
 }
@@ -104,11 +104,12 @@ Required:
 
 Optional:
 
-- `on <component-type>`
+- `on <component-or-assembly>`
 
 Behavior:
 
-- `on <component-type>` states which component type the task body is written against
+- `on <component-or-assembly>` states which component or assembly context the task body is written against
+- when an assembly context is used, relative activity paths and task roots may reuse that assembly's template parameters
 - a task may contain zero or more activities
 
 Example:

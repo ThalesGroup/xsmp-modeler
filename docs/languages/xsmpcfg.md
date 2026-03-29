@@ -61,7 +61,7 @@ A **Component Configuration** block targets one component instance path and assi
 ### Syntax
 
 ```text
-<path> [: <component-type>]
+<path> [: <component-or-assembly>]
 {
     (<include> | <component-configuration> | <field-value>)*
 }
@@ -74,12 +74,13 @@ Required:
 
 Optional:
 
-- `: <component-type>`
+- `: <component-or-assembly>`
 
 Behavior:
 
 - the path selects the configured component instance
-- the optional `: <component-type>` states explicitly which component type this block is written for
+- the optional `: <component-or-assembly>` states explicitly which component or assembly context this block is written for
+- when an assembly context is provided, nested paths may reuse that assembly's template parameters
 - nested blocks let you configure children inline
 
 Example:
@@ -322,7 +323,7 @@ Behavior:
 
 ### Important note
 
-Unlike assembly, link-base and schedule paths, configuration paths do not support template placeholders.
+Configuration paths may use template placeholders when they are resolved inside an assembly context, for example in a component configuration declared with `: <assembly>` or inside one of its nested blocks.
 
 Examples:
 
