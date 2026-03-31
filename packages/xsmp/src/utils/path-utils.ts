@@ -5,6 +5,10 @@ export function isSameOrContainedPath(parentPath: string, childPath: string, pat
     return relative === '' || (!relative.startsWith('..') && !pathModule.isAbsolute(relative));
 }
 
+export function normalizePath(sourcePath: string): string {
+    return sourcePath.replaceAll('\\', '/');
+}
+
 export function toXsmpIdentifier(value: string): string {
     return value.replaceAll(/[.-]+/g, '_');
 }

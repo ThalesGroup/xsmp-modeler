@@ -3,7 +3,7 @@ import type { XsmpprojectServices } from '../xsmpproject-module.js';
 import * as fs from 'node:fs';
 import * as ast from '../generated/ast-partial.js';
 import { DiagnosticTag, Location } from 'vscode-languageserver';
-import { isSameOrContainedPath } from '../utils/path-utils.js';
+import { isSameOrContainedPath, normalizePath } from '../utils/path-utils.js';
 import { SmpStandards, type ProjectManager } from '../workspace/project-manager.js';
 import type { XsmpContributionKind, XsmpContributionResolution } from '../contributions/xsmp-extension-types.js';
 import type { XsmpContributionRegistry } from '../contributions/xsmp-contribution-registry.js';
@@ -174,11 +174,12 @@ export class XsmpprojectValidator {
                 }
                 case ast.Source.$type: {
                     if (element.path) {
-                        const { path } = UriUtils.joinPath(projectUri, element.path);
-                        if (!isSameOrContainedPath(projectUri.path, path)) {
+                        const sourcePath = UriUtils.joinPath(projectUri, normalizePath(element.path));
+                        
+                        if (!isSameOrContainedPath(projectUri.path, sourcePath.path)) {
                             accept('error', `Source path '${element.path}' is not contained within the project directory.`, { node: element, property: ast.Source.path });
                         }
-                        else if (!fs.existsSync(path)) {
+                        else if (!fs.existsSync(sourcePath.fsPath)) {
                             accept('error', `Source path '${element.path}' does not exist.`, { node: element, property: ast.Source.path });
                         }
                     }

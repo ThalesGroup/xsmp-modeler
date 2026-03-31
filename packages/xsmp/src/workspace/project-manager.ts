@@ -3,7 +3,7 @@ import type { LangiumDocument, LangiumDocuments, LangiumSharedCoreServices, Stre
 import * as ast from '../generated/ast-partial.js';
 import { isBuiltinLibrary } from '../builtins.js';
 import { isSource } from '../generated/ast-partial.js';
-import { isSameOrContainedPath } from '../utils/path-utils.js';
+import { isSameOrContainedPath, normalizePath } from '../utils/path-utils.js';
 import type { XsmpContributionRegistry } from '../contributions/xsmp-contribution-registry.js';
 import type { XsmpSharedServices } from '../xsmp-module.js';
 
@@ -62,7 +62,10 @@ export class ProjectManager {
 
     protected projectContainsDocument(project: ast.Project, projectUri: URI, documentUri: URI): boolean {
         for (const source of project.elements.filter(isSource)) {
-            if (source.path && isSameOrContainedPath(UriUtils.joinPath(projectUri, source.path).path, documentUri.path)) {
+            if (!source.path) {
+                continue;
+            }
+            if (isSameOrContainedPath(UriUtils.joinPath(projectUri, normalizePath(source.path)).path, documentUri.path)) {
                 return true;
             }
         }
@@ -174,7 +177,7 @@ export class ProjectManager {
                 const projectUri = UriUtils.dirname(project.$document.uri);
                 for (const source of project.elements.filter(isSource)) {
                     if (source.path)
-                        uris.add(UriUtils.joinPath(projectUri, source.path).path);
+                        uris.add(UriUtils.joinPath(projectUri, normalizePath(source.path)).path);
                 }
             }
         }
