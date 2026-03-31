@@ -92,13 +92,6 @@ export class XsmpDocumentGenerator {
     async generateValidatedProject(project: ast.Project, cancelToken: Cancellation.CancellationToken): Promise<XsmpProjectGenerationReport> {
         const projectName = this.getProjectDisplayName(project);
         await this.rebuildWorkspace(cancelToken);
-        const errorCount = this.getScopedErrorCount(project);
-        if (errorCount > 0) {
-            return {
-                generatedProjects: [],
-                skippedProjects: [{ projectName, errorCount }],
-            };
-        }
 
         await this.generateProject(project, cancelToken);
         return {
@@ -115,11 +108,6 @@ export class XsmpDocumentGenerator {
 
         for (const project of projects) {
             const projectName = this.getProjectDisplayName(project);
-            const errorCount = this.getScopedErrorCount(project);
-            if (errorCount > 0) {
-                skippedProjects.push({ projectName, errorCount });
-                continue;
-            }
 
             await this.generateProject(project, cancelToken);
             generatedProjects.push(projectName);
