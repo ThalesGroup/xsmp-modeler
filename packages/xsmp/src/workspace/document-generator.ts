@@ -149,30 +149,6 @@ export class XsmpDocumentGenerator {
         });
     }
 
-    protected getScopedErrorCount(project: ast.Project): number {
-        return this.getScopedDocuments(project).reduce((count, document) => {
-            return count
-                + document.parseResult.parserErrors.length
-                + (document.diagnostics?.filter(diagnostic => diagnostic.severity === DiagnosticSeverity.Error).length ?? 0);
-        }, 0);
-    }
-
-    protected getScopedDocuments(project: ast.Project): LangiumDocument[] {
-        const reachableProjects = this.projectManager.getDependencies(project);
-        const reachableProjectUris = new Set(
-            [...reachableProjects].map(reachableProject => AstUtils.getDocument(reachableProject).uri.toString())
-        );
-
-        return this.langiumDocuments.all.toArray()
-            .filter(document => {
-                if (reachableProjectUris.has(document.uri.toString())) {
-                    return true;
-                }
-                const ownerProject = this.projectManager.getProject(document);
-                return Boolean(ownerProject && reachableProjects.has(ownerProject));
-            });
-    }
-
     protected getProjectDisplayName(project: ast.Project): string {
         return project.name ?? AstUtils.getDocument(project).uri.path;
     }

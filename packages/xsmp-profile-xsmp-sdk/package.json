@@ -1,6 +1,6 @@
 {
     "name": "@xsmp/profile-xsmp-sdk",
-    "version": "1.99.0",
+    "version": "1.100.0",
     "type": "module",
     "private": true,
     "license": "MIT",
@@ -19,6 +19,6 @@
     },
     "dependencies": {
         "langium": "4.2.1",
-        "xsmp": "1.99.0"
+        "xsmp": "1.100.0"
     }
 }

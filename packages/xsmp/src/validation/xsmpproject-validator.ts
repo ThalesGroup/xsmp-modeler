@@ -175,7 +175,7 @@ export class XsmpprojectValidator {
                 case ast.Source.$type: {
                     if (element.path) {
                         const sourcePath = UriUtils.joinPath(projectUri, normalizePath(element.path));
-                        
+
                         if (!isSameOrContainedPath(projectUri.path, sourcePath.path)) {
                             accept('error', `Source path '${element.path}' is not contained within the project directory.`, { node: element, property: ast.Source.path });
                         }
