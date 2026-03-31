@@ -8,13 +8,12 @@ const isClangFormatAvailable = computeIsClangFormatAvailable();
  * @return True if clang-format is found and executable, otherwise false.
  */
 function computeIsClangFormatAvailable(): boolean {
-    try {
-        spawnSync(clangFormatCommand, ['--version'], { stdio: 'ignore', shell: false });
-        return true;
-    } catch {
-        console.warn('clang-format is not available. Formatting will be skipped.');
-        return false;
-    }
+    const result = spawnSync(clangFormatCommand, ['--version'], {
+        stdio: 'ignore',
+        shell: false
+    });
+
+    return !result.error && result.status === 0;
 }
 
 /**
