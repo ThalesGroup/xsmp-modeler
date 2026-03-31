@@ -35,9 +35,12 @@ export class XsmpIndexManager extends DefaultIndexManager {
      * @returns {boolean} - True if the document is affected by changes in its dependencies, false otherwise.
      */
     override isAffected(document: LangiumDocument, changedUris: Set<string>): boolean {
+        if(super.isAffected(document, changedUris))
+            return true;
+
         const visibleUris = this.projectManager().getVisibleUris(document);
         if (!visibleUris)
-            return super.isAffected(document, changedUris);
+            return false;
 
         return [...changedUris].some(item => visibleUris.has(item));
     }
