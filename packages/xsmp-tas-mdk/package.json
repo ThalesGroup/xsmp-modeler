@@ -2,7 +2,7 @@
     "name": "xsmp-tas-mdk",
     "displayName": "XSMP TAS-MDK",
     "description": "TAS MDK support for XSMP Modeler.",
-    "version": "1.98.0",
+    "version": "1.99.0",
     "publisher": "ydaveluy",
     "author": "ydaveluy",
     "homepage": "https://github.com/thalesgroup/xsmp-modeler",
@@ -46,20 +46,22 @@
     },
     "files": [
         "LICENSE",
-        "lib/**",
+        "lib/contributor.js",
+        "lib/tas-mdk.xsmpprofile",
         "package.json",
         "README.md"
     ],
     "scripts": {
-        "build": "tsc -p tsconfig.src.json && npm run build:assets",
+        "build": "tsc -p tsconfig.src.json && npm run build:assets && node esbuild.mjs",
         "build:assets": "node ../../scripts/package-assets.mjs package",
+        "build:release": "tsc -p tsconfig.src.json --sourceMap false && npm run build:assets && node esbuild.mjs --minify",
         "watch": "tsc --watch -p tsconfig.src.json",
         "lint": "eslint src",
-        "package": "npm run build && vsce package --no-dependencies",
+        "package": "npm run build:release && vsce package --no-dependencies",
         "test": "cd ../.. && npm run build && vitest run packages/xsmp-tas-mdk/test --config vitest.config.ts"
     },
     "dependencies": {
         "langium": "4.2.1",
-        "xsmp": "1.98.0"
+        "xsmp": "1.99.0"
     }
 }
