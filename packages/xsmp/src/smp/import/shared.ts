@@ -497,7 +497,11 @@ export function renderImportedValue(node: SmpXmlObject, warnings: string[]): str
         default: {
             const numericSuffix = scalarValueSuffixes.get(valueType);
             if (numericSuffix) {
-                return `${getAttribute(node, 'Value') ?? '0'}${numericSuffix}`;
+                const rawValue = getAttribute(node, 'Value') ?? '0';
+                const numericValue = valueType === 'Float32Value' || valueType === 'Float64Value'
+                    ? normalizeImportedFloatingLiteral(rawValue)
+                    : rawValue;
+                return `${numericValue}${numericSuffix}`;
             }
             if (arrayValueTypes.has(valueType)) {
                 const items = getChildObjects(node, 'ItemValue').map(item => renderImportedValue(item, warnings)).join(', ');
@@ -514,6 +518,10 @@ export function renderImportedValue(node: SmpXmlObject, warnings: string[]): str
             return '0';
         }
     }
+}
+
+function normalizeImportedFloatingLiteral(value: string): string {
+    return /[.eE]/u.test(value) ? value : `${value}.`;
 }
 
 export function renderImportedStructureFieldValue(node: SmpXmlObject, warnings: string[]): string {

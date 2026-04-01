@@ -71,6 +71,9 @@ export class SmpMirrorManager {
         if (!sourceUri) {
             return undefined;
         }
+        if (!this.isEligibleMirrorSource(sourceUri)) {
+            return undefined;
+        }
 
         try {
             const rendered = await this.importer.renderImportedDocument({
@@ -271,6 +274,10 @@ export class SmpMirrorManager {
 
     protected getTrackedSourceUris(): Set<string> {
         return new Set<string>(this.baseSourceDiagnostics.keys());
+    }
+
+    protected isEligibleMirrorSource(sourceUri: URI): boolean {
+        return sourceUri.scheme === 'file' && this.workspaceIndex.hasEligibleSourcePath(sourceUri.fsPath);
     }
 
     protected setBaseDiagnostics(

@@ -1,7 +1,6 @@
-import { Cancellation, URI } from 'langium';
+import { URI } from 'langium';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import { DiagnosticSeverity } from 'vscode-languageserver';
 import type { XsmpSharedServices } from '../../xsmp-module.js';
 import { importAssembly } from './assembly.js';
 import { importCatalogue } from './catalogue.js';
@@ -110,27 +109,37 @@ export class SmpImportService {
 
     protected async ensureImportedDocumentParses(content: string, outputUri: URI): Promise<void> {
         const document = this.services.workspace.LangiumDocumentFactory.fromString(content, outputUri);
-        await this.services.workspace.DocumentBuilder.build(
-            [document],
-            { validation: true },
-            Cancellation.CancellationToken.None,
-        );
+        const syntaxErrors = [
+            ...document.parseResult.lexerErrors.map(error => ({
+                message: error.message,
+                line: error.line,
+                column: error.column,
+            })),
+            ...(document.parseResult.lexerReport?.diagnostics ?? []).map(error => ({
+                message: error.message,
+                line: error.line,
+                column: error.column,
+            })),
+            ...document.parseResult.parserErrors.map(error => ({
+                message: error.message,
+                line: error.token.startLine,
+                column: error.token.startColumn,
+            })),
+        ];
 
-        if (document.parseResult.parserErrors.length > 0) {
-            const details = document.parseResult.parserErrors
-                .map(error => `${error.message} (${error.token.startLine}:${error.token.startColumn})`)
-                .join('\n');
-            throw new Error(`Imported XSMP source contains parser errors:\n${details}`);
+        if (syntaxErrors.length === 0) {
+            return;
         }
 
-        const syntaxDiagnostics = (document.diagnostics ?? [])
-            .filter(diagnostic => diagnostic.severity === DiagnosticSeverity.Error && diagnostic.source === 'parser');
-        if (syntaxDiagnostics.length > 0) {
-            const details = syntaxDiagnostics
-                .map(error => `${error.message} (${error.range.start.line + 1}:${error.range.start.character + 1})`)
-                .join('\n');
-            throw new Error(`Imported XSMP source contains syntax diagnostics:\n${details}`);
-        }
+        const details = syntaxErrors
+            .map(error => {
+                const location = error.line !== undefined && error.column !== undefined
+                    ? ` (${error.line}:${error.column})`
+                    : '';
+                return `${error.message}${location}`;
+            })
+            .join('\n');
+        throw new Error(`Imported XSMP source contains syntax errors:\n${details}`);
     }
 
     protected async ensureOutputDirectory(outputPath: string): Promise<void> {

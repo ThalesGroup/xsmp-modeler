@@ -8,7 +8,7 @@ import {
     checkValidDuration,
     checkNoParentTraversal,
 } from './instance-validator-utils.js';
-import { checkName } from './name-validator-utils.js';
+import { checkName, checkUniqueDocumentName } from './name-validator-utils.js';
 import type { XsmpInstancePathResolver } from '../references/xsmp-instance-path-resolver.js';
 import * as XsmpUtils from '../utils/xsmp-utils.js';
 import { checkTemplatedPathSegments, collectUsedTemplateParameterNames, createTemplateBindings, warnUnusedTemplateParameters } from './template-parameter-validator-utils.js';
@@ -48,6 +48,7 @@ export class XsmpsedValidator extends XsmpcfgValidator {
 
     checkSchedule(schedule: ast.Schedule, accept: ValidationAcceptor): void {
         checkName(accept, schedule, schedule.name, ast.Schedule.name);
+        checkUniqueDocumentName(accept, this.indexManager, schedule);
         checkValidDateTime(accept, schedule, schedule.epochTime, ast.Schedule.epochTime, 'EpochTime');
         checkValidDateTime(accept, schedule, schedule.missionStart, ast.Schedule.missionStart, 'MissionStart');
 
@@ -68,7 +69,7 @@ export class XsmpsedValidator extends XsmpcfgValidator {
         if (!hasRootParameter) {
             accept('error', 'A Schedule shall declare at least one String8 Template Argument for the root path.', {
                 node: schedule,
-                property: ast.Schedule.parameters
+                keyword: 'schedule'
             });
         }
 

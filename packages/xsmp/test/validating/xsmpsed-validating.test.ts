@@ -16,7 +16,7 @@ let parseAssembly: ReturnType<typeof parseHelper<Assembly>>;
 const documents: LangiumDocument[] = [];
 const tempDirs: string[] = [];
 
-const catalogueSource = `catalogue Demo
+const catalogueSource = `catalogue DemoTypes
 
 namespace demo
 {
@@ -109,7 +109,7 @@ task Main on demo.Root
     call enabled()
     call unsafe enabled()
     property child = true
-    transfer outValue -> child.outValue
+    transfer outValue -> Child.outValue
     trig missing
     execute Worker at /
 }
@@ -134,7 +134,7 @@ event Main mission "PT1S"
     });
 
     test('resolves templated schedule paths with schedule defaults', async () => {
-        const document = await parseInProject(`schedule <Target = "child"> Demo
+        const document = await parseInProject(`schedule <Target = "Child"> Demo
 
 task Main on demo.Root
 {
@@ -143,6 +143,18 @@ task Main on demo.Root
 `);
 
         expect(getMessages(document)).toEqual([]);
+    });
+
+    test('rejects duplicate document names across document kinds', async () => {
+        const document = await parseInProject(`schedule <Root = "root"> DemoAsm
+
+task Main on DemoAsm
+{
+    call Child{Lane}.reset()
+}
+`, assemblySource);
+
+        expect(getMessages(document)).toContain('Duplicated Document name.');
     });
 
     test('allows unsuffixed numeric values when the safe resolved target type is known', async () => {
@@ -159,7 +171,7 @@ task Main on demo.Root
     });
 
     test('reports unknown placeholders and invalid expanded schedule path segments', async () => {
-        const unknownPlaceholder = await parseInProject(`schedule <Root = "child"> Demo
+        const unknownPlaceholder = await parseInProject(`schedule <Root = "child"> DemoMissingPlaceholder
 
 task Main on demo.Root
 {
@@ -170,7 +182,7 @@ task Main on demo.Root
             "The placeholder '{Missing}' shall resolve to a Template Argument of the enclosing Schedule.",
         ]);
 
-        const invalidExpansion = await parseInProject(`schedule <Target = "1bad"> Demo
+        const invalidExpansion = await parseInProject(`schedule <Target = "1bad"> DemoInvalidExpansion
 
 task Main on demo.Root
 {
@@ -183,7 +195,7 @@ task Main on demo.Root
     });
 
     test('warns when a schedule template parameter is not used', async () => {
-        const document = await parseInProject(`schedule <Target = "child", Unused = 7> Demo
+        const document = await parseInProject(`schedule <Target = "Child", Unused = 7> Demo
 
 task Main on demo.Root
 {

@@ -15,7 +15,7 @@ let parseAssembly: ReturnType<typeof parseHelper<Assembly>>;
 const documents: LangiumDocument[] = [];
 const tempDirs: string[] = [];
 
-const catalogueSource = `catalogue Demo
+const catalogueSource = `catalogue DemoTypes
 
 namespace demo
 {
@@ -107,7 +107,7 @@ describe('Validating Xsmpasb', () => {
     test('validates typed assembly configuration and link paths and honors unsafe', async () => {
         const document = await parseInProject(`assembly Demo
 
-configure child
+configure Child
 {
     count = true
     missing = 1i32
@@ -121,10 +121,10 @@ configure enabled
 Root: demo.Root
 {
     child += Child: demo.Child
-    field link outValue -> child.outValue
-    field link unsafe outValue -> unsafe child.outValue
-    event link outbound -> child.inbound
-    event link outbound -> child.missing
+    field link outValue -> Child.outValue
+    field link unsafe outValue -> unsafe Child.outValue
+    event link outbound -> Child.inbound
+    event link outbound -> Child.missing
 }
 `);
 
@@ -159,7 +159,7 @@ Root: demo.Root
     test('allows unsuffixed numeric values when the safe resolved target type is known', async () => {
         const document = await parseInProject(`assembly Demo
 
-configure child
+configure Child
 {
     count = 2
     ratio = 1.5
@@ -174,6 +174,17 @@ Root: demo.Root
 `);
 
         expect(getMessages(document)).toEqual([]);
+    });
+
+    test('rejects duplicate document names across document kinds', async () => {
+        const document = await parseInProject(`assembly DemoTypes
+
+Root: demo.Root
+{
+}
+`);
+
+        expect(getMessages(document)).toContain('Duplicated Document name.');
     });
 
     test('concretizes nested assembly instance names from template arguments', async () => {
@@ -392,11 +403,11 @@ Root: demo.Root
 Root: demo.Root
 {
     child += Child: demo.Child
-    field link ../outValue -> /child.inValue
-    interface link serviceRef -> child
-    interface link ../logger -> child
-    interface link logger -> child:outValue
-    interface link logger -> child:backService
+    field link ../outValue -> /Child.inValue
+    interface link serviceRef -> Child
+    interface link ../logger -> Child
+    interface link logger -> Child:outValue
+    interface link logger -> Child:backService
 }
 `);
 

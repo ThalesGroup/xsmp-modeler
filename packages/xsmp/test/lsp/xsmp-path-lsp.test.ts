@@ -100,7 +100,7 @@ describe('XSMP Path LSP', () => {
         const catalogue = extractRange(assemblyCatalogueSource);
         const assemblyPath = extractCursor(`assembly Demo
 
-configure child
+configure Child
 {
     co@@unt = 1i32
 }
@@ -127,7 +127,7 @@ Root: demo.Root
 
 /
 {
-    field link outValue -> child.in@@Value
+    field link outValue -> Child.in@@Value
 }
 `);
 
@@ -159,8 +159,8 @@ Loose
 
 task Main on demo.Root
 {
-    call child.re@@set()
-    execute Worker at child
+    call Child.re@@set()
+    execute Worker at Child
 }
 
 task Worker on demo.Child
@@ -180,7 +180,7 @@ task Worker on demo.Child
 
     test('supports template parameter navigation and concretized definition on templated schedule paths', async () => {
         const catalogue = extractRange(scheduleCatalogueSource);
-        const scheduleText = `schedule <Target = "child", Tail = "set"> Demo
+        const scheduleText = `schedule <Target = "Child", Tail = "set"> Demo
 
 task Main on demo.Root
 {
@@ -188,7 +188,7 @@ task Main on demo.Root
 }
 `;
 
-        const parameterOffset = scheduleText.indexOf('Target = "child"');
+        const parameterOffset = scheduleText.indexOf('Target = "Child"');
         const placeholderOffset = scheduleText.indexOf('{Target}') + 2;
         const targetOffset = scheduleText.indexOf('re{Tail}') + 1;
         expect(parameterOffset).toBeGreaterThanOrEqual(0);

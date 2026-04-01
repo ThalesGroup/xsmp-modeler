@@ -1,0 +1,8 @@
+/** Small isolated example showing a templated assembly identifier. */
+assembly <Variant = "Ops"> MissionTemplateExample
+/** Root mission-system instance with a templated identifier. */
+System{Variant}: demo.mission.MissionSystemRoot
+{
+    /** Keeps the example intentionally small and focused on templates only. */
+    integrated = false
+}

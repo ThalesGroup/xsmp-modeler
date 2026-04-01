@@ -83,7 +83,7 @@ namespace demo
         expect(content).toMatch(/count field|count/i);
     });
 
-    test('supports definition on typed component configuration names', async () => {
+    test('does not resolve component-backed component configuration names to containers', async () => {
         const catalogue = extractRange(`catalogue Demo
 
 namespace demo
@@ -110,13 +110,13 @@ namespace demo
 }
 `);
 
-        const { catalogueDocument, configurationDocument } = await parseProjectDocuments(catalogue.text, configuration.text);
+        const { configurationDocument } = await parseProjectDocuments(catalogue.text, configuration.text);
         const locations = await getDefinitions(configurationDocument, configuration.cursor);
 
-        expectLocation(locations, catalogueDocument, catalogue.range);
+        expect(locations).toHaveLength(0);
     });
 
-    test('supports definition on typed include paths', async () => {
+    test('does not resolve component-backed include paths to containers', async () => {
         const catalogue = extractRange(`catalogue Demo
 
 namespace demo
@@ -140,10 +140,10 @@ namespace demo
 }
 `);
 
-        const { catalogueDocument, configurationDocument } = await parseProjectDocuments(catalogue.text, configuration.text);
+        const { configurationDocument } = await parseProjectDocuments(catalogue.text, configuration.text);
         const locations = await getDefinitions(configurationDocument, configuration.cursor);
 
-        expectLocation(locations, catalogueDocument, catalogue.range);
+        expect(locations).toHaveLength(0);
     });
 
     test('keeps absolute root names in text mode', async () => {
@@ -190,6 +190,23 @@ namespace demo
         expect(actions[0].edit?.changes?.[configurationDocument.textDocument.uri]).toEqual([
             TextEdit.insert(configurationDocument.textDocument.positionAt(configuration.cursor), 'unsafe ')
         ]);
+    });
+
+    test('does not resolve typed nested component configuration names to containers in component-backed contexts', async () => {
+        const configuration = extractCursor(`configuration Demo
+/Root: demo.Root
+{
+    ch@@ild: demo.Child
+    {
+        value = 2i32
+    }
+}
+`);
+
+        const { configurationDocument } = await parseProjectDocuments(catalogueSource, configuration.text);
+        const locations = await getDefinitions(configurationDocument, configuration.cursor);
+
+        expect(locations).toHaveLength(0);
     });
 
     test('supports definition on assembly-backed component configuration names using inherited template parameters', async () => {

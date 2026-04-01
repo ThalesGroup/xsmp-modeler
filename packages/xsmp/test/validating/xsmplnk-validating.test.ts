@@ -16,7 +16,7 @@ let parseLinkBase: ReturnType<typeof parseHelper<LinkBase>>;
 const documents: LangiumDocument[] = [];
 const tempDirs: string[] = [];
 
-const catalogueSource = `catalogue Demo
+const catalogueSource = `catalogue DemoTypes
 
 namespace demo
 {
@@ -74,9 +74,9 @@ describe('Validating Xsmplnk', () => {
 
 /
 {
-    field link outValue -> child.outValue
-    field link unsafe outValue -> unsafe child.outValue
-    event link outbound -> child.inbound
+    field link outValue -> Child.outValue
+    field link unsafe outValue -> unsafe Child.outValue
+    event link outbound -> Child.inbound
 
     enabled
     {
@@ -94,7 +94,7 @@ Root: demo.Root
         const messages = getMessages(document);
         expect(messages).toEqual(expect.arrayContaining([
             "The path segment 'outValue' shall resolve to a Field marked as Input of the current Component.",
-            "The path segment 'enabled' shall resolve to a Container or Reference of the current Component.",
+            "The path segment 'enabled' shall resolve to a child Component of the current Component.",
         ]));
         expect(messages.some(message => message.includes('unsafe'))).toBe(false);
     });
@@ -125,6 +125,24 @@ Unanchored
         ]);
     });
 
+    test('rejects duplicate document names across document kinds', async () => {
+        const document = await parseInProject(`link DemoAsm for DemoAsm
+
+/
+{
+    field link outValue -> Child.inValue
+}
+`, `assembly DemoAsm
+
+Root: demo.Root
+{
+    child += Leaf: demo.Child
+}
+`);
+
+        expect(getMessages(document)).toContain('Duplicated Document name.');
+    });
+
     test('resolves templated link paths with imported assembly defaults', async () => {
         const document = await parseInProject(`link Demo for DemoAsm
 
@@ -132,7 +150,7 @@ Unanchored
 {
     field link outValue -> {Target}.inValue
 }
-`, `assembly <Target = "child"> DemoAsm
+`, `assembly <Target = "Child"> DemoAsm
 
 Root: demo.Root
 {
@@ -168,7 +186,7 @@ Root: demo.Root
 
 /
 {
-    interface link logger -> child:backLogger
+    interface link logger -> Child:backLogger
     interface link logger -> .
 }
 `, `assembly DemoAsm
@@ -234,9 +252,73 @@ Root: demo.Root
 `);
 
         expect(getMessages(document)).toEqual(expect.arrayContaining([
-            'The Component Link Base path shall resolve to a typed Component.',
+            "The path segment 'logger' shall resolve to a child Component of the current Component.",
             'A Component Link Base shall contain at least one Link.',
         ]));
+    });
+
+    test('refreshes cached link-base path resolutions after the build reaches linked documents', async () => {
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmplnk-validating-'));
+        tempDirs.push(tempDir);
+        const documentFactory = services.shared.workspace.LangiumDocumentFactory;
+        const projectDocument = documentFactory.fromString<Project>(
+            `project "Demo" using "ECSS_SMP_2025"
+source "src"
+`,
+            URI.file(path.join(tempDir, 'xsmp.project'))
+        );
+        const catalogueDocument = documentFactory.fromString<Catalogue>(catalogueSource, URI.file(path.join(tempDir, 'src', 'demo.xsmpcat')));
+        const assemblyDocument = documentFactory.fromString<Assembly>(`assembly DemoAsm
+
+Root: demo.Root
+{
+    child += Child: demo.Child
+}
+`, URI.file(path.join(tempDir, 'src', 'demoasm.xsmpasb')));
+        const linkBaseDocument = documentFactory.fromString<LinkBase>(`link Demo for DemoAsm
+
+/
+{
+    interface link logger -> Child
+}
+`, URI.file(path.join(tempDir, 'src', 'demo.xsmplnk')));
+
+        services.shared.workspace.LangiumDocuments.addDocument(projectDocument);
+        services.shared.workspace.LangiumDocuments.addDocument(catalogueDocument);
+        services.shared.workspace.LangiumDocuments.addDocument(assemblyDocument);
+        services.shared.workspace.LangiumDocuments.addDocument(linkBaseDocument);
+
+        documents.push(projectDocument, catalogueDocument, assemblyDocument, linkBaseDocument);
+        expect(projectDocument.parseResult.parserErrors).toHaveLength(0);
+        expect(catalogueDocument.parseResult.parserErrors).toHaveLength(0);
+        expect(assemblyDocument.parseResult.parserErrors).toHaveLength(0);
+        expect(linkBaseDocument.parseResult.parserErrors).toHaveLength(0);
+
+        const linkBase = linkBaseDocument.parseResult.value;
+        expect(linkBase.$type).toBe('LinkBase');
+        const componentLinkBase = linkBase.elements[0];
+        expect(componentLinkBase?.$type).toBe('ComponentLinkBase');
+        if (componentLinkBase?.$type !== 'ComponentLinkBase') {
+            throw new Error('Expected a component link base.');
+        }
+        const interfaceLink = componentLinkBase.elements[0];
+        expect(interfaceLink?.$type).toBe('InterfaceLink');
+        if (interfaceLink?.$type !== 'InterfaceLink') {
+            throw new Error('Expected an interface link.');
+        }
+
+        const beforeBuild = services.shared.InstancePathResolver.getLinkBaseEndpointPathResolution(interfaceLink.clientPath);
+        expect(beforeBuild.active).toBe(false);
+
+        await services.shared.workspace.DocumentBuilder.build(
+            [projectDocument, catalogueDocument, linkBaseDocument, assemblyDocument],
+            { validation: true }
+        );
+
+        const afterBuild = services.shared.InstancePathResolver.getLinkBaseEndpointPathResolution(interfaceLink.clientPath);
+        expect(afterBuild.active).toBe(true);
+        expect(afterBuild.finalComponent?.name).toBe('Child');
+        expect(getMessages(linkBaseDocument)).toEqual([]);
     });
 });
 

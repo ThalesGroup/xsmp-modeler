@@ -22,7 +22,7 @@ export class XsmpTypeProvider {
     }
 
     private doGetType(node: AstNode): ast.Type | undefined {
-        if (ast.isField(node.$container) || ast.isConstant(node.$container) || ast.isParameter(node.$container) || ast.isReturnParameter(node.$container)) {
+        if (ast.isField(node.$container) || ast.isConstant(node.$container) || ast.isProperty(node.$container) || ast.isParameter(node.$container) || ast.isReturnParameter(node.$container)) {
             return node.$container.type?.ref;
         }
         else if (ast.isCollectionLiteral(node.$container)) {

@@ -1,20 +1,20 @@
 /** Top-level mission assembly integrating orbital, payload and ground systems. */
-assembly <OrbitTag = "Ops", PayloadTag = "Science", OrbitalMember = "orbital", PayloadMember = "payload", ConsoleMember = "ground"> MissionDemo
-/** Configures the templated ground console instance after instantiation. */
-configure Ground{OrbitTag}
+assembly MissionDemo
+/** Configures the ground console instance after instantiation. */
+configure GroundConsole
 {
     /** Subscribes the console dispatch entry point to the mission-ready event. */
     subscribe dispatch -> "MissionReady"
 }
 /** Root mission system instance used by the integrated assembly. */
-System{OrbitTag}: demo.mission.MissionSystemRoot
+System: demo.mission.MissionSystemRoot
 {
     /** Starts with the integration flag cleared. */
     integrated = false
     /** Instantiates the orbital segment sub-assembly with its config and link base. */
-    orbital += Orbiter{OrbitTag}: OrbitalSegment<Lane = "Ops", BusMember = "avionics", RouterMember = "router", LoggerMember = "logger"> using config OrbitalNominal using link OrbitalLinks
+    orbital += OrbitalPlatform: OrbitalSegment using config OrbitalNominal using link OrbitalLinks
     /** Instantiates the payload segment sub-assembly with its config and link base. */
-    payload += Payload{PayloadTag}: PayloadSegment<Tag = "Science", PayloadMember = "payload", RouterMember = "router", LoggerMember = "logger"> using config PayloadSegmentNominal using link PayloadSegmentLinks
+    payload += PayloadPlatform: PayloadSegment using config PayloadSegmentNominal using link PayloadSegmentLinks
     /** Instantiates the ground console child. */
-    ground += Ground{OrbitTag}: demo.mission.GroundConsole
+    ground += GroundConsole: demo.mission.GroundConsole
 }

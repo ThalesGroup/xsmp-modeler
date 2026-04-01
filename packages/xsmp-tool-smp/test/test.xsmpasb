@@ -1,6 +1,6 @@
 assembly Demo
 
-configure unsafe child
+configure unsafe Child
 {
     count = 1i32
 }
@@ -8,6 +8,6 @@ configure unsafe child
 Root: demo.Root
 {
     child += Child: demo.Child
-    field link unsafe outValue -> child.inValue
-    event link outbound -> unsafe child.inbound
+    field link unsafe outValue -> unsafe Child.inValue
+    event link outbound -> unsafe Child.inbound
 }

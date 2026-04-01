@@ -279,7 +279,7 @@
 					"name": "keyword.operator.path.parent.xsmp"
 				},
 				{
-					"match": "/",
+					"match": "\\/(?![/*])",
 					"name": "punctuation.separator.path.xsmp"
 				},
 				{
@@ -324,7 +324,7 @@
 		"path-contexts": {
 			"patterns": [
 				{
-					"begin": "(?<=^)(?!\\s*(?:link|event|field|interface)\\b)\\s*(?=(?:unsafe\\s+)?(?:/|\\.|\\.\\.|[_a-zA-Z]|\\{))",
+					"begin": "(?<=^)(?!\\s*(?:link|event|field|interface)\\b)\\s*(?=(?:unsafe\\s+)?(?:\\/(?![/*])|\\.|\\.\\.|[_a-zA-Z]|\\{[_a-zA-Z]))",
 					"end": "(?=\\s*\\{)",
 					"contentName": "meta.path.xsmp",
 					"patterns": [
@@ -349,7 +349,7 @@
 					]
 				},
 				{
-					"begin": "(->)(\\s+)",
+					"begin": "(->)(\\s*)",
 					"beginCaptures": {
 						"1": {
 							"name": "keyword.operator.xsmp"
@@ -364,7 +364,7 @@
 					]
 				},
 				{
-					"begin": "(:)(\\s+)",
+					"begin": "(:)(\\s*)",
 					"beginCaptures": {
 						"1": {
 							"name": "punctuation.separator.colon.xsmp"
@@ -395,7 +395,7 @@
 					"name": "punctuation.section.brackets.xsmp"
 				},
 				{
-					"match": "(?<!\\.)\\/(?!\\/)",
+					"match": "(?<!\\.)\\/(?![/*])",
 					"name": "punctuation.separator.path.xsmp"
 				},
 				{
@@ -414,7 +414,7 @@
 		},
 		"link-base": {
 			"name": "meta.link-base.xsmp",
-			"begin": "\\b(link)\\b\\s+([A-Za-z]\\w*)",
+			"begin": "^\\s*\\b(link)\\b\\s+([A-Za-z]\\w*)",
 			"beginCaptures": {
 				"1": {
 					"name": "keyword.other.configuration.xsmp"

@@ -15,7 +15,7 @@ configuration PayloadNominal
         harmonics = [0.0, 0.1, 0.0, 0.0]
     }
     /** Reuses the dedicated camera tuning on the nested camera. */
-    include CameraTuning at unsafe camera
+    include CameraTuning at camera
     /** Overrides the embedded mass memory. */
     memory: demo.payload.MassMemory
     {

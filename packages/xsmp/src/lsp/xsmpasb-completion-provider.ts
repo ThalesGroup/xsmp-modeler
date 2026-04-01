@@ -1,5 +1,5 @@
 import { AstUtils, type AstNodeDescription, type GrammarAST, type ReferenceInfo } from 'langium';
-import type { CompletionAcceptor, CompletionContext, NextFeature } from 'langium/lsp';
+import type { CompletionAcceptor, CompletionContext } from 'langium/lsp';
 import type { CompletionItem } from 'vscode-languageserver';
 import * as ast from '../generated/ast-partial.js';
 import type { XsmpasbServices } from '../xsmpasb-module.js';
@@ -11,7 +11,7 @@ const placeholderPrefixPattern = /^\{[_a-zA-Z]\w*\}/;
 const typeSegmentPattern = /^[_a-zA-Z]\w*$/;
 
 export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
-    protected readonly snippetOnlyKeywords = new Set([
+    protected override readonly snippetOnlyKeywords = new Set([
         'assembly',
         'configure',
         'subscribe',
@@ -26,21 +26,10 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
         super(services);
     }
 
-    protected override completionForKeyword(context: CompletionContext, keyword: GrammarAST.Keyword, acceptor: CompletionAcceptor) {
-        if (this.snippetOnlyKeywords.has(keyword.value)) {
-            return;
-        }
-        return super.completionForKeyword(context, keyword, acceptor);
-    }
-
     protected override createKeywordSnippets(context: CompletionContext, keyword: GrammarAST.Keyword, acceptor: CompletionAcceptor): void {
         if (keyword.value === 'assembly') {
-            acceptor(context, this.createKeywordSnippet(keyword, 'assembly ${1:Name}\n$0', 'Assembly Definition'));
+            acceptor(context, this.createKeywordSnippet(keyword, this.getAssemblyDefinitionSnippetText(), 'Assembly Definition'));
         }
-    }
-
-    protected override addContextualCompletions(context: CompletionContext, _next: NextFeature, acceptor: CompletionAcceptor): void {
-        this.addStandaloneCompletions(context, acceptor);
     }
 
     protected override addStandaloneCompletions(context: CompletionContext, acceptor: CompletionAcceptor): void {
@@ -175,11 +164,7 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
         const linkBases = this.getCrossReferenceNames(context, ast.AssemblyInstance, ast.AssemblyInstance.linkBase);
 
         if (!assembly && !model && !componentConfiguration) {
-            acceptor(context, this.createSnippetItem(
-                'Assembly',
-                'assembly ${1:Name}\n$0',
-                'Assembly Definition'
-            ));
+            acceptor(context, this.createSnippetItem('Assembly', this.getAssemblyDefinitionSnippetText(), 'Assembly Definition'));
             return;
         }
 
@@ -202,9 +187,7 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
                 `${this.createPlaceholder(1, 'container')} += ${this.createPlaceholder(2, 'Child')}: ${this.createChoicePlaceholder(3, assemblies, 'Assembly')}${assemblyUsageSnippet}`,
                 'Sub Assembly Instance'
             ));
-            acceptor(context, this.createSnippetItem('Event Link', 'event link ${1:owner} -> ${2:client}', 'Event Link'));
-            acceptor(context, this.createSnippetItem('Field Link', 'field link ${1:owner} -> ${2:client}', 'Field Link'));
-            acceptor(context, this.createSnippetItem('Interface Link', 'interface link ${1:sourcePath} -> ${2:client}${3::${4:backReference}}', 'Interface Link'));
+            this.addLinkStatementSnippets(context, acceptor);
             return;
         }
 
@@ -307,21 +290,28 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
         const configurations = this.getCrossReferenceNames(context, ast.AssemblyInstance, ast.AssemblyInstance.configuration);
         const linkBases = this.getCrossReferenceNames(context, ast.AssemblyInstance, ast.AssemblyInstance.linkBase);
 
-        for (const child of this.getDirectChildComponentContexts(component)) {
-            const componentName = XsmpUtils.fqn(child.component);
-            const defaultName = child.component.name ?? 'Child';
+        for (const container of this.instancePathResolver.getComponentContainers(component)) {
+            if (!container.name) {
+                continue;
+            }
+            const childComponent = this.typedPathResolver.getChildComponentForPathMember(container);
+            if (!childComponent) {
+                continue;
+            }
+            const componentName = XsmpUtils.fqn(childComponent);
+            const defaultName = childComponent.name ?? 'Child';
             acceptor(context, this.createContextualValueItem(
                 context,
-                `${child.path} += ${defaultName}: ${componentName}`,
-                `${child.path} += ${this.createPlaceholder(1, defaultName)}: ${componentName}`,
+                `${container.name} += ${defaultName}: ${componentName}`,
+                `${container.name} += ${this.createPlaceholder(1, defaultName)}: ${componentName}`,
                 'Sub Model Instance'
             ));
 
             if (assemblies.length > 0) {
                 acceptor(context, this.createContextualValueItem(
                     context,
-                    `${child.path} += ${defaultName}: Assembly`,
-                    `${child.path} += ${this.createPlaceholder(1, defaultName)}: ${this.createChoicePlaceholder(2, assemblies, 'Assembly')}${this.createAssemblyUsageSnippet(configurations, linkBases, 3)}`,
+                    `${container.name} += ${defaultName}: Assembly`,
+                    `${container.name} += ${this.createPlaceholder(1, defaultName)}: ${this.createChoicePlaceholder(2, assemblies, 'Assembly')}${this.createAssemblyUsageSnippet(configurations, linkBases, 3)}`,
                     'Sub Assembly Instance'
                 ));
             }
@@ -342,41 +332,21 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
             return;
         }
 
-        for (const candidate of this.getEntryPoints(component)) {
-            if (!candidate.name) {
-                continue;
-            }
-            acceptor(context, this.createContextualValueItem(
-                context,
-                `subscribe ${candidate.name}`,
-                `subscribe ${this.createSubscriptionText(candidate.name)}`,
-                `Global event subscription for entry point ${candidate.name}.`
-            ));
-        }
-
-        for (const candidate of this.getProperties(component)) {
-            if (!candidate.name) {
-                continue;
-            }
-            acceptor(context, this.createContextualValueItem(
-                context,
-                `property ${candidate.name}`,
-                `property ${this.createPropertyAssignmentText(candidate.name, candidate.type?.ref, 'path')}`,
-                `Property value for ${candidate.name}.`
-            ));
-        }
-
-        for (const candidate of this.getOperations(component)) {
-            if (!candidate.name) {
-                continue;
-            }
-            acceptor(context, this.createContextualValueItem(
-                context,
-                `call ${candidate.name}`,
-                `call ${this.createOperationCallText(candidate, 'path')}`,
-                `Operation call for ${candidate.name}.`
-            ));
-        }
+        this.addNamedContextualValueCompletions(context, acceptor, this.getEntryPoints(component), (_candidate, name) => ({
+            label: `subscribe ${name}`,
+            insertText: `subscribe ${this.createSubscriptionText(name)}`,
+            detail: `Global event subscription for entry point ${name}.`,
+        }));
+        this.addNamedContextualValueCompletions(context, acceptor, this.getProperties(component), (candidate, name) => ({
+            label: `property ${name}`,
+            insertText: `property ${this.createPropertyAssignmentText(name, candidate.type?.ref, 'path')}`,
+            detail: `Property value for ${name}.`,
+        }));
+        this.addNamedContextualValueCompletions(context, acceptor, this.getOperations(component), (candidate, name) => ({
+            label: `call ${name}`,
+            insertText: `call ${this.createOperationCallText(candidate, 'path')}`,
+            detail: `Operation call for ${name}.`,
+        }));
     }
 
     protected addLocalReferenceCompletions(context: CompletionContext, acceptor: CompletionAcceptor): void {
@@ -384,45 +354,27 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
         const localComponent = this.getCurrentComponent(context);
 
         if (localComponent && /^\s*call\s+\w*$/.test(linePrefix)) {
-            for (const candidate of this.getOperations(localComponent)) {
-                if (!candidate.name) {
-                    continue;
-                }
-                acceptor(context, this.createContextualValueItem(
-                    context,
-                    candidate.name,
-                    this.createOperationCallText(candidate, 'path'),
-                    `Operation of ${candidate.$container.name}.`
-                ));
-            }
+            this.addNamedContextualValueCompletions(context, acceptor, this.getOperations(localComponent), (candidate, name) => ({
+                label: name,
+                insertText: this.createOperationCallText(candidate, 'path'),
+                detail: `Operation of ${candidate.$container.name}.`,
+            }));
         }
 
         if (localComponent && /^\s*property\s+\w*$/.test(linePrefix)) {
-            for (const candidate of this.getProperties(localComponent)) {
-                if (!candidate.name) {
-                    continue;
-                }
-                acceptor(context, this.createContextualValueItem(
-                    context,
-                    candidate.name,
-                    this.createPropertyAssignmentText(candidate.name, candidate.type?.ref, 'path'),
-                    `Writable property of ${candidate.$container.name}.`
-                ));
-            }
+            this.addNamedContextualValueCompletions(context, acceptor, this.getProperties(localComponent), (candidate, name) => ({
+                label: name,
+                insertText: this.createPropertyAssignmentText(name, candidate.type?.ref, 'path'),
+                detail: `Writable property of ${candidate.$container.name}.`,
+            }));
         }
 
         if (localComponent && /^\s*subscribe\s+\w*$/.test(linePrefix)) {
-            for (const candidate of this.getEntryPoints(localComponent)) {
-                if (!candidate.name) {
-                    continue;
-                }
-                acceptor(context, this.createContextualValueItem(
-                    context,
-                    candidate.name,
-                    this.createSubscriptionText(candidate.name),
-                    `Entry point of ${candidate.$container.name}.`
-                ));
-            }
+            this.addNamedContextualValueCompletions(context, acceptor, this.getEntryPoints(localComponent), (candidate, name) => ({
+                label: name,
+                insertText: this.createSubscriptionText(name),
+                detail: `Entry point of ${candidate.$container.name}.`,
+            }));
         }
     }
 
@@ -434,9 +386,7 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
         const fieldValue = AstUtils.getContainerOfType(node, ast.isFieldValue);
         if (fieldValue?.field) {
             const targetType = this.instancePathResolver.getAssemblyFieldPathResolution(fieldValue.field).finalType;
-            for (const item of this.getSimpleValueCompletions(targetType, 'path', true)) {
-                acceptor(context, item);
-            }
+            this.addSimpleValueCompletionsForType(context, acceptor, targetType, 'path', true);
             return;
         }
 
@@ -444,9 +394,7 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
         if (propertyValue) {
             const property = this.instancePathResolver.getLocalNamedReferenceTarget(propertyValue.property);
             const targetType = ast.isProperty(property) ? property.type?.ref : undefined;
-            for (const item of this.getSimpleValueCompletions(targetType, 'path', false)) {
-                acceptor(context, item);
-            }
+            this.addSimpleValueCompletionsForType(context, acceptor, targetType, 'path', false);
             return;
         }
 
@@ -457,10 +405,13 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
         const parameter = ast.isOperation(operation)
             ? operation.parameter.find(candidate => candidate.name === parameterName)
             : undefined;
-        for (const item of this.getSimpleValueCompletions(parameter?.type?.ref, 'path', false)) {
-            acceptor(context, item);
-        }
+        this.addSimpleValueCompletionsForType(context, acceptor, parameter?.type?.ref, 'path', false);
     }
+
+    protected getAssemblyDefinitionSnippetText(): string {
+        return 'assembly ${1:Name}\n$0';
+    }
+
     protected getContainerComponentName(container: ast.Container): string {
         if (ast.isComponent(container.defaultComponent?.ref)) {
             return XsmpUtils.fqn(container.defaultComponent.ref);
@@ -586,22 +537,5 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
             ? this.instancePathResolver.getSubInstanceContainerForCompletion(subInstance, parentComponent)
             : undefined;
         return ast.isReferenceType(container?.type?.ref) ? container.type.ref : undefined;
-    }
-
-    protected getReferenceCandidateDescriptions(
-        context: CompletionContext,
-        type: string | { readonly $type: string },
-        property: string,
-    ): AstNodeDescription[] {
-        const container = this.getRecoveryAstNode(context);
-        const refInfo: ReferenceInfo = {
-            reference: { $refText: '', ref: undefined },
-            container: {
-                $container: container,
-                $type: typeof type === 'string' ? type : type.$type,
-            },
-            property,
-        };
-        return [...this.getReferenceCandidates(refInfo, context)];
     }
 }

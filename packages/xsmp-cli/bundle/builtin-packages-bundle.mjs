@@ -8,7 +8,7 @@ import { registerContribution as registerXsmpSdkContribution } from '../../xsmp-
 import { registerContribution as registerAdocContribution } from '../../xsmp-tool-adoc/lib/contributor.js';
 import { registerContribution as registerPythonContribution } from '../../xsmp-tool-python/lib/contributor.js';
 import { registerContribution as registerSmpContribution } from '../../xsmp-tool-smp/lib/contributor.js';
-import { registerContribution as registerTasMdkContribution } from '../../xsmp-tas-mdk/lib/contributor.js';
+import { registerContribution as registerTasMdkContribution } from '../../xsmp-tas-mdk/src/contributor.ts';
 
 const bundledContributionDefinitions = [
     {
@@ -80,8 +80,7 @@ async function getBundledRuntime() {
 }
 
 async function extractBundledAssets() {
-    const version = process.env.XSMP_CLI_VERSION ?? 'dev';
-    const rootDir = path.join(os.tmpdir(), 'xsmpproject-cli', `${version}-${embeddedAssetsHash}`);
+    const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), `xsmpproject-cli-${embeddedAssetsHash}-`));
 
     await Promise.all(
         Object.entries(embeddedTextAssets).map(async ([relativePath, content]) => {

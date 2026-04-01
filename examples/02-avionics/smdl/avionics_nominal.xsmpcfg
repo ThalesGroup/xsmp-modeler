@@ -37,5 +37,5 @@ configuration AvionicsNominal
         tuning = [1.0, 0.6, 0.3, 0.1]
     }
     /** Reuses the standalone sensor calibration example on the sensor sub-instance. */
-    include SensorCalibration at unsafe sensor
+    include SensorCalibration at sensor
 }

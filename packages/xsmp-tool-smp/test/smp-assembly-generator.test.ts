@@ -117,7 +117,7 @@ Root: demo.Root
         const generator = new SmpGenerator(services.shared);
         const document = await parseSource(`assembly Demo
 
-configure child
+configure Child
 {
     count = 2
     ratio = 1.5
@@ -125,9 +125,9 @@ configure child
 
 Root: demo.Root
 {
+    child += Child: demo.Child
     property count = 3
     call apply(nextCount = 4, nextRatio = 2.5)
-    child += Child: demo.Child
 }
 `);
         setGeneratedBy(false);

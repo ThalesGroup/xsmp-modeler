@@ -269,6 +269,37 @@ namespace dep
         expect(mirrorDocument.textDocument.getText()).toContain('catalogue types');
     });
 
+    test('does not render SMP mirrors on demand for files outside declared source folders', async () => {
+        const projectDir = createProject(tempDir, 'app', `
+project 'app'
+using 'ECSS_SMP_2025'
+source 'src'
+`, {
+            'smdl-gen/generated.smpcat': `<?xml version="1.0" encoding="UTF-8"?>
+<Catalogue:Catalogue xmlns:Catalogue="http://www.ecss.nl/smp/2025/Smdl/Catalogue" xmlns:Elements="http://www.ecss.nl/smp/2025/Core/Elements" xmlns:Types="http://www.ecss.nl/smp/2025/Core/Types" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" Id="generated" Name="generated">
+  <Namespace Name="demo">
+    <Type xsi:type="Types:Structure" Id="demo.GeneratedType" Name="GeneratedType" Uuid="abababab-abab-abab-abab-abababababab"/>
+  </Namespace>
+</Catalogue:Catalogue>
+`,
+        });
+
+        const services = await createBuiltinTestXsmpServices(NodeFileSystem);
+        await services.shared.workspace.WorkspaceManager.initializeWorkspace([
+            { name: 'app', uri: URI.file(projectDir).toString() },
+        ]);
+
+        const sourcePath = path.join(projectDir, 'smdl-gen', 'generated.smpcat');
+        const mirrorUri = createSmpMirrorDescriptor(sourcePath)?.mirrorUri;
+        expect(mirrorUri).toBeDefined();
+        expect(services.shared.SmpWorkspaceIndex.getMirrorUriForSourcePath(sourcePath)).toBeUndefined();
+
+        const content = await resolveServerFileContent(services.shared, mirrorUri!);
+
+        expect(content).toBeNull();
+        expect(services.shared.workspace.LangiumDocuments.getDocument(mirrorUri!)).toBeUndefined();
+    });
+
     test('revalidates surviving XSMP documents after deleting an SMP mirror source', async () => {
         const projectDir = createProject(tempDir, 'app', `
 project 'app'

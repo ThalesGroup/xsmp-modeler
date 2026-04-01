@@ -108,21 +108,44 @@ export class XsmpcfgPathResolver {
         return this.configurationContextCache.get(configuration, () => this.computeConfigurationContext(configuration));
     }
 
+    protected getParentConfigurationContext(configuration: ast.ComponentConfiguration): CfgConfigurationContext | undefined {
+        return ast.isComponentConfiguration(configuration.$container)
+            ? this.getConfigurationContext(configuration.$container)
+            : undefined;
+    }
+
+    protected isAssemblyBackedContext(context: CfgConfigurationContext | undefined): boolean {
+        return Boolean(context?.assemblyContext);
+    }
+
+    protected isComponentBackedContext(context: CfgConfigurationContext | undefined): boolean {
+        return Boolean(context && !context.assemblyContext);
+    }
+
+    protected createInactiveComponentPathResolution(): CfgComponentPathResolution {
+        return {
+            active: false,
+            namedSegments: new Map(),
+        };
+    }
+
     protected computeConfigurationContext(configuration: ast.ComponentConfiguration): CfgConfigurationContext | undefined {
-        const parent = ast.isComponentConfiguration(configuration.$container) ? configuration.$container : undefined;
-        const parentContext = parent ? this.getConfigurationContext(parent) : undefined;
+        const parentContext = this.getParentConfigurationContext(configuration);
         const explicitContext = configuration.context?.ref;
         const explicitComponent = ast.isComponent(explicitContext) ? explicitContext : undefined;
         const explicitAssembly = ast.isAssembly(explicitContext) ? explicitContext : undefined;
-        const resolution = parentContext && configuration.name ? this.resolveComponentPathFromContext(configuration.name, parentContext) : undefined;
+        const useExplicitContext = !this.isAssemblyBackedContext(parentContext) || Boolean(configuration.name?.unsafe);
+        const resolution = parentContext && configuration.name && (!explicitContext || (this.isAssemblyBackedContext(parentContext) && !configuration.name.unsafe))
+            ? this.resolveComponentPathFromContext(configuration.name, parentContext)
+            : undefined;
 
-        if (explicitAssembly) {
+        if (explicitAssembly && useExplicitContext) {
             return this.toAssemblyConfigurationContext(
                 this.instancePathResolver.getAssemblyPathContextForAssembly(explicitAssembly)
             );
         }
 
-        if (explicitComponent) {
+        if (explicitComponent && useExplicitContext) {
             const componentStack = this.getExplicitComponentStack(explicitComponent, resolution, parentContext);
             return { component: explicitComponent, componentStack };
         }
@@ -142,6 +165,28 @@ export class XsmpcfgPathResolver {
     }
 
     protected computeComponentPathResolution(path: ast.Path): CfgComponentPathResolution {
+        if (ast.isComponentConfiguration(path.$container)) {
+            const configuration = path.$container;
+            const parentContext = this.getParentConfigurationContext(configuration);
+            if (this.isComponentBackedContext(parentContext)) {
+                if (configuration.context?.ref) {
+                    return this.createInactiveComponentPathResolution();
+                }
+                return {
+                    active: true,
+                    invalidMessage: 'A safe Component Configuration inside a Component-backed context shall declare an explicit context.',
+                    invalidNode: path,
+                    namedSegments: new Map(),
+                };
+            }
+        }
+        if (ast.isConfigurationUsage(path.$container)) {
+            const configuration = AstUtils.getContainerOfType(path.$container, ast.isComponentConfiguration);
+            const context = configuration ? this.getConfigurationContext(configuration) : undefined;
+            if (this.isComponentBackedContext(context)) {
+                return this.createInactiveComponentPathResolution();
+            }
+        }
         return this.resolveComponentPathFromContext(path, this.getBaseConfigurationContextForComponentPath(path));
     }
 

@@ -1,11 +1,11 @@
 import type { AstNodeDescription, GrammarAST, ReferenceInfo } from 'langium';
-import type { CompletionAcceptor, CompletionContext, NextFeature } from 'langium/lsp';
+import type { CompletionAcceptor, CompletionContext } from 'langium/lsp';
 import * as ast from '../generated/ast-partial.js';
 import type { XsmplnkServices } from '../xsmplnk-module.js';
 import { XsmpCompletionProviderBase } from './xsmp-completion-provider-base.js';
 
 export class XsmplnkCompletionProvider extends XsmpCompletionProviderBase {
-    protected readonly snippetOnlyKeywords = new Set([
+    protected override readonly snippetOnlyKeywords = new Set([
         'link',
         'event',
         'field',
@@ -16,50 +16,25 @@ export class XsmplnkCompletionProvider extends XsmpCompletionProviderBase {
         super(services);
     }
 
-    protected override completionForKeyword(context: CompletionContext, keyword: GrammarAST.Keyword, acceptor: CompletionAcceptor) {
-        if (this.snippetOnlyKeywords.has(keyword.value)) {
-            return;
-        }
-        return super.completionForKeyword(context, keyword, acceptor);
-    }
-
     protected override createKeywordSnippets(context: CompletionContext, keyword: GrammarAST.Keyword, acceptor: CompletionAcceptor): void {
         if (keyword.value === 'link') {
-            const assemblies = this.getCrossReferenceNames(context, ast.LinkBase, ast.LinkBase.assembly);
-            const assemblySnippet = assemblies.length > 0 ? ` for ${this.createChoicePlaceholder(2, assemblies, 'Assembly')}` : '';
-            acceptor(context, this.createKeywordSnippet(
-                keyword,
-                `link ${this.createPlaceholder(1, 'Name')}${assemblySnippet}\n$0`,
-                'Link Base Definition'
-            ));
+            acceptor(context, this.createKeywordSnippet(keyword, this.createLinkBaseDefinitionSnippet(context), 'Link Base Definition'));
         }
-    }
-
-    protected override addContextualCompletions(context: CompletionContext, _next: NextFeature, acceptor: CompletionAcceptor): void {
-        this.addStandaloneCompletions(context, acceptor);
     }
 
     protected override addStandaloneCompletions(context: CompletionContext, acceptor: CompletionAcceptor): void {
         const linkBase = this.getRecoveryContainerOfType(context, ast.isLinkBase);
-        const componentLinkBase = this.getRecoveryContainerOfType(context, ast.isComponentLinkBase);
+        const componentLinkBase = this.getRecoveryBlockContainerOfType(context, ast.isComponentLinkBase);
 
         if (this.isAtStatementPrefix(context) && !linkBase && !componentLinkBase) {
-            const assemblies = this.getCrossReferenceNames(context, ast.LinkBase, ast.LinkBase.assembly);
-            const assemblySnippet = assemblies.length > 0 ? ` for ${this.createChoicePlaceholder(2, assemblies, 'Assembly')}` : '';
-            acceptor(context, this.createSnippetItem(
-                'Link Base',
-                `link ${this.createPlaceholder(1, 'Name')}${assemblySnippet}\n$0`,
-                'Link Base Definition'
-            ));
+            acceptor(context, this.createSnippetItem('Link Base', this.createLinkBaseDefinitionSnippet(context), 'Link Base Definition'));
         } else if (this.isAtStatementPrefix(context) && componentLinkBase) {
             acceptor(context, this.createSnippetItem(
                 'Component Link Base',
                 `${this.createPlaceholder(1, 'path')}\n{\n\t$0\n}`,
                 'Nested Component Link Base'
             ));
-            acceptor(context, this.createSnippetItem('Event Link', 'event link ${1:owner} -> ${2:client}', 'Event Link'));
-            acceptor(context, this.createSnippetItem('Field Link', 'field link ${1:owner} -> ${2:client}', 'Field Link'));
-            acceptor(context, this.createSnippetItem('Interface Link', 'interface link ${1:sourcePath} -> ${2:client}${3::${4:backReference}}', 'Interface Link'));
+            this.addLinkStatementSnippets(context, acceptor);
         } else if (this.isAtStatementPrefix(context) && linkBase) {
             acceptor(context, this.createSnippetItem(
                 'Root Component Link Base',
@@ -91,7 +66,7 @@ export class XsmplnkCompletionProvider extends XsmpCompletionProviderBase {
         if (!this.isAtStatementPrefix(context)) {
             return;
         }
-        const componentLinkBase = this.getRecoveryContainerOfType(context, ast.isComponentLinkBase);
+        const componentLinkBase = this.getRecoveryBlockContainerOfType(context, ast.isComponentLinkBase);
         const component = componentLinkBase
             ? this.instancePathResolver.getEffectiveComponentLinkBaseComponent(componentLinkBase)
             : undefined;
@@ -122,35 +97,15 @@ export class XsmplnkCompletionProvider extends XsmpCompletionProviderBase {
         const arrowIndex = linePrefix.indexOf('->');
         const colonIndex = linePrefix.lastIndexOf(':');
         if (arrowIndex >= 0 && colonIndex > arrowIndex) {
-            const fallbackComponent = this.getFallbackInterfaceComponent(context, true);
-            for (const candidate of this.instancePathResolver.getComponentMembersByKind(fallbackComponent, ['reference'])) {
-                if (ast.isReference(candidate) && candidate.name) {
-                    acceptor(context, this.createContextualValueItem(
-                        context,
-                        candidate.name,
-                        candidate.name,
-                        `Reference of ${candidate.$container.name}.`
-                    ));
-                }
-            }
+            this.addReferenceMemberCompletions(context, acceptor, this.getFallbackInterfaceComponent(context, true));
             return;
         }
 
-        const ownerComponent = this.getFallbackInterfaceComponent(context, false);
-        for (const candidate of this.instancePathResolver.getComponentMembersByKind(ownerComponent, ['reference'])) {
-            if (ast.isReference(candidate) && candidate.name) {
-                acceptor(context, this.createContextualValueItem(
-                    context,
-                    candidate.name,
-                    candidate.name,
-                    `Reference of ${candidate.$container.name}.`
-                ));
-            }
-        }
+        this.addReferenceMemberCompletions(context, acceptor, this.getFallbackInterfaceComponent(context, false));
     }
 
     protected getFallbackInterfaceComponent(context: CompletionContext, afterArrow: boolean): ast.Component | undefined {
-        const componentLinkBase = this.getRecoveryContainerOfType(context, ast.isComponentLinkBase);
+        const componentLinkBase = this.getRecoveryBlockContainerOfType(context, ast.isComponentLinkBase);
         const rootComponent = componentLinkBase
             ? this.instancePathResolver.getEffectiveComponentLinkBaseComponent(componentLinkBase)
             : undefined;
@@ -183,14 +138,36 @@ export class XsmplnkCompletionProvider extends XsmpCompletionProviderBase {
             if (!trimmed || trimmed === '.') {
                 continue;
             }
-            const member: ast.Container | ast.Reference | undefined = this.instancePathResolver
+            const member: ast.Component | undefined = this.instancePathResolver
                 .getComponentPathMembers(current)
                 .find(candidate => candidate.name === trimmed);
-            current = member ? this.typedPathResolver.getChildComponentForPathMember(member) : undefined;
+            current = member;
             if (!current) {
                 return undefined;
             }
         }
         return current;
+    }
+
+    protected createLinkBaseDefinitionSnippet(context: CompletionContext): string {
+        const assemblies = this.getCrossReferenceNames(context, ast.LinkBase, ast.LinkBase.assembly);
+        const assemblySnippet = assemblies.length > 0 ? ` for ${this.createChoicePlaceholder(2, assemblies, 'Assembly')}` : '';
+        return `link ${this.createPlaceholder(1, 'Name')}${assemblySnippet}\n$0`;
+    }
+
+    protected addReferenceMemberCompletions(
+        context: CompletionContext,
+        acceptor: CompletionAcceptor,
+        component: ast.Component | undefined,
+    ): void {
+        this.addNamedContextualValueCompletions(
+            context,
+            acceptor,
+            this.instancePathResolver.getComponentMembersByKind(component, ['reference']).filter(ast.isReference),
+            (candidate, name) => ({
+                label: name,
+                detail: `Reference of ${candidate.$container.name}.`,
+            }),
+        );
     }
 }

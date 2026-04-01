@@ -8,6 +8,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { createXsmpServices } from 'xsmp';
 import type { Assembly, Catalogue, Configuration, LinkBase, Project, Schedule } from 'xsmp/ast-partial';
+import { createCompletionProbe, findSnippetItem, labels } from './completion-test-utils.js';
 
 let services: ReturnType<typeof createXsmpServices>;
 let parseProject: ReturnType<typeof parseHelper<Project>>;
@@ -16,6 +17,10 @@ let parseConfiguration: ReturnType<typeof parseHelper<Configuration>>;
 let parseAssembly: ReturnType<typeof parseHelper<Assembly>>;
 let parseLinkBase: ReturnType<typeof parseHelper<LinkBase>>;
 let parseSchedule: ReturnType<typeof parseHelper<Schedule>>;
+let getConfigurationCompletion: ReturnType<typeof createCompletionProbe>;
+let getAssemblyCompletion: ReturnType<typeof createCompletionProbe>;
+let getLinkBaseCompletion: ReturnType<typeof createCompletionProbe>;
+let getScheduleCompletion: ReturnType<typeof createCompletionProbe>;
 const documents: LangiumDocument[] = [];
 const tempDirs: string[] = [];
 
@@ -39,6 +44,8 @@ namespace demo
         field Smp.Int32 count
     }
 
+    public array BoolPair = Smp.Bool[2]
+
     public model Child
     {
         input field Smp.Int32 inValue
@@ -51,6 +58,7 @@ namespace demo
     {
         field State state
         field Smp.Bool flag
+        field BoolPair flags
         output field Smp.Int32 outValue
         input field Smp.Int32 inValue
         readWrite property demo.Mode mode
@@ -77,6 +85,10 @@ beforeAll(async () => {
     parseAssembly = parseHelper<Assembly>(services.xsmpasb);
     parseLinkBase = parseHelper<LinkBase>(services.xsmplnk);
     parseSchedule = parseHelper<Schedule>(services.xsmpsed);
+    getConfigurationCompletion = createCompletionProbe(services.xsmpcfg);
+    getAssemblyCompletion = createCompletionProbe(services.xsmpasb);
+    getLinkBaseCompletion = createCompletionProbe(services.xsmplnk);
+    getScheduleCompletion = createCompletionProbe(services.xsmpsed);
     await services.shared.workspace.WorkspaceManager.initializeWorkspace([]);
 });
 
@@ -115,8 +127,13 @@ describe('XSMP DSL completion providers', () => {
         const flagItem = findSnippetItem(fieldItems, 'flag');
         expect(flagItem?.insertTextFormat).toBe(InsertTextFormat.Snippet);
         expect(flagItem?.textEdit?.newText ?? flagItem?.insertText).toContain('flag = ');
-        expect(labels(fieldItems)).toContain('child: demo.Child');
-        expect(labels(fieldItems)).toContain('include at child');
+        const flagsItem = findSnippetItem(fieldItems, 'flags');
+        expect(flagsItem?.insertTextFormat).toBe(InsertTextFormat.Snippet);
+        expect(flagsItem?.textEdit?.newText ?? flagsItem?.insertText).toContain('[false, false]');
+        expect(labels(fieldItems)).toContain('Component Configuration');
+        expect(labels(fieldItems)).toContain('Include Configuration');
+        expect(labels(fieldItems)).not.toContain('child: demo.Child');
+        expect(labels(fieldItems)).not.toContain('include at child');
 
         const nestedCursor = extractCursor(`configuration Demo
 /Root: demo.Root
@@ -134,6 +151,25 @@ describe('XSMP DSL completion providers', () => {
         expect(labels(nestedItems)).toContain('Component Configuration');
         expect(labels(nestedItems)).not.toContain('Root Component Configuration');
 
+        const afterNestedCursor = extractCursor(`configuration Demo
+/Root: demo.Root
+{
+    child: demo.Child
+    {
+        flag = true
+    }
+
+    @@
+}
+`);
+        const { configurationDocument: afterNestedDocument } = await parseWorkspace({
+            configuration: afterNestedCursor.text,
+        });
+        const afterNestedItems = await getCompletionItems(services.xsmpcfg.lsp.CompletionProvider!, afterNestedDocument, afterNestedCursor.cursor);
+        expect(labels(afterNestedItems)).toContain('Component Configuration');
+        expect(labels(afterNestedItems)).toContain('Include Configuration');
+        expect(labels(afterNestedItems)).not.toContain('Root Component Configuration');
+
         const valueCursor = extractCursor(`configuration Demo
 /Root: demo.Root
 {
@@ -146,6 +182,18 @@ describe('XSMP DSL completion providers', () => {
         const valueItems = await getCompletionItems(services.xsmpcfg.lsp.CompletionProvider!, valueDocument, valueCursor.cursor);
         expect(labels(valueItems)).toContain('false');
         expect(labels(valueItems)).toContain('true');
+
+        const arrayValueCursor = extractCursor(`configuration Demo
+/Root: demo.Root
+{
+    flags = @@
+}
+`);
+        const { configurationDocument: arrayValueDocument } = await parseWorkspace({
+            configuration: arrayValueCursor.text,
+        });
+        const arrayValueItems = await getCompletionItems(services.xsmpcfg.lsp.CompletionProvider!, arrayValueDocument, arrayValueCursor.cursor);
+        expect(arrayValueItems.some(item => (item.textEdit?.newText ?? item.insertText) === '[false, false]')).toBe(true);
     });
 
     test('xsmpasb offers model snippets and enriches local call/property completion', async () => {
@@ -163,7 +211,7 @@ Root: demo.Root
         expect(labels(snippetItems)).toContain('Field Link');
         expect(labels(snippetItems)).toContain('Interface Link');
         expect(labels(snippetItems)).toContain('child += Child: demo.Child');
-        expect(labels(snippetItems)).toContain('field link outValue -> child.inValue');
+        expect(labels(snippetItems)).toContain('field link outValue -> Child.inValue');
 
         const prefixedCursor = extractCursor(`assembly Demo
 Root: demo.Root
@@ -389,13 +437,32 @@ Root: demo.@@
         const nestedItems = await getCompletionItems(services.xsmplnk.lsp.CompletionProvider!, nestedDocument, nestedCursor.cursor);
         expect(labels(nestedItems)).toContain('Component Link Base');
         expect(labels(nestedItems)).not.toContain('Root Component Link Base');
-        expect(labels(nestedItems)).toContain('child');
-        expect(labels(nestedItems)).toContain('field link outValue -> child.inValue');
+        expect(labels(nestedItems)).toContain('Child');
+        expect(labels(nestedItems)).toContain('field link outValue -> Child.inValue');
+
+        const afterNestedCursor = extractCursor(`link Demo for DemoAsm
+/
+{
+    Child
+    {
+        field link outValue -> inValue
+    }
+    @@
+}
+`);
+        const { linkBaseDocument: afterNestedDocument } = await parseWorkspace({
+            assemblyDoc: assemblySource,
+            linkBase: afterNestedCursor.text,
+        });
+        const afterNestedItems = await getCompletionItems(services.xsmplnk.lsp.CompletionProvider!, afterNestedDocument, afterNestedCursor.cursor);
+        expect(labels(afterNestedItems)).toContain('Component Link Base');
+        expect(labels(afterNestedItems)).toContain('field link outValue -> Child.inValue');
+        expect(labels(afterNestedItems)).not.toContain('Root Component Link Base');
 
         const referenceText = `link Demo for DemoAsm
 /
 {
-    interface link @@ -> child:##
+    interface link @@ -> Child:##
 }
 `;
         const ownerCursor = referenceText.indexOf('@@');
@@ -493,6 +560,22 @@ task Worker on demo.Child
         expect(labels(taskStatementItems)).toContain('execute Worker');
         expect(labels(taskStatementItems)).not.toContain('Task');
         expect(labels(taskStatementItems)).not.toContain('Event Epoch');
+
+        const afterTaskCursor = extractCursor(`schedule Demo
+task Main on demo.Root
+{
+    call apply(requestedMode = demo.Mode.Nominal)
+}
+@@
+`);
+        const { scheduleDocument: afterTaskDocument } = await parseWorkspace({
+            schedule: afterTaskCursor.text,
+        });
+        const afterTaskItems = await getCompletionItems(services.xsmpsed.lsp.CompletionProvider!, afterTaskDocument, afterTaskCursor.cursor);
+        expect(labels(afterTaskItems)).toContain('Task');
+        expect(labels(afterTaskItems)).toContain('Event Epoch');
+        expect(labels(afterTaskItems)).not.toContain('call apply');
+        expect(labels(afterTaskItems)).not.toContain('property mode');
 
         const assemblyContextCursor = extractCursor(`schedule Demo
 task Main on DemoAsm
@@ -597,11 +680,33 @@ async function getCompletionItems(
     offset: number,
 ): Promise<CompletionItem[]> {
     const completionDocument = expectDocument(document);
-    const completion = await provider.getCompletion(completionDocument, {
-        textDocument: { uri: completionDocument.textDocument.uri },
-        position: completionDocument.textDocument.positionAt(offset),
+    const index = documents.indexOf(completionDocument);
+    if (index >= 0) {
+        documents.splice(index, 1);
+        await clearDocuments(services.shared, [completionDocument]);
+    }
+    const { items } = await getCompletionProbe(provider)({
+        sourceText: completionDocument.textDocument.getText(),
+        offset,
+        parseOptions: { documentUri: completionDocument.textDocument.uri },
     });
-    return completion?.items ?? [];
+    return items;
+}
+
+function getCompletionProbe(provider: CompletionProvider) {
+    if (provider === services.xsmpcfg.lsp.CompletionProvider) {
+        return getConfigurationCompletion;
+    }
+    if (provider === services.xsmpasb.lsp.CompletionProvider) {
+        return getAssemblyCompletion;
+    }
+    if (provider === services.xsmplnk.lsp.CompletionProvider) {
+        return getLinkBaseCompletion;
+    }
+    if (provider === services.xsmpsed.lsp.CompletionProvider) {
+        return getScheduleCompletion;
+    }
+    throw new Error('Unsupported completion provider.');
 }
 
 function expectDocument<T extends AstNode>(document: LangiumDocument<T> | undefined): LangiumDocument<T> {
@@ -626,12 +731,4 @@ function removeMarkers(text: string, markers: string[]): { text: string } {
         result = result.replace(marker, '');
     }
     return { text: result };
-}
-
-function labels(items: CompletionItem[]): string[] {
-    return items.map(item => item.label);
-}
-
-function findSnippetItem(items: CompletionItem[], label: string): CompletionItem | undefined {
-    return items.find(item => item.label === label && item.insertTextFormat === InsertTextFormat.Snippet);
 }

@@ -135,10 +135,10 @@ const assemblySource = `/**
  * @date 2026-03-27T08:10:00Z
  * @version 1.0
  */
-assembly <Lane = "ops"> DemoAssembly
+assembly DemoAssembly
 
 /** Applies local child defaults before startup. */
-configure child
+configure Child
 {
     /** Child output seed. */
     outValue = 1
@@ -155,20 +155,20 @@ Root: demo.Root
 {
     /** Initial state count. */
     countState = 4
+    /** Child instance. */
+    child += Child: demo.Child
     /** Public property initialization. */
     property count = 3
     /** Startup apply call. */
     call apply(nextCount = 5, nextRatio = 1.5)
     /** Root startup subscription. */
     subscribe run -> "MissionStart"
-    /** Child instance with a templated name. */
-    child += Child{Lane}: demo.Child
     /** Output field routing. */
-    field link outValue -> child.inValue
+    field link outValue -> Child.inValue
     /** Event propagation. */
-    event link outbound -> child.inbound
+    event link outbound -> Child.inbound
     /** Logger publication. */
-    interface link logger -> child:backLogger
+    interface link logger -> Child:backLogger
 }
 `;
 
@@ -185,11 +185,11 @@ link DemoLinks for DemoAssembly
 /
 {
     /** Output field routing. */
-    field link outValue -> child.inValue
+    field link outValue -> Child.inValue
     /** Event propagation. */
-    event link outbound -> child.inbound
+    event link outbound -> Child.inbound
     /** Logger publication. */
-    interface link logger -> child:backLogger
+    interface link logger -> Child:backLogger
 }
 `;
 
@@ -200,7 +200,7 @@ const scheduleSource = `/**
  * @date 2026-03-27T08:20:00Z
  * @version 1.0
  */
-schedule <RootMember = "child"> DemoSchedule epoch "2025-01-01T00:00:00Z" mission "2025-01-01T00:00:00Z"
+schedule <root: string = "/Root"> DemoSchedule epoch "2025-01-01T00:00:00Z" mission "2025-01-01T00:00:00Z"
 
 /** Root orchestration task. */
 task Dispatch on demo.Root
@@ -210,11 +210,11 @@ task Dispatch on demo.Root
     /** Apply call. */
     call apply(nextCount = 3, nextRatio = 1.5)
     /** Data transfer. */
-    transfer outValue -> child.inValue
+    transfer outValue -> Child.inValue
     /** Root trigger. */
     trig run
     /** Child task execution. */
-    execute ChildTick at child
+    execute ChildTick at Child
     /** Mission-ready emission. */
     async emit "MissionReady"
 }

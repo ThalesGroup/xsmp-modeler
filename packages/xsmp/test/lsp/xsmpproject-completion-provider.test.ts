@@ -1,17 +1,19 @@
 import { afterEach, beforeAll, describe, expect, test } from 'vitest';
 import { EmptyFileSystem, type LangiumDocument } from 'langium';
 import { clearDocuments, parseHelper } from 'langium/test';
-import { InsertTextFormat, type CompletionItem } from 'vscode-languageserver';
 import type { ProjectRoot } from 'xsmp/ast-partial';
 import { createBuiltinTestXsmpServices } from '../test-services.js';
+import { createCompletionProbe, findSnippetItem, labels } from './completion-test-utils.js';
 
 let services: Awaited<ReturnType<typeof createBuiltinTestXsmpServices>>;
 let parseRoot: ReturnType<typeof parseHelper<ProjectRoot>>;
+let getProjectCompletion: ReturnType<typeof createCompletionProbe>;
 const documents: LangiumDocument[] = [];
 
 beforeAll(async () => {
     services = await createBuiltinTestXsmpServices(EmptyFileSystem);
     parseRoot = parseHelper<ProjectRoot>(services.xsmpproject);
+    getProjectCompletion = createCompletionProbe(services.xsmpproject);
     await services.shared.workspace.WorkspaceManager.initializeWorkspace([]);
 });
 
@@ -26,22 +28,25 @@ describe('Xsmpproject completion provider', () => {
         const preferredProfileId = services.shared.ContributionRegistry.getPreferredContributionId('profile') ?? 'profile';
         const preferredToolId = services.shared.ContributionRegistry.getPreferredContributionId('tool') ?? 'tool';
         const dependencyDocument = await parseRoot("project 'foundation'\nsource 'smdl'\n", { documentUri: 'memory:///foundation/xsmp.project' });
-        const rootDocument = await parseRoot('', { documentUri: 'memory:///root/xsmp.project' });
-        documents.push(dependencyDocument, rootDocument);
+        documents.push(dependencyDocument);
 
-        const rootItems = await getCompletionItems(rootDocument, 0);
+        const { items: rootItems } = await getProjectCompletion({
+            sourceText: '',
+            offset: 0,
+            parseOptions: { documentUri: 'memory:///root/xsmp.project' },
+        });
         expect(labels(rootItems)).toContain('Project');
         expect(labels(rootItems)).not.toContain('project');
         expect(findSnippetItem(rootItems, 'Project')?.insertText).toContain("source '");
 
-        const projectText = `project 'MissionDemo' using 'ECSS_SMP_2025'
+        const projectCursor = extractCursor(`project 'MissionDemo' using 'ECSS_SMP_2025'
 @@
-`;
-        const projectDocument = await parseRoot(projectText.replace('@@', ''), { documentUri: 'memory:///project/xsmp.project' });
-        documents.push(projectDocument);
-        await services.shared.workspace.DocumentBuilder.build(documents, { validation: false });
-
-        const projectItems = await getCompletionItems(projectDocument, projectText.indexOf('@@'));
+`);
+        const { items: projectItems } = await getProjectCompletion({
+            sourceText: projectCursor.text,
+            offset: projectCursor.cursor,
+            parseOptions: { documentUri: 'memory:///project/xsmp.project' },
+        });
         expect(labels(projectItems)).toContain('Source');
         expect(labels(projectItems)).toContain(`dependency 'foundation'`);
         expect(labels(projectItems)).toContain(`profile '${preferredProfileId}'`);
@@ -51,12 +56,16 @@ describe('Xsmpproject completion provider', () => {
     test('uses registry-backed defaults for profile and tool snippets', async () => {
         const preferredProfileId = services.shared.ContributionRegistry.getPreferredContributionId('profile') ?? 'profile';
         const preferredToolId = services.shared.ContributionRegistry.getPreferredContributionId('tool') ?? 'tool';
-        const profileDocument = await parseRoot('', { documentUri: 'memory:///esa.xsmpprofile' });
-        const toolDocument = await parseRoot('', { documentUri: 'memory:///adoc.xsmptool' });
-        documents.push(profileDocument, toolDocument);
-
-        const profileItems = await getCompletionItems(profileDocument, 0);
-        const toolItems = await getCompletionItems(toolDocument, 0);
+        const { items: profileItems } = await getProjectCompletion({
+            sourceText: '',
+            offset: 0,
+            parseOptions: { documentUri: 'memory:///esa.xsmpprofile' },
+        });
+        const { items: toolItems } = await getProjectCompletion({
+            sourceText: '',
+            offset: 0,
+            parseOptions: { documentUri: 'memory:///adoc.xsmptool' },
+        });
 
         expect(findSnippetItem(profileItems, 'Profile')?.insertText).toContain(preferredProfileId);
         expect(findSnippetItem(toolItems, 'Tool')?.insertText).toContain(preferredToolId);
@@ -66,16 +75,18 @@ describe('Xsmpproject completion provider', () => {
         const profileDocument = await parseRoot("profile 'esa-cdk'", { documentUri: 'memory:///esa.xsmpprofile' });
         const toolDocument = await parseRoot("tool 'adoc'", { documentUri: 'memory:///adoc.xsmptool' });
         const dependencyDocument = await parseRoot("project 'foundation'\nsource 'smdl'\n", { documentUri: 'memory:///foundation/xsmp.project' });
-        const projectText = `project 'MissionDemo' using @@
+        const projectCursor = extractCursor(`project 'MissionDemo' using @@
 dependency ''
 tool ''
 profile ''
-`;
-        const projectDocument = await parseRoot(projectText.replace('@@', ''), { documentUri: 'memory:///mission/xsmp.project' });
-        documents.push(profileDocument, toolDocument, dependencyDocument, projectDocument);
-        await services.shared.workspace.DocumentBuilder.build(documents, { validation: false });
+`);
+        documents.push(profileDocument, toolDocument, dependencyDocument);
 
-        const standardItems = await getCompletionItems(projectDocument, projectText.indexOf('@@'));
+        const { items: standardItems } = await getProjectCompletion({
+            sourceText: projectCursor.text,
+            offset: projectCursor.cursor,
+            parseOptions: { documentUri: 'memory:///mission/xsmp.project' },
+        });
         expect(labels(standardItems)).toContain('ECSS_SMP_2025');
     });
 
@@ -83,15 +94,17 @@ profile ''
         const preferredProfileId = services.shared.ContributionRegistry.getPreferredContributionId('profile') ?? 'profile';
         const preferredToolId = services.shared.ContributionRegistry.getPreferredContributionId('tool') ?? 'tool';
         const dependencyDocument = await parseRoot("project 'foundation'\nsource 'smdl'\n", { documentUri: 'memory:///foundation/xsmp.project' });
-        const projectText = `project 'MissionDemo'
+        const projectCursor = extractCursor(`project 'MissionDemo'
 source 'smdl'
 to@@
-`;
-        const projectDocument = await parseRoot(projectText.replace('@@', ''), { documentUri: 'memory:///mission/xsmp.project' });
-        documents.push(dependencyDocument, projectDocument);
-        await services.shared.workspace.DocumentBuilder.build(documents, { validation: false });
+`);
+        documents.push(dependencyDocument);
 
-        const items = await getCompletionItems(projectDocument, projectText.indexOf('@@'));
+        const { items } = await getProjectCompletion({
+            sourceText: projectCursor.text,
+            offset: projectCursor.cursor,
+            parseOptions: { documentUri: 'memory:///mission/xsmp.project' },
+        });
         expect(labels(items)).toContain(`tool '${preferredToolId}'`);
         expect(labels(items)).not.toContain('Tool');
         expect(labels(items)).toContain(`profile '${preferredProfileId}'`);
@@ -118,16 +131,19 @@ to@@
             "project 'shared'\n",
             { documentUri: 'memory:///shared/xsmp.project' }
         );
-        const projectText = `project 'mission' using 'ECSS_SMP_2025'
+        const projectCursor = extractCursor(`project 'mission' using 'ECSS_SMP_2025'
 tool '${usedToolId}'
 profile '${usedProfileId}'
 @@
-`;
-        const projectDocument = await parseRoot(projectText.replace('@@', ''), { documentUri: 'memory:///mission/xsmp.project' });
-        documents.push(foundationDocument, sharedDocument, projectDocument);
+`);
+        documents.push(foundationDocument, sharedDocument);
         await services.shared.workspace.DocumentBuilder.build(documents, { validation: true });
 
-        const items = await getCompletionItems(projectDocument, projectText.indexOf('@@'));
+        const { items } = await getProjectCompletion({
+            sourceText: projectCursor.text,
+            offset: projectCursor.cursor,
+            parseOptions: { documentUri: 'memory:///mission/xsmp.project' },
+        });
         const dependencyLabels = labels(items).filter(label => label.startsWith("dependency '"));
         expect(dependencyLabels).toEqual(["dependency 'foundation'", "dependency 'shared'"]);
         expect(labels(items)).not.toContain("dependency 'mission'");
@@ -148,17 +164,18 @@ profile '${usedProfileId}'
             .getContributionSummaries('tool')
             .map(summary => `tool '${summary.id}'`)
             .join('\n');
-        const projectText = `project 'mission' using 'ECSS_SMP_2025'
+        const projectCursor = extractCursor(`project 'mission' using 'ECSS_SMP_2025'
 source 'smdl'
 ${allProfileStatements}
 ${allToolStatements}
 @@
-`;
-        const projectDocument = await parseRoot(projectText.replace('@@', ''), { documentUri: 'memory:///mission/xsmp.project' });
-        documents.push(projectDocument);
-        await services.shared.workspace.DocumentBuilder.build(documents, { validation: false });
+`);
 
-        const items = await getCompletionItems(projectDocument, projectText.indexOf('@@'));
+        const { items } = await getProjectCompletion({
+            sourceText: projectCursor.text,
+            offset: projectCursor.cursor,
+            parseOptions: { documentUri: 'memory:///mission/xsmp.project' },
+        });
         expect(labels(items)).toContain(`profile '${preferredProfileId}'`);
         expect(labels(items)).toContain(`tool '${preferredToolId}'`);
         expect(labels(items)).toContain("dependency '<project-name>'");
@@ -169,18 +186,13 @@ ${allToolStatements}
     });
 });
 
-async function getCompletionItems(document: LangiumDocument, offset: number): Promise<CompletionItem[]> {
-    const completion = await services.xsmpproject.lsp.CompletionProvider?.getCompletion(document, {
-        textDocument: { uri: document.textDocument.uri },
-        position: document.textDocument.positionAt(offset),
-    });
-    return completion?.items ?? [];
-}
-
-function labels(items: CompletionItem[]): string[] {
-    return items.map(item => item.label);
-}
-
-function findSnippetItem(items: CompletionItem[], label: string): CompletionItem | undefined {
-    return items.find(item => item.label === label && item.insertTextFormat === InsertTextFormat.Snippet);
+function extractCursor(text: string): { cursor: number; text: string } {
+    const cursor = text.indexOf('@@');
+    if (cursor < 0) {
+        throw new Error('Missing cursor marker.');
+    }
+    return {
+        cursor,
+        text: text.replace('@@', ''),
+    };
 }

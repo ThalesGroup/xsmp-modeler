@@ -758,6 +758,9 @@
 					"include": "#container"
 				},
 				{
+					"include": "#realization"
+				},
+				{
 					"include": "#def"
 				},
 				{
@@ -778,7 +781,7 @@
 					"name": "storage.modifier.xsmp"
 				}
 			},
-			"end": "(?=private|protected|public|\\=|\\}|\\@|input|output|transient|readOnly|writeOnly|readWrite|def|eventsink|eventsource|association|entrypoint|constant|field|property|reference|container)",
+			"end": "(?=private|protected|public|\\=|\\}|\\@|input|output|transient|readOnly|writeOnly|readWrite|def|eventsink|eventsource|association|entrypoint|constant|field|property|reference|container|realization)",
 			"patterns": [
 				{
 					"begin": "\\b(?:[A-Za-z]\\w*\\s*(\\.)\\s*)*([A-Za-z]\\w*)\\b",
@@ -818,7 +821,7 @@
 					"name": "storage.modifier.xsmp"
 				}
 			},
-			"end": "(?=private|protected|public|\\=|\\}|\\@|input|output|transient|readOnly|writeOnly|readWrite|def|eventsink|eventsource|association|entrypoint|constant|field|property|reference|container|get|set)",
+			"end": "(?=private|protected|public|\\=|\\}|\\@|input|output|transient|readOnly|writeOnly|readWrite|def|eventsink|eventsource|association|entrypoint|constant|field|property|reference|container|realization|get|set)",
 			"patterns": [
 				{
 					"begin": "\\b(?:[A-Za-z]\\w*\\s*(\\.)\\s*)*([A-Za-z]\\w*)\\b",
@@ -861,7 +864,24 @@
 					"name": "storage.modifier.xsmp"
 				}
 			},
-			"end": "(?=private|protected|public|\\=|\\}|\\@|input|output|transient|readOnly|writeOnly|readWrite|def|eventsink|eventsource|association|entrypoint|constant|field|property|reference|container)",
+			"end": "(?=private|protected|public|\\=|\\}|\\@|input|output|transient|readOnly|writeOnly|readWrite|def|eventsink|eventsource|association|entrypoint|constant|field|property|reference|container|realization)",
+			"patterns": [
+				{
+					"include": "#type-name"
+				},
+				{
+					"include": "#commons"
+				}
+			]
+		},
+		"realization": {
+			"begin": "\\b(realization)\\b",
+			"beginCaptures": {
+				"1": {
+					"name": "storage.modifier.xsmp"
+				}
+			},
+			"end": "(?=private|protected|public|\\=|\\}|\\@|input|output|transient|readOnly|writeOnly|readWrite|def|eventsink|eventsource|association|entrypoint|constant|field|property|reference|container|realization)",
 			"patterns": [
 				{
 					"include": "#type-name"
@@ -1001,7 +1021,7 @@
 					"name": "storage.modifier.xsmp"
 				}
 			},
-			"end": "(?=,|\\)|private|protected|public|\\}|\\@|input|output|transient|readOnly|writeOnly|readWrite|def|eventsink|eventsource|association|entrypoint|constant|field|property|reference|container|integer|float|using|model|service|attribute|struct|namespace|primitive|native|string|array|class|exception)",
+			"end": "(?=,|\\)|private|protected|public|\\}|\\@|input|output|transient|readOnly|writeOnly|readWrite|def|eventsink|eventsource|association|entrypoint|constant|field|property|reference|container|realization|integer|float|using|model|service|attribute|struct|namespace|primitive|native|string|array|class|exception)",
 			"patterns": [
 				{
 					"include": "#comments"
@@ -1018,7 +1038,7 @@
 					"name": "storage.modifier.xsmp"
 				}
 			},
-			"end": "(?=private|protected|public|\\=|\\}|\\@|input|output|transient|readOnly|writeOnly|readWrite|def|eventsink|eventsource|association|entrypoint|constant|field|property|reference|container|set)",
+			"end": "(?=private|protected|public|\\=|\\}|\\@|input|output|transient|readOnly|writeOnly|readWrite|def|eventsink|eventsource|association|entrypoint|constant|field|property|reference|container|realization|set)",
 			"name": "meta.throwables.xsmp",
 			"patterns": [
 				{

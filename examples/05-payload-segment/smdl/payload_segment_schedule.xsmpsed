@@ -1,17 +1,17 @@
 /** Operational schedule driving one payload segment over time. */
-schedule <root: string = "/payloadSegment", PayloadMember: string = "payload", RouterMember: string = "router", LoggerMember: string = "logger", cycles: int32 = 2> PayloadSegmentSchedule epoch "2025-01-01T00:10:00Z" mission "2025-01-01T00:10:00Z"
+schedule <root: string = "/PayloadPlatform"> PayloadSegmentSchedule epoch "2025-01-01T00:10:00Z" mission "2025-01-01T00:10:00Z"
 
 /** Prime task preparing the payload platform for acquisition. */
 task Prime on demo.payloadsegment.PayloadPlatform
 {
     /** Logs the payload bootstrap phase. */
-    call {LoggerMember}.log(message = "payload bootstrap")
+    call PayloadLogger.log(message = "payload bootstrap")
     /** Forces the platform mode to nominal. */
     property mode = demo.foundation.Mode.Nominal
     /** Runs one payload capture cycle. */
-    trig {PayloadMember}.capture
+    trig PayloadUnit.capture
     /** Reuses the dedicated flush task on the payload root. */
-    execute Flush at {PayloadMember}
+    execute Flush at PayloadUnit
     /** Emits the event that starts the downlink cycle. */
     async emit "PayloadReady"
 }
@@ -20,20 +20,20 @@ task Prime on demo.payloadsegment.PayloadPlatform
 task Flush on demo.payload.PayloadUnit
 {
     /** Flushes the payload mass memory. */
-    trig memory.flush
+    trig MassMemory.flush
     /** Forces the camera into nominal mode. */
-    call camera.apply(requestedMode = demo.foundation.Mode.Nominal)
+    call CameraHead.apply(requestedMode = demo.foundation.Mode.Nominal)
 }
 
 /** Downlink task routing frame data through the segment router. */
 task Downlink on demo.payloadsegment.PayloadPlatform
 {
     /** Copies camera frames to the downlink router input. */
-    transfer {PayloadMember}.camera.frames -> {RouterMember}.sourceFrames
+    transfer PayloadUnit.CameraHead.frames -> DownlinkRouter.sourceFrames
     /** Runs one relay step on the router. */
-    trig {RouterMember}.relay
+    trig DownlinkRouter.relay
     /** Logs the relay activity. */
-    call {LoggerMember}.log(message = "payload relay")
+    call PayloadLogger.log(message = "payload relay")
 }
 
 /** Starts the prime phase once at a UTC time. */

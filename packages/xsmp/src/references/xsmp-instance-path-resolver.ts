@@ -114,8 +114,12 @@ export class XsmpInstancePathResolver {
         return this.typedPathResolver.getFieldCandidatesForType(type);
     }
 
-    getComponentPathMembers(component: RecoverableComponent | undefined): ReadonlyArray<ast.Container | ast.Reference> {
+    getComponentPathMembers(component: RecoverableComponent | undefined): readonly ast.Component[] {
         return this.typedPathResolver.getComponentPathMembers(component);
+    }
+
+    getComponentContainers(component: RecoverableComponent | undefined): readonly ast.Container[] {
+        return this.typedPathResolver.getComponentContainers(component);
     }
 
     getComponentMembersByKind(component: RecoverableComponent | undefined, kinds: readonly MemberKind[]): readonly ast.NamedElement[] {
@@ -290,7 +294,7 @@ export class XsmpInstancePathResolver {
             const parent = ast.isModelInstance(container.$container) ? container.$container : undefined;
             const component = parent && ast.isComponent(parent.implementation?.ref) ? parent.implementation.ref : undefined;
             return {
-                candidates: this.getComponentPathMembers(component).filter(ast.isContainer),
+                candidates: this.getComponentContainers(component),
                 component,
             };
         }
@@ -1202,7 +1206,7 @@ export class XsmpInstancePathResolver {
             getFinalCandidates: (component) => this.getComponentMembers(component, memberKinds),
             getFinalType: (element) => this.getMemberType(element),
             indexMessage: 'This path kind shall not use array indices.',
-            containerOrReferenceMessage: (segmentText) => `The path segment '${segmentText}' shall resolve to a Container or Reference of the current Component.`,
+            containerOrReferenceMessage: (segmentText) => `The path segment '${segmentText}' shall resolve to a child Component of the current Component.`,
             finalMissingMessage: (segmentText) => `The path segment '${segmentText}' shall resolve to a supported member of the current Component.`,
             parentMessage: 'The path segment ".." shall not navigate above the typed component context.',
         }, bindings), bindings);
@@ -1217,7 +1221,7 @@ export class XsmpInstancePathResolver {
         return this.typedMemberResolutionToInstancePath(this.typedPathResolver.resolveComponentFieldPath(path, baseStack, {
             getFinalCandidates: (component) => this.getComponentMembers(component, [requiredKind]) as ast.Field[],
             indexMessage: 'Field paths shall start with a Field.',
-            containerOrReferenceMessage: (segmentText) => `The path segment '${segmentText}' shall resolve to a Container or Reference of the current Component.`,
+            containerOrReferenceMessage: (segmentText) => `The path segment '${segmentText}' shall resolve to a child Component of the current Component.`,
             finalMissingMessage: (segmentText) => `The path segment '${segmentText}' shall resolve to a ${requiredKind === 'outputField' ? 'Field marked as Output' : 'Field marked as Input'} of the current Component.`,
             pathRuleMessage: 'Field paths shall only use field names, "." member access and array indices.',
             structureRequiredMessage: (segmentText) => `The path segment '${segmentText}' requires a Structure-typed parent value.`,
@@ -1406,8 +1410,8 @@ export class XsmpInstancePathResolver {
         if (!containerName) {
             return undefined;
         }
-        return this.getComponentPathMembers(component)
-            .find((candidate): candidate is ast.Container => ast.isContainer(candidate) && candidate.name === containerName);
+        return this.getComponentContainers(component)
+            .find(candidate => candidate.name === containerName);
     }
 
     getSubInstanceContainerForCompletion(subInstance: ast.SubInstance, component: ast.Component | undefined): ast.Container | undefined {
@@ -1514,10 +1518,8 @@ export class XsmpInstancePathResolver {
         if (!segment) {
             return undefined;
         }
-        const segmentText = this.pathService.getSegmentText(segment);
         const matches = children.filter(child =>
             this.identifierPatternService.matches(this.identifierPatternService.getSegmentPattern(segment), child.instance.name ?? '', bindings)
-            || child.member.name === segmentText
         );
         if (matches.length === 1) {
             return matches[0];

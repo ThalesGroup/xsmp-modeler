@@ -1,20 +1,20 @@
-/** Reusable link base wiring the templated payload segment. */
+/** Reusable link base wiring the payload segment. */
 link PayloadSegmentLinks for PayloadSegment
 
 /** Links declared at the root of the payload platform. */
 /
 {
     /** Routes camera frames toward the downlink router. */
-    field link {PayloadMember}.camera.frames -> {RouterMember}.sourceFrames
+    field link PayloadUnit.CameraHead.frames -> DownlinkRouter.sourceFrames
     /** Injects the payload logger into the payload logger reference. */
-    interface link {PayloadMember}.logger -> {LoggerMember}
+    interface link PayloadUnit.logger -> PayloadLogger
     /** Publishes payload mode changes to the platform inbound sink. */
-    event link {PayloadMember}.payloadMode -> inboundMode
+    event link PayloadUnit.payloadMode -> inboundMode
 
     /** Additional links local to the nested payload subtree. */
-    payload
+    PayloadUnit
     {
         /** Maps camera frame events to the payload uplink sink. */
-        event link camera.frameReady -> uplinkMode
+        event link CameraHead.frameReady -> uplinkMode
     }
 }

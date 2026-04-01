@@ -1,12 +1,12 @@
 import { AstUtils, type AstNodeDescription, type GrammarAST, type ReferenceInfo } from 'langium';
-import type { CompletionAcceptor, CompletionContext, NextFeature } from 'langium/lsp';
+import type { CompletionAcceptor, CompletionContext } from 'langium/lsp';
 import * as ast from '../generated/ast-partial.js';
 import type { IdentifierPatternService } from '../references/identifier-pattern-service.js';
 import type { XsmpsedServices } from '../xsmpsed-module.js';
 import { XsmpCompletionProviderBase } from './xsmp-completion-provider-base.js';
 
 export class XsmpsedCompletionProvider extends XsmpCompletionProviderBase {
-    protected readonly snippetOnlyKeywords = new Set([
+    protected override readonly snippetOnlyKeywords = new Set([
         'schedule',
         'task',
         'event',
@@ -24,21 +24,10 @@ export class XsmpsedCompletionProvider extends XsmpCompletionProviderBase {
         this.identifierPatternService = services.shared.IdentifierPatternService;
     }
 
-    protected override completionForKeyword(context: CompletionContext, keyword: GrammarAST.Keyword, acceptor: CompletionAcceptor) {
-        if (this.snippetOnlyKeywords.has(keyword.value)) {
-            return;
-        }
-        return super.completionForKeyword(context, keyword, acceptor);
-    }
-
     protected override createKeywordSnippets(context: CompletionContext, keyword: GrammarAST.Keyword, acceptor: CompletionAcceptor): void {
         if (keyword.value === 'schedule') {
-            acceptor(context, this.createKeywordSnippet(keyword, 'schedule ${1:Name}\n$0', 'Schedule Definition'));
+            acceptor(context, this.createKeywordSnippet(keyword, this.getScheduleDefinitionSnippetText(), 'Schedule Definition'));
         }
-    }
-
-    protected override addContextualCompletions(context: CompletionContext, _next: NextFeature, acceptor: CompletionAcceptor): void {
-        this.addStandaloneCompletions(context, acceptor);
     }
 
     protected override addStandaloneCompletions(context: CompletionContext, acceptor: CompletionAcceptor): void {
@@ -114,10 +103,10 @@ export class XsmpsedCompletionProvider extends XsmpCompletionProviderBase {
             return;
         }
         const schedule = this.getRecoveryContainerOfType(context, ast.isSchedule);
-        const task = this.getRecoveryContainerOfType(context, ast.isTask);
+        const task = this.getRecoveryBlockContainerOfType(context, ast.isTask);
 
         if (!schedule && !task) {
-            acceptor(context, this.createSnippetItem('Schedule', 'schedule ${1:Name}\n$0', 'Schedule Definition'));
+            acceptor(context, this.createSnippetItem('Schedule', this.getScheduleDefinitionSnippetText(), 'Schedule Definition'));
             return;
         }
 
@@ -151,48 +140,28 @@ export class XsmpsedCompletionProvider extends XsmpCompletionProviderBase {
         if (!this.isAtStatementPrefix(context)) {
             return;
         }
-        const task = this.getRecoveryContainerOfType(context, ast.isTask);
+        const task = this.getRecoveryBlockContainerOfType(context, ast.isTask);
         const localComponent = task ? this.instancePathResolver.getEffectiveTaskExecutionContext(task) : undefined;
         if (!task) {
             return;
         }
 
         if (localComponent) {
-            for (const candidate of this.getOperations(localComponent)) {
-                if (!candidate.name) {
-                    continue;
-                }
-                acceptor(context, this.createContextualValueItem(
-                    context,
-                    `call ${candidate.name}`,
-                    `call ${this.createOperationCallText(candidate, 'path')}`,
-                    `Operation call for ${candidate.name}.`
-                ));
-            }
-
-            for (const candidate of this.getProperties(localComponent)) {
-                if (!candidate.name) {
-                    continue;
-                }
-                acceptor(context, this.createContextualValueItem(
-                    context,
-                    `property ${candidate.name}`,
-                    `property ${this.createPropertyAssignmentText(candidate.name, candidate.type?.ref, 'path')}`,
-                    `Property value for ${candidate.name}.`
-                ));
-            }
-
-            for (const candidate of this.getEntryPoints(localComponent)) {
-                if (!candidate.name) {
-                    continue;
-                }
-                acceptor(context, this.createContextualValueItem(
-                    context,
-                    `trig ${candidate.name}`,
-                    `trig ${this.createTriggerText(candidate.name)}`,
-                    `Trigger entry point ${candidate.name}.`
-                ));
-            }
+            this.addNamedContextualValueCompletions(context, acceptor, this.getOperations(localComponent), (candidate, name) => ({
+                label: `call ${name}`,
+                insertText: `call ${this.createOperationCallText(candidate, 'path')}`,
+                detail: `Operation call for ${name}.`,
+            }));
+            this.addNamedContextualValueCompletions(context, acceptor, this.getProperties(localComponent), (candidate, name) => ({
+                label: `property ${name}`,
+                insertText: `property ${this.createPropertyAssignmentText(name, candidate.type?.ref, 'path')}`,
+                detail: `Property value for ${name}.`,
+            }));
+            this.addNamedContextualValueCompletions(context, acceptor, this.getEntryPoints(localComponent), (_candidate, name) => ({
+                label: `trig ${name}`,
+                insertText: `trig ${this.createTriggerText(name)}`,
+                detail: `Trigger entry point ${name}.`,
+            }));
 
             const outputFields = this.instancePathResolver.getComponentMembersByKind(localComponent, ['outputField']);
             const inputFields = this.instancePathResolver.getComponentMembersByKind(localComponent, ['inputField']);
@@ -237,9 +206,7 @@ export class XsmpsedCompletionProvider extends XsmpCompletionProviderBase {
             const targetType = setProperty.propertyPath
                 ? this.instancePathResolver.getScheduleActivityPathResolution(setProperty.propertyPath).finalType
                 : undefined;
-            for (const item of this.getSimpleValueCompletions(targetType, 'path', false)) {
-                acceptor(context, item);
-            }
+            this.addSimpleValueCompletionsForType(context, acceptor, targetType, 'path', false);
             return;
         }
 
@@ -252,9 +219,7 @@ export class XsmpsedCompletionProvider extends XsmpCompletionProviderBase {
             const parameter = ast.isOperation(operation)
                 ? operation.parameter.find(candidate => candidate.name === parameterValue.parameter)
                 : undefined;
-            for (const item of this.getSimpleValueCompletions(parameter?.type?.ref, 'path', false)) {
-                acceptor(context, item);
-            }
+            this.addSimpleValueCompletionsForType(context, acceptor, parameter?.type?.ref, 'path', false);
             return;
         }
 
@@ -270,38 +235,26 @@ export class XsmpsedCompletionProvider extends XsmpCompletionProviderBase {
 
     protected addActivityReferenceCompletions(context: CompletionContext, acceptor: CompletionAcceptor): void {
         const linePrefix = this.getLinePrefix(context);
-        const task = this.getRecoveryContainerOfType(context, ast.isTask);
+        const task = this.getRecoveryBlockContainerOfType(context, ast.isTask);
         const localComponent = task ? this.instancePathResolver.getEffectiveTaskExecutionContext(task) : undefined;
 
         const callPathPrefix = this.getActivityPathPrefix(linePrefix, 'call');
         if (localComponent && callPathPrefix !== undefined) {
-            for (const candidate of this.getOperations(localComponent)) {
-                if (!candidate.name) {
-                    continue;
-                }
-                acceptor(context, this.createContextualValueItem(
-                    context,
-                    candidate.name,
-                    this.createOperationCallText(candidate, 'path'),
-                    `Operation of ${candidate.$container.name}.`
-                ));
-            }
+            this.addNamedContextualValueCompletions(context, acceptor, this.getOperations(localComponent), (candidate, name) => ({
+                label: name,
+                insertText: this.createOperationCallText(candidate, 'path'),
+                detail: `Operation of ${candidate.$container.name}.`,
+            }));
             this.addAssemblyChildPathCompletions(context, acceptor, task, callPathPrefix, 'Child instance of the current assembly.');
         }
 
         const propertyPathPrefix = this.getActivityPathPrefix(linePrefix, 'property');
         if (localComponent && propertyPathPrefix !== undefined) {
-            for (const candidate of this.getProperties(localComponent)) {
-                if (!candidate.name) {
-                    continue;
-                }
-                acceptor(context, this.createContextualValueItem(
-                    context,
-                    candidate.name,
-                    this.createPropertyAssignmentText(candidate.name, candidate.type?.ref, 'path'),
-                    `Property of ${candidate.$container.name}.`
-                ));
-            }
+            this.addNamedContextualValueCompletions(context, acceptor, this.getProperties(localComponent), (candidate, name) => ({
+                label: name,
+                insertText: this.createPropertyAssignmentText(name, candidate.type?.ref, 'path'),
+                detail: `Property of ${candidate.$container.name}.`,
+            }));
             this.addAssemblyChildPathCompletions(context, acceptor, task, propertyPathPrefix, 'Child instance of the current assembly.');
         }
 
@@ -358,6 +311,10 @@ export class XsmpsedCompletionProvider extends XsmpCompletionProviderBase {
                 return [this.identifierPatternService.substitute(instance.name, bindings) ?? instance.name];
             })
             .filter((name): name is string => Boolean(name));
+    }
+
+    protected getScheduleDefinitionSnippetText(): string {
+        return 'schedule ${1:Name}\n$0';
     }
 
     protected getActivityPathPrefix(linePrefix: string, keyword: string): string | undefined {

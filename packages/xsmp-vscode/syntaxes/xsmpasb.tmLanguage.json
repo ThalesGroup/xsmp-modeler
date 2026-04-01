@@ -285,7 +285,7 @@
 					"name": "keyword.operator.path.parent.xsmp"
 				},
 				{
-					"match": "/",
+					"match": "\\/(?![/*])",
 					"name": "punctuation.separator.path.xsmp"
 				},
 				{
@@ -574,7 +574,7 @@
 					"name": "punctuation.section.brackets.xsmp"
 				},
 				{
-					"match": "(?<!\\.)\\/(?!\\/)",
+					"match": "(?<!\\.)\\/(?![/*])",
 					"name": "punctuation.separator.path.xsmp"
 				},
 				{

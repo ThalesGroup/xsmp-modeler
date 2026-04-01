@@ -1,12 +1,11 @@
 import { AstUtils, type AstNodeDescription, type GrammarAST, type ReferenceInfo } from 'langium';
-import type { CompletionAcceptor, CompletionContext, NextFeature } from 'langium/lsp';
+import type { CompletionAcceptor, CompletionContext } from 'langium/lsp';
 import * as ast from '../generated/ast-partial.js';
 import type { XsmpcfgServices } from '../xsmpcfg-module.js';
-import * as XsmpUtils from '../utils/xsmp-utils.js';
 import { XsmpCompletionProviderBase } from './xsmp-completion-provider-base.js';
 
 export class XsmpcfgCompletionProvider extends XsmpCompletionProviderBase {
-    protected readonly snippetOnlyKeywords = new Set([
+    protected override readonly snippetOnlyKeywords = new Set([
         'configuration',
         'include',
     ]);
@@ -15,26 +14,14 @@ export class XsmpcfgCompletionProvider extends XsmpCompletionProviderBase {
         super(services);
     }
 
-    protected override completionForKeyword(context: CompletionContext, keyword: GrammarAST.Keyword, acceptor: CompletionAcceptor) {
-        if (this.snippetOnlyKeywords.has(keyword.value)) {
-            return;
-        }
-        return super.completionForKeyword(context, keyword, acceptor);
-    }
-
     protected override createKeywordSnippets(context: CompletionContext, keyword: GrammarAST.Keyword, acceptor: CompletionAcceptor): void {
         if (keyword.value === 'configuration') {
-            acceptor(context, this.createKeywordSnippet(keyword, 'configuration ${1:Name}\n$0', 'Configuration Definition'));
+            acceptor(context, this.createKeywordSnippet(keyword, this.getConfigurationDefinitionSnippetText(), 'Configuration Definition'));
         }
-    }
-
-    protected override addContextualCompletions(context: CompletionContext, _next: NextFeature, acceptor: CompletionAcceptor): void {
-        this.addStandaloneCompletions(context, acceptor);
     }
 
     protected override addStandaloneCompletions(context: CompletionContext, acceptor: CompletionAcceptor): void {
         this.addStatementSnippets(context, acceptor);
-        this.addNestedComponentConfigurationCompletions(context, acceptor);
         this.addConfigurableFieldCompletions(context, acceptor);
         this.addTypedValueCompletions(context, acceptor);
     }
@@ -73,44 +60,24 @@ export class XsmpcfgCompletionProvider extends XsmpCompletionProviderBase {
         }
 
         const configuration = this.getRecoveryContainerOfType(context, ast.isConfiguration);
-        const componentConfiguration = this.getRecoveryContainerOfType(context, ast.isComponentConfiguration);
+        const componentConfiguration = this.getRecoveryBlockContainerOfType(context, ast.isComponentConfiguration);
         const contexts = this.getCrossReferenceNames(context, ast.ComponentConfiguration, ast.ComponentConfiguration.context);
         const configurations = this.getCrossReferenceNames(context, ast.ConfigurationUsage, ast.ConfigurationUsage.configuration);
 
         if (!configuration && !componentConfiguration) {
-            acceptor(context, this.createSnippetItem(
-                'Configuration',
-                'configuration ${1:Name}\n$0',
-                'Configuration Definition'
-            ));
+            acceptor(context, this.createSnippetItem('Configuration', this.getConfigurationDefinitionSnippetText(), 'Configuration Definition'));
             return;
         }
 
         if (componentConfiguration) {
-            acceptor(context, this.createSnippetItem(
-                'Component Configuration',
-                `${this.createPlaceholder(1, 'child')}: ${this.createChoicePlaceholder(2, contexts, 'demo.Component')}\n{\n\t$0\n}`,
-                'Nested Component Configuration'
-            ));
-            acceptor(context, this.createSnippetItem(
-                'Include Configuration',
-                `include ${this.createChoicePlaceholder(1, configurations, 'Configuration')} at ${this.createPlaceholder(2, 'path')}`,
-                'Configuration Include'
-            ));
+            acceptor(context, this.createSnippetItem('Component Configuration', this.createComponentConfigurationSnippet(contexts, false), 'Nested Component Configuration'));
+            acceptor(context, this.createSnippetItem('Include Configuration', this.createIncludeConfigurationSnippet(configurations, true), 'Configuration Include'));
             return;
         }
 
         if (configuration) {
-            acceptor(context, this.createSnippetItem(
-                'Root Component Configuration',
-                `/${this.createPlaceholder(1, 'root')}: ${this.createChoicePlaceholder(2, contexts, 'demo.Component')}\n{\n\t$0\n}`,
-                'Root Component Configuration'
-            ));
-            acceptor(context, this.createSnippetItem(
-                'Include Configuration',
-                `include ${this.createChoicePlaceholder(1, configurations, 'Configuration')}${this.createPlaceholder(2, ' at path')}`,
-                'Configuration Include'
-            ));
+            acceptor(context, this.createSnippetItem('Root Component Configuration', this.createComponentConfigurationSnippet(contexts, true), 'Root Component Configuration'));
+            acceptor(context, this.createSnippetItem('Include Configuration', this.createIncludeConfigurationSnippet(configurations, false), 'Configuration Include'));
         }
     }
 
@@ -118,7 +85,7 @@ export class XsmpcfgCompletionProvider extends XsmpCompletionProviderBase {
         if (!this.isAtStatementPrefix(context)) {
             return;
         }
-        const configuration = this.getRecoveryContainerOfType(context, ast.isComponentConfiguration);
+        const configuration = this.getRecoveryBlockContainerOfType(context, ast.isComponentConfiguration);
         const component = configuration
             ? this.cfgPathResolver.getConfigurationComponentContext(configuration).component
             : undefined;
@@ -139,39 +106,6 @@ export class XsmpcfgCompletionProvider extends XsmpCompletionProviderBase {
         }
     }
 
-    protected addNestedComponentConfigurationCompletions(context: CompletionContext, acceptor: CompletionAcceptor): void {
-        if (!this.isAtStatementPrefix(context)) {
-            return;
-        }
-        const configuration = this.getRecoveryContainerOfType(context, ast.isComponentConfiguration);
-        const componentContext = configuration
-            ? this.cfgPathResolver.getConfigurationComponentContext(configuration)
-            : undefined;
-        if (componentContext?.assemblyContext) {
-            return;
-        }
-        if (!componentContext?.component) {
-            return;
-        }
-
-        const configurations = this.getCrossReferenceNames(context, ast.ConfigurationUsage, ast.ConfigurationUsage.configuration);
-        for (const child of this.getDirectChildComponentContexts(componentContext.component)) {
-            const componentName = XsmpUtils.fqn(child.component);
-            acceptor(context, this.createContextualValueItem(
-                context,
-                `${child.path}: ${componentName}`,
-                `${child.path}: ${componentName}\n{\n\t$0\n}`,
-                'Nested Component Configuration'
-            ));
-            acceptor(context, this.createContextualValueItem(
-                context,
-                `include at ${child.path}`,
-                `include ${this.createChoicePlaceholder(1, configurations, 'Configuration')} at ${child.path}`,
-                'Configuration Include'
-            ));
-        }
-    }
-
     protected addTypedValueCompletions(context: CompletionContext, acceptor: CompletionAcceptor): void {
         if (!this.isAfterEquals(context)) {
             return;
@@ -179,8 +113,22 @@ export class XsmpcfgCompletionProvider extends XsmpCompletionProviderBase {
         const fieldValue = AstUtils.getContainerOfType(this.getRecoveryAstNode(context), ast.isFieldValue);
         const path = fieldValue?.field;
         const targetType = path ? this.cfgPathResolver.getFieldPathResolution(path).finalType : undefined;
-        for (const item of this.getSimpleValueCompletions(targetType, 'cfg', true)) {
-            acceptor(context, item);
-        }
+        this.addSimpleValueCompletionsForType(context, acceptor, targetType, 'cfg', true);
+    }
+
+    protected getConfigurationDefinitionSnippetText(): string {
+        return 'configuration ${1:Name}\n$0';
+    }
+
+    protected createComponentConfigurationSnippet(contexts: string[], root: boolean): string {
+        const path = root ? `/${this.createPlaceholder(1, 'root')}` : this.createPlaceholder(1, 'child');
+        return `${path}: ${this.createChoicePlaceholder(2, contexts, 'demo.Component')}\n{\n\t$0\n}`;
+    }
+
+    protected createIncludeConfigurationSnippet(configurations: string[], withExplicitAtPath: boolean): string {
+        const pathPart = withExplicitAtPath
+            ? ` at ${this.createPlaceholder(2, 'path')}`
+            : this.createPlaceholder(2, ' at path');
+        return `include ${this.createChoicePlaceholder(1, configurations, 'Configuration')}${pathPart}`;
     }
 }

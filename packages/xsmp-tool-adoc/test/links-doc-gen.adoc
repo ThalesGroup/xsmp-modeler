@@ -39,19 +39,19 @@ Root link definitions.
 |field
 |outValue
 |
-|child.inValue
+|Child.inValue
 |
 |Output field routing.
 |event
 |outbound
 |
-|child.inbound
+|Child.inbound
 |
 |Event propagation.
 |interface
 |.
 |logger
-|child
+|Child
 |backLogger
 |Logger publication.
 |===

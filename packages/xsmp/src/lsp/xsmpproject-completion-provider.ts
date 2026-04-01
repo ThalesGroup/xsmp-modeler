@@ -11,7 +11,7 @@ import type { XsmpContributionKind, XsmpContributionSummary } from '../contribut
 export class XsmpprojectCompletionProvider extends XsmpCompletionProviderBase {
     protected readonly projectManager: ProjectManager;
     protected readonly contributionRegistry: XsmpContributionRegistry;
-    protected readonly snippetOnlyKeywords = new Set([
+    protected override readonly snippetOnlyKeywords = new Set([
         'project',
         'profile',
         'tool',
@@ -23,13 +23,6 @@ export class XsmpprojectCompletionProvider extends XsmpCompletionProviderBase {
         super(services);
         this.projectManager = services.shared.workspace.ProjectManager;
         this.contributionRegistry = services.shared.ContributionRegistry;
-    }
-
-    protected override completionForKeyword(context: CompletionContext, keyword: GrammarAST.Keyword, acceptor: CompletionAcceptor): MaybePromise<void> {
-        if (this.snippetOnlyKeywords.has(keyword.value)) {
-            return;
-        }
-        return super.completionForKeyword(context, keyword, acceptor);
     }
 
     protected isReferenceProperty(refInfo: ReferenceInfo, type: string | { readonly $type: string }, property: string): boolean {
@@ -118,22 +111,22 @@ export class XsmpprojectCompletionProvider extends XsmpCompletionProviderBase {
             case 'project':
                 acceptor(context, this.createKeywordSnippet(
                     keyword,
-                    "project '${1:MissionDemo}'\nsource '${2:smdl}'\n$0",
+                    this.getProjectDefinitionSnippetText(),
                     'Project Definition'
                 ));
                 break;
             case 'profile':
                 acceptor(context, this.createKeywordSnippet(
                     keyword,
-                    `profile '${this.createPlaceholder(1, this.getContributionSnippetDefault('profile', 'profile'))}'`,
-                    'Profile Reference'
+                    this.getContributionReferenceSnippetText('profile'),
+                    this.getContributionReferenceDetail('profile'),
                 ));
                 break;
             case 'tool':
                 acceptor(context, this.createKeywordSnippet(
                     keyword,
-                    `tool '${this.createPlaceholder(1, this.getContributionSnippetDefault('tool', 'tool'))}'`,
-                    'Tool Reference'
+                    this.getContributionReferenceSnippetText('tool'),
+                    this.getContributionReferenceDetail('tool'),
                 ));
                 break;
             case 'dependency':
@@ -146,15 +139,11 @@ export class XsmpprojectCompletionProvider extends XsmpCompletionProviderBase {
             case 'source':
                 acceptor(context, this.createKeywordSnippet(
                     keyword,
-                    "source '${1:smdl}'",
+                    this.getSourceDefinitionSnippetText(),
                     'Project Source Root'
                 ));
                 break;
         }
-    }
-
-    protected override addContextualCompletions(context: CompletionContext, _next: NextFeature, acceptor: CompletionAcceptor): void {
-        this.addStandaloneCompletions(context, acceptor);
     }
 
     protected override addStandaloneCompletions(context: CompletionContext, acceptor: CompletionAcceptor): void {
@@ -166,31 +155,13 @@ export class XsmpprojectCompletionProvider extends XsmpCompletionProviderBase {
         const project = this.getRecoveryContainerOfType(context, ast.isProject);
 
         if (!project) {
-            if (kind === 'project') {
-                acceptor(context, this.createSnippetItem(
-                    'Project',
-                    "project '${1:MissionDemo}'\nsource '${2:smdl}'\n$0",
-                    'Project Definition'
-                ));
-            } else if (kind === 'profile') {
-                acceptor(context, this.createSnippetItem(
-                    'Profile',
-                    `profile '${this.createPlaceholder(1, this.getContributionSnippetDefault('profile', 'profile'))}'`,
-                    'Profile Definition'
-                ));
-            } else if (kind === 'tool') {
-                acceptor(context, this.createSnippetItem(
-                    'Tool',
-                    `tool '${this.createPlaceholder(1, this.getContributionSnippetDefault('tool', 'tool'))}'`,
-                    'Tool Definition'
-                ));
-            }
+            this.addRootDocumentSnippet(context, acceptor, kind);
             return;
         }
 
         acceptor(context, this.createSnippetItem(
             'Source',
-            "source '${1:smdl}'",
+            this.getSourceDefinitionSnippetText(),
             'Project Source Root'
         ));
         this.addContextualContributionStatementCompletions(context, project, 'profile', acceptor);
@@ -248,7 +219,7 @@ export class XsmpprojectCompletionProvider extends XsmpCompletionProviderBase {
                 context,
                 this.createContributionStatementLabel(kind, fallback),
                 `${kind} '${this.createPlaceholder(1, fallback)}'`,
-                kind === 'profile' ? 'Profile Reference' : 'Tool Reference',
+                this.getContributionReferenceDetail(kind),
                 undefined,
                 '2500',
             ));
@@ -260,7 +231,7 @@ export class XsmpprojectCompletionProvider extends XsmpCompletionProviderBase {
                 context,
                 this.createContributionStatementLabel(kind, summary.id),
                 `${kind} '${summary.id}'`,
-                kind === 'profile' ? 'Profile Reference' : 'Tool Reference',
+                this.getContributionReferenceDetail(kind),
                 this.getContributionStatementDocumentation(summary),
                 '2500',
             ));
@@ -333,5 +304,39 @@ export class XsmpprojectCompletionProvider extends XsmpCompletionProviderBase {
                 'This does not inherit the dependency project\'s `profile`/`tool` declarations or contribution payload documents.',
             ].join('\n'),
         };
+    }
+
+    protected addRootDocumentSnippet(
+        context: CompletionContext,
+        acceptor: CompletionAcceptor,
+        kind: 'project' | 'profile' | 'tool' | undefined,
+    ): void {
+        switch (kind) {
+            case 'project':
+                acceptor(context, this.createSnippetItem('Project', this.getProjectDefinitionSnippetText(), 'Project Definition'));
+                return;
+            case 'profile':
+                acceptor(context, this.createSnippetItem('Profile', this.getContributionReferenceSnippetText('profile'), 'Profile Definition'));
+                return;
+            case 'tool':
+                acceptor(context, this.createSnippetItem('Tool', this.getContributionReferenceSnippetText('tool'), 'Tool Definition'));
+                return;
+        }
+    }
+
+    protected getProjectDefinitionSnippetText(): string {
+        return "project '${1:MissionDemo}'\nsource '${2:smdl}'\n$0";
+    }
+
+    protected getSourceDefinitionSnippetText(): string {
+        return "source '${1:smdl}'";
+    }
+
+    protected getContributionReferenceSnippetText(kind: XsmpContributionKind): string {
+        return `${kind} '${this.createPlaceholder(1, this.getContributionSnippetDefault(kind, kind))}'`;
+    }
+
+    protected getContributionReferenceDetail(kind: XsmpContributionKind): string {
+        return kind === 'profile' ? 'Profile Reference' : 'Tool Reference';
     }
 }

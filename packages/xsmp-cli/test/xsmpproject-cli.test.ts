@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, test } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, test } from 'vitest';
+import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -6,6 +7,21 @@ import { runCli } from '@xsmp/cli';
 
 let tempDir: string;
 const smpFixtureRoot = path.resolve(__dirname, '../../xsmp/test/fixtures/smp');
+const repoRoot = path.resolve(__dirname, '../../..');
+const cliPackageJsonPath = path.join(__dirname, '..', 'package.json');
+const cliVersion = JSON.parse(fs.readFileSync(cliPackageJsonPath, 'utf-8')).version as string;
+const standaloneBundlePath = path.join(repoRoot, 'out', 'cli-bundle', `xsmpproject-cli-${cliVersion}.cjs`);
+
+beforeAll(() => {
+    const tasMdkBuildResult = runProcess('npm', ['run', 'build:release', '-w', 'xsmp-tas-mdk']);
+    expect(tasMdkBuildResult.status).toBe(0);
+    expect(tasMdkBuildResult.stderr).toBe('');
+
+    const bundleResult = runNodeProcess(path.join(repoRoot, 'scripts', 'build-cli-bundle.mjs'));
+    expect(bundleResult.status).toBe(0);
+    expect(bundleResult.stderr).toBe('');
+    expect(fs.existsSync(standaloneBundlePath)).toBe(true);
+});
 
 beforeEach(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-cli-'));
@@ -16,6 +32,28 @@ afterEach(() => {
 });
 
 describe('XSMP CLI', () => {
+    test('executes the packaged bin entrypoint in a subprocess', () => {
+        const result = runNodeProcess(path.join(repoRoot, 'packages', 'xsmp-cli', 'bin', 'cli.js'), ['--help']);
+
+        expect(result.status).toBe(0);
+        expect(result.stderr).toBe('');
+        expect(result.stdout).toContain('Usage: xsmpproject-cli');
+        expect(result.stdout).toContain('validate');
+        expect(result.stdout).toContain('generate');
+        expect(result.stdout).toContain('import-smp');
+    });
+
+    test('executes the standalone CLI bundle in a subprocess', () => {
+        const result = runNodeProcess(standaloneBundlePath, ['--help']);
+
+        expect(result.status).toBe(0);
+        expect(result.stderr).toBe('');
+        expect(result.stdout).toContain('Usage: xsmpproject-cli');
+        expect(result.stdout).toContain('validate');
+        expect(result.stdout).toContain('generate');
+        expect(result.stdout).toContain('import-smp');
+    });
+
     test('prints help', async () => {
         const result = await runCliWithOutput(['--help']);
 
@@ -503,4 +541,15 @@ async function runCliWithOutput(args: readonly string[]) {
         stdout: stdout.join(''),
         stderr: stderr.join(''),
     };
+}
+
+function runNodeProcess(scriptPath: string, args: readonly string[] = []) {
+    return runProcess(process.execPath, [scriptPath, ...args]);
+}
+
+function runProcess(command: string, args: readonly string[] = []) {
+    return spawnSync(command, [...args], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+    });
 }

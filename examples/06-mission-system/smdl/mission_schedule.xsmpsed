@@ -1,17 +1,17 @@
 /** Mission-level schedule orchestrating orbital, payload and ground activities. */
-schedule <root: string = "/system", OrbitalMember: string = "orbital", PayloadMember: string = "payload", ConsoleMember: string = "ground", phases: int32 = 2> MissionSchedule epoch "2025-01-01T01:00:00Z" mission "2025-01-01T01:00:00Z"
+schedule <root: string = "/System"> MissionSchedule epoch "2025-01-01T01:00:00Z" mission "2025-01-01T01:00:00Z"
 
 /** Dispatch task starting the mission and delegating work to subsystems. */
 task Dispatch on demo.mission.MissionSystemRoot
 {
     /** Logs the mission dispatch on the ground console. */
-    call {ConsoleMember}.log(message = "mission dispatch")
+    call GroundConsole.log(message = "mission dispatch")
     /** Sends the current ground uplink mode. */
-    trig {ConsoleMember}.dispatch
+    trig GroundConsole.dispatch
     /** Runs one orbital supervision cycle on the orbital subtree. */
-    execute OrbitalTick at {OrbitalMember}
+    execute OrbitalTick at OrbitalPlatform
     /** Runs one payload supervision cycle on the payload subtree. */
-    execute PayloadTick at {PayloadMember}
+    execute PayloadTick at PayloadPlatform
     /** Emits the mission-ready event for follow-up tasks. */
     async emit "MissionReady"
 }

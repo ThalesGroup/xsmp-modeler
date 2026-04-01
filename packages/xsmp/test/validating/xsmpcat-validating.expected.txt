@@ -29,7 +29,7 @@
 [58:8..58:14]: Invalid modifier.
 [60:36..60:44]: Recursive Field Type.
 [58:15..58:23]: A Constant must have an initialization value.
-[64:4..66:5]: An Enumeration shall contains at least one literal.
+[64:4..64:8]: An Enumeration shall contains at least one literal.
 [64:4..64:8]: Missing Type UUID.
 [71:8..71:10]: Duplicated literal name.
 [71:13..71:14]: Enumeration Literal Values shall be unique within an Enumeration.

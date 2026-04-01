@@ -5,11 +5,11 @@ link MissionLinks for MissionDemo
 /
 {
     /** Connects the orbital platform upstream logger to the ground console. */
-    interface link {OrbitalMember}.upstreamLogger -> {ConsoleMember}
+    interface link OrbitalPlatform.upstreamLogger -> GroundConsole
     /** Connects the payload platform upstream logger to the ground console. */
-    interface link {PayloadMember}.upstreamLogger -> {ConsoleMember}
+    interface link PayloadPlatform.upstreamLogger -> GroundConsole
     /** Routes console uplink events to the orbital inbound mode sink. */
-    event link {ConsoleMember}.uplinkEvent -> {OrbitalMember}.inboundMode
+    event link GroundConsole.uplinkEvent -> OrbitalPlatform.inboundMode
     /** Routes console uplink events to the payload inbound mode sink. */
-    event link {ConsoleMember}.uplinkEvent -> {PayloadMember}.inboundMode
+    event link GroundConsole.uplinkEvent -> PayloadPlatform.inboundMode
 }

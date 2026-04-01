@@ -63,6 +63,7 @@ const embeddedDocumentationByLanguage: Readonly<Partial<Record<string, XsmpEmbed
             association: 'association',
             container: 'container',
             reference: 'reference',
+            realization: 'realization',
             entrypoint: 'entrypoint',
             eventsink: 'eventsink',
             eventsource: 'eventsource',

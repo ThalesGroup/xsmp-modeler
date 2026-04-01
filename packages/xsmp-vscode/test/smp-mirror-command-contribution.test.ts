@@ -57,4 +57,17 @@ describe('SMP mirror commands contribution', () => {
             ]),
         );
     });
+
+    test('activates on readonly XSMP filesystem schemes so restored mirror tabs can reopen', async () => {
+        const packageJson = await readJsonFile<{
+            activationEvents: string[];
+        }>(packageJsonPath);
+
+        expect(packageJson.activationEvents).toEqual(
+            expect.arrayContaining([
+                'onFileSystem:xsmp',
+                'onFileSystem:xsmp-smp',
+            ]),
+        );
+    });
 });

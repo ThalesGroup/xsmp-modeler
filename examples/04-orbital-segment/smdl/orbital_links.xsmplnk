@@ -1,20 +1,20 @@
-/** Reusable link base wiring the templated orbital segment. */
+/** Reusable link base wiring the orbital segment. */
 link OrbitalLinks for OrbitalSegment
 
 /** Links declared at the root of the orbital platform. */
 /
 {
     /** Connects the avionics power bus to the platform router input. */
-    field link {BusMember}.power.lineVoltage -> {RouterMember}.incomingBus
+    field link AvionicsUnit.BatteryPack.lineVoltage -> PowerRouter.incomingBus
     /** Injects the segment logger as the avionics logger reference. */
-    interface link {BusMember}.logger -> {LoggerMember}
+    interface link AvionicsUnit.logger -> SegmentLogger
     /** Routes the avionics mode publication to the platform inbound sink. */
-    event link {BusMember}.publishedMode -> inboundMode
+    event link AvionicsUnit.publishedMode -> inboundMode
 
     /** Additional links local to the avionics subtree. */
-    avionics
+    AvionicsUnit
     {
         /** Demonstrates a typed indexed field path on a nested component. */
-        field link power.lineVoltage -> computer.tuning[0]
+        field link BatteryPack.lineVoltage -> AttitudeComputer.tuning[0]
     }
 }

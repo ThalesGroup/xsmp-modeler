@@ -21,6 +21,7 @@ import type { XsmpTypeProvider } from '../references/type-provider.js';
 import { PTK } from '../utils/primitive-type-kind.js';
 import type { AttributeHelper } from '../utils/attribute-helper.js';
 import type { DocumentationHelper } from '../utils/documentation-helper.js';
+import * as Solver from '../utils/solver.js';
 import * as XsmpUtils from '../utils/xsmp-utils.js';
 import type { XsmpServices } from '../xsmp-module.js';
 
@@ -29,6 +30,12 @@ type RecoverableXsmpNode = AstNode & partialAst.XsmpAstType;
 type RelativeComponentContext = {
     path: string;
     component: ast.Component;
+};
+type ContextualValueSpec = {
+    label: string;
+    insertText?: string;
+    detail: string;
+    documentation?: MarkupContent | string;
 };
 
 export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
@@ -39,6 +46,7 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
     protected readonly typedPathResolver: XsmpTypedPathResolver;
     protected readonly cfgPathResolver: XsmpcfgPathResolver;
     protected readonly instancePathResolver: XsmpInstancePathResolver;
+    protected readonly snippetOnlyKeywords: ReadonlySet<string> = new Set();
 
     constructor(services: XsmpServices) {
         super(services);
@@ -198,6 +206,9 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
     }
 
     protected override completionForKeyword(context: CompletionContext, keyword: GrammarAST.Keyword, acceptor: CompletionAcceptor): MaybePromise<void> {
+        if (this.snippetOnlyKeywords.has(keyword.value)) {
+            return;
+        }
         if (!this.filterKeyword(context, keyword)) {
             return;
         }
@@ -224,8 +235,8 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
         // implemented by subclasses
     }
 
-    protected addContextualCompletions(_context: CompletionContext, _next: NextFeature, _acceptor: CompletionAcceptor): void {
-        // implemented by subclasses
+    protected addContextualCompletions(context: CompletionContext, _next: NextFeature, acceptor: CompletionAcceptor): void {
+        this.addStandaloneCompletions(context, acceptor);
     }
 
     protected addStandaloneCompletions(_context: CompletionContext, _acceptor: CompletionAcceptor): void {
@@ -356,9 +367,13 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
         return `\${${index}|${uniqueChoices.map(choice => this.escapeSnippetChoice(choice)).join(',')}|}`;
     }
 
-    protected getCrossReferenceNames(context: CompletionContext, type: string | { readonly $type: string }, property: string): string[] {
+    protected createCompletionReferenceInfo(
+        context: CompletionContext,
+        type: string | { readonly $type: string },
+        property: string,
+    ): ReferenceInfo {
         const container = this.getRecoveryAstNode(context);
-        const refInfo: ReferenceInfo = {
+        return {
             reference: { $refText: '', ref: undefined },
             container: {
                 $container: container,
@@ -366,7 +381,18 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
             },
             property,
         };
-        return [...new Set(this.getReferenceCandidates(refInfo, context).map(candidate => candidate.name))];
+    }
+
+    protected getCrossReferenceNames(context: CompletionContext, type: string | { readonly $type: string }, property: string): string[] {
+        return [...new Set(this.getReferenceCandidates(this.createCompletionReferenceInfo(context, type, property), context).map(candidate => candidate.name))];
+    }
+
+    protected getReferenceCandidateDescriptions(
+        context: CompletionContext,
+        type: string | { readonly $type: string },
+        property: string,
+    ): AstNodeDescription[] {
+        return [...this.getReferenceCandidates(this.createCompletionReferenceInfo(context, type, property), context)];
     }
 
     protected getLinePrefix(context: CompletionContext): string {
@@ -401,9 +427,13 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
     }
 
     protected getRecoveryBlockContainerOfType<T extends AstNode>(context: CompletionContext, predicate: (node: AstNode) => node is T): T | undefined {
-        return this.findContainingNode(context, predicate)
-            ?? this.findContainingTextBlockNode(context, predicate)
-            ?? AstUtils.getContainerOfType(this.getRecoveryAstNode(context), predicate);
+        const contained = this.findContainingNode(context, predicate)
+            ?? this.findContainingTextBlockNode(context, predicate);
+        if (contained) {
+            return contained;
+        }
+        const recovered = AstUtils.getContainerOfType(this.getRecoveryAstNode(context), predicate);
+        return recovered && this.isInsideNodeBody(context, recovered) ? recovered : undefined;
     }
 
     protected findContainingNode<T extends AstNode>(context: CompletionContext, predicate: (node: AstNode) => node is T): T | undefined {
@@ -449,6 +479,19 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
             }
         }
         return bestNode;
+    }
+
+    protected isInsideNodeBody(context: CompletionContext, node: AstNode): boolean {
+        if (!node.$cstNode) {
+            return true;
+        }
+        const text = context.textDocument.getText();
+        const openBrace = this.findNodeBodyOpenBrace(text, node.$cstNode.offset);
+        if (openBrace < 0) {
+            return true;
+        }
+        const closeBrace = this.findMatchingClosingBrace(text, openBrace);
+        return closeBrace < 0 || context.offset <= closeBrace;
     }
 
     protected findNodeBodyOpenBrace(text: string, start: number): number {
@@ -628,12 +671,11 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
             return [];
         }
         return this.typedPathResolver.getComponentPathMembers(component)
-            .flatMap(member => {
-                if (!member.name) {
+            .flatMap(childComponent => {
+                if (!childComponent.name) {
                     return [];
                 }
-                const childComponent = this.typedPathResolver.getChildComponentForPathMember(member);
-                return childComponent ? [{ path: member.name, component: childComponent }] : [];
+                return [{ path: childComponent.name, component: childComponent }];
             });
     }
 
@@ -686,6 +728,49 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
 
     protected getEntryPoints(component: ast.Component | undefined): readonly ast.EntryPoint[] {
         return this.instancePathResolver.getComponentMembersByKind(component, ['entryPoint']).filter(ast.isEntryPoint);
+    }
+
+    protected addNamedContextualValueCompletions<T extends { name?: string }>(
+        context: CompletionContext,
+        acceptor: CompletionAcceptor,
+        candidates: Iterable<T>,
+        build: (candidate: T, name: string) => ContextualValueSpec | undefined,
+    ): void {
+        for (const candidate of candidates) {
+            const name = candidate.name;
+            if (!name) {
+                continue;
+            }
+            const spec = build(candidate, name);
+            if (!spec) {
+                continue;
+            }
+            acceptor(context, this.createContextualValueItem(
+                context,
+                spec.label,
+                spec.insertText ?? spec.label,
+                spec.detail,
+                spec.documentation,
+            ));
+        }
+    }
+
+    protected addSimpleValueCompletionsForType(
+        context: CompletionContext,
+        acceptor: CompletionAcceptor,
+        type: ast.Type | undefined,
+        mode: CompletionValueMode,
+        allowComposite = false,
+    ): void {
+        for (const item of this.getSimpleValueCompletions(type, mode, allowComposite)) {
+            acceptor(context, item);
+        }
+    }
+
+    protected addLinkStatementSnippets(context: CompletionContext, acceptor: CompletionAcceptor): void {
+        acceptor(context, this.createSnippetItem('Event Link', 'event link ${1:owner} -> ${2:client}', 'Event Link'));
+        acceptor(context, this.createSnippetItem('Field Link', 'field link ${1:owner} -> ${2:client}', 'Field Link'));
+        acceptor(context, this.createSnippetItem('Interface Link', 'interface link ${1:sourcePath} -> ${2:client}${3::${4:backReference}}', 'Interface Link'));
     }
 
     protected addContextualFieldLinkCompletions(
@@ -826,7 +911,10 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
 
         if (allowComposite) {
             if (ast.isArrayType(type)) {
-                items.push(this.createValueItem('[]', '[]', `Array value for ${XsmpUtils.fqn(type)}.`));
+                const arrayValue = this.getDefaultValueForType(type, mode, true);
+                if (arrayValue) {
+                    items.push(this.createValueItem(arrayValue, arrayValue, `Array value for ${XsmpUtils.fqn(type)}.`));
+                }
             } else if (ast.isStructure(type)) {
                 const structureValue = this.getDefaultValueForType(type, mode, true);
                 items.push(this.createValueItem('{...}', structureValue, `Structure value for ${XsmpUtils.fqn(type)}.`));
@@ -846,7 +934,12 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
         }
         if (allowComposite && depth < 2) {
             if (ast.isArrayType(type)) {
-                return '[]';
+                const arraySize = Solver.getValueAs(type.size, PTK.Int64)?.integralValue(PTK.Int64)?.getValue();
+                if (arraySize === undefined || arraySize <= 0) {
+                    return '[]';
+                }
+                const itemDefault = this.getDefaultValueForType(type.itemType?.ref, mode, true, depth + 1) || '""';
+                return `[${new Array(Number(arraySize)).fill(itemDefault).join(', ')}]`;
             }
             if (ast.isStructure(type)) {
                 const fields = this.attrHelper.getAllFields(type).toArray();

@@ -23,9 +23,9 @@ Demo schedule exercising all supported activity kinds.
 |===
 |Name |Type |Default
 
-|RootMember
+|root
 |string
-|child
+|/Root
 |===
 == Tasks
 
@@ -59,7 +59,7 @@ Root orchestration task.
 |Apply call.
 |transfer
 |outValue
-|to child.inValue
+|to Child.inValue
 |Data transfer.
 |trig
 |run
@@ -67,7 +67,7 @@ Root orchestration task.
 |Root trigger.
 |execute
 |ChildTick
-|child
+|Child
 |Child task execution.
 |emit
 |"MissionReady"

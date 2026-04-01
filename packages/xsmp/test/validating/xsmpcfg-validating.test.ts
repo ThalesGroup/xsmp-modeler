@@ -1,6 +1,7 @@
 import { afterEach, beforeAll, describe, expect, test } from 'vitest';
 import { clearDocuments, parseHelper, type ParseHelperOptions } from 'langium/test';
 import { EmptyFileSystem, type LangiumDocument, URI } from 'langium';
+import { DiagnosticSeverity } from 'vscode-languageserver-types';
 import { createXsmpServices } from 'xsmp';
 import { Assembly, Catalogue, Configuration, Project, isConfiguration } from 'xsmp/ast-partial';
 import * as fs from 'node:fs';
@@ -16,7 +17,7 @@ let parseAssembly: ReturnType<typeof parseHelper<Assembly>>;
 const documents: LangiumDocument[] = [];
 const tempDirs: string[] = [];
 
-const catalogueSource = `catalogue Demo
+const catalogueSource = `catalogue DemoTypes
 
 namespace demo
 {
@@ -107,14 +108,20 @@ describe('Validating Xsmpcfg', () => {
         count = 1,
         values = [1, 2]
     }
-    child
-    {
-        value = 2
-    }
 }
 `);
 
         expect(getMessages(document)).toEqual([]);
+    });
+
+    test('rejects duplicate document names across document kinds', async () => {
+        const document = await parseInProject(`configuration DemoAsm
+/Root: demo.Root
+{
+}
+`);
+
+        expect(getMessages(document)).toContain('Duplicated Document name.');
     });
 
     test('validates typed field paths and values and honors unsafe paths', async () => {
@@ -144,7 +151,7 @@ describe('Validating Xsmpcfg', () => {
             "The path segment 'unknown' shall resolve to a Field of the current Structure value.",
             "The structure field 'missing' does not exist on type demo.Counters.",
             'The value shall be compatible with type Smp.Int32.',
-            "The path segment 'flag' shall resolve to a Container or Reference of the current Component.",
+            'A safe Component Configuration inside a Component-backed context shall declare an explicit context.',
         ]));
         expect(messages.some(message => message.includes('skipped'))).toBe(false);
     });
@@ -187,7 +194,35 @@ describe('Validating Xsmpcfg', () => {
         ]));
     });
 
-    test('inherits the effective component in nested component configurations', async () => {
+    test('inherits the effective component in nested component configurations with an explicit context', async () => {
+        const document = await parseInProject(`configuration Demo
+/Root: demo.Root
+{
+    ShadowChild: demo.Child
+    {
+        value = 2
+    }
+}
+`);
+
+        expect(getMessages(document)).toEqual([]);
+    });
+
+    test('allows explicit nested component contexts inside a component-backed configuration without resolving a container', async () => {
+        const document = await parseInProject(`configuration Demo
+/Root: demo.Root
+{
+    ShadowChild: demo.Child
+    {
+        value = 2i32
+    }
+}
+`);
+
+        expect(getMessages(document)).toEqual([]);
+    });
+
+    test('rejects safe nested component configurations without an explicit context inside a component-backed configuration', async () => {
         const document = await parseInProject(`configuration Demo
 /Root: demo.Root
 {
@@ -195,6 +230,19 @@ describe('Validating Xsmpcfg', () => {
     {
         value = 2i32
     }
+}
+`);
+
+        expect(getMessages(document)).toEqual([
+            'A safe Component Configuration inside a Component-backed context shall declare an explicit context.',
+        ]);
+    });
+
+    test('allows safe configuration usage paths inside a component-backed configuration', async () => {
+        const document = await parseInProject(`configuration Demo
+/Root: demo.Root
+{
+    include Other at child
 }
 `);
 
@@ -216,8 +264,67 @@ describe('Validating Xsmpcfg', () => {
         expect(getMessages(document)).toEqual([]);
     });
 
+    test('rejects explicit nested contexts inside an assembly-backed configuration when the path is safe', async () => {
+        const document = await parseInProject(`configuration Demo
+/Root: DemoAsm
+{
+    Child{Lane}: demo.Child
+    {
+        value = 2i32
+    }
+}
+`);
+
+        expect(getMessages(document)).toEqual([
+            'A safe Component Configuration inside an Assembly-backed context shall not declare an explicit context.',
+        ]);
+    });
+
+    test('allows explicit nested contexts inside an assembly-backed configuration when the path is unsafe', async () => {
+        const document = await parseInProject(`configuration Demo
+/Root: DemoAsm
+{
+    unsafe ShadowChild: demo.Child
+    {
+        value = 2i32
+    }
+}
+`);
+
+        expect(getMessages(document)).toEqual([]);
+    });
+
+    test('warns when unsafe is useless on a nested component configuration with an explicit component context', async () => {
+        const document = await parseInProject(`configuration Demo
+/Root: demo.Root
+{
+    unsafe ShadowChild: demo.Child
+    {
+        value = 2i32
+    }
+}
+`);
+
+        expect(getDiagnostics(document).map(diagnostic => [diagnostic.severity, diagnostic.message])).toEqual([
+            [DiagnosticSeverity.Warning, 'The `unsafe` modifier is unnecessary when a nested Component Configuration already declares an explicit Component context.'],
+        ]);
+    });
+
+    test('warns when unsafe is useless on a configuration usage inside a component-backed context', async () => {
+        const document = await parseInProject(`configuration Demo
+/Root: demo.Root
+{
+    include Other at unsafe child
+}
+`);
+
+        expect(getDiagnostics(document).map(diagnostic => [diagnostic.severity, diagnostic.message])).toEqual([
+            [DiagnosticSeverity.Warning, 'The `unsafe` modifier is unnecessary for a Configuration Usage inside a Component-backed context.'],
+        ]);
+    });
+
     test('accepts StartIndex for simple arrays in ECSS_SMP_2025 and rejects unsupported cases', async () => {
-        const valid2025 = await parseInProject(`configuration Demo
+        const valid2025 = await parseInProject(`configuration DemoStartIndexOk
 /Root: demo.Root
 {
     simpleValues = [1: 2, 3]
@@ -225,7 +332,7 @@ describe('Validating Xsmpcfg', () => {
 `);
         expect(getMessages(valid2025)).toEqual([]);
 
-        const invalid2025 = await parseInProject(`configuration Demo
+        const invalid2025 = await parseInProject(`configuration DemoStartIndexInvalid2025
 /Root: demo.Root
 {
     state = {
@@ -237,7 +344,7 @@ describe('Validating Xsmpcfg', () => {
             'StartIndex is only allowed for SimpleArray values.',
         ]);
 
-        const invalid2020 = await parseInProject(`configuration Demo
+        const invalid2020 = await parseInProject(`configuration DemoStartIndexInvalid2020
 /Root: demo.Root
 {
     simpleValues = [1: 2, 3]
@@ -301,7 +408,7 @@ describe('Validating Xsmpcfg', () => {
     });
 
     test('resolves include paths from an assembly context and reports missing placeholders', async () => {
-        const valid = await parseInProject(`configuration Demo
+        const valid = await parseInProject(`configuration DemoIncludeOk
 /Root: DemoAsm
 {
     include Other at Child{Lane}
@@ -309,7 +416,7 @@ describe('Validating Xsmpcfg', () => {
 `);
         expect(getMessages(valid)).toEqual([]);
 
-        const invalid = await parseInProject(`configuration Demo
+        const invalid = await parseInProject(`configuration DemoIncludeInvalid
 /Root: DemoAsm
 {
     include Other at Child{Missing}
@@ -318,6 +425,64 @@ describe('Validating Xsmpcfg', () => {
         expect(getMessages(invalid)).toEqual([
             "The placeholder '{Missing}' shall resolve to a Template Argument of the enclosing Assembly context.",
         ]);
+    });
+
+    test('refreshes cached configuration path resolutions after the build reaches linked documents', async () => {
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmpcfg-validating-'));
+        tempDirs.push(tempDir);
+        const documentFactory = services.shared.workspace.LangiumDocumentFactory;
+        const projectDocument = documentFactory.fromString<Project>(
+            `project "Demo" using "ECSS_SMP_2025"
+source "src"
+`,
+            URI.file(path.join(tempDir, 'xsmp.project'))
+        );
+        const catalogueDocument = documentFactory.fromString<Catalogue>(catalogueSource, URI.file(path.join(tempDir, 'src', 'demo.xsmpcat')));
+        const assemblyDocument = documentFactory.fromString<Assembly>(assemblySource, URI.file(path.join(tempDir, 'src', 'demo.xsmpasb')));
+        const otherConfigurationDocument = documentFactory.fromString<Configuration>(`configuration Other
+/Other
+{
+}
+`, URI.file(path.join(tempDir, 'src', 'other.xsmpcfg')));
+        const configurationDocument = documentFactory.fromString<Configuration>(`configuration Demo
+/Root: demo.Root
+{
+    flag = true
+}
+`, URI.file(path.join(tempDir, 'src', 'demo.xsmpcfg')));
+
+        services.shared.workspace.LangiumDocuments.addDocument(projectDocument);
+        services.shared.workspace.LangiumDocuments.addDocument(catalogueDocument);
+        services.shared.workspace.LangiumDocuments.addDocument(assemblyDocument);
+        services.shared.workspace.LangiumDocuments.addDocument(otherConfigurationDocument);
+        services.shared.workspace.LangiumDocuments.addDocument(configurationDocument);
+
+        documents.push(projectDocument, catalogueDocument, assemblyDocument, otherConfigurationDocument, configurationDocument);
+        expect(projectDocument.parseResult.parserErrors).toHaveLength(0);
+        expect(catalogueDocument.parseResult.parserErrors).toHaveLength(0);
+        expect(assemblyDocument.parseResult.parserErrors).toHaveLength(0);
+        expect(otherConfigurationDocument.parseResult.parserErrors).toHaveLength(0);
+        expect(configurationDocument.parseResult.parserErrors).toHaveLength(0);
+
+        const configuration = configurationDocument.parseResult.value;
+        expect(configuration.$type).toBe('Configuration');
+        const rootConfiguration = configuration.elements[0];
+        expect(rootConfiguration?.$type).toBe('ComponentConfiguration');
+        if (rootConfiguration?.$type !== 'ComponentConfiguration') {
+            throw new Error('Expected a root component configuration.');
+        }
+
+        const beforeBuild = services.shared.CfgPathResolver.getConfigurationComponentContext(rootConfiguration);
+        expect(beforeBuild.component).toBeUndefined();
+
+        await services.shared.workspace.DocumentBuilder.build(
+            [projectDocument, catalogueDocument, assemblyDocument, otherConfigurationDocument, configurationDocument],
+            { validation: true }
+        );
+
+        const afterBuild = services.shared.CfgPathResolver.getConfigurationComponentContext(rootConfiguration);
+        expect(afterBuild.component?.name).toBe('Root');
+        expect(getMessages(configurationDocument)).toEqual([]);
     });
 });
 
@@ -362,4 +527,9 @@ source "src"
 function getMessages(document: LangiumDocument<Configuration>): string[] {
     expect(isConfiguration(document.parseResult.value)).toBe(true);
     return document.diagnostics?.map(diagnostic => diagnostic.message) ?? [];
+}
+
+function getDiagnostics(document: LangiumDocument<Configuration>) {
+    expect(isConfiguration(document.parseResult.value)).toBe(true);
+    return document.diagnostics ?? [];
 }

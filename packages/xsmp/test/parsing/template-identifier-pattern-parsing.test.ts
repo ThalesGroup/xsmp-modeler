@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, test } from 'vitest';
 import { EmptyFileSystem, type LangiumDocument } from 'langium';
 import { parseHelper } from 'langium/test';
 import { createXsmpServices } from 'xsmp';
-import { type Configuration, ComponentConfiguration, PatternPathNamedSegment, isComponentConfiguration, isConfiguration, isIdentifierTemplatePart, isIdentifierTextPart, isPatternPathNamedSegment } from 'xsmp/ast-partial';
+import { ComponentConfiguration, type Configuration, PatternPathNamedSegment, isComponentConfiguration, isConfiguration, isIdentifierTemplatePart, isIdentifierTextPart, isPatternPathNamedSegment } from 'xsmp/ast-partial';
 
 let services: ReturnType<typeof createXsmpServices>;
 let parseConfiguration: ReturnType<typeof parseHelper<Configuration>>;
@@ -25,9 +25,9 @@ describe('Template identifier pattern parsing', () => {
         expect(checkDocumentValid(document)).toBeUndefined();
 
         const configuration = document.parseResult.value;
-        const childConfiguration = configuration.elements[0];
+        const childConfiguration = configuration.elements[0]!;
         expect(isComponentConfiguration(childConfiguration)).toBe(true);
-        const head = (childConfiguration as ComponentConfiguration).name.head;
+        const head = (childConfiguration as ComponentConfiguration).name!.head!;
         expect(isPatternPathNamedSegment(head)).toBe(true);
 
         const pattern = (head as PatternPathNamedSegment).pattern;
@@ -60,7 +60,8 @@ function checkDocumentValid(document: LangiumDocument): string | undefined {
         return `ParseResult is 'undefined'.`;
     }
     if (!isConfiguration(root)) {
-        return `Root AST object is a ${String(root.$type)}, expected a '${Configuration}'.`;
+        const actualType = typeof root.$type === 'string' ? root.$type : '<unknown>';
+        return `Root AST object is a ${actualType}, expected a 'Configuration'.`;
     }
     return undefined;
 }

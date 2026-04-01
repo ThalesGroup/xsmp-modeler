@@ -29,6 +29,15 @@ describe('embedded documentation links', () => {
         });
     });
 
+    test('maps realization to the catalogue realization reference', () => {
+        expect(getEmbeddedDocumentationTarget('xsmpcat', 'realization')).toEqual({
+            keyword: 'realization',
+            page: 'languages/xsmpcat.md',
+            title: 'XSMP catalogue reference',
+            anchor: 'realization',
+        });
+    });
+
     test('maps link and schedule keywords to specific sections', () => {
         expect(getEmbeddedDocumentationTarget('xsmplnk', 'interface')).toEqual({
             keyword: 'interface',

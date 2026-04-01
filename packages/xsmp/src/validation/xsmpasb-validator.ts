@@ -2,7 +2,7 @@ import { AstUtils, type ValidationAcceptor, type ValidationChecks } from 'langiu
 import * as ast from '../generated/ast-partial.js';
 import type { XsmpasbServices } from '../xsmpasb-module.js';
 import { checkNoParentTraversal, checkRelativePath, hasParentTraversal, isAbsolutePath, isValidExpandedPathIdentifier } from './instance-validator-utils.js';
-import { checkName } from './name-validator-utils.js';
+import { checkName, checkUniqueDocumentName } from './name-validator-utils.js';
 import type { XsmpInstancePathResolver } from '../references/xsmp-instance-path-resolver.js';
 import type { TemplateBindings } from '../references/identifier-pattern-service.js';
 import { PTK } from '../utils/primitive-type-kind.js';
@@ -45,6 +45,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
 
     checkAssembly(assembly: ast.Assembly, accept: ValidationAcceptor): void {
         checkName(accept, assembly, assembly.name, ast.Assembly.name);
+        checkUniqueDocumentName(accept, this.indexManager, assembly);
 
         const seen = new Set<string>();
         for (const parameter of assembly.parameters) {

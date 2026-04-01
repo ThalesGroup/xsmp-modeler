@@ -1,7 +1,7 @@
-import { AstUtils, type AstNode, type ValidationAcceptor, type ValidationChecks } from 'langium';
+import { AstUtils, type AstNode, type IndexManager, type ValidationAcceptor, type ValidationChecks } from 'langium';
 import * as ast from '../generated/ast-partial.js';
 import type { XsmplnkServices } from '../xsmplnk-module.js';
-import { checkName } from './name-validator-utils.js';
+import { checkName, checkUniqueDocumentName } from './name-validator-utils.js';
 import type { XsmpInstancePathResolver } from '../references/xsmp-instance-path-resolver.js';
 import type { IdentifierPatternService, TemplateBindings } from '../references/identifier-pattern-service.js';
 import type { XsmpPathService } from '../references/xsmp-path-service.js';
@@ -23,12 +23,14 @@ export function registerXsmplnkValidationChecks(services: XsmplnkServices) {
 }
 
 export class XsmplnkValidator {
+    protected readonly indexManager: IndexManager;
     protected readonly pathResolver: XsmpInstancePathResolver;
     protected readonly identifierPatternService: IdentifierPatternService;
     protected readonly pathService: XsmpPathService;
     protected readonly componentLinkBasePathCache: WeakMap<ast.ComponentLinkBase, string[] | undefined> = new WeakMap();
 
     constructor(services: XsmplnkServices) {
+        this.indexManager = services.shared.workspace.IndexManager;
         this.pathResolver = services.shared.InstancePathResolver;
         this.identifierPatternService = services.shared.IdentifierPatternService;
         this.pathService = services.shared.PathService;
@@ -36,16 +38,17 @@ export class XsmplnkValidator {
 
     checkLinkBase(linkBase: ast.LinkBase, accept: ValidationAcceptor): void {
         checkName(accept, linkBase, linkBase.name, ast.LinkBase.name);
+        checkUniqueDocumentName(accept, this.indexManager, linkBase);
         if (linkBase.elements.length === 0) {
             accept('error', 'A Link Base shall contain at least one Component Link Base.', {
                 node: linkBase,
-                property: ast.LinkBase.elements
+                keyword: 'link'
             });
         }
         if (!linkBase.assembly?.ref && this.hasTemplatedPaths(linkBase)) {
             accept('error', 'A Link Base using templated paths shall declare an Assembly anchor with \'for <Assembly>\'.', {
                 node: linkBase,
-                property: ast.LinkBase.assembly
+                keyword: 'link'
             });
         }
         this.checkReferenceUpperBounds(linkBase, accept);
@@ -69,7 +72,7 @@ export class XsmplnkValidator {
         if (!linkBase.elements.some(ast.isLink)) {
             accept('error', 'A Component Link Base shall contain at least one Link.', {
                 node: linkBase,
-                property: ast.ComponentLinkBase.elements
+                property: ast.ComponentLinkBase.name
             });
         }
     }

@@ -14,29 +14,18 @@ Demo assembly covering configure blocks, statements and links.
 .^h|Version |1.0
 |===
 
-== Template Parameters
-
-.Template parameters
-[%autowidth.stretch]
-|===
-|Name |Type |Default
-
-|Lane
-|string
-|ops
-|===
 == Configure Blocks
 
-=== Configure child
+=== Configure Child
 
 ++++
 Applies local child defaults before startup.
 ++++
 
-.Configure child's information
+.Configure Child's information
 [%autowidth.stretch]
 |===
-.^h|Path |child
+.^h|Path |Child
 |===
 
 ==== Statements
@@ -113,29 +102,29 @@ Root demo model instance.
 |field
 |outValue
 |
-|child.inValue
+|Child.inValue
 |
 |Output field routing.
 |event
 |outbound
 |
-|child.inbound
+|Child.inbound
 |
 |Event propagation.
 |interface
 |.
 |logger
-|child
+|Child
 |backLogger
 |Logger publication.
 |===
-==== Model Instance Child{Lane}
+==== Model Instance Child
 
 
-.Child{Lane}'s information
+.Child's information
 [%autowidth.stretch]
 |===
-.^h|Name |Child{Lane}
+.^h|Name |Child
 .^h|Container |child
 .^h|Implementation |demo::Child
 |===

@@ -100,26 +100,23 @@ export class XsmpTypedPathResolver {
         return [...result.values()];
     }
 
-    getComponentPathMembers(component: RecoverableComponent | undefined): ReadonlyArray<ast.Container | ast.Reference> {
-        const result = new Map<string, ast.Container | ast.Reference>();
+    getComponentContainers(component: RecoverableComponent | undefined): readonly ast.Container[] {
+        const result = new Map<string, ast.Container>();
+        this.collectComponentContainers(component, result, new Set<ast.Type>());
+        return [...result.values()];
+    }
+
+    getComponentPathMembers(component: RecoverableComponent | undefined): readonly ast.Component[] {
+        const result = new Map<string, ast.Component>();
         this.collectComponentPathMembers(component, result, new Set<ast.Type>());
         return [...result.values()];
     }
 
     getChildComponentForPathMember(member: RecoverableNamedElement): ast.Component | undefined {
         if (ast.isContainer(member)) {
-            if (ast.isComponent(member.defaultComponent?.ref)) {
-                return member.defaultComponent.ref;
-            }
-            if (ast.isComponent(member.type?.ref)) {
-                return member.type.ref;
-            }
-            return undefined;
+            return this.getChildComponentForContainer(member);
         }
-        if (ast.isReference(member) && ast.isComponent(member.interface?.ref)) {
-            return member.interface.ref;
-        }
-        return undefined;
+        return ast.isComponent(member) ? member : undefined;
     }
 
     resolveComponentPath(path: ast.Path, initialStack: readonly ast.Component[] | undefined, bindings?: TemplateBindings): TypedComponentPathResolution {
@@ -185,7 +182,7 @@ export class XsmpTypedPathResolver {
             if (!resolved) {
                 return {
                     active: true,
-                    invalidMessage: `The path segment '${this.pathService.getSegmentText(actualSegment)}' shall resolve to a Container or Reference of the current Component.`,
+                    invalidMessage: `The path segment '${this.pathService.getSegmentText(actualSegment)}' shall resolve to a child Component of the current Component.`,
                     invalidNode: actualSegment,
                     namedSegments,
                 };
@@ -613,11 +610,21 @@ export class XsmpTypedPathResolver {
 
     protected hasTraversableChild(
         segment: RecoverablePathNamedSegment,
-        candidates: ReadonlyArray<ast.Container | ast.Reference>,
+        candidates: readonly ast.Component[],
         bindings?: TemplateBindings,
     ): boolean {
         const child = this.resolveNamedElement(segment, candidates, bindings);
         return Boolean(child && this.getChildComponentForPathMember(child));
+    }
+
+    protected getChildComponentForContainer(container: ast.Container): ast.Component | undefined {
+        if (ast.isComponent(container.defaultComponent?.ref)) {
+            return container.defaultComponent.ref;
+        }
+        if (ast.isComponent(container.type?.ref)) {
+            return container.type.ref;
+        }
+        return undefined;
     }
 
     resolveNamedElement<T extends ast.NamedElement>(segment: RecoverablePathNamedSegment, candidates: readonly T[], bindings?: TemplateBindings): T | undefined {
@@ -635,7 +642,7 @@ export class XsmpTypedPathResolver {
 
     protected collectComponentPathMembers(
         type: ast.Type | undefined,
-        members: Map<string, ast.Container | ast.Reference>,
+        members: Map<string, ast.Component>,
         visited: Set<ast.Type>,
     ): void {
         if (!type || visited.has(type)) {
@@ -645,8 +652,11 @@ export class XsmpTypedPathResolver {
 
         if (ast.isComponent(type)) {
             for (const element of type.elements) {
-                if ((ast.isContainer(element) || ast.isReference(element)) && element.name && !members.has(element.name)) {
-                    members.set(element.name, element);
+                if (ast.isContainer(element)) {
+                    const child = this.getChildComponentForContainer(element);
+                    if (child?.name && !members.has(child.name)) {
+                        members.set(child.name, child);
+                    }
                 }
             }
             this.collectComponentPathMembers(type.base?.ref, members, visited);
@@ -659,6 +669,36 @@ export class XsmpTypedPathResolver {
         if (ast.isInterface(type)) {
             for (const base of type.base) {
                 this.collectComponentPathMembers(base.ref, members, visited);
+            }
+        }
+    }
+
+    protected collectComponentContainers(
+        type: ast.Type | undefined,
+        members: Map<string, ast.Container>,
+        visited: Set<ast.Type>,
+    ): void {
+        if (!type || visited.has(type)) {
+            return;
+        }
+        visited.add(type);
+
+        if (ast.isComponent(type)) {
+            for (const element of type.elements) {
+                if (ast.isContainer(element) && element.name && !members.has(element.name)) {
+                    members.set(element.name, element);
+                }
+            }
+            this.collectComponentContainers(type.base?.ref, members, visited);
+            for (const base of type.interface) {
+                this.collectComponentContainers(base.ref, members, visited);
+            }
+            return;
+        }
+
+        if (ast.isInterface(type)) {
+            for (const base of type.base) {
+                this.collectComponentContainers(base.ref, members, visited);
             }
         }
     }

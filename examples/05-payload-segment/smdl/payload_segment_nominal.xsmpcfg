@@ -1,7 +1,7 @@
-/** Nominal configuration applied to one payload platform. */
+/** Nominal configuration applied to one payload-segment assembly. */
 configuration PayloadSegmentNominal
-/** Root payload-platform instance configured by this document. */
-/payloadSegment: demo.payloadsegment.PayloadPlatform
+/** Root payload-platform instance provided by the assembly context. */
+/PayloadPlatform: PayloadSegment
 {
     /** Starts the platform in nominal mode. */
     platformMode = demo.foundation.Mode.Nominal
@@ -14,18 +14,18 @@ configuration PayloadSegmentNominal
         /** Harmonic content used by the example. */
         harmonics = [0.0, 0.2, 0.1, 0.0]
     }
-    /** Reuses the payload nominal configuration on the embedded payload. */
-    include PayloadNominal at unsafe payload
-    /** Overrides the embedded downlink router. */
-    router: demo.payloadsegment.DownlinkRouter
+    /** Reuses the payload nominal configuration on the assembly-provided payload instance. */
+    include PayloadNominal at PayloadUnit
+    /** Overrides the assembly-provided downlink router. */
+    DownlinkRouter
     {
         /** Seeds the router with a synthetic frame input. */
         sourceFrames = [1.0, 1.0, 1.0, 1.0]
         /** Starts with no data downlinked yet. */
         downlinkedFrames = [0.0, 0.0, 0.0, 0.0]
     }
-    /** Overrides the embedded payload logger. */
-    logger: demo.payloadsegment.PayloadLogger
+    /** Overrides the assembly-provided payload logger. */
+    PayloadLogger
     {
         /** Seeds the logger with a readiness message. */
         lastMessage = "payload ready"

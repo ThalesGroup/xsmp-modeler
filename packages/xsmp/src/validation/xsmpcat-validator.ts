@@ -16,7 +16,7 @@ import { type DocumentationHelper } from '../utils/documentation-helper.js';
 import { type AttributeHelper } from '../utils/attribute-helper.js';
 import type { ProjectManager } from '../workspace/project-manager.js';
 import type { XsmpIndexManager } from '../workspace/index-manager.js';
-import { checkName } from './name-validator-utils.js';
+import { checkName, checkUniqueDocumentName } from './name-validator-utils.js';
 
 /**
  * Register custom validation checks.
@@ -467,7 +467,7 @@ export class XsmpcatValidator {
     checkEnumeration(enumeration: ast.Enumeration, accept: ValidationAcceptor): void {
         this.checkModifier(enumeration, [ast.isVisibilityModifiers], accept);
         if (enumeration.literal.length === 0) {
-            accept('error', 'An Enumeration shall contains at least one literal.', { node: enumeration, property: ast.Enumeration.literal });
+            accept('error', 'An Enumeration shall contains at least one literal.', { node: enumeration, keyword: 'enum' });
         }
 
         const values = new Set<string | number | bigint | boolean | ast.EnumerationLiteral>(),
@@ -897,14 +897,7 @@ export class XsmpcatValidator {
         if (date && Number.isNaN(Date.parse(date.toString().trim()))) {
             accept('warning', 'Invalid date format (e.g: 1970-01-01T00:00:00Z).', { node: catalogue, range: date.range });
         }
-        const duplicates = this.indexManager.allElements(ast.Catalogue.$type).filter(c => c.name === catalogue.name).toArray();
-        if (duplicates.length > 1 && !isBuiltinLibrary(AstUtils.getDocument(catalogue).uri)) {
-            accept('error', 'Duplicated Catalogue name.', {
-                node: catalogue,
-                property: ast.Catalogue.name,
-                relatedInformation: duplicates.filter(d => d.node !== catalogue).map(d => ({ location: Location.create(d.documentUri.toString(), d.nameSegment!.range), message: d.name }))
-            });
-        }
+        checkUniqueDocumentName(accept, this.indexManager, catalogue);
         if (catalogue.$document && !isBuiltinLibrary(catalogue.$document.uri) && !this.projectManager.getProject(catalogue.$document)) {
             accept('warning', 'This Catalogue is not contained in a project.', { node: catalogue, keyword: 'catalogue' });
         }

@@ -1,7 +1,7 @@
-/** Templated payload-segment assembly combining payload, routing and logging. */
-assembly <Tag = "Science", PayloadMember = "payload", RouterMember = "router", LoggerMember = "logger"> PayloadSegment
-/** Configures the templated payload child after instantiation. */
-configure Payload{Tag}
+/** Payload-segment assembly combining payload, routing and logging. */
+assembly PayloadSegment
+/** Configures the payload child after instantiation. */
+configure PayloadUnit
 {
     /** Subscribes the payload capture entry point to the payload-ready event. */
     subscribe capture -> "PayloadReady"
@@ -9,14 +9,14 @@ configure Payload{Tag}
     property mode = demo.foundation.Mode.Nominal
 }
 /** Root payload platform instance used by the segment assembly. */
-Scenario{Tag}: demo.payloadsegment.PayloadPlatform
+PayloadPlatform: demo.payloadsegment.PayloadPlatform
 {
     /** Starts the platform in standby before schedules take over. */
     platformMode = demo.foundation.Mode.Standby
-    /** Instantiates the payload child with a templated name. */
-    payload += Payload{Tag}: demo.payload.PayloadUnit
+    /** Instantiates the payload child. */
+    payload += PayloadUnit: demo.payload.PayloadUnit
     /** Instantiates the downlink router child. */
-    router += Router{Tag}: demo.payloadsegment.DownlinkRouter
+    router += DownlinkRouter: demo.payloadsegment.DownlinkRouter
     /** Instantiates the segment logger child. */
-    logger += Logger{Tag}: demo.payloadsegment.PayloadLogger
+    logger += PayloadLogger: demo.payloadsegment.PayloadLogger
 }

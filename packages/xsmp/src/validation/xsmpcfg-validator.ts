@@ -1,11 +1,11 @@
-import { type AstNode, type ValidationAcceptor, type ValidationChecks, AstUtils, diagnosticData } from 'langium';
+import { type AstNode, type IndexManager, type ValidationAcceptor, type ValidationChecks, AstUtils, diagnosticData } from 'langium';
 import * as ast from '../generated/ast-partial.js';
 import type { XsmpcfgServices } from '../xsmpcfg-module.js';
-import type { XsmpAddedSharedServices } from '../xsmp-module.js';
+import type { XsmpSharedServices } from '../xsmp-module.js';
 import type { XsmpPathService } from '../references/xsmp-path-service.js';
 import type { XsmpcfgPathResolver } from '../references/xsmpcfg-path-resolver.js';
 import type { AttributeHelper } from '../utils/attribute-helper.js';
-import { checkName } from './name-validator-utils.js';
+import { checkName, checkUniqueDocumentName } from './name-validator-utils.js';
 import { checkTemplatedPathSegments, createTemplateBindings } from './template-parameter-validator-utils.js';
 import * as Solver from '../utils/solver.js';
 import { PTK } from '../utils/primitive-type-kind.js';
@@ -28,10 +28,11 @@ export function registerXsmpcfgValidationChecks(services: XsmpcfgServices) {
 }
 
 type XsmpcfgValidationServices = {
-    shared: Pick<XsmpAddedSharedServices, 'AttributeHelper' | 'CfgPathResolver' | 'IdentifierPatternService' | 'PathService' | 'workspace'>;
+    shared: Pick<XsmpSharedServices, 'AttributeHelper' | 'CfgPathResolver' | 'IdentifierPatternService' | 'PathService' | 'workspace'>;
 };
 
 export class XsmpcfgValidator {
+    protected readonly indexManager: IndexManager;
     protected readonly attrHelper: AttributeHelper;
     protected readonly pathResolver: XsmpcfgPathResolver;
     protected readonly pathService: XsmpPathService;
@@ -39,6 +40,7 @@ export class XsmpcfgValidator {
     protected readonly projectManager: ProjectManager;
 
     constructor(services: XsmpcfgValidationServices | XsmpcfgServices) {
+        this.indexManager = services.shared.workspace.IndexManager;
         this.attrHelper = services.shared.AttributeHelper;
         this.pathResolver = services.shared.CfgPathResolver;
         this.identifierPatternService = services.shared.IdentifierPatternService;
@@ -48,6 +50,7 @@ export class XsmpcfgValidator {
 
     checkConfiguration(configuration: ast.Configuration, accept: ValidationAcceptor): void {
         checkName(accept, configuration, configuration.name, ast.Configuration.name);
+        checkUniqueDocumentName(accept, this.indexManager, configuration);
     }
 
     checkComponentConfiguration(configuration: ast.ComponentConfiguration, accept: ValidationAcceptor): void {
@@ -55,10 +58,26 @@ export class XsmpcfgValidator {
         if (!path) {
             return;
         }
+        const parentContext = this.getParentConfigurationContext(configuration);
+        if (path.unsafe && ast.isComponent(configuration.context?.ref) && this.isComponentBackedContext(parentContext)) {
+            accept('warning', 'The `unsafe` modifier is unnecessary when a nested Component Configuration already declares an explicit Component context.', {
+                node: path,
+                keyword: 'unsafe',
+            });
+        }
+        if (configuration.context?.ref && this.isAssemblyBackedContext(parentContext) && !path.unsafe) {
+            accept('error', 'A safe Component Configuration inside an Assembly-backed context shall not declare an explicit context.', {
+                node: configuration,
+                property: ast.ComponentConfiguration.context,
+            });
+        }
         if (path.unsafe) {
             return;
         }
         if (!this.checkPathTemplateParameters(path, accept)) {
+            return;
+        }
+        if (configuration.context?.ref && this.isComponentBackedContext(parentContext)) {
             return;
         }
         const resolution = this.pathResolver.getComponentPathResolution(path);
@@ -67,7 +86,17 @@ export class XsmpcfgValidator {
 
     checkConfigurationUsage(usage: ast.ConfigurationUsage, accept: ValidationAcceptor): void {
         const path = usage.path;
-        if (!path || path.unsafe) {
+        if (!path) {
+            return;
+        }
+        const context = this.getEnclosingConfigurationContext(usage);
+        if (path.unsafe && this.isComponentBackedContext(context)) {
+            accept('warning', 'The `unsafe` modifier is unnecessary for a Configuration Usage inside a Component-backed context.', {
+                node: path,
+                keyword: 'unsafe',
+            });
+        }
+        if (path.unsafe) {
             return;
         }
         if (!this.checkPathTemplateParameters(path, accept)) {
@@ -112,6 +141,25 @@ export class XsmpcfgValidator {
         if (message && node) {
             accept('error', message, { node });
         }
+    }
+
+    protected getParentConfigurationContext(configuration: ast.ComponentConfiguration) {
+        return ast.isComponentConfiguration(configuration.$container)
+            ? this.pathResolver.getConfigurationComponentContext(configuration.$container)
+            : undefined;
+    }
+
+    protected getEnclosingConfigurationContext(node: AstNode) {
+        const configuration = AstUtils.getContainerOfType(node, ast.isComponentConfiguration);
+        return configuration ? this.pathResolver.getConfigurationComponentContext(configuration) : undefined;
+    }
+
+    protected isAssemblyBackedContext(context: { assemblyContext?: unknown } | undefined): boolean {
+        return Boolean(context?.assemblyContext);
+    }
+
+    protected isComponentBackedContext(context: { assemblyContext?: unknown } | undefined): boolean {
+        return Boolean(context && !context.assemblyContext);
     }
 
     protected checkPathTemplateParameters(path: ast.Path, accept: ValidationAcceptor): boolean {
