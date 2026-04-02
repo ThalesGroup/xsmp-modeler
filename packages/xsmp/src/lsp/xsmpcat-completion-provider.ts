@@ -40,6 +40,9 @@ type ClassifierSnippetSpec = KeywordSnippetSpec & {
 export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
     private readonly floatRegex = /^(Smp\.)?Float(32|64)$/;
     private readonly intRegex = /^(Smp\.)?U?Int(8|16|32|64)$/;
+    override readonly completionOptions = {
+        triggerCharacters: ['=', '@'],
+    };
     protected readonly catalogueSnippetSpec: KeywordSnippetSpec = {
         keyword: 'catalogue',
         label: 'Catalogue',

@@ -12,12 +12,12 @@
             "preLaunchTask": "Build XSMP Workspace",
             "args": [
                 "--extensionDevelopmentPath=${workspaceFolder}/packages/xsmp-vscode",
-                "--extensionDevelopmentPath=${workspaceFolder}/packages/xsmp-profile-tas-mdk/vscode"
+                "--extensionDevelopmentPath=${workspaceFolder}/packages/xsmp-tas-mdk"
             ],
             "sourceMaps": true,
             "outFiles": [
                 "${workspaceFolder}/packages/xsmp-vscode/out/**/*.cjs",
-                "${workspaceFolder}/packages/xsmp-profile-tas-mdk/vscode/lib/**/*.js"
+                "${workspaceFolder}/packages/xsmp-tas-mdk/lib/**/*.js"
             ]
         },
         {
@@ -27,13 +27,13 @@
             "preLaunchTask": "Build XSMP Workspace",
             "args": [
                 "--extensionDevelopmentPath=${workspaceFolder}/packages/xsmp-vscode",
-                "--extensionDevelopmentPath=${workspaceFolder}/packages/xsmp-profile-tas-mdk/vscode",
+                "--extensionDevelopmentPath=${workspaceFolder}/packages/xsmp-tas-mdk",
                 "${workspaceFolder}/examples/examples.code-workspace"
             ],
             "sourceMaps": true,
             "outFiles": [
                 "${workspaceFolder}/packages/xsmp-vscode/out/**/*.cjs",
-                "${workspaceFolder}/packages/xsmp-profile-tas-mdk/vscode/lib/**/*.js"
+                "${workspaceFolder}/packages/xsmp-tas-mdk/lib/**/*.js"
             ]
         },
         {
@@ -47,7 +47,7 @@
             "sourceMaps": true,
             "outFiles": [
                 "${workspaceFolder}/packages/xsmp-vscode/out/**/*.cjs",
-                "${workspaceFolder}/packages/xsmp-profile-tas-mdk/vscode/lib/**/*.js",
+                "${workspaceFolder}/packages/xsmp-tas-mdk/lib/**/*.js",
                 "${workspaceFolder}/node_modules/langium"
             ]
         }

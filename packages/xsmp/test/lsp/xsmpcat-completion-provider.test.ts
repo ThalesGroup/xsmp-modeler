@@ -13,6 +13,12 @@ beforeAll(async () => {
 });
 
 describe('Xsmpcat completion provider', () => {
+    test('registers = and @ as completion trigger characters', () => {
+        expect(services.xsmpcat.lsp.CompletionProvider.completionOptions?.triggerCharacters).toEqual(
+            expect.arrayContaining(['=', '@']),
+        );
+    });
+
     test('offers the catalogue snippet in an empty document', async () => {
         const cursor = extractCursor('@@');
         const items = await getCompletionItems(cursor.text, cursor.cursor, 'memory:///demo-root.xsmpcat');
