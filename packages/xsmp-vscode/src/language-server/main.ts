@@ -1,6 +1,6 @@
 import * as path from 'node:path';
 import { NodeFileSystem } from 'langium/node';
-import { startLanguageServer } from 'langium/lsp';
+import { startLanguageServer, WorkspaceState } from 'langium/lsp';
 import { ProposedFeatures, createConnection } from 'vscode-languageserver/node.js';
 import { createXsmpServices } from 'xsmp';
 import { loadVscodeBuiltinContributionPackages } from '../builtin-packages.js';
@@ -20,8 +20,11 @@ async function main(): Promise<void> {
         throw new AggregateError([], `Built-in XSMP contribution initialization failed:\n${messages.join('\n')}`);
     }
 
-    // Start the language server with the shared services
-    startLanguageServer(shared);
+    // Code actions are driven by diagnostics supplied by the client. Waiting for the whole
+    // workspace build avoids Langium's document-specific Validated race during startup.
+    startLanguageServer(shared, {
+        CodeActionProvider: WorkspaceState.Validated,
+    });
 }
 
 void (async () => {

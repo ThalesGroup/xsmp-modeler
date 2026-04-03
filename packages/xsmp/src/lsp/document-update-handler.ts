@@ -1,6 +1,6 @@
-import { DocumentState, stream, type LangiumDocument, type LangiumDocuments, URI } from 'langium';
+import { DocumentState, stream, type LangiumDocument, type LangiumDocuments, type TextDocument, URI } from 'langium';
 import { DefaultDocumentUpdateHandler } from 'langium/lsp';
-import { FileChangeType, type DidChangeWatchedFilesParams } from 'vscode-languageserver';
+import { FileChangeType, type DidChangeWatchedFilesParams, type TextDocumentChangeEvent } from 'vscode-languageserver';
 import type { ProjectManager } from '../workspace/project-manager.js';
 import type { XsmpSharedServices } from '../xsmp-module.js';
 import type { SmpMirrorManager } from '../smp/index.js';
@@ -15,6 +15,12 @@ export class XsmpDocumentUpdateHandler extends DefaultDocumentUpdateHandler {
         this.smpMirrorManager = services.SmpMirrorManager;
         this.projectManager = services.workspace.ProjectManager;
         this.documents = services.workspace.LangiumDocuments;
+    }
+
+    didOpenDocument(change: TextDocumentChangeEvent<TextDocument>): void {
+        // Langium's initial workspace build stops at IndexedReferences. Rebuilding the document on
+        // open ensures diagnostics and code actions are based on the current in-memory content.
+        this.fireDocumentUpdate([URI.parse(change.document.uri)], []);
     }
 
     override didChangeWatchedFiles(params: DidChangeWatchedFilesParams): void {
