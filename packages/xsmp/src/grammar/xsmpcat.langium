@@ -534,8 +534,18 @@ Association returns Association:
 Container returns Container:
     attributes+=Attribute*
     /**
-     * `container <type>[?|*|+|[<bounds>]] <name> [= <default-component>]`
-     *
+     * `container <type>[<multiplicity>] <name> [= <default-component>]`
+     * 
+     * Multiplicity forms:
+     * ```
+     *   ?
+     *   *
+     *   +
+     *   [<value>]
+     *   [<lower>...<upper>]
+     *   [<lower>...*]
+     * ```
+     * 
      * Declares a containment slot for child components.
      * Use multiplicity to constrain how many children may be placed in the container, and `= <default-component>` to suggest an initial implementation.
      *
@@ -549,8 +559,18 @@ Container returns Container:
 Reference returns Reference:
     attributes+=Attribute*
     /**
-     * `reference <type>[?|*|+|[<bounds>]] <name>`
-     *
+     * `reference <type>[<multiplicity>] <name>`
+     * 
+     * Multiplicity forms:
+     * ```
+     *   ?
+     *   *
+     *   +
+     *   [<value>]
+     *   [<lower>...<upper>]
+     *   [<lower>...*]
+     * ```
+     * 
      * Declares an aggregation reference to external components.
      * References are typed by a reference type, which can be an interface or a component depending on the selected SMP revision.
      *

@@ -1127,7 +1127,7 @@ A **Container** defines a child-component slot inside a model or service, option
 Syntax:
 
 ```text
-container <reference-type>[?|*|+|[<bounds>]] <name> [= <default-component>]
+container <reference-type>[<multiplicity>] <name> [= <default-component>]
 ```
 
 Multiplicity forms:
@@ -1218,7 +1218,7 @@ A **Reference** defines an aggregation point through which a component connects 
 Syntax:
 
 ```text
-reference <interface>[?|*|+|[<bounds>]] <name>
+reference <interface>[<multiplicity>] <name>
 ```
 
 Required:
