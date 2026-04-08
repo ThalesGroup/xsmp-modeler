@@ -83,6 +83,77 @@ namespace demo
         expect(content).toMatch(/count field|count/i);
     });
 
+    test('supports hover and definition on typed cfg structure field references', async () => {
+        const catalogue = extractRange(`catalogue Demo
+
+namespace demo
+{
+    public struct Counters
+    {
+        /** count field */
+        field Smp.Int32 [[count]]
+        field Smp.Bool enabled
+    }
+
+    public model Root
+    {
+        field Counters state
+    }
+}
+`);
+        const configuration = extractCursor(`configuration Demo
+/Root: demo.Root
+{
+    state = {
+        co@@unt = 1i32
+    }
+}
+`);
+
+        const { catalogueDocument, configurationDocument } = await parseProjectDocuments(catalogue.text, configuration.text);
+        const locations = await getDefinitions(configurationDocument, configuration.cursor);
+
+        expectLocation(locations, catalogueDocument, catalogue.range);
+
+        const hover = await services.xsmpcfg.lsp.HoverProvider?.getHoverContent(configurationDocument, positionParams(configurationDocument, configuration.cursor));
+        const content = hover && MarkupContent.is(hover.contents) ? hover.contents.value : '';
+        expect(content).toMatch(/count field|count/i);
+    });
+
+    test('keeps cfg structure field references in text mode when unsafe or untyped', async () => {
+        const unsafeConfiguration = extractCursor(`configuration Demo
+/Root: demo.Root
+{
+    state = {
+        unsafe co@@unt = 1i32
+    }
+}
+`);
+        const { configurationDocument: unsafeDocument } = await parseProjectDocuments(catalogueSource, unsafeConfiguration.text);
+        const unsafeLocations = await getDefinitions(unsafeDocument, unsafeConfiguration.cursor);
+        expect(unsafeLocations).toHaveLength(0);
+
+        const unsafeHover = await services.xsmpcfg.lsp.HoverProvider?.getHoverContent(unsafeDocument, positionParams(unsafeDocument, unsafeConfiguration.cursor));
+        const unsafeContent = unsafeHover && MarkupContent.is(unsafeHover.contents) ? unsafeHover.contents.value : '';
+        expect(unsafeContent).toBe('');
+
+        const legacyConfiguration = extractCursor(`configuration Legacy
+/Root
+{
+    state = {
+        co@@unt = 1i32
+    }
+}
+`);
+        const { configurationDocument: legacyDocument } = await parseProjectDocuments(catalogueSource, legacyConfiguration.text);
+        const legacyLocations = await getDefinitions(legacyDocument, legacyConfiguration.cursor);
+        expect(legacyLocations).toHaveLength(0);
+
+        const legacyHover = await services.xsmpcfg.lsp.HoverProvider?.getHoverContent(legacyDocument, positionParams(legacyDocument, legacyConfiguration.cursor));
+        const legacyContent = legacyHover && MarkupContent.is(legacyHover.contents) ? legacyHover.contents.value : '';
+        expect(legacyContent).toBe('');
+    });
+
     test('does not resolve component-backed component configuration names to containers', async () => {
         const catalogue = extractRange(`catalogue Demo
 
@@ -183,6 +254,27 @@ namespace demo
 
         const { configurationDocument } = await parseProjectDocuments(catalogueSource, configuration.text);
         expect(configurationDocument.diagnostics?.some(diagnostic => diagnostic.message.includes('unknown'))).toBe(true);
+
+        const actions = await getCodeActions(configurationDocument);
+        expect(actions).toHaveLength(1);
+        expect(actions[0].title).toBe('Declare as `unsafe`.');
+        expect(actions[0].edit?.changes?.[configurationDocument.textDocument.uri]).toEqual([
+            TextEdit.insert(configurationDocument.textDocument.positionAt(configuration.cursor), 'unsafe ')
+        ]);
+    });
+
+    test('offers a quick fix to declare invalid cfg structure field references as unsafe', async () => {
+        const configuration = extractCursor(`configuration Demo
+/Root: demo.Root
+{
+    state = {
+        @@missing = 1i32
+    }
+}
+`);
+
+        const { configurationDocument } = await parseProjectDocuments(catalogueSource, configuration.text);
+        expect(configurationDocument.diagnostics?.some(diagnostic => diagnostic.message.includes('missing'))).toBe(true);
 
         const actions = await getCodeActions(configurationDocument);
         expect(actions).toHaveLength(1);

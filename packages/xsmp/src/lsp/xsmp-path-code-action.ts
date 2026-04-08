@@ -11,7 +11,13 @@ export class XsmpPathCodeActionProvider implements CodeActionProvider {
         const groups = new Map<string, { node: ast.Path | ast.LocalNamedReference; diagnostics: Diagnostic[] }>();
         const paths = AstUtils.streamAst(document.parseResult.value).filter(ast.isPath).toArray();
         const localReferences = AstUtils.streamAst(document.parseResult.value)
-            .filter((node): node is ast.LocalNamedReference => ast.isLocalNamedReference(node) && !ast.isPathNamedSegment(node))
+            .filter((node): node is ast.LocalNamedReference =>
+                ast.isLocalNamedReference(node)
+                && (
+                    !ast.isPathNamedSegment(node)
+                    || (ast.isCfgStructureFieldValue(node.$container) && node.$container.field === node)
+                )
+            )
             .toArray();
 
         for (const diagnostic of params.context.diagnostics) {

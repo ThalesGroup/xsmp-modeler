@@ -65,9 +65,8 @@ interface FieldValue extends Value {
     field?: Path
 }
 interface CfgStructureFieldValue extends Value {
-    unsafe: boolean
     value: Value
-    field: string
+    field: ConcretePathNamedSegment
 }
 interface SimpleValue extends Value {
 }

@@ -59,6 +59,14 @@ export class XsmpcfgPathResolver {
         if (!segment) {
             return { candidates: [] };
         }
+        if (ast.isConcretePathNamedSegment(segment)) {
+            const structureFieldValue = ast.isCfgStructureFieldValue(segment.$container) ? segment.$container : undefined;
+            if (structureFieldValue?.field === segment) {
+                return {
+                    candidates: this.getStructureFieldCandidates(structureFieldValue),
+                };
+            }
+        }
         const path = AstUtils.getContainerOfType(segment, ast.isPath);
         if (!path) {
             return { candidates: [] };
@@ -102,6 +110,46 @@ export class XsmpcfgPathResolver {
 
     getFieldCandidatesForType(type: RecoverableType | undefined): readonly ast.Field[] {
         return this.typedPathResolver.getFieldCandidatesForType(type);
+    }
+
+    getStructureFieldTarget(type: ast.Structure, segment: ast.ConcretePathNamedSegment | undefined): ast.Field | undefined {
+        if (!segment) {
+            return undefined;
+        }
+        const candidates = this.getFieldCandidatesForType(type);
+        const linked = segment.reference?.ref;
+        if (ast.isField(linked) && candidates.includes(linked)) {
+            return linked;
+        }
+        const refText = segment.reference?.$refText ?? segment.reference?.ref?.name;
+        return refText ? candidates.find(candidate => candidate.name === refText) : undefined;
+    }
+
+    getExpectedTypeForValue(value: ast.Value | undefined): ast.Type | undefined {
+        if (!value) {
+            return undefined;
+        }
+        const container = value.$container;
+        if (!container) {
+            return undefined;
+        }
+        if (ast.isFieldValue(container) && container.value === value) {
+            return this.getExpectedTypeForFieldValue(container);
+        }
+        if (ast.isCfgStructureFieldValue(container) && container.value === value) {
+            return this.getExpectedTypeForStructureFieldValue(container);
+        }
+        if (ast.isArrayValue(container)) {
+            const arrayType = this.getExpectedTypeForValue(container);
+            return ast.isArrayType(arrayType) ? arrayType.itemType?.ref : undefined;
+        }
+        if (ast.isStructureValue(container)) {
+            const structureType = this.getExpectedTypeForValue(container);
+            return ast.isStructure(structureType)
+                ? this.getPositionalStructureFieldType(container, value, structureType)
+                : undefined;
+        }
+        return undefined;
     }
 
     protected getConfigurationContext(configuration: ast.ComponentConfiguration): CfgConfigurationContext | undefined {
@@ -194,6 +242,94 @@ export class XsmpcfgPathResolver {
         const configuration = AstUtils.getContainerOfType(path, ast.isComponentConfiguration);
         const context = configuration ? this.getConfigurationContext(configuration) : undefined;
         return this.typedPathResolver.resolveFieldPath(path, context?.component, componentModeFieldPathMessages, context?.bindings);
+    }
+
+    protected getStructureFieldCandidates(fieldValue: ast.CfgStructureFieldValue): readonly ast.NamedElement[] {
+        const segment = fieldValue.field;
+        if (!segment || segment.unsafe) {
+            return [];
+        }
+        const structureType = this.getCfgStructureFieldParentType(fieldValue);
+        return structureType
+            ? this.getFieldCandidatesForType(structureType)
+            : [];
+    }
+
+    protected getExpectedTypeForFieldValue(fieldValue: ast.FieldValue): ast.Type | undefined {
+        const fieldPath = fieldValue.field;
+        if (!ast.isPath(fieldPath) || fieldPath.unsafe) {
+            return undefined;
+        }
+        const resolution = this.getFieldPathResolution(fieldPath);
+        if (!resolution.active || resolution.invalidMessage) {
+            return undefined;
+        }
+        return resolution.finalType;
+    }
+
+    protected getExpectedTypeForStructureFieldValue(fieldValue: ast.CfgStructureFieldValue): ast.Type | undefined {
+        const segment = fieldValue.field;
+        if (!segment || segment.unsafe) {
+            return undefined;
+        }
+        const structureType = this.getCfgStructureFieldParentType(fieldValue);
+        const field = structureType
+            ? this.getStructureFieldTarget(structureType, segment)
+            : undefined;
+        return field?.type?.ref;
+    }
+
+    protected getPositionalStructureFieldType(
+        structureValue: ast.StructureValue,
+        target: ast.Value,
+        type: ast.Structure,
+    ): ast.Type | undefined {
+        const fields = this.getFieldCandidatesForType(type);
+        const usedFields = new Set<string>();
+        const nextPositionalField = this.createNextUnusedFieldSelector(fields, usedFields);
+
+        for (const element of structureValue.elements) {
+            if (ast.isCfgStructureFieldValue(element)) {
+                const field = this.getStructureFieldTarget(type, element.field);
+                if (field?.name && !usedFields.has(field.name)) {
+                    usedFields.add(field.name);
+                }
+                continue;
+            }
+
+            const field = nextPositionalField();
+            if (!field) {
+                return undefined;
+            }
+            if (element === target) {
+                return field.type?.ref;
+            }
+            if (field.name) {
+                usedFields.add(field.name);
+            }
+        }
+
+        return undefined;
+    }
+
+    protected createNextUnusedFieldSelector(fields: readonly ast.Field[], usedFields: ReadonlySet<string>): () => ast.Field | undefined {
+        let positionalIndex = 0;
+        return (): ast.Field | undefined => {
+            while (positionalIndex < fields.length) {
+                const field = fields[positionalIndex++];
+                if (field.name && !usedFields.has(field.name)) {
+                    return field;
+                }
+            }
+            return undefined;
+        };
+    }
+
+    protected getCfgStructureFieldParentType(fieldValue: ast.CfgStructureFieldValue): ast.Structure | undefined {
+        const structureType = ast.isStructureValue(fieldValue.$container)
+            ? this.getExpectedTypeForValue(fieldValue.$container)
+            : undefined;
+        return ast.isStructure(structureType) ? structureType : undefined;
     }
 
     protected resolveComponentPathFromContext(

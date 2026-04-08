@@ -386,7 +386,8 @@ export class ADocGenerator implements XsmpGenerator {
                 return `{ ${(value as ast.StructureValue).elements.map(element => this.formatValue(element)).join(', ')} }`;
             case ast.CfgStructureFieldValue.$type: {
                 const fieldValue = value as ast.CfgStructureFieldValue;
-                return `${fieldValue.unsafe ? 'unsafe ' : ''}${fieldValue.field} = ${this.formatValue(fieldValue.value)}`;
+                const fieldText = this.formatLocalReference(fieldValue.field);
+                return fieldText ? `${fieldText} = ${this.formatValue(fieldValue.value)}` : this.formatValue(fieldValue.value);
             }
             case ast.FieldValue.$type: {
                 const fieldValue = value as ast.FieldValue;

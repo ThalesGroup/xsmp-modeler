@@ -845,15 +845,13 @@ export class SmpGenerator implements XsmpGenerator {
             return this.getResolvedFieldValueType(container);
         }
         if (ast.isCfgStructureFieldValue(container) && container.value === value) {
-            if (container.unsafe) {
+            if (container.field.unsafe) {
                 return undefined;
             }
             const structureType = ast.isStructureValue(container.$container)
                 ? this.getExpectedValueType(container.$container)
                 : undefined;
-            return ast.isStructure(structureType)
-                ? this.getStructureFieldType(structureType, container.field)
-                : undefined;
+            return this.getCfgStructureFieldType(structureType, container.field);
         }
         if (ast.isPropertyValue(container) && container.value === value) {
             return this.getResolvedAssemblyPropertyType(container);
@@ -877,12 +875,20 @@ export class SmpGenerator implements XsmpGenerator {
         return undefined;
     }
 
-    protected getStructureFieldType(type: ast.Type | undefined, fieldName: string): ast.Type | undefined {
+    protected getCfgStructureFieldTarget(type: ast.Type | undefined, fieldReference: ast.ConcretePathNamedSegment | undefined): ast.Field | undefined {
         if (!ast.isStructure(type)) {
             return undefined;
         }
-        const fields = this.cfgPathResolver.getFieldCandidatesForType(type) as ast.Field[];
-        return fields.find(field => field.name === fieldName)?.type.ref;
+        const candidate = this.cfgPathResolver.getStructureFieldTarget(type, fieldReference);
+        return ast.isField(candidate) ? candidate : undefined;
+    }
+
+    protected getCfgStructureFieldType(type: ast.Type | undefined, fieldReference: ast.ConcretePathNamedSegment | undefined): ast.Type | undefined {
+        return this.getCfgStructureFieldTarget(type, fieldReference)?.type.ref;
+    }
+
+    protected getCfgStructureFieldName(fieldReference: ast.ConcretePathNamedSegment | undefined): string | undefined {
+        return this.pathService.getLocalNamedReferenceText(fieldReference) || undefined;
     }
 
     protected getStructureFieldPathType(type: ast.Type | undefined, path: ast.Path | undefined): ast.Type | undefined {
@@ -941,41 +947,22 @@ export class SmpGenerator implements XsmpGenerator {
     }
 
     protected getNamedStructureField(type: ast.Structure, segment: ast.PathNamedSegment): ast.Field | undefined {
-        const candidates = this.cfgPathResolver.getFieldCandidatesForType(type) as ast.Field[];
         if (ast.isConcretePathNamedSegment(segment)) {
-            const linked = segment.reference?.ref;
-            if (linked && candidates.includes(linked as ast.Field)) {
-                return linked as ast.Field;
-            }
-            const referenceText = segment.reference?.$refText;
-            return referenceText ? candidates.find(candidate => candidate.name === referenceText) : undefined;
+            return this.getCfgStructureFieldTarget(type, segment);
         }
+        const candidates = this.cfgPathResolver.getFieldCandidatesForType(type) as ast.Field[];
         const segmentText = this.pathService.getSegmentText(segment);
         return segmentText ? candidates.find(candidate => candidate.name === segmentText) : undefined;
     }
 
     protected getPositionalStructureFieldType(structureValue: ast.StructureValue, target: ast.Value, type: ast.Structure): ast.Type | undefined {
         const fields = this.cfgPathResolver.getFieldCandidatesForType(type) as ast.Field[];
-        const fieldsByName = new Map(fields.filter((field): field is ast.Field & { name: string } => !!field.name).map(field => [field.name, field] as const));
         const usedFields = new Set<string>();
-        let positionalIndex = 0;
-
-        const nextPositionalField = (): ast.Field | undefined => {
-            while (positionalIndex < fields.length) {
-                const field = fields[positionalIndex++];
-                if (field.name && !usedFields.has(field.name)) {
-                    return field;
-                }
-            }
-            return undefined;
-        };
+        const nextPositionalField = this.createNextUnusedFieldSelector(fields, usedFields);
 
         for (const element of structureValue.elements) {
             if (ast.isCfgStructureFieldValue(element)) {
-                const field = element.field ? fieldsByName.get(element.field) : undefined;
-                if (field?.name && !usedFields.has(field.name)) {
-                    usedFields.add(field.name);
-                }
+                this.markFieldAsUsed(this.getCfgStructureFieldTarget(type, element.field), usedFields);
                 continue;
             }
             if (ast.isFieldValue(element)) {
@@ -988,12 +975,7 @@ export class SmpGenerator implements XsmpGenerator {
                 }
                 const firstSegment = this.pathService.getPathSegments(element.field)[0];
                 const actualFirstSegment = ast.isPathMember(firstSegment) ? firstSegment.segment : firstSegment;
-                const namedField = ast.isPathNamedSegment(actualFirstSegment)
-                    ? this.getNamedStructureField(type, actualFirstSegment)
-                    : undefined;
-                if (namedField?.name && !usedFields.has(namedField.name)) {
-                    usedFields.add(namedField.name);
-                }
+                this.markFieldAsUsed(ast.isPathNamedSegment(actualFirstSegment) ? this.getNamedStructureField(type, actualFirstSegment) : undefined, usedFields);
                 continue;
             }
 
@@ -1004,9 +986,7 @@ export class SmpGenerator implements XsmpGenerator {
             if (element === target) {
                 return field.type.ref;
             }
-            if (field.name) {
-                usedFields.add(field.name);
-            }
+            this.markFieldAsUsed(field, usedFields);
         }
 
         return undefined;
@@ -1040,29 +1020,16 @@ export class SmpGenerator implements XsmpGenerator {
         }
 
         const fields = this.cfgPathResolver.getFieldCandidatesForType(expectedType) as ast.Field[];
-        const fieldsByName = new Map(fields.map(field => [field.name, field] as const));
         const usedFields = new Set<string>();
-        let positionalIndex = 0;
-
-        const nextPositionalField = (): ast.Field | undefined => {
-            while (positionalIndex < fields.length) {
-                const field = fields[positionalIndex++];
-                if (field.name && !usedFields.has(field.name)) {
-                    return field;
-                }
-            }
-            return undefined;
-        };
+        const nextPositionalField = this.createNextUnusedFieldSelector(fields, usedFields);
 
         return value.elements.map(element => {
             if (ast.isCfgStructureFieldValue(element)) {
-                const field = element.field ? fieldsByName.get(element.field) : undefined;
-                if (field?.name && !usedFields.has(field.name)) {
-                    usedFields.add(field.name);
-                }
+                const field = this.getCfgStructureFieldTarget(expectedType, element.field);
+                this.markFieldAsUsed(field, usedFields);
                 return {
-                    ...this.convertValue(element.value, element.unsafe ? undefined : field?.type.ref),
-                    '@Field': element.field,
+                    ...this.convertValue(element.value, element.field.unsafe ? undefined : field?.type.ref),
+                    '@Field': this.getCfgStructureFieldName(element.field),
                 } as Types.Value;
             }
 
@@ -1073,12 +1040,7 @@ export class SmpGenerator implements XsmpGenerator {
                 const fieldType = this.getStructureFieldPathType(expectedType, element.field);
                 const firstSegment = this.pathService.getPathSegments(element.field)[0];
                 const actualFirstSegment = ast.isPathMember(firstSegment) ? firstSegment.segment : firstSegment;
-                const namedField = ast.isPathNamedSegment(actualFirstSegment)
-                    ? this.getNamedStructureField(expectedType, actualFirstSegment)
-                    : undefined;
-                if (namedField?.name && !usedFields.has(namedField.name)) {
-                    usedFields.add(namedField.name);
-                }
+                this.markFieldAsUsed(ast.isPathNamedSegment(actualFirstSegment) ? this.getNamedStructureField(expectedType, actualFirstSegment) : undefined, usedFields);
                 return {
                     ...this.convertValue(element.value, element.field.unsafe ? undefined : fieldType),
                     '@Field': this.pathService.stringifyPath(element.field),
@@ -1086,9 +1048,7 @@ export class SmpGenerator implements XsmpGenerator {
             }
 
             const field = nextPositionalField();
-            if (field) {
-                usedFields.add(field.name);
-            }
+            this.markFieldAsUsed(field, usedFields);
             return this.convertValue(element, field?.type.ref);
         });
     }
@@ -1130,8 +1090,8 @@ export class SmpGenerator implements XsmpGenerator {
             case ast.CfgStructureFieldValue.$type: {
                 const fieldValue = value as ast.CfgStructureFieldValue;
                 return {
-                    ...this.convertValue(fieldValue.value, fieldValue.unsafe ? undefined : this.getStructureFieldType(expectedType, fieldValue.field)),
-                    '@Field': fieldValue.field
+                    ...this.convertValue(fieldValue.value, fieldValue.field.unsafe ? undefined : this.getCfgStructureFieldType(expectedType, fieldValue.field)),
+                    '@Field': this.getCfgStructureFieldName(fieldValue.field),
                 };
             }
             case ast.FieldValue.$type: return {
@@ -1139,6 +1099,25 @@ export class SmpGenerator implements XsmpGenerator {
                 '@Field': this.pathService.stringifyPath((value as ast.FieldValue).field)
             };
             default: return { '@xsi:type': 'Types:Value' } as Types.Value;
+        }
+    }
+
+    protected createNextUnusedFieldSelector(fields: readonly ast.Field[], usedFields: ReadonlySet<string>): () => ast.Field | undefined {
+        let positionalIndex = 0;
+        return (): ast.Field | undefined => {
+            while (positionalIndex < fields.length) {
+                const field = fields[positionalIndex++];
+                if (field.name && !usedFields.has(field.name)) {
+                    return field;
+                }
+            }
+            return undefined;
+        };
+    }
+
+    protected markFieldAsUsed(field: ast.Field | undefined, usedFields: Set<string>): void {
+        if (field?.name && !usedFields.has(field.name)) {
+            usedFields.add(field.name);
         }
     }
 

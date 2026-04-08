@@ -405,29 +405,36 @@ export class XsmpcfgValidator {
         }
 
         const fields = this.pathResolver.getFieldCandidatesForType(type);
-        const fieldsByName = new Map(fields.filter((field): field is ast.Field & { name: string } => !!field.name).map(field => [field.name, field] as const));
         const usedFields = new Set<string>();
         const nextPositionalField = this.createNextUnusedFieldSelector(fields, usedFields);
 
         for (const element of value.elements) {
             if (ast.isCfgStructureFieldValue(element)) {
-                const field = element.field ? fieldsByName.get(element.field) : undefined;
+                const fieldReference = element.field;
+                const fieldUnsafe = fieldReference?.unsafe ?? false;
+                const field = this.pathResolver.getStructureFieldTarget(type, fieldReference);
                 if (!field) {
-                    if (!element.unsafe) {
-                        accept('error', `The structure field '${element.field}' does not exist on type ${XsmpUtils.fqn(type)}.`, { node: element });
+                    if (!fieldUnsafe) {
+                        accept('error', `The structure field '${this.pathService.getLocalNamedReferenceText(fieldReference)}' does not exist on type ${XsmpUtils.fqn(type)}.`, {
+                            node: element,
+                            property: ast.CfgStructureFieldValue.field,
+                        });
                     }
                     continue;
                 }
                 if (field.name && usedFields.has(field.name)) {
-                    if (!element.unsafe) {
-                        accept('error', `The structure field '${field.name}' shall not be initialized more than once.`, { node: element });
+                    if (!fieldUnsafe) {
+                        accept('error', `The structure field '${field.name}' shall not be initialized more than once.`, {
+                            node: element,
+                            property: ast.CfgStructureFieldValue.field,
+                        });
                     }
                     continue;
                 }
                 if (field.name) {
                     usedFields.add(field.name);
                 }
-                if (!element.unsafe && field.type?.ref && element.value) {
+                if (!fieldUnsafe && field.type?.ref && element.value) {
                     this.checkValueAgainstType(element.value, field.type.ref, accept);
                 }
                 continue;
@@ -548,81 +555,7 @@ export class XsmpcfgValidator {
     }
 
     protected getExpectedTypeForValue(value: ast.Value): ast.Type | undefined {
-        const container = value.$container;
-        if (!container) {
-            return undefined;
-        }
-        if (ast.isFieldValue(container) && container.value === value) {
-            return this.getExpectedTypeForFieldValue(container);
-        }
-        if (ast.isCfgStructureFieldValue(container) && container.value === value) {
-            if (container.unsafe) {
-                return undefined;
-            }
-            const structureType = ast.isStructureValue(container.$container)
-                ? this.getExpectedTypeForValue(container.$container)
-                : undefined;
-            return ast.isStructure(structureType) && container.field
-                ? this.getNamedStructureFieldType(structureType, container.field)
-                : undefined;
-        }
-        if (ast.isArrayValue(container)) {
-            const arrayType = this.getExpectedTypeForValue(container);
-            return ast.isArrayType(arrayType) ? arrayType.itemType?.ref : undefined;
-        }
-        if (ast.isStructureValue(container)) {
-            const structureType = this.getExpectedTypeForValue(container);
-            if (!ast.isStructure(structureType)) {
-                return undefined;
-            }
-            return this.getPositionalStructureFieldType(container, value, structureType);
-        }
-        return undefined;
-    }
-
-    protected getExpectedTypeForFieldValue(fieldValue: ast.FieldValue): ast.Type | undefined {
-        if (!ast.isPath(fieldValue.field) || fieldValue.field.unsafe) {
-            return undefined;
-        }
-        const resolution = this.pathResolver.getFieldPathResolution(fieldValue.field);
-        if (!resolution.active || resolution.invalidMessage) {
-            return undefined;
-        }
-        return resolution.finalType;
-    }
-
-    protected getNamedStructureFieldType(type: ast.Structure, fieldName: string): ast.Type | undefined {
-        return this.pathResolver.getFieldCandidatesForType(type).find(field => field.name === fieldName)?.type?.ref;
-    }
-
-    protected getPositionalStructureFieldType(structureValue: ast.StructureValue, target: ast.Value, type: ast.Structure): ast.Type | undefined {
-        const fields = this.pathResolver.getFieldCandidatesForType(type);
-        const fieldsByName = new Map(fields.filter((field): field is ast.Field & { name: string } => !!field.name).map(field => [field.name, field] as const));
-        const usedFields = new Set<string>();
-        const nextPositionalField = this.createNextUnusedFieldSelector(fields, usedFields);
-
-        for (const element of structureValue.elements) {
-            if (ast.isCfgStructureFieldValue(element)) {
-                const field = element.field ? fieldsByName.get(element.field) : undefined;
-                if (field?.name && !usedFields.has(field.name)) {
-                    usedFields.add(field.name);
-                }
-                continue;
-            }
-
-            const field = nextPositionalField();
-            if (!field) {
-                return undefined;
-            }
-            if (element === target) {
-                return field.type?.ref;
-            }
-            if (field.name) {
-                usedFields.add(field.name);
-            }
-        }
-
-        return undefined;
+        return this.pathResolver.getExpectedTypeForValue(value);
     }
 
     protected createNextUnusedFieldSelector(fields: readonly ast.Field[], usedFields: ReadonlySet<string>): () => ast.Field | undefined {

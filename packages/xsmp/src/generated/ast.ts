@@ -1427,15 +1427,13 @@ export function isCatalogue(item: unknown): item is Catalogue {
 
 export interface CfgStructureFieldValue extends Value {
     readonly $type: 'CfgStructureFieldValue';
-    field: string;
-    unsafe: boolean;
+    field: ConcretePathNamedSegment;
     value: Value;
 }
 
 export const CfgStructureFieldValue = {
     $type: 'CfgStructureFieldValue',
     field: 'field',
-    unsafe: 'unsafe',
     value: 'value'
 } as const;
 
@@ -1577,7 +1575,7 @@ export function isComponentOrAssembly(item: unknown): item is ComponentOrAssembl
 }
 
 export interface ConcretePathNamedSegment extends LocalNamedReference, PathNamedSegment {
-    readonly $container: Path | PathMember;
+    readonly $container: CfgStructureFieldValue | Path | PathMember;
     readonly $type: 'ConcretePathNamedSegment';
 }
 
@@ -2481,7 +2479,7 @@ export function isLinkBase(item: unknown): item is LinkBase {
 }
 
 export interface LocalNamedReference extends langium.AstNode {
-    readonly $container: GlobalEventHandler | InterfaceLink | OperationCall | Path | PathMember | PropertyValue | SubInstance;
+    readonly $container: CfgStructureFieldValue | GlobalEventHandler | InterfaceLink | OperationCall | Path | PathMember | PropertyValue | SubInstance;
     readonly $type: 'ConcretePathNamedSegment' | 'LocalNamedReference';
     reference?: langium.Reference<NamedElement>;
     unsafe: boolean;
@@ -2854,7 +2852,7 @@ export function isPathMember(item: unknown): item is PathMember {
 }
 
 export interface PathNamedSegment extends langium.AstNode {
-    readonly $container: Path | PathMember;
+    readonly $container: CfgStructureFieldValue | Path | PathMember;
     readonly $type: 'ConcretePathNamedSegment' | 'PathNamedSegment' | 'PatternPathNamedSegment';
 }
 
@@ -3951,10 +3949,6 @@ export class XsmpAstReflection extends langium.AbstractAstReflection {
             properties: {
                 field: {
                     name: CfgStructureFieldValue.field
-                },
-                unsafe: {
-                    name: CfgStructureFieldValue.unsafe,
-                    defaultValue: false
                 },
                 value: {
                     name: CfgStructureFieldValue.value

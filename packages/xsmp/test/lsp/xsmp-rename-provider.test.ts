@@ -113,6 +113,47 @@ Root: demo.Root
         expect(assemblyText).toContain('child += Child: demo.Worker');
         expect(assemblyText).not.toContain('demo.Child');
     });
+
+    test('renames a structure field across cfg designated structure field references', async () => {
+        const workspace = await parseRenameWorkspace(
+            extractCursor(`catalogue Demo
+
+namespace demo
+{
+    public struct Counters
+    {
+        field Smp.Int32 co@@unt
+        field Smp.Bool enabled
+    }
+
+    public model Root
+    {
+        field Counters state
+    }
+}
+`),
+            `configuration Demo
+/Root: demo.Root
+{
+    state = {
+        count = 1i32
+    }
+}
+`,
+            `assembly Demo
+Root: demo.Root
+{
+}
+`,
+        );
+
+        const edit = await rename(workspace.catalogueDocument, workspace.cursor, 'totalCount');
+        const renamed = applyWorkspaceEdit(edit, workspace.originalTexts);
+
+        expect(renamed.get(workspace.catalogueDocument.textDocument.uri)).toContain('field Smp.Int32 totalCount');
+        expect(renamed.get(workspace.configurationDocument.textDocument.uri)).toContain('state = {\n        totalCount = 1i32');
+        expect(renamed.get(workspace.configurationDocument.textDocument.uri)).not.toContain('count = 1i32');
+    });
 });
 
 async function parseRenameWorkspace(

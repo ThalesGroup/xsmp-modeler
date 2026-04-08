@@ -8,6 +8,7 @@ export class XsmpcfgFormatter extends XsmpFormatterBase {
         switch (node.$type) {
             case ast.Path.$type: return this.formatPath(node as ast.Path, this.getNodeFormatter(node));
             case ast.PathMember.$type: return this.formatPathMember(node as ast.PathMember, this.getNodeFormatter(node));
+            case ast.ConcretePathNamedSegment.$type: return this.formatLocalNamedReference(node as ast.ConcretePathNamedSegment, this.getNodeFormatter(node));
             case ast.CfgStructureFieldValue.$type: return this.formatCfgStructureFieldValue(node as ast.CfgStructureFieldValue, this.getNodeFormatter(node));
             case ast.Configuration.$type: return this.formatConfiguration(node as ast.Configuration, this.getNodeFormatter(node));
             case ast.ComponentConfiguration.$type: return this.formatComponentConfiguration(node as ast.ComponentConfiguration, this.getNodeFormatter(node));
@@ -37,10 +38,7 @@ export class XsmpcfgFormatter extends XsmpFormatterBase {
         formatter.keyword('at').surround(Formatting.oneSpace());
     }
 
-    protected formatCfgStructureFieldValue(node: ast.CfgStructureFieldValue, formatter: NodeFormatter<ast.CfgStructureFieldValue>): void {
-        if (node.unsafe) {
-            formatter.keyword('unsafe').append(Formatting.oneSpace());
-        }
+    protected formatCfgStructureFieldValue(_node: ast.CfgStructureFieldValue, formatter: NodeFormatter<ast.CfgStructureFieldValue>): void {
         this.formatAssignment(formatter);
     }
 

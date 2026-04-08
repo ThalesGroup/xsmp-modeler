@@ -183,6 +183,43 @@ describe('XSMP DSL completion providers', () => {
         expect(labels(valueItems)).toContain('false');
         expect(labels(valueItems)).toContain('true');
 
+        const structureFieldCursor = extractCursor(`configuration Demo
+/Root: demo.Root
+{
+    state = {
+        @@
+    }
+}
+`);
+        const { configurationDocument: structureFieldDocument } = await parseWorkspace({
+            configuration: structureFieldCursor.text,
+        });
+        const structureFieldItems = await getCompletionItems(services.xsmpcfg.lsp.CompletionProvider!, structureFieldDocument, structureFieldCursor.cursor);
+        const countFieldItem = findSnippetItem(structureFieldItems, 'count');
+        expect(countFieldItem?.insertTextFormat).toBe(InsertTextFormat.Snippet);
+        expect(countFieldItem?.textEdit?.newText ?? countFieldItem?.insertText).toContain('count = ');
+
+        const structureFieldValueCursor = extractCursor(`configuration Demo
+/Root: demo.Root
+{
+    state = {
+        count = @@
+    }
+}
+`);
+        const { configurationDocument: structureFieldValueDocument } = await parseWorkspace({
+            configuration: structureFieldValueCursor.text,
+        });
+        const structureFieldValueItems = await getCompletionItems(
+            services.xsmpcfg.lsp.CompletionProvider!,
+            structureFieldValueDocument,
+            structureFieldValueCursor.cursor
+        );
+        expect(labels(structureFieldValueItems)).toContain('Default Value');
+        expect(labels(structureFieldValueItems)).not.toContain('false');
+        expect(labels(structureFieldValueItems)).not.toContain('true');
+        expect(structureFieldValueItems.find(item => item.label === 'Default Value')?.detail).toContain('Smp.Int32');
+
         const arrayValueCursor = extractCursor(`configuration Demo
 /Root: demo.Root
 {

@@ -62,6 +62,9 @@ CfgStructureValueElement returns Value:
     CfgStructureFieldValue | Value;
 
 CfgStructureFieldValue returns CfgStructureFieldValue:
+    field=CfgConcretePathNamedSegment '=' value=Value;
+
+CfgConcretePathNamedSegment returns ConcretePathNamedSegment:
     (
         /**
          * `unsafe`
@@ -74,7 +77,7 @@ CfgStructureFieldValue returns CfgStructureFieldValue:
          * ```
          */
         unsafe?='unsafe'
-    )? field=ValidID '=' value=Value;
+    )? reference=[NamedElement:ValidID];
 
 ArrayValue returns ArrayValue:
     '[' (startIndex=INT ':')? (elements+=Value (','elements+=Value)*)? ']';
