@@ -21,7 +21,7 @@
     ],
     "engines": {
         "vscode": "^1.82.0",
-        "node": ">=20.19.0"
+        "node": ">=22.13.0"
     },
     "exports": {
         ".": {
@@ -61,7 +61,7 @@
         "test": "cd ../.. && npm run build && vitest run packages/xsmp-tas-mdk/test --config vitest.config.ts"
     },
     "dependencies": {
-        "langium": "4.2.1",
+        "langium": "4.2.2",
         "xsmp": "1.102.0"
     }
 }

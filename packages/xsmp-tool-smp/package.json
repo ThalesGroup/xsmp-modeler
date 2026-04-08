@@ -18,7 +18,7 @@
         "test": "cd ../.. && npm run build && vitest run packages/xsmp-tool-smp/test --config vitest.config.ts"
     },
     "dependencies": {
-        "langium": "4.2.1",
+        "langium": "4.2.2",
         "xmlbuilder2": "^4.0.3",
         "xsmp": "1.102.0"
     }

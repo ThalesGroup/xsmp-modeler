@@ -21,7 +21,7 @@ The CLI currently provides two commands:
 Download the CLI artifact `xsmpproject-cli-<version>.cjs` from the
 [GitHub Releases page](https://github.com/ThalesGroup/xsmp-modeler/releases).
 
-The release artifact is a single JavaScript file. Run it with Node.js `20.19.0`
+The release artifact is a single JavaScript file. Run it with Node.js `22.13.0`
 or newer:
 
 ```bash
