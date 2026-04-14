@@ -14,7 +14,7 @@ beforeAll(async () => {
 
 describe('Xsmpcat completion provider', () => {
     test('registers = and @ as completion trigger characters', () => {
-        expect(services.xsmpcat.lsp.CompletionProvider.completionOptions?.triggerCharacters).toEqual(
+        expect(services.xsmpcat.lsp.CompletionProvider?.completionOptions?.triggerCharacters).toEqual(
             expect.arrayContaining(['=', '@']),
         );
     });
@@ -488,7 +488,7 @@ namespace Attribute
         expect(labels(items)).toContain('Int32');
     });
 
-    test('builds reference and realization snippets from visible reference types', async () => {
+    test('builds reference snippets from visible reference types', async () => {
         const referenceText = `
         catalogue Demo
         namespace demo
@@ -540,13 +540,6 @@ namespace Attribute
         );
         expect(referenceSnippet?.insertText).toContain('Bus');
         expect(referenceSnippet?.insertText).toContain('demo.Bus');
-
-        const realizationSnippet = items.find(item =>
-            item.label === 'Realization'
-            && item.kind === CompletionItemKind.Snippet
-            && item.insertTextFormat === InsertTextFormat.Snippet
-        );
-        expect(realizationSnippet?.insertText).toContain('demo.Bus');
     });
 });
 

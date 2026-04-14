@@ -471,7 +471,7 @@ public interface IManagedCommandable extends demo.foundation.ICommandable, demo.
 
 ### `model`
 
-A **Model** defines a simulation component that can own state, behavior, publications, entry points, containers, references and realizations.
+A **Model** defines a simulation component that can own state, behavior, publications, entry points, containers and references.
 
 Syntax:
 
@@ -480,7 +480,7 @@ Syntax:
     [extends <base-model>]
     [implements <interface>[, <interface>]*]
 {
-    <constant-or-field-or-property-or-operation-or-association-or-container-or-reference-or-realization-or-entrypoint-or-eventsink-or-eventsource>*
+    <constant-or-field-or-property-or-operation-or-association-or-container-or-reference-or-entrypoint-or-eventsink-or-eventsource>*
 }
 ```
 
@@ -533,7 +533,7 @@ Syntax:
     [extends <base-service>]
     [implements <interface>[, <interface>]*]
 {
-    <constant-or-field-or-property-or-operation-or-association-or-container-or-reference-or-realization-or-entrypoint-or-eventsink-or-eventsource>*
+    <constant-or-field-or-property-or-operation-or-association-or-container-or-reference-or-entrypoint-or-eventsink-or-eventsource>*
 }
 ```
 
@@ -1283,42 +1283,6 @@ Example:
 
 ```xsmp
 reference demo.foundation.ILogger? logger
-```
-
-Allowed in:
-
-- `model`
-- `service`
-
-### `realization`
-
-A **Realization** defines one named realized interface slot published by the enclosing component.
-
-Syntax:
-
-```text
-realization <interface> <name>
-```
-
-Required:
-
-- `realization`
-- one interface type
-- one name
-
-Optional:
-
-- no additional syntax
-
-Behavior:
-
-- declares that the enclosing `model` or `service` realizes the referenced interface
-- gives that realized interface an explicit published name inside the component API
-
-Example:
-
-```xsmp
-realization demo.foundation.ICommandable commandable
 ```
 
 Allowed in:

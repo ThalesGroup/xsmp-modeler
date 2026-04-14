@@ -301,7 +301,6 @@ function renderComponent(node: SmpXmlObject, context: CatalogueImportContext, cu
         ...getChildObjects(node, 'Constant').map(member => renderConstant(member, context, currentNamespace)),
         ...getChildObjects(node, 'Operation').map(member => renderOperation(member, context, currentNamespace)),
         ...getChildObjects(node, 'Property').map(member => renderProperty(member, context, currentNamespace)),
-        ...getChildObjects(node, 'Realization').map(member => renderRealization(member, context, currentNamespace)),
         ...getChildObjects(node, 'EntryPoint').map(member => renderEntryPoint(member, context, currentNamespace)),
         ...getChildObjects(node, 'EventSink').map(member => renderEventSink(member, context, currentNamespace)),
         ...getChildObjects(node, 'EventSource').map(member => renderEventSource(member, context, currentNamespace)),
@@ -431,15 +430,6 @@ function renderReference(node: SmpXmlObject, context: CatalogueImportContext, cu
     return joinBlocks([
         header,
         `reference ${renderCatalogueReferenceText(typeLink, context, currentNamespace, 'reference type')}${renderMultiplicity(node)} ${getAttribute(node, 'Name')}`,
-    ], '\n');
-}
-
-function renderRealization(node: SmpXmlObject, context: CatalogueImportContext, currentNamespace: string): string {
-    const interfaceLink = getChild(node, 'Interface') as SmpXmlObject | undefined;
-    const header = renderHeader(node, context, { defaultId: `${currentNamespace}.${getAttribute(node, 'Name')}`, currentNamespace });
-    return joinBlocks([
-        header,
-        `realization ${renderCatalogueReferenceText(interfaceLink, context, currentNamespace, 'realization interface')} ${getAttribute(node, 'Name')}`,
     ], '\n');
 }
 

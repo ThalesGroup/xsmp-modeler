@@ -105,7 +105,7 @@ describe('Validating Xsmpcat', () => {
         expect(errorMessages).not.toContain('Invalid element.');
     });
 
-    test('rejects component references and realizations in ECSS_SMP_2020', async () => {
+    test('rejects component references in ECSS_SMP_2020', async () => {
         const projectDocument = await parseCatalogueInProject(`
             catalogue Demo
 
@@ -125,7 +125,6 @@ describe('Validating Xsmpcat', () => {
                 public model Root
                 {
                     reference demo.Child childRef
-                    realization demo.IBus bus
                 }
             }
         `, 'ECSS_SMP_2020');
@@ -133,11 +132,10 @@ describe('Validating Xsmpcat', () => {
         const messages = (projectDocument.diagnostics ?? []).map(diagnostic => diagnostic.message);
         expect(messages).toEqual(expect.arrayContaining([
             'A Reference in ECSS_SMP_2020 shall target an Interface.',
-            'Realization is only available in ECSS_SMP_2025.',
         ]));
     });
 
-    test('accepts component references and realizations in ECSS_SMP_2025', async () => {
+    test('accepts component references in ECSS_SMP_2025', async () => {
         const projectDocument = await parseCatalogueInProject(`
             catalogue Demo
 
@@ -157,7 +155,6 @@ describe('Validating Xsmpcat', () => {
                 public model Root
                 {
                     reference demo.Child childRef
-                    realization demo.IBus bus
                 }
             }
         `, 'ECSS_SMP_2025');

@@ -182,7 +182,6 @@ export namespace Xsmpasb {
         Property: Property
         PropertyValue: PropertyValue
         Publicable: Publicable
-        Realization: Realization
         Reference: Reference
         ReferenceType: ReferenceType
         Resolvable: Resolvable
@@ -311,7 +310,6 @@ export namespace Xsmpcat {
         | "public"
         | "readOnly"
         | "readWrite"
-        | "realization"
         | "reference"
         | "service"
         | "set"
@@ -441,7 +439,6 @@ export namespace Xsmpcat {
         Property: Property
         PropertyValue: PropertyValue
         Publicable: Publicable
-        Realization: Realization
         Reference: Reference
         ReferenceType: ReferenceType
         Resolvable: Resolvable
@@ -642,7 +639,6 @@ export namespace Xsmpcfg {
         Property: Property
         PropertyValue: PropertyValue
         Publicable: Publicable
-        Realization: Realization
         Reference: Reference
         ReferenceType: ReferenceType
         Resolvable: Resolvable
@@ -825,7 +821,6 @@ export namespace Xsmplnk {
         Property: Property
         PropertyValue: PropertyValue
         Publicable: Publicable
-        Realization: Realization
         Reference: Reference
         ReferenceType: ReferenceType
         Resolvable: Resolvable
@@ -1085,7 +1080,6 @@ export namespace Xsmpsed {
         Property: Property
         PropertyValue: PropertyValue
         Publicable: Publicable
-        Realization: Realization
         Reference: Reference
         ReferenceType: ReferenceType
         Resolvable: Resolvable
@@ -1510,7 +1504,7 @@ export function isCollectionLiteral(item: unknown): item is CollectionLiteral {
 export interface Component extends LanguageType {
     readonly $type: 'Component' | 'Model' | 'Service';
     base?: langium.Reference<Type>;
-    elements: Array<Association | Constant | Container | EntryPoint | EventSink | EventSource | Field | Operation | Property | Realization | Reference>;
+    elements: Array<Association | Constant | Container | EntryPoint | EventSink | EventSource | Field | Operation | Property | Reference>;
     interface: Array<langium.Reference<Type>>;
 }
 
@@ -2586,7 +2580,7 @@ export function isMultiplicity(item: unknown): item is Multiplicity {
 export type Name = string;
 
 export interface NamedElement extends langium.AstNode {
-    readonly $type: 'ArrayType' | 'Assembly' | 'AssemblyInstance' | 'Association' | 'AttributeType' | 'Catalogue' | 'Class' | 'Component' | 'Configuration' | 'Constant' | 'Container' | 'Document' | 'EntryPoint' | 'Enumeration' | 'EnumerationLiteral' | 'EventSink' | 'EventSource' | 'EventType' | 'Exception' | 'Field' | 'Float' | 'Integer' | 'Interface' | 'LanguageType' | 'LinkBase' | 'Model' | 'ModelInstance' | 'NamedElement' | 'NamedElementWithMultiplicity' | 'Namespace' | 'NativeType' | 'Operation' | 'Parameter' | 'PrimitiveType' | 'Property' | 'Realization' | 'Reference' | 'Resolvable' | 'Schedule' | 'Service' | 'SimpleType' | 'StringType' | 'Structure' | 'Task' | 'Type' | 'ValueReference' | 'ValueType' | 'VisibilityElement';
+    readonly $type: 'ArrayType' | 'Assembly' | 'AssemblyInstance' | 'Association' | 'AttributeType' | 'Catalogue' | 'Class' | 'Component' | 'Configuration' | 'Constant' | 'Container' | 'Document' | 'EntryPoint' | 'Enumeration' | 'EnumerationLiteral' | 'EventSink' | 'EventSource' | 'EventType' | 'Exception' | 'Field' | 'Float' | 'Integer' | 'Interface' | 'LanguageType' | 'LinkBase' | 'Model' | 'ModelInstance' | 'NamedElement' | 'NamedElementWithMultiplicity' | 'Namespace' | 'NativeType' | 'Operation' | 'Parameter' | 'PrimitiveType' | 'Property' | 'Reference' | 'Resolvable' | 'Schedule' | 'Service' | 'SimpleType' | 'StringType' | 'Structure' | 'Task' | 'Type' | 'ValueReference' | 'ValueType' | 'VisibilityElement';
     attributes: Array<Metadata>;
     name: string;
 }
@@ -3065,23 +3059,6 @@ export type RangeKind_MaxInclusive = '<..';
 
 export type RangeKind_MinInclusive = '..<';
 
-export interface Realization extends NamedElement, Resolvable {
-    readonly $container: Component;
-    readonly $type: 'Realization';
-    interface: langium.Reference<Type>;
-}
-
-export const Realization = {
-    $type: 'Realization',
-    attributes: 'attributes',
-    interface: 'interface',
-    name: 'name'
-} as const;
-
-export function isRealization(item: unknown): item is Realization {
-    return reflection.isInstance(item, Realization.$type);
-}
-
 export interface Reference extends NamedElementWithMultiplicity, Resolvable {
     readonly $container: Component;
     readonly $type: 'Reference';
@@ -3113,7 +3090,7 @@ export function isReferenceType(item: unknown): item is ReferenceType {
 
 export interface Resolvable extends NamedElement {
     readonly $container: Component | Interface | Structure;
-    readonly $type: 'Container' | 'EntryPoint' | 'EventSink' | 'EventSource' | 'Field' | 'Operation' | 'Property' | 'Realization' | 'Reference' | 'Resolvable';
+    readonly $type: 'Container' | 'EntryPoint' | 'EventSink' | 'EventSource' | 'Field' | 'Operation' | 'Property' | 'Reference' | 'Resolvable';
 }
 
 export const Resolvable = {
@@ -5344,23 +5321,6 @@ export class XsmpAstReflection extends langium.AbstractAstReflection {
             properties: {
             },
             superTypes: []
-        },
-        Realization: {
-            name: Realization.$type,
-            properties: {
-                attributes: {
-                    name: Realization.attributes,
-                    defaultValue: []
-                },
-                interface: {
-                    name: Realization.interface,
-                    referenceType: Type.$type
-                },
-                name: {
-                    name: Realization.name
-                }
-            },
-            superTypes: [NamedElement.$type, Resolvable.$type]
         },
         Reference: {
             name: Reference.$type,

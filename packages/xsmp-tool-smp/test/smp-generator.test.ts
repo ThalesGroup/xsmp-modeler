@@ -107,7 +107,7 @@ describe('SMP generator tests', () => {
     }
   });
 
-  test('serializes Reference using Interface in 2020 and Type plus Realization in 2025', async () => {
+  test('serializes Reference using Interface in 2020 and Type in 2025', async () => {
     const generator = new SmpGenerator(services.shared);
     setGeneratedBy(false);
 
@@ -147,14 +147,12 @@ namespace demo
   public model Root
   {
     reference demo.Child childRef
-    realization demo.IBus bus
   }
 }
 `, 'ECSS_SMP_2025');
     const xml2025 = checkDocumentValid(catalogue2025) ?? await generator.doGenerateCatalogue(catalogue2025.parseResult.value, undefined);
     expect(xml2025).toContain('<Reference');
     expect(xml2025).toContain('<Type');
-    expect(xml2025).toContain('<Realization');
   });
 });
 

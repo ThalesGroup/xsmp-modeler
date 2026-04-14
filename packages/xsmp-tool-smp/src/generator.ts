@@ -225,9 +225,6 @@ export class SmpGenerator implements XsmpGenerator {
             Constant: component.elements.filter(ast.isConstant).map(element => this.convertConstant(element)),
             Property: component.elements.filter(ast.isProperty).map(element => this.convertProperty(element)),
             Operation: component.elements.filter(ast.isOperation).map(element => this.convertOperation(element)),
-            Realization: this.getSmpStandard(component) === 'ECSS_SMP_2025'
-                ? component.elements.filter(ast.isRealization).map(element => this.convertRealization(element))
-                : undefined,
             Base: component.base ? this.convertXlink(component.base, component) : undefined,
             Interface: component.interface.map(interf => this.convertXlink(interf, component)),
             EntryPoint: component.elements.filter(ast.isEntryPoint).map(element => this.convertEntryPoint(element)),
@@ -260,12 +257,7 @@ export class SmpGenerator implements XsmpGenerator {
             '@Upper': XsmpUtils.getUpper(reference),
         };
     }
-    protected convertRealization(realization: ast.Realization): Catalogue.Realization {
-        return {
-            ...this.convertNamedElement(realization),
-            Interface: this.convertXlink(realization.interface, realization),
-        };
-    }
+
     protected convertEventSink(eventSink: ast.EventSink): Catalogue.EventSink {
         return {
             ...this.convertNamedElement(eventSink),

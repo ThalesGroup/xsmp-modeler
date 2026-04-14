@@ -49,7 +49,6 @@ export function registerXsmpcatValidationChecks(services: XsmpcatServices) {
             ArrayType: validator.checkArrayType,
             AttributeType: validator.checkAttributeType,
             EntryPoint: validator.checkEntryPoint,
-            Realization: validator.checkRealization,
             Service: validator.checkService,
             Catalogue: validator.checkCatalogue,
             Property: validator.checkProperty,
@@ -68,7 +67,7 @@ const validUsages = new Set(['NamedElement', 'Array', 'Association', 'AttributeT
         'Class', 'Component', 'Constant', 'Container', 'Document', 'EntryPoint', 'Enumeration',
         'EnumerationLiteral', 'EventSink', 'EventSource', 'EventType', 'Exception', 'Field', 'Float',
         'Integer', 'Interface', 'LanguageType', 'Model', 'Namespace', 'NativeType', 'Operation', 'Parameter',
-        'PrimitiveType', 'Property', 'Realization', 'ReferenceType', 'Reference', 'Service', 'SimpleType', 'String',
+        'PrimitiveType', 'Property', 'ReferenceType', 'Reference', 'Service', 'SimpleType', 'String',
         'Structure', 'Type', 'ValueReference', 'ValueType', 'VisibilityElement']);
 
 /**
@@ -268,7 +267,6 @@ export class XsmpcatValidator {
             (type === ast.Interface.$type && property === ast.Interface.base)
             || (type === ast.Model.$type && property === ast.Component.interface)
             || (type === ast.Service.$type && property === ast.Component.interface)
-            || (type === ast.Realization.$type && property === ast.Realization.interface)
         ) {
             return ast.Interface.$type;
         }
@@ -988,16 +986,6 @@ export class XsmpcatValidator {
             accept('error', 'A Reference in ECSS_SMP_2020 shall target an Interface.', {
                 node: reference,
                 property: ast.Reference.interface
-            });
-        }
-    }
-
-    checkRealization(realization: ast.Realization, accept: ValidationAcceptor): void {
-        this.checkTypeReference(accept, realization, realization.interface?.ref, ast.Realization.interface);
-        if (this.getSmpStandard(realization) !== 'ECSS_SMP_2025') {
-            accept('error', 'Realization is only available in ECSS_SMP_2025.', {
-                node: realization,
-                keyword: 'realization'
             });
         }
     }

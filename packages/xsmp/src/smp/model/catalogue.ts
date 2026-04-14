@@ -25,7 +25,6 @@ export interface ReferenceType extends LanguageType {
 }
 
 export interface Component extends ReferenceType {
-  Realization?: Realization[];
   Base?: Xlink;
   Interface?: Xlink[];
   EntryPoint?: EntryPoint[];
@@ -62,10 +61,6 @@ export interface Reference extends NamedElement {
   Type?: Xlink;
   '@Lower'?: bigint;
   '@Upper'?: bigint;
-}
-
-export interface Realization extends NamedElement {
-  Interface: Xlink;
 }
 
 export interface EventType extends Type {

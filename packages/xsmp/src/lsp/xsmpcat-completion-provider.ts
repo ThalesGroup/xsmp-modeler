@@ -226,13 +226,6 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
             supports: classifier => this.isComponentCompletionScope(classifier),
         },
         {
-            keyword: 'realization',
-            label: 'Realization',
-            detail: 'Realization Definition',
-            buildInsertText: context => this.buildRealizationDefinitionSnippet(context),
-            supports: classifier => this.isComponentCompletionScope(classifier),
-        },
-        {
             keyword: 'entrypoint',
             label: 'Entry Point',
             detail: 'Entry Point Definition',
@@ -621,10 +614,6 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
         return this.buildTypedDefinitionSnippet(context, 'reference', ast.Reference, ast.Reference.interface, 'Interface', { suffix: '*' });
     }
 
-    protected buildRealizationDefinitionSnippet(context: CompletionContext): string {
-        return this.buildTypedDefinitionSnippet(context, 'realization', ast.Realization, ast.Realization.interface, 'Interface');
-    }
-
     protected buildEventSinkDefinitionSnippet(context: CompletionContext): string {
         return this.buildTypedDefinitionSnippet(context, 'eventsink', ast.EventSink, ast.EventSink.type, 'EventType');
     }
@@ -655,9 +644,6 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
         }
         if (this.isReferenceProperty(refInfo, ast.Reference, ast.Reference.interface)) {
             return this.createTypedMemberSnippet(context, nodeDescription, 'Reference Definition', '*');
-        }
-        if (this.isReferenceProperty(refInfo, ast.Realization, ast.Realization.interface)) {
-            return this.createTypedMemberSnippet(context, nodeDescription, 'Realization Definition');
         }
         if (this.isReferenceProperty(refInfo, ast.EventSink, ast.EventSink.type)) {
             return this.createTypedMemberSnippet(context, nodeDescription, 'Event Sink Definition');

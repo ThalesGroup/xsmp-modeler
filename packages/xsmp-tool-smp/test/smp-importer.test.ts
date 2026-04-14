@@ -87,7 +87,7 @@ describe('SMP importer', () => {
         expect(regenerated).toBe(fs.readFileSync(path.resolve(__dirname, 'test.smpcat'), 'utf-8'));
     });
 
-    test('imports 2025 Reference.Type and Realization into XSMP catalogue syntax', async () => {
+    test('imports 2025 Reference.Type into XSMP catalogue syntax', async () => {
         const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-smp-import-cat-2025-'));
         tempDirs.push(tempDir);
         const inputPath = path.join(tempDir, 'demo.smpcat');
@@ -97,9 +97,6 @@ describe('SMP importer', () => {
     <Type xsi:type="Catalogue:Interface" Id="demo.IBus" Name="IBus"/>
     <Type xsi:type="Catalogue:Model" Id="demo.Child" Name="Child"/>
     <Type xsi:type="Catalogue:Model" Id="demo.Root" Name="Root">
-      <Realization Id="demo.Root.bus" Name="bus">
-        <Interface xlink:href="#demo.IBus" xlink:title="demo.IBus"/>
-      </Realization>
       <Reference Id="demo.Root.childRef" Name="childRef">
         <Type xlink:href="#demo.Child" xlink:title="demo.Child"/>
       </Reference>
@@ -114,7 +111,6 @@ describe('SMP importer', () => {
 
         expect(result.warnings).toEqual([]);
         expect(importedText).toContain('reference Child childRef');
-        expect(importedText).toContain('realization IBus bus');
     });
 
     test('imports a configuration and regenerates the same SMP XML', async () => {
