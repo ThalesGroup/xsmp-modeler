@@ -29,9 +29,15 @@ namespace demo::support
         static void _Register(::Smp::Publication::ITypeRegistry* registry);
 
         template<typename _BASE> struct _Field : public _BASE {
+            _Field(::Smp::Publication::ITypeRegistry *typeRegistry,
+                   ::Smp::Uuid typeUuid, ::Smp::String8 name,
+                   ::Smp::String8 description = "", ::Smp::IObject *parent = nullptr,
+                   ::Smp::ViewKind view = ::Smp::ViewKind::VK_All)
+                : _Field(typeRegistry, typeUuid, name, description, parent, view,
+                            ::demo::support::Payload{}) {}
             _Field(::Smp::Publication::ITypeRegistry *typeRegistry, ::Smp::Uuid typeUuid,
-                   ::Smp::String8 name, ::Smp::String8 description = "", ::Smp::IObject *parent = nullptr,
-                   ::Smp::ViewKind view = ::Smp::ViewKind::VK_All, const ::demo::support::Payload &value = {}) :
+                   ::Smp::String8 name, ::Smp::String8 description, ::Smp::IObject *parent,
+                   ::Smp::ViewKind view, const ::demo::support::Payload &value) :
                    _BASE(typeRegistry, typeUuid, name ,description, parent, view),
                    // Field enabled
                    enabled{

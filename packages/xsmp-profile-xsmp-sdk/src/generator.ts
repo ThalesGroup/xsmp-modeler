@@ -191,9 +191,15 @@ export class XsmpSdkGenerator extends GapPatternCppGenerator {
             static void _Register(::Smp::Publication::ITypeRegistry* registry);
 
             template<typename _BASE> struct _Field : public _BASE {
+                _Field(::Smp::Publication::ITypeRegistry *typeRegistry,
+                       ::Smp::Uuid typeUuid, ::Smp::String8 name,
+                       ::Smp::String8 description = "", ::Smp::IObject *parent = nullptr,
+                       ::Smp::ViewKind view = ::Smp::ViewKind::VK_All)
+                    : _Field(typeRegistry, typeUuid, name, description, parent, view,
+                                ${rawFqn}{}) {}
                 _Field(::Smp::Publication::ITypeRegistry *typeRegistry, ::Smp::Uuid typeUuid,
-                       ::Smp::String8 name, ::Smp::String8 description = "", ::Smp::IObject *parent = nullptr,
-                       ::Smp::ViewKind view = ::Smp::ViewKind::VK_All, const ${rawFqn} &value = {}) :
+                       ::Smp::String8 name, ::Smp::String8 description, ::Smp::IObject *parent,
+                       ::Smp::ViewKind view, const ${rawFqn} &value) :
                        _BASE(typeRegistry, typeUuid, name ,description, parent, view)${fields.length === 0 ? '' : ','}
                        ${fields.map(field => s`
                             // Field ${field.name}
