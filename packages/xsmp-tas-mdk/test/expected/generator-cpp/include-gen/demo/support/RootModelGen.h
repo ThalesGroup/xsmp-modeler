@@ -24,6 +24,7 @@ namespace demo
 // ----------------------------------------------------------------------------
 
 #include <demo/support/ChildModel.h>
+#include <demo/support/Counter.h>
 #include <demo/support/CounterArray.h>
 #include <demo/support/IDevice.h>
 #include <demo/support/Label.h>

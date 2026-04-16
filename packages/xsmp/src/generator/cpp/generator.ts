@@ -828,7 +828,7 @@ export abstract class CppGenerator implements XsmpGenerator {
     }
     protected headerIncludesEventEndpoint(element: ast.EventSink | ast.EventSource): Include[] {
         if (ast.isEventType(element.type.ref) && element.type.ref.eventArgs)
-            return ['Smp/PrimitiveTypes.h'];
+            return [element.type.ref.eventArgs.ref];
         return [];
     }
     headerIncludesEventSink(element: ast.EventSink): Include[] {
