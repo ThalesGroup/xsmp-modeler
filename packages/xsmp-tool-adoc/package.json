@@ -1,6 +1,6 @@
 {
     "name": "@xsmp/tool-adoc",
-    "version": "1.102.0",
+    "version": "1.103.0",
     "type": "module",
     "private": true,
     "license": "MIT",
@@ -19,6 +19,6 @@
     },
     "dependencies": {
         "langium": "4.2.2",
-        "xsmp": "1.102.0"
+        "xsmp": "1.103.0"
     }
 }

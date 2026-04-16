@@ -1,6 +1,6 @@
 {
     "name": "@xsmp/cli",
-    "version": "1.102.0",
+    "version": "1.103.0",
     "description": "XSMP command line interface.",
     "type": "module",
     "private": true,
@@ -21,14 +21,14 @@
         "test": "cd ../.. && npm run build && vitest run packages/xsmp-cli/test --config vitest.config.ts"
     },
     "dependencies": {
-        "@xsmp/profile-esa-cdk": "1.102.0",
-        "@xsmp/profile-xsmp-sdk": "1.102.0",
-        "@xsmp/tool-adoc": "1.102.0",
-        "@xsmp/tool-python": "1.102.0",
-        "@xsmp/tool-smp": "1.102.0",
+        "@xsmp/profile-esa-cdk": "1.103.0",
+        "@xsmp/profile-xsmp-sdk": "1.103.0",
+        "@xsmp/tool-adoc": "1.103.0",
+        "@xsmp/tool-python": "1.103.0",
+        "@xsmp/tool-smp": "1.103.0",
         "commander": "~14.0.3",
         "langium": "4.2.2",
-        "xsmp": "1.102.0",
-        "xsmp-tas-mdk": "1.102.0"
+        "xsmp": "1.103.0",
+        "xsmp-tas-mdk": "1.103.0"
     }
 }
