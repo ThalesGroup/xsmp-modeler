@@ -51,7 +51,7 @@
         "@vscode/vsce": "^3.8.0",
         "concurrently": "^9.2.1",
         "esbuild": "^0.28.0",
-        "eslint": "^10.2.0",
+        "eslint": "^10.2.1",
         "langium": "4.2.2",
         "langium-cli": "^4.2.1",
         "shx": "^0.4.0",
