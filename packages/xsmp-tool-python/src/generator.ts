@@ -6,7 +6,7 @@ import { type AstNode, type URI, UriUtils } from 'langium';
 import * as fs from 'node:fs';
 import * as Path from 'node:path';
 import type { TaskAcceptor, XsmpGenerator } from 'xsmp/generator';
-import { xsmpVersion, type XsmpSharedServices } from 'xsmp';
+import { getXsmpVersion, type XsmpSharedServices } from 'xsmp';
 import { type DocumentationHelper } from 'xsmp/utils';
 
 export class PythonGenerator implements XsmpGenerator {
@@ -34,7 +34,7 @@ export class PythonGenerator implements XsmpGenerator {
     }
 
     protected generatedBy() {
-        return `PythonGenerator-${xsmpVersion}`;
+        return `PythonGenerator-${getXsmpVersion()}`;
     }
 
     protected fileBanner(fileName: string): string {

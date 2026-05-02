@@ -601,6 +601,8 @@ function binaryOperation<T>(expression: ast.BinaryOperation, accept?: Validation
     catch (error) {
         if (accept) {
             accept('error', `${error}`, { node: expression });
+        } else {
+            console.warn(`Binary operation '${expression.feature}' failed:`, error);
         }
     }
 

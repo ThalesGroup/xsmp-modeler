@@ -3,7 +3,7 @@ import type { XsmpSharedServices } from 'xsmp';
 import * as ast from 'xsmp/ast';
 import { expandToString as s } from 'langium/generate';
 import { getAccessKind, isInput, isOutput, isState, isAbstractType, VisibilityKind } from 'xsmp/utils';
-import { xsmpVersion } from 'xsmp';
+import { getXsmpVersion } from 'xsmp';
 import * as Path from 'node:path';
 import { AstUtils } from 'langium';
 
@@ -14,7 +14,7 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
         this.includeFolder = 'include';
     }
     protected override generatedBy(): string {
-        return `TasMdkGenerator-${xsmpVersion}`;
+        return `TasMdkGenerator-${getXsmpVersion()}`;
     }
 
     // TAS override for ecss smp compatibility version

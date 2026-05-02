@@ -70,6 +70,13 @@ export default defineConfig({
             reporter: ['text', 'lcov', 'html'],
             include: ['packages/*/src/**/*.ts'],
             exclude: ['**/generated/**', '**/.types/**', '**/lib/**', '**/out/**', '**/*.d.ts'],
+            reportOnFailure: true,
+            thresholds: {
+                statements: 76,
+                branches: 64,
+                functions: 82,
+                lines: 75,
+            },
         },
         deps: {
             interopDefault: true,

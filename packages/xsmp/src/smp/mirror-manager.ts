@@ -83,7 +83,19 @@ export class SmpMirrorManager {
             });
             this.mirrorContentByUri.set(uri.toString(), rendered.content);
             return rendered.content;
-        } catch {
+        } catch (error) {
+            const diagnostic = createSourceDiagnostic(
+                DiagnosticSeverity.Error,
+                error instanceof Error ? error.message : String(error),
+            );
+            this.setBaseDiagnostics(this.baseSourceDiagnostics, sourceUri, [diagnostic]);
+            const connection = this.services.lsp.Connection;
+            if (connection) {
+                connection.sendDiagnostics({
+                    uri: sourceUri.toString(),
+                    diagnostics: this.getSourceDiagnostics(sourceUri),
+                });
+            }
             return undefined;
         }
     }

@@ -1,6 +1,6 @@
 import { Cancellation } from 'langium';
 import { Command, CommanderError } from 'commander';
-import { xsmpVersion } from 'xsmp';
+import { getXsmpVersion } from 'xsmp';
 import { SmpImportService } from 'xsmp/smp';
 import {
     CliError,
@@ -53,7 +53,7 @@ function createProgram(io: CliIo, onValidate: CliAction, onGenerate: CliAction, 
     program
         .name('xsmpproject-cli')
         .description('Validate and generate XSMP projects.')
-        .version(process.env.XSMP_CLI_VERSION ?? xsmpVersion)
+        .version(process.env.XSMP_CLI_VERSION ?? getXsmpVersion())
         .showHelpAfterError()
         .configureOutput({
             writeOut: text => io.stdout(text),

@@ -11,7 +11,7 @@ import type { XsmpSharedServices } from '../../xsmp-module.js';
 import type { XsmpTypeProvider } from '../../references/type-provider.js';
 import * as Solver from '../../utils/solver.js';
 import { PTK } from '../../utils/primitive-type-kind.js';
-import { xsmpVersion } from '../../version.js';
+import { getXsmpVersion } from '../../version.js';
 import { OperatorKind } from '../../utils/operator-kind.js';
 import { type DocumentationHelper } from '../../utils/documentation-helper.js';
 import { type AttributeHelper } from '../../utils/attribute-helper.js';
@@ -650,7 +650,7 @@ export abstract class CppGenerator implements XsmpGenerator {
     }
 
     protected generatedBy() {
-        return `XSMP-${xsmpVersion}`;
+        return `XSMP-${getXsmpVersion()}`;
     }
 
     protected fileBanner(fileName: string, separator: string): string {

@@ -3,14 +3,14 @@ import type { XsmpSharedServices } from 'xsmp';
 import * as ast from 'xsmp/ast';
 import { expandToString as s } from 'langium/generate';
 import { getAccessKind, isInput, isOutput, isState, VisibilityKind } from 'xsmp/utils';
-import { xsmpVersion } from 'xsmp';
+import { getXsmpVersion } from 'xsmp';
 
 export class XsmpSdkGenerator extends GapPatternCppGenerator {
     constructor(services: XsmpSharedServices) {
         super(services, CxxStandard.CXX_STD_17);
     }
     protected override generatedBy(): string {
-        return `XsmpSdkGenerator-${xsmpVersion}`;
+        return `XsmpSdkGenerator-${getXsmpVersion()}`;
     }
     override registerModel(model: ast.Model): string {
         return s`

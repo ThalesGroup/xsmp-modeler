@@ -2,8 +2,16 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as url from 'node:url';
 
-const dirname = getDirName();
-function getDirName() {
+export const xsmpExtensionApiVersion = '1.0.0';
+
+interface PackageInfo {
+    version: string;
+    root: string;
+}
+
+let cached: PackageInfo | undefined;
+
+function getDirName(): string {
     try {
         return url.fileURLToPath(new URL('.', import.meta.url));
     }
@@ -27,7 +35,12 @@ function findPackagePath(startDir: string): string {
     }
 }
 
-function loadPackageJson(): { packagePath: string; packageContent: string } {
+function load(): PackageInfo {
+    if (cached) {
+        return cached;
+    }
+
+    const dirname = getDirName();
     const candidates: string[] = [];
     try {
         candidates.push(findPackagePath(dirname));
@@ -38,19 +51,19 @@ function loadPackageJson(): { packagePath: string; packageContent: string } {
 
     for (const candidate of candidates) {
         if (fs.existsSync(candidate)) {
-            return {
-                packagePath: candidate,
-                packageContent: fs.readFileSync(candidate, 'utf-8'),
-            };
+            const json = JSON.parse(fs.readFileSync(candidate, 'utf-8')) as { version: string };
+            cached = { version: json.version, root: path.dirname(candidate) };
+            return cached;
         }
     }
 
     throw new Error(`Unable to locate package.json from '${dirname}' or '${process.cwd()}'.`);
 }
 
-const { packagePath, packageContent } = loadPackageJson();
-const packageJson = JSON.parse(packageContent) as { version: string };
+export function getXsmpVersion(): string {
+    return load().version;
+}
 
-export const xsmpVersion = packageJson.version;
-export const xsmpExtensionApiVersion = '1.0.0';
-export const xsmpPackageRoot = path.dirname(packagePath);
+export function getXsmpPackageRoot(): string {
+    return load().root;
+}

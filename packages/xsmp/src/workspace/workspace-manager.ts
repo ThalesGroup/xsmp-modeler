@@ -6,13 +6,16 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { XsmpSharedServices } from '../xsmp-module.js';
 import type { SmpMirrorManager } from '../smp/index.js';
-import { xsmpPackageRoot } from '../version.js';
+import { getXsmpPackageRoot } from '../version.js';
 
 export function resolveBuiltinDir(explicitDir?: string): string {
-    const candidateDirs = explicitDir ? [explicitDir] : [
-        path.join(xsmpPackageRoot, 'lib', 'builtins'),
-        path.join(xsmpPackageRoot, 'builtins'),
-    ];
+    const candidateDirs = explicitDir ? [explicitDir] : (() => {
+        const root = getXsmpPackageRoot();
+        return [
+            path.join(root, 'lib', 'builtins'),
+            path.join(root, 'builtins'),
+        ];
+    })();
     const formattedCandidateDirs = candidateDirs.map(dir => `'${dir}'`).join(', ');
     for (const builtinDir of candidateDirs) {
         if (fs.existsSync(path.join(builtinDir, 'ecss.smp.l1@ECSS_SMP_2025.xsmpcat'))) {
