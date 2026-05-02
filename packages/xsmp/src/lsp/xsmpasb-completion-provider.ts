@@ -20,6 +20,8 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
         'event',
         'field',
         'interface',
+        'true',
+        'false',
     ]);
 
     constructor(services: XsmpasbServices) {

@@ -16,6 +16,8 @@ export class XsmpsedCompletionProvider extends XsmpCompletionProviderBase {
         'trig',
         'execute',
         'emit',
+        'true',
+        'false',
     ]);
     protected readonly identifierPatternService: IdentifierPatternService;
 

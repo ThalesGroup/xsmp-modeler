@@ -8,6 +8,8 @@ export class XsmpcfgCompletionProvider extends XsmpCompletionProviderBase {
     protected override readonly snippetOnlyKeywords = new Set([
         'configuration',
         'include',
+        'true',
+        'false',
     ]);
 
     constructor(services: XsmpcfgServices) {
