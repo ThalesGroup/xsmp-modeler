@@ -457,7 +457,7 @@ export class XsmpSdkGenerator extends GapPatternCppGenerator {
             }
             
             void ${name}::Disconnect() {
-                if (this->GetState() == ::Smp::ComponentStateKind::CSK_Connected) {
+                if (this->::Xsmp::Component::GetState() == ::Smp::ComponentStateKind::CSK_Connected) {
                     // Call user DoDisconnect if any
                     ::Xsmp::Component::Helper::Disconnect<${fqn}>(this);
                 }
