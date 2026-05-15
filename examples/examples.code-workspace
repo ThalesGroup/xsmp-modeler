@@ -1,10 +1,26 @@
 {
     "folders": [
-        { "path": "01-foundation" },
-        { "path": "02-avionics" },
-        { "path": "03-payload" },
-        { "path": "04-orbital-segment" },
-        { "path": "05-payload-segment" },
-        { "path": "06-mission-system" }
+        {
+            "path": "01-foundation"
+        },
+        {
+            "path": "02-avionics"
+        },
+        {
+            "path": "03-payload"
+        },
+        {
+            "path": "04-orbital-segment"
+        },
+        {
+            "path": "05-payload-segment"
+        },
+        {
+            "path": "06-mission-system"
+        },
+        {
+            "name": "testXsmp",
+            "path": "../testXsmp"
+        }
     ]
 }
