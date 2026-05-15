@@ -60,7 +60,7 @@ namespace demo::support
     }
 
     void ChildModelGen::Disconnect() {
-        if (this->GetState() == ::Smp::ComponentStateKind::CSK_Connected) {
+        if (this->::Xsmp::Component::GetState() == ::Smp::ComponentStateKind::CSK_Connected) {
             // Call user DoDisconnect if any
             ::Xsmp::Component::Helper::Disconnect<::demo::support::ChildModel>(this);
         }
