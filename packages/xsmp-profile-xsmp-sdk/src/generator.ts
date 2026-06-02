@@ -2,7 +2,7 @@ import { GapPatternCppGenerator, CxxStandard, type Include } from 'xsmp/generato
 import type { XsmpSharedServices } from 'xsmp';
 import * as ast from 'xsmp/ast';
 import { expandToString as s } from 'langium/generate';
-import { getAccessKind, isInput, isOutput, isState, VisibilityKind } from 'xsmp/utils';
+import { getAccessKind, isInput, isOutput, isState, isString8, VisibilityKind } from 'xsmp/utils';
 import { getXsmpVersion } from 'xsmp';
 
 export class XsmpSdkGenerator extends GapPatternCppGenerator {
@@ -497,7 +497,7 @@ export class XsmpSdkGenerator extends GapPatternCppGenerator {
     protected generateRqHandlerOperation(op: ast.Operation, gen: boolean): string {
         const r = op.returnParameter;
         const parameterArguments = op.parameter
-            .map(param => `${this.attrHelper.isByPointer(param) ? '&' : ''}p_${param.name}`)
+            .map(param => this.requestParameterArgument(param))
             .join(', ');
         const invokation = `component->${this.operationName(op)}(${parameterArguments})`;
         const requestParameter = r || op.parameter.length > 0 ? 'request' : '';
@@ -518,15 +518,30 @@ export class XsmpSdkGenerator extends GapPatternCppGenerator {
 
             `;
     }
-    /*protected override isInvokable(element: ast.Invokable): boolean {
+    protected override isInvokable(element: ast.Invokable): boolean {
         if (ast.isOperation(element)) {
-            if (element.returnParameter && !ast.isSimpleType(element.returnParameter.type.ref)) {
+            // we cannot handle properly a returnParameter of type String8 because
+            // we don't know how to deallocate the memory
+            if (isString8(element.returnParameter?.type.ref)) {
                 return false;
             }
-            return element.parameter.every(param => ast.isValueType(param.type.ref) && !ast.isClass(param.type.ref));
+            // same thing for out/inout parameters of type String8
+            if (element.parameter.some(param => isString8(param.type.ref) && (param.direction ?? 'in') !== 'in')) {
+                return false;
+            }
         }
         return super.isInvokable(element);
-    }*/
+    }
+
+    private requestParameterArgument(param: ast.Parameter): string {
+        let argument = isString8(param.type.ref) 
+            ? `static_cast<${this.fqn(param.type.ref)}>(p_${param.name})`
+            : `p_${param.name}`;
+        if (this.attrHelper.isByPointer(param)) {
+            return `&${argument}`;
+        }
+        return argument;
+    }
 
     initParameter(param: ast.Parameter): string {
         switch (param.direction ?? 'in') {
@@ -537,6 +552,9 @@ export class XsmpSdkGenerator extends GapPatternCppGenerator {
             case 'inout': {
                 // declare and initialize the parameter
                 const defaultExpression = param.default ? `, ${this.expression(param.default)}` : '';
+                if (isString8(param.type.ref) ) {
+                    return `auto p_${param.name} = request->GetParameterValue(request->GetParameterIndex("${param.name}"));`;
+                }
                 if (ast.isSimpleType(param.type.ref)) {
                     return `auto p_${param.name} = ::Xsmp::Request::get<${this.fqn(param.type.ref)}>(component, request, "${param.name}", ${this.primitiveTypeKind(param.type.ref)}${defaultExpression});`;
                 }
