@@ -23,9 +23,12 @@ namespace demo
 // --------------------------- Include Header Files ---------------------------
 // ----------------------------------------------------------------------------
 
+#include <esa/ecss/smp/cdk/Request.h>
+#include <esa/ecss/smp/cdk/RequestContainer.h>
 #include <esa/ecss/smp/cdk/Service.h>
 #include <map>
 #include <Smp/IComposite.h>
+#include <Smp/IRequest.h>
 #include <Smp/ISimulator.h>
 #include <Smp/PrimitiveTypes.h>
 #include <Smp/Publication/ITypeRegistry.h>
@@ -64,7 +67,7 @@ namespace demo
         MonitorServiceGen& operator=(MonitorServiceGen&&) = delete;
 
         /// Virtual destructor to release memory.
-        ~MonitorServiceGen() override = default;
+        ~MonitorServiceGen() override;
 
         /// Request the Service to publish its fields, properties and
         /// operations against the provided publication receiver.
@@ -97,20 +100,18 @@ namespace demo
         /// Get Universally Unique Identifier of the Service.
         /// @return  Universally Unique Identifier of the Service.
         const ::Smp::Uuid& GetUuid() const override;
+        private:
+            template <typename _Type> static void PopulateRequestHandlers(_Type* bluePrint, typename ::esa::ecss::smp::cdk::RequestContainer<_Type>::Map& handlers);
+            static ::esa::ecss::smp::cdk::RequestContainer<MonitorServiceGen>::Map requestHandlers;
 
-                    private:
-                        template <typename _Type> static void PopulateRequestHandlers(_Type* bluePrint, typename ::esa::ecss::smp::cdk::RequestContainer<_Type>::Map& handlers);
-                        static ::esa::ecss::smp::cdk::RequestContainer<MonitorServiceGen>::Map requestHandlers;
-
-                    public:
-                        /// Dynamically invoke an operation using a request object that has
-                        /// been created and filled with parameter values by the caller.
-                        /// @param   request Request object to invoke.
-                        /// @throws  Smp::InvalidOperationName
-                        /// @throws  Smp::InvalidParameterCount
-                        /// @throws  Smp::InvalidParameterType
-                        void Invoke(::Smp::IRequest* request) override;
-
+        public:
+            /// Dynamically invoke an operation using a request object that has
+            /// been created and filled with parameter values by the caller.
+            /// @param   request Request object to invoke.
+            /// @throws  Smp::InvalidOperationName
+            /// @throws  Smp::InvalidParameterCount
+            /// @throws  Smp::InvalidParameterType
+            void Invoke(::Smp::IRequest* request) override;
 
         private:
         /// Get Running.
@@ -123,32 +124,20 @@ namespace demo
         ::Smp::Bool running;
         };
 
+        template <typename _Type>
+        void MonitorServiceGen::PopulateRequestHandlers(_Type* bluePrint, typename ::esa::ecss::smp::cdk::RequestContainer<_Type>::Map& handlers)
+        {
+            typedef ::esa::ecss::smp::cdk::RequestContainer<_Type> Help;
 
-                    template <typename _Type>
-                    void MonitorServiceGen::PopulateRequestHandlers(_Type* bluePrint, typename ::esa::ecss::smp::cdk::RequestContainer<_Type>::Map& handlers)
-                    {
-                        typedef ::esa::ecss::smp::cdk::RequestContainer<_Type> Help;
+            // ---- Operations ----
+            Help::template AddIfMissing<void>(
+                handlers,
+                "start",
+                ::Smp::PrimitiveTypeKind::PTK_None,
+                static_cast<void (MonitorServiceGen::*)()>(&MonitorServiceGen::start));
 
-                        // ---- Operations ----
-                        Help::template AddIfMissing<«IF o.returnParameter !== null»«o.returnParameter.type()»«ELSE»void«ENDIF»«FOR param : o.parameter BEFORE ', ' SEPARATOR ', '»«param.type()»«ENDFOR»>(
-             handlers,
-             "start",
-             ::Smp::PrimitiveTypeKind::PTK_None,
-             static_cast<«IF o.returnParameter !== null»«o.returnParameter.type()»«ELSE»void«ENDIF»(«container.name(useGenPattern)»::*)(«FOR param : o.parameter SEPARATOR ', '»«param.type()»«ENDFOR»)«IF o.isConst»const«ENDIF»>(&«container.name(useGenPattern)»::«o.name»));
-
-         if (handlers.find("start") == handlers.end()) {
-             handlers["start"] = [](_Type & component, [[maybe_unused]] ::Smp::IRequest* request) {
-
-             /// Invoke start
-             component.start();
-
-             };
-         }
-
-                        ::esa::ecss::smp::cdk::«t.eClass.name»::PopulateRequestHandlers<_Type>(bluePrint, handlers);
-                    }
-
-
+            ::esa::ecss::smp::cdk::Service::PopulateRequestHandlers<_Type>(bluePrint, handlers);
+        }
 
     } // namespace support
 } // namespace demo

@@ -63,7 +63,7 @@ namespace demo
         ChildModelGen& operator=(ChildModelGen&&) = delete;
 
         /// Virtual destructor to release memory.
-        ~ChildModelGen() override = default;
+        ~ChildModelGen() override;
 
         /// Request the Model to publish its fields, properties and
         /// operations against the provided publication receiver.

@@ -39,7 +39,6 @@ namespace demo
 #include <esa/ecss/smp/cdk/EventSourceVoid.h>
 #include <esa/ecss/smp/cdk/Model.h>
 #include <esa/ecss/smp/cdk/Reference.h>
-#include <map>
 #include <Smp/IComposite.h>
 #include <Smp/IEntryPoint.h>
 #include <Smp/ISimulator.h>
@@ -80,7 +79,7 @@ namespace demo
         RootModelGen& operator=(RootModelGen&&) = delete;
 
         /// Virtual destructor to release memory.
-        ~RootModelGen() override = default;
+        ~RootModelGen() override;
 
         /// Request the Model to publish its fields, properties and
         /// operations against the provided publication receiver.
@@ -114,20 +113,6 @@ namespace demo
         /// @return  Universally Unique Identifier of the Model.
         const ::Smp::Uuid& GetUuid() const override;
 
-                    private:
-                        template <typename _Type> static void PopulateRequestHandlers(_Type* bluePrint, typename ::esa::ecss::smp::cdk::RequestContainer<_Type>::Map& handlers);
-                        static ::esa::ecss::smp::cdk::RequestContainer<RootModelGen>::Map requestHandlers;
-
-                    public:
-                        /// Dynamically invoke an operation using a request object that has
-                        /// been created and filled with parameter values by the caller.
-                        /// @param   request Request object to invoke.
-                        /// @throws  Smp::InvalidOperationName
-                        /// @throws  Smp::InvalidParameterCount
-                        /// @throws  Smp::InvalidParameterType
-                        void Invoke(::Smp::IRequest* request) override;
-
-
         private:
         /// Get connected.
         /// @return Current value of property connected.
@@ -152,34 +137,6 @@ namespace demo
         ::esa::ecss::smp::cdk::Reference<::demo::support::IDevice>* deviceRef;
         ::esa::ecss::smp::cdk::Reference<::demo::support::ChildModel>* childRef;
         };
-
-
-                    template <typename _Type>
-                    void RootModelGen::PopulateRequestHandlers(_Type* bluePrint, typename ::esa::ecss::smp::cdk::RequestContainer<_Type>::Map& handlers)
-                    {
-                        typedef ::esa::ecss::smp::cdk::RequestContainer<_Type> Help;
-
-                        // ---- Operations ----
-                        Help::template AddIfMissing<«IF o.returnParameter !== null»«o.returnParameter.type()»«ELSE»void«ENDIF»«FOR param : o.parameter BEFORE ', ' SEPARATOR ', '»«param.type()»«ENDFOR»>(
-             handlers,
-             "ping",
-             ::Smp::PrimitiveTypeKind::PTK_Bool,
-             static_cast<«IF o.returnParameter !== null»«o.returnParameter.type()»«ELSE»void«ENDIF»(«container.name(useGenPattern)»::*)(«FOR param : o.parameter SEPARATOR ', '»«param.type()»«ENDFOR»)«IF o.isConst»const«ENDIF»>(&«container.name(useGenPattern)»::«o.name»));
-
-         if (handlers.find("ping") == handlers.end()) {
-             handlers["ping"] = [](_Type & component, [[maybe_unused]] ::Smp::IRequest* request) {
-             auto p_requested = static_cast<::demo::support::Ratio>(request->GetParameterValue(req->GetParameterIndex("requested")));
-             ::Smp::Float64 p_measured;
-             /// Invoke ping
-             request->SetReturnValue({::Smp::PrimitiveTypeKind::PTK_Bool, component.ping(p_requested, &p_measured)});
-
-             request->SetParameterValue(request->GetParameterIndex("measured"), p_measured);
-             };
-         }
-
-                        ::esa::ecss::smp::cdk::«t.eClass.name»::PopulateRequestHandlers<_Type>(bluePrint, handlers);
-                    }
-
 
 
     } // namespace support

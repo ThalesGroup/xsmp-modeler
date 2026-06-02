@@ -11,8 +11,6 @@
 #include <demo/support/RootModel.h>
 #include <esa/ecss/smp/cdk/EntryPoint.h>
 #include <esa/ecss/smp/cdk/EventSinkArg.h>
-#include <esa/ecss/smp/cdk/Request.h>
-#include <Smp/IPublication.h>
 
 
 namespace demo
@@ -126,9 +124,6 @@ namespace demo
             // Call parent class implementation first
             ::esa::ecss::smp::cdk::Model::Publish(receiver);
 
-            if (requestHandlers.empty()) {
-                PopulateRequestHandlers<RootModelGen>(this, requestHandlers);
-            }
 
             // Publish field name
             receiver->PublishField(
@@ -173,30 +168,6 @@ namespace demo
                 false, // Input
                 false // Output
             );
-            // Publish operation ping
-            auto* op_ping = receiver->PublishOperation(
-                "ping", // Name
-                "", // Description
-                ::Smp::ViewKind::VK_All // View Kind
-            );
-            op_ping->PublishParameter(
-                                "requested", // Name
-                                "", // Description
-                                ::demo::support::Uuid_Ratio, // Type UUID
-                                Smp::Publication::ParameterDirectionKind::PDK_In // Parameter Direction Kind
-                            );
-            op_ping->PublishParameter(
-                                "measured", // Name
-                                "", // Description
-                                ::Smp::Uuids::Uuid_Float64, // Type UUID
-                                Smp::Publication::ParameterDirectionKind::PDK_Out // Parameter Direction Kind
-                            );
-            op_ping->PublishParameter(
-                                "return", // Name
-                                "", // Description
-                                ::Smp::Uuids::Uuid_Bool, // Type UUID
-                                Smp::Publication::ParameterDirectionKind::PDK_Return // Parameter Direction Kind
-                            );
             // Publish Property connected
             receiver->PublishProperty(
                 "connected", // Name
@@ -231,33 +202,6 @@ namespace demo
             // Call parent implementation last, to remove references to the Simulator and its services
             ::esa::ecss::smp::cdk::Model::Disconnect();
         }
-
-        void RootModelGen::DoPublish(::Smp::IPublication*) {
-        }
-
-        void RootModelGen::DoConfigure( ::Smp::Services::ILogger*, ::Smp::Services::ILinkRegistry*){
-        }
-
-        void RootModelGen::DoConnect( ::Smp::ISimulator*){
-        }
-
-        void RootModelGen::DoDisconnect(){
-        }
-
-
-                        void RootModelGen::Invoke(::Smp::IRequest* request) {
-                            if (!request) {
-                                return;
-                            }
-                            if (auto it = _requestHandlers.find(request->GetOperationName());
-                                    it != _requestHandlers.end()) {
-                                it->second(this, request);
-                            } else {
-                                // pass the request down to the base class
-                                ::esa::ecss::smp::cdk::Model::Invoke(request);
-                            }
-                        }
-
 
         const ::Smp::Uuid& RootModelGen::GetUuid() const {
             return Uuid_RootModel;
