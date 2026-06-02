@@ -1,4 +1,7 @@
 [105:127..105:134]: Could not resolve reference to Type named 'Invalid'.
+[111:61..111:65]: Could not resolve reference to Field named 'CST0'.
+[144:11..144:18]: Could not resolve reference to Field named 'MyModel'.
+[145:12..145:19]: Could not resolve reference to Field named 'MyModel'.
 [9:10..9:15]: A name shall not be an ISO/ANSI C++ keyword.
 [3:9..3:21]: Invalid date format (e.g: 1970-01-01T00:00:00Z).
 [9:0..9:9]: This Catalogue is not contained in a project.
@@ -68,11 +71,9 @@
 [105:74..105:82]: Deprecated.
 [105:100..105:110]: A Parameter shall not be both ByPointer and ByReference.
 [105:148..105:152]: The PrimitiveType Smp.Bool is not visible.
-[111:61..111:65]: Expecting a Field.
 [107:8..107:15]: A Property of an Interface shall not be static.
 [108:8..108:16]: A Property shall not be both Static and Virtual.
 [109:8..109:17]: A Property shall not be both Static and Abstract.
-[107:8..107:15]: A Property shall not be Static if the attached field is not Static.
 [115:4..115:9]: Missing Type UUID.
 [115:26..115:33]: Cyclic dependency detected.
 [115:58..115:69]: Duplicated interface.
@@ -100,10 +101,8 @@
 [136:8..136:18]: A Property shall not be both ByPointer and ByReference.
 [142:11..142:12]: Deprecated: do not use
 [142:11..142:12]: Field is not an Input.
-[144:11..144:18]: Expecting a Field.
 [143:12..143:13]: Deprecated: do not use
 [143:12..143:13]: Field is not an Output.
-[145:12..145:19]: Expecting a Field.
 [147:17..147:24]: A Reference in ECSS_SMP_2020 shall target an Interface.
 [151:29..151:31]: Lower bound shall be a positive number or 0.
 [153:29..153:31]: Lower bound shall be a positive number or 0.
