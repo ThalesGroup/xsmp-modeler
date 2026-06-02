@@ -362,7 +362,14 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
             return this.createExpectedTypeReferenceFilter(refInfo, desc => !XsmpUtils.isRecursiveType(refInfo.container as ast.ArrayType, desc.node as ast.Type));
         }
         if (this.isReferenceProperty(refInfo, ast.Field, ast.Field.type)) {
-            return this.createExpectedTypeReferenceFilter(refInfo, desc => !XsmpUtils.isRecursiveType((refInfo.container as ast.Field).$container, desc.node as ast.Type));
+            const field = refInfo.container as ast.Field;
+            const expectedType = ast.isModel(field.$container) || ast.isService(field.$container)
+                ? ast.ValueType.$type
+                : ast.LanguageType.$type;
+            return desc => ast.isType(desc.node)
+                && ast.reflection.isSubtype(desc.type, expectedType)
+                && XsmpUtils.isTypeVisibleFrom(field, desc.node)
+                && !XsmpUtils.isRecursiveType(field.$container, desc.node);
         }
         if (this.isReferenceProperty(refInfo, ast.Property, ast.Property.attachedField)) {
             return desc => this.isAccessibleSiblingField(refInfo, desc);

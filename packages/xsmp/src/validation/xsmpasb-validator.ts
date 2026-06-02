@@ -701,7 +701,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
             return undefined;
         }
 
-        let currentType = field.type?.ref;
+        let currentType: ast.Type | undefined = field.type?.ref;
         for (let index = 1; index < segments.length; index++) {
             const segment = segments[index];
             if (ast.isPathIndex(segment)) {

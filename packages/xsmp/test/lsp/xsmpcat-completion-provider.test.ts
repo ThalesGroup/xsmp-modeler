@@ -470,6 +470,60 @@ namespace demo
         expect(labels(items).indexOf('AccessKind')).toBeLessThan(labels(items).indexOf('Vector'));
     });
 
+    test('filters field type completion by field owner', async () => {
+        const modelCursor = extractCursor(`catalogue demo
+namespace demo
+{
+    public interface IBus
+    {
+    }
+
+    public model Child
+    {
+    }
+
+    public enum State
+    {
+        Ready = 0
+    }
+
+    public model M
+    {
+        field @@ value
+    }
+}
+`);
+        const modelItems = await getCompletionItems(modelCursor.text, modelCursor.cursor, 'memory:///demo-model-field-type-filter.xsmpcat');
+        expect(labels(modelItems)).toContain('State');
+        expect(labels(modelItems)).not.toContain('IBus');
+        expect(labels(modelItems)).not.toContain('Child');
+
+        const structCursor = extractCursor(`catalogue demo
+namespace demo
+{
+    public interface IBus
+    {
+    }
+
+    public model Child
+    {
+    }
+
+    public enum State
+    {
+        Ready = 0
+    }
+
+    public struct Packet
+    {
+        field @@ value
+    }
+}
+`);
+        const structItems = await getCompletionItems(structCursor.text, structCursor.cursor, 'memory:///demo-struct-field-type-filter.xsmpcat');
+        expect(labels(structItems)).toEqual(expect.arrayContaining(['IBus', 'Child', 'State']));
+    });
+
     test('completes attribute types from visible value types', async () => {
         const cursor = extractCursor(`catalogue demo
 namespace Smp

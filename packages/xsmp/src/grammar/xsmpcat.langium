@@ -456,7 +456,7 @@ Field returns Field:
      * output field demo.foundation.Vector3 estimatedRates
      * ```
      */
-    'field' type=[ValueType:QualifiedName] name=ValidID ('=' default=Expression)?;
+    'field' type=[LanguageType:QualifiedName] name=ValidID ('=' default=Expression)?;
 
 Property returns Property:
     attributes+=Attribute*

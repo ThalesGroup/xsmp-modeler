@@ -162,6 +162,207 @@ describe('Validating Xsmpcat', () => {
         expect((projectDocument.diagnostics ?? []).filter(d => d.severity === DiagnosticSeverity.Error)).toHaveLength(0);
     });
 
+    test('allows non-ValueType fields in composite types with a warning', async () => {
+        document = await parse(`
+            catalogue FieldWarning
+
+            namespace fieldWarning
+            {
+                /** @uuid cff269a6-8e4e-4eb9-a0d9-841e3a690c70 */
+                public interface IBus
+                {
+                }
+
+                /** @uuid 3aa1b85b-3ffb-4fe7-a8aa-0f0c449d3ec1 */
+                public model Child
+                {
+                }
+
+                /** @uuid 0509d41d-4073-4ed1-bda8-28dd1bfb1968 */
+                public struct Packet
+                {
+                    field fieldWarning.IBus bus
+                }
+
+                /** @uuid d54c461f-f312-455b-b15a-3f83d809cc24 */
+                public class Holder
+                {
+                    field fieldWarning.Child child
+                }
+            }
+        `, { documentUri: 'field-language-type-warning.xsmpcat' });
+
+        const diagnostics = document.diagnostics ?? [];
+        expect(diagnostics.filter(d => d.severity === DiagnosticSeverity.Error)).toHaveLength(0);
+        expect(diagnostics.filter(d => d.severity === DiagnosticSeverity.Warning).map(d => d.message)).toEqual(expect.arrayContaining([
+            'Field type is not a ValueType. This is allowed outside Model/Service but is not SMP compatible.',
+            'Field type is not a ValueType. This is allowed outside Model/Service but is not SMP compatible.',
+        ]));
+    });
+
+    test('rejects direct non-ValueType fields in models and services', async () => {
+        document = await parse(`
+            catalogue FieldDirect
+
+            namespace fieldDirect
+            {
+                /** @uuid de0534bb-8077-4028-a713-34629816c8b4 */
+                public interface IBus
+                {
+                }
+
+                /** @uuid 90c060f8-4a3b-49a5-b021-a544890b84e2 */
+                public model Root
+                {
+                    field fieldDirect.IBus bus
+                }
+            }
+        `, { documentUri: 'field-language-type-model-error.xsmpcat' });
+
+        const errorMessages = (document.diagnostics ?? [])
+            .filter(d => d.severity === DiagnosticSeverity.Error)
+            .map(d => d.message);
+
+        expect(errorMessages).toContain('A Field of a Model or Service shall have a ValueType type.');
+    });
+
+    test('rejects model fields whose value type contains non-ValueType fields', async () => {
+        document = await parse(`
+            catalogue FieldTransitive
+
+            namespace fieldTransitive
+            {
+                /** @uuid 6dac01fd-5ba3-462e-b7ff-f5bf724dd2cf */
+                public interface IBus
+                {
+                }
+
+                /** @uuid d2e23c63-5926-4605-83fd-20a64834f18b */
+                public struct Packet
+                {
+                    field fieldTransitive.IBus bus
+                }
+
+                /** @uuid f20cb753-04f0-49da-a940-4fc13755c5c8 */
+                public struct Envelope
+                {
+                    field fieldTransitive.Packet packet
+                }
+
+                /** @uuid 83f46138-d276-4a66-b942-044306aa4eb6 */
+                public array PacketArray = fieldTransitive.Packet[1]
+
+                /** @uuid bbb614b0-36af-405d-a3c6-79adbf4462d6 */
+                public model Root
+                {
+                    field fieldTransitive.Envelope envelope
+                    field fieldTransitive.PacketArray packets
+                }
+            }
+        `, { documentUri: 'field-language-type-transitive-error.xsmpcat' });
+
+        const errors = (document.diagnostics ?? [])
+            .filter(d => d.severity === DiagnosticSeverity.Error && d.message === 'A Field of a Model or Service shall not use a type containing non-ValueType fields.');
+
+        expect(errors).toHaveLength(2);
+        expect(errors[0].relatedInformation?.[0]?.message).toContain('bus');
+    });
+
+    test('rejects nested and inherited non-ValueType fields used by models', async () => {
+        document = await parse(`
+            catalogue FieldNestedInherited
+
+            namespace fieldNested
+            {
+                /** @uuid f3fba50e-b8b1-47be-9956-0bcd95a6b22a */
+                public interface IBus
+                {
+                }
+
+                /** @uuid 19335562-7255-42a4-a29b-e68b8f60db6c */
+                public struct C
+                {
+                    field fieldNested.IBus bus
+                }
+
+                /** @uuid f85942da-6f59-4a7d-84ef-4562291926d8 */
+                public struct B
+                {
+                    field fieldNested.C c
+                }
+
+                /** @uuid 908368c7-503f-43bc-8a88-ecbb336bd05f */
+                public struct A
+                {
+                    field fieldNested.B b
+                }
+
+                /** @uuid ef3d0da2-9075-4f81-b335-c48ad3dd4597 */
+                public class Base
+                {
+                    field fieldNested.IBus inheritedBus
+                }
+
+                /** @uuid c0dab4a1-6dc1-4a62-b51d-73854b1b9e3b */
+                public class Derived extends fieldNested.Base
+                {
+                }
+
+                /** @uuid d11cd831-a513-45d4-9c7f-6a58824437f6 */
+                public model Root
+                {
+                    field fieldNested.A nested
+                    field fieldNested.Derived derived
+                }
+            }
+        `, { documentUri: 'field-language-type-nested-inherited-error.xsmpcat' });
+
+        const errors = (document.diagnostics ?? [])
+            .filter(d => d.severity === DiagnosticSeverity.Error && d.message === 'A Field of a Model or Service shall not use a type containing non-ValueType fields.');
+
+        expect(errors).toHaveLength(2);
+        expect(errors.some(error => error.relatedInformation?.[0]?.message.includes('inheritedBus'))).toBe(true);
+    });
+
+    test('keeps value-only composite fields valid in models', async () => {
+        document = await parse(`
+            catalogue FieldValueOnly
+
+            namespace valueOnly
+            {
+                /** @uuid 63fdb001-0fc8-476f-8569-73217b5e2c0f */
+                public enum Mode
+                {
+                    Off = 0,
+                    On = 1
+                }
+
+                /** @uuid 4e828d3b-e639-4c99-81f4-2bd4632a9916 */
+                public struct Packet
+                {
+                    field valueOnly.Mode mode
+                }
+
+                /** @uuid 5f8f3932-241c-4b2f-8a6f-d6a7882b3765 */
+                public struct Envelope
+                {
+                    field valueOnly.Packet packet
+                }
+
+                /** @uuid 4c17f9ff-0b20-47cf-9f54-6d4ee23e9ed8 */
+                public model Root
+                {
+                    field valueOnly.Envelope envelope
+                }
+            }
+        `, { documentUri: 'field-language-type-value-only-valid.xsmpcat' });
+
+        expect((document.diagnostics ?? []).filter(d => d.severity === DiagnosticSeverity.Error)).toHaveLength(0);
+        expect((document.diagnostics ?? []).filter(d => d.severity === DiagnosticSeverity.Warning).map(d => d.message)).not.toContain(
+            'Field type is not a ValueType. This is allowed outside Model/Service but is not SMP compatible.',
+        );
+    });
+
     test('rejects duplicate document names across document kinds', async () => {
         const projectDocument = await parseCatalogueInProject(`
             catalogue DemoAsm

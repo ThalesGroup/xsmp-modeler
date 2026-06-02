@@ -283,7 +283,6 @@ export class XsmpcatValidator {
             (type === ast.ArrayType.$type && property === ast.ArrayType.itemType)
             || (type === ast.ValueReference.$type && property === ast.ValueReference.type)
             || (type === ast.AttributeType.$type && property === ast.AttributeType.type)
-            || (type === ast.Field.$type && property === ast.Field.type)
         ) {
             return ast.ValueType.$type;
         }
@@ -303,6 +302,7 @@ export class XsmpcatValidator {
             (type === ast.Parameter.$type && property === ast.Parameter.type)
             || (type === ast.ReturnParameter.$type && property === ast.ReturnParameter.type)
             || (type === ast.Association.$type && property === ast.Association.type)
+            || (type === ast.Field.$type && property === ast.Field.type)
             || (type === ast.Property.$type && property === ast.Property.type)
         ) {
             return ast.LanguageType.$type;
@@ -415,7 +415,10 @@ export class XsmpcatValidator {
                         }
                         exp = exp.expr;
                     }
-                    this.checkExpression(field.type?.ref, exp, accept);
+                    const fieldType = field.type?.ref;
+                    if (ast.isValueType(fieldType)) {
+                        this.checkExpression(fieldType, exp, accept);
+                    }
                 }
                 const more = expression.elements.at(Number(fieldCount));
                 if (more) {
@@ -458,8 +461,81 @@ export class XsmpcatValidator {
 
     checkField(field: ast.Field, accept: ValidationAcceptor): void {
         if (this.checkTypeReference(accept, field, field.type?.ref, ast.Field.type)) {
-            this.checkExpression(field.type.ref, field.default, accept);
+            const type = field.type.ref;
+            if (ast.isComponent(field.$container)) {
+                if (!ast.isValueType(type)) {
+                    accept('error', 'A Field of a Model or Service shall have a ValueType type.', { node: field, property: ast.Field.type });
+                }
+                else {
+                    const invalidField = this.findNonValueTypeField(type);
+                    if (invalidField) {
+                        accept('error', 'A Field of a Model or Service shall not use a type containing non-ValueType fields.', {
+                            node: field,
+                            property: ast.Field.type,
+                            relatedInformation: this.getFieldRelatedInformation(invalidField)
+                        });
+                    }
+                }
+            }
+            else if (!ast.isValueType(type)) {
+                accept('warning', 'Field type is not a ValueType. This is allowed outside Model/Service but is not SMP compatible.', { node: field, property: ast.Field.type });
+            }
+
+            if (ast.isValueType(type)) {
+                this.checkExpression(type, field.default, accept);
+            }
         }
+    }
+
+    private findNonValueTypeField(type: ast.Type | undefined, visited = new Set<ast.Type>()): ast.Field | undefined {
+        if (!type || visited.has(type)) {
+            return undefined;
+        }
+        visited.add(type);
+
+        if (ast.isArrayType(type)) {
+            return this.findNonValueTypeField(type.itemType?.ref, visited);
+        }
+
+        if (!ast.isStructure(type)) {
+            return undefined;
+        }
+
+        for (const field of this.getAllNonStaticFields(type)) {
+            const fieldType = field.type?.ref;
+            if (fieldType && !ast.isValueType(fieldType)) {
+                return field;
+            }
+            const invalidField = this.findNonValueTypeField(fieldType, visited);
+            if (invalidField) {
+                return invalidField;
+            }
+        }
+        return undefined;
+    }
+
+    private getAllNonStaticFields(type: ast.Structure, visited = new Set<ast.Structure>()): ast.Field[] {
+        if (visited.has(type)) {
+            return [];
+        }
+        visited.add(type);
+
+        const fields = ast.isClass(type) && ast.isStructure(type.base?.ref)
+            ? this.getAllNonStaticFields(type.base.ref, visited)
+            : [];
+
+        fields.push(...type.elements.filter(ast.isField).filter(field => !this.attrHelper.isStatic(field)));
+        return fields;
+    }
+
+    private getFieldRelatedInformation(field: ast.Field) {
+        if (!field.$cstNode) {
+            return undefined;
+        }
+        return [{
+            location: Location.create(AstUtils.getDocument(field).uri.toString(), field.$cstNode.range),
+            message: `Non-ValueType field ${XsmpUtils.fqn(field)}`
+        }];
     }
 
     checkEnumeration(enumeration: ast.Enumeration, accept: ValidationAcceptor): void {
