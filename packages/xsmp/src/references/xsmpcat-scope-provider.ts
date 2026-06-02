@@ -11,24 +11,24 @@ export class XsmpcatScopeProvider implements ScopeProvider {
     protected readonly reflection: AstReflection;
     protected readonly indexManager: IndexManager;
     protected readonly typeProvider: XsmpTypeProvider;
-    protected readonly globalScopeCache: WorkspaceCache<URI, Scope>;
+    protected readonly globalScopeCache: WorkspaceCache<URI, Map<string, Scope>>;
     protected readonly contexts: Set<ReferenceInfo['reference']> = new Set<ReferenceInfo['reference']>();
-    protected readonly precomputedCache: DocumentCache<AstNode, Map<string, AstNodeDescription>>;
+    protected readonly precomputedCache: DocumentCache<AstNode, AstNodeDescription[]>;
     protected readonly projectManager: ProjectManager;
 
     constructor(services: XsmpServices) {
         this.reflection = services.shared.AstReflection;
         this.indexManager = services.shared.workspace.IndexManager;
         this.typeProvider = services.shared.TypeProvider;
-        this.globalScopeCache = new WorkspaceCache<URI, Scope>(services.shared);
-        this.precomputedCache = new DocumentCache<AstNode, Map<string, AstNodeDescription>>(services.shared);
+        this.globalScopeCache = new WorkspaceCache<URI, Map<string, Scope>>(services.shared);
+        this.precomputedCache = new DocumentCache<AstNode, AstNodeDescription[]>(services.shared);
         this.projectManager = services.shared.workspace.ProjectManager;
     }
 
     protected collectScopesFromNode(node: AstNode, scopes: Array<Map<string, AstNodeDescription>>,
-        document: LangiumDocument) {
+        document: LangiumDocument, referenceType: string) {
 
-        const precomputed = this.getPrecomputedScope(node, document);
+        const precomputed = this.getPrecomputedScope(node, document, referenceType);
         if (precomputed.size > 0) {
             scopes.push(precomputed);
         }
@@ -37,30 +37,30 @@ export class XsmpcatScopeProvider implements ScopeProvider {
             case ast.Service.$type: {
                 const component = node as ast.Component;
                 if (component.base) {
-                    this.collectScopesFromReference(component.base, scopes);
+                    this.collectScopesFromReference(component.base, scopes, referenceType);
                 }
-                component.interface.forEach(i => this.collectScopesFromReference(i, scopes));
+                component.interface.forEach(i => this.collectScopesFromReference(i, scopes, referenceType));
                 break;
             }
             case ast.Interface.$type: {
-                (node as ast.Interface).base.forEach(i => this.collectScopesFromReference(i, scopes));
+                (node as ast.Interface).base.forEach(i => this.collectScopesFromReference(i, scopes, referenceType));
                 break;
             }
             case ast.Class.$type:
             case ast.Exception.$type: {
                 const clazz = node as ast.Class;
                 if (clazz.base)
-                    this.collectScopesFromReference(clazz.base, scopes);
+                    this.collectScopesFromReference(clazz.base, scopes, referenceType);
                 break;
             }
         }
     }
-    protected collectScopesFromReference(node: Reference, scopes: Array<Map<string, AstNodeDescription>>) {
+    protected collectScopesFromReference(node: Reference, scopes: Array<Map<string, AstNodeDescription>>, referenceType: string) {
         // Check if the node is currently processed to avoid cyclic dependency
         if (!this.contexts.has(node) && node.ref) {
             this.contexts.add(node);
             try {
-                this.collectScopesFromNode(node.ref, scopes, AstUtils.getDocument(node.ref));
+                this.collectScopesFromNode(node.ref, scopes, AstUtils.getDocument(node.ref), referenceType);
             }
             finally {
                 // Remove the context
@@ -85,6 +85,7 @@ export class XsmpcatScopeProvider implements ScopeProvider {
         let parent: Scope;
 
         const scopes: Array<Map<string, AstNodeDescription>> = [];
+        const referenceType = this.reflection.getReferenceType(context);
 
         if (ast.DesignatedInitializer.$type === context.container.$type && context.property === ast.DesignatedInitializer.field) {
             if (context.container.$container) {
@@ -93,7 +94,7 @@ export class XsmpcatScopeProvider implements ScopeProvider {
                     case ast.Structure.$type:
                     case ast.Class.$type:
                     case ast.Exception.$type:
-                        this.collectScopesFromNode(type, scopes, AstUtils.getDocument(type));
+                        this.collectScopesFromNode(type, scopes, AstUtils.getDocument(type), referenceType);
                         parent = EMPTY_SCOPE;
                         break;
                     default: return EMPTY_SCOPE;
@@ -106,9 +107,9 @@ export class XsmpcatScopeProvider implements ScopeProvider {
         else {
             let currentNode = context.container.$container;
             const document = AstUtils.getDocument(context.container);
-            parent = this.getGlobalScope(document);
+            parent = this.getGlobalScope(document, referenceType);
             while (currentNode) {
-                this.collectScopesFromNode(currentNode, scopes, document);
+                this.collectScopesFromNode(currentNode, scopes, document, referenceType);
                 currentNode = currentNode.$container;
             }
         }
@@ -123,19 +124,32 @@ export class XsmpcatScopeProvider implements ScopeProvider {
     /**
      * Create a global scope filtered for the given referenceType and on visibles projects URIs
      */
-    protected getGlobalScope(document: LangiumDocument): Scope {
-        return this.globalScopeCache.get(document.uri, () => new XsmpGlobalScope(this.indexManager.allElements(undefined, this.projectManager.getVisibleUris(document))));
+    protected getGlobalScope(document: LangiumDocument, referenceType: string): Scope {
+        const globalScopes = this.globalScopeCache.get(document.uri, () => new Map<string, Scope>());
+        let scope = globalScopes.get(referenceType);
+        if (!scope) {
+            scope = new XsmpGlobalScope(this.indexManager.allElements(referenceType, this.projectManager.getVisibleUris(document)));
+            globalScopes.set(referenceType, scope);
+        }
+        return scope;
     }
 
-    protected getPrecomputedScope(node: AstNode, document: LangiumDocument): Map<string, AstNodeDescription> {
-        return this.precomputedCache.get(document.uri, node, () => {
-            const precomputed = new Map<string, AstNodeDescription>();
+    protected getPrecomputedScope(node: AstNode, document: LangiumDocument, referenceType: string): Map<string, AstNodeDescription> {
+        const descriptions = this.precomputedCache.get(document.uri, node, () => {
+            const precomputed: AstNodeDescription[] = [];
             if (document.localSymbols?.has(node)) {
                 for (const element of document.localSymbols.getStream(node)) {
-                    precomputed.set(element.name, element);
+                    precomputed.push(element);
                 }
             }
             return precomputed;
         });
+        const precomputed = new Map<string, AstNodeDescription>();
+        for (const element of descriptions) {
+            if (this.reflection.isSubtype(element.type, referenceType)) {
+                precomputed.set(element.name, element);
+            }
+        }
+        return precomputed;
     }
 }

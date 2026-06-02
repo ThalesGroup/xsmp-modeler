@@ -3,7 +3,7 @@ import { EmptyFileSystem, type LangiumDocument } from "langium";
 import { expandToString as s } from "langium/generate";
 import { clearDocuments, parseHelper } from "langium/test";
 import { createXsmpServices } from 'xsmp';
-import { Catalogue, isCatalogue } from 'xsmp/ast-partial';
+import { Catalogue, isCatalogue, isClass, isNamespace, isOperation } from 'xsmp/ast-partial';
 
 let services: ReturnType<typeof createXsmpServices>;
 let parse: ReturnType<typeof parseHelper<Catalogue>>;
@@ -49,6 +49,43 @@ describe('Linking tests', () => {
             ns
             ns2
         `);
+    });
+
+    test('operation names do not shadow type names', async () => {
+        document = await parse(`
+            catalogue test
+
+            namespace ns
+            {
+                /** @uuid 830b6e43-91ac-408a-a991-8f34c071bae5 */
+                class Toto
+                {
+                    @Constructor
+                    def void Toto()
+
+                    def void Copy(Toto other)
+                }
+            }
+        `);
+
+        const namespace = document.parseResult.value.elements[0];
+        if (!namespace || !isNamespace(namespace)) {
+            throw new Error(`Root element is a ${namespace?.$type ?? 'undefined'}, expected a namespace.`);
+        }
+
+        const clazz = namespace.elements[0];
+        if (!clazz || !isClass(clazz)) {
+            throw new Error(`Namespace element is a ${clazz?.$type ?? 'undefined'}, expected a class.`);
+        }
+
+        const constructor = clazz.elements.find(element => isOperation(element) && element.name === 'Toto');
+        const copy = clazz.elements.find(element => isOperation(element) && element.name === 'Copy');
+
+        expect(checkDocumentValid(document)).toBeUndefined();
+        expect(copy).toBeDefined();
+        expect(constructor).toBeDefined();
+        expect(copy?.parameter[0]?.type.ref).toBe(clazz);
+        expect(copy?.parameter[0]?.type.ref).not.toBe(constructor);
     });
 });
 
