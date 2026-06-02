@@ -29,6 +29,14 @@ namespace demo
            ::Smp::Bool enabled{false};
            ::demo::support::Counter count{0};
 
+            Payload() = default;
+            ~Payload() = default;
+            Payload(const Payload&) = default;
+            Payload(Payload&&) = default;
+            Payload(::Smp::Bool enabled, ::demo::support::Counter count):
+            enabled(enabled), count(count) {}
+            Payload& operator=(const Payload&) = default;
+
             static void _Register(::Smp::Publication::ITypeRegistry* registry);
         };
 

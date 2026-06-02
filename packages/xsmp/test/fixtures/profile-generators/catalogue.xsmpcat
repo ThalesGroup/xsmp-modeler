@@ -59,6 +59,7 @@ namespace demo
         public interface IDevice
         {
             constant Bool Ready = false
+            @View(ViewKind.VK_All)
             def Bool ping(in Ratio requested, out Float64 measured)
             property Bool connected
         }
@@ -73,6 +74,7 @@ namespace demo
         public service MonitorService
         {
             field Bool running = false
+            @View(ViewKind.VK_All)
             def void start()
             property Bool Running -> running
         }
@@ -99,6 +101,7 @@ namespace demo
             eventsink TickEvent onTick
             eventsource VoidEvent onDone
 
+            @View(ViewKind.VK_All)
             def Bool ping(in Ratio requested, out Float64 measured)
             property Bool connected -> connectedState
         }

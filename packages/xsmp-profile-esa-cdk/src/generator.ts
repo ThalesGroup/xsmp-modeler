@@ -234,7 +234,7 @@ export class EsaCdkGenerator extends GapPatternCppGenerator {
             includes.push(`esa/ecss/smp/cdk/${type.$type}.h`);
         }
         if (this.hasInvokableMembers(type)) {
-            includes.push('map');
+            includes.push('map', 'Smp/IRequest.h', 'esa/ecss/smp/cdk/Request.h', 'esa/ecss/smp/cdk/RequestContainer.h');
         }
         if (type.elements.some(ast.isContainer)) {
             includes.push('esa/ecss/smp/cdk/Composite.h');
@@ -266,33 +266,90 @@ export class EsaCdkGenerator extends GapPatternCppGenerator {
         return s`
             ${this.comment(type)}class ${type.name}: public ${type.name}Gen {
             public:
-                /// Constructor setting name, description and parent.
-                /// @param name Name of new model instance.
-                /// @param description Description of new model instance.
-                /// @param parent Parent of new model instance.
-                /// @param type_registry Reference to global type registry.
-                ${type.name}(
-                        ::Smp::String8 name,
-                        ::Smp::String8 description,
-                        ::Smp::IObject* parent,
-                        ::Smp::Publication::ITypeRegistry* type_registry);
+                /// Re-use parent constructor
+                using ${type.name}Gen::${type.name}Gen;
                 
                 /// Virtual destructor to release memory.
                 ~${type.name}() noexcept override = default;
-            
-                ${this.declareMembers(type, VisibilityKind.public)}
+                
+            private:
+                // ${type.name}Gen call DoPublish/DoConfigure/DoConnect/DoDisconnect
+                friend class ${this.fqn(type)}Gen;
+                
+                /// Publish fields, operations and properties of the ${type.$type}.
+                /// @param receiver Publication receiver.
+                void DoPublish(::Smp::IPublication* receiver);
+                
+                /// Perform any custom configuration of the ${type.$type}.
+                /// @param logger Logger to use for log messages during Configure().
+                /// @param linkRegistry Link Registry to use for registration of
+                ///         links created during Configure() or later.
+                void DoConfigure(::Smp::Services::ILogger* logger, ::Smp::Services::ILinkRegistry* linkRegistry);
+                
+                /// Connect the ${type.$type} to the simulator and its simulation
+                /// services.
+                /// @param simulator Simulation Environment that hosts the ${type.$type}.
+                void DoConnect(::Smp::ISimulator* simulator);
+                
+                /// Disconnect the ${type.$type} from the simulator and all its
+                /// simulation services.
+                void DoDisconnect();
+                
+                ${this.declareMembers(type, VisibilityKind.private)}
             };
             `;
+    }
+
+    override async generateStructureHeaderGen(type: ast.Structure, gen: boolean): Promise<string | undefined> {
+        const fields = type.elements.filter(ast.isField).filter(field => !this.attrHelper.isStatic(field));
+        const hasConstructor = fields.some(field => field.default !== undefined);
+        const name = this.name(type, gen);
+        const constructorDeclaration = hasConstructor ? s`
+            ${name}() = default;
+            ~${name}() = default;
+            ${name}(const ${name}&) = default;
+            ${name}(${name}&&) = default;
+            ${name}(${fields.map(field => `${this.fqn(field.type.ref)} ${field.name}`).join(', ')}):
+            ${fields.map(field => `${field.name}(${field.name})`).join(', ')} {}
+            ${name}& operator=(const ${name}&) = default;
+        ` : undefined;
+
+        return s`
+        ${this.comment(type)}struct ${name}
+        {
+           ${this.declareMembersGen(type, VisibilityKind.public, gen)}
+
+            ${constructorDeclaration}
+
+            static void _Register(::Smp::Publication::ITypeRegistry* registry);
+        };
+        
+        ${this.uuidDeclaration(type)}
+        `;
     }
 
     protected override componentBase(type: ast.Component): string | undefined {
         return type.base ? this.fqn(type.base.ref) : `::esa::ecss::smp::cdk::${type.$type}`;
     }
     private hasInvokableMembers(type: ast.Component): boolean {
-        return type.elements.filter(ast.isInvokable).some(element => this.isInvokable(element));
+        return this.getInvokableOperations(type).length > 0;
     }
     private getInvokableOperations(type: ast.Component): ast.Operation[] {
         return type.elements.filter(ast.isOperation).filter(operation => this.isInvokable(operation));
+    }
+    protected override isInvokable(element: ast.Invokable): boolean {
+        if (!ast.isOperation(element)) {
+            return super.isInvokable(element);
+        }
+        if (!super.isInvokable(element)) {
+            return false;
+        }
+        return this.attrHelper.getViewKind(element) !== undefined
+            && element.parameter.every(param =>
+                ast.isSimpleType(param.type.ref)
+                && !ast.isStringType(param.type.ref)
+                && param.direction !== 'out'
+                && param.direction !== 'inout');
     }
     protected override componentBases(type: ast.Component): string[] {
         const bases = super.componentBases(type);
@@ -312,6 +369,33 @@ export class EsaCdkGenerator extends GapPatternCppGenerator {
     override async generateComponentHeaderGen(type: ast.Component, gen: boolean): Promise<string | undefined> {
         const name = this.name(type, gen);
         const bases = this.componentBases(type);
+        const hasInvokableMembers = this.hasInvokableMembers(type);
+        const requestHandlerDeclarations = hasInvokableMembers ? s`
+            private:
+                template <typename _Type> static void PopulateRequestHandlers(_Type* bluePrint, typename ::esa::ecss::smp::cdk::RequestContainer<_Type>::Map& handlers);
+                static ::esa::ecss::smp::cdk::RequestContainer<${name}>::Map requestHandlers;
+
+            public:
+                /// Dynamically invoke an operation using a request object that has 
+                /// been created and filled with parameter values by the caller.
+                /// @param   request Request object to invoke.
+                /// @throws  Smp::InvalidOperationName
+                /// @throws  Smp::InvalidParameterCount
+                /// @throws  Smp::InvalidParameterType
+                void Invoke(::Smp::IRequest* request) override;
+            ` : undefined;
+        const populateRequestHandlersDefinition = hasInvokableMembers ? s`
+            template <typename _Type>
+            void ${name}::PopulateRequestHandlers(_Type* bluePrint, typename ::esa::ecss::smp::cdk::RequestContainer<_Type>::Map& handlers) 
+            {
+                typedef ::esa::ecss::smp::cdk::RequestContainer<_Type> Help;
+                
+                // ---- Operations ----
+                ${this.getInvokableOperations(type).map(operation => this.generateRqHandlerOperation(operation, gen)).join('\n')}
+                
+                ::esa::ecss::smp::cdk::${type.$type}::PopulateRequestHandlers<_Type>(bluePrint, handlers);
+            }
+            ` : undefined;
         return s`
             ${this.uuidDeclaration(type)}
             
@@ -338,7 +422,7 @@ export class EsaCdkGenerator extends GapPatternCppGenerator {
             ${name}& operator=(${name}&&) = delete;
             
             /// Virtual destructor to release memory.
-            ~${name}() override = default;
+            ~${name}() override;
             
             /// Request the ${type.$type} to publish its fields, properties and 
             /// operations against the provided publication receiver.
@@ -371,37 +455,12 @@ export class EsaCdkGenerator extends GapPatternCppGenerator {
             /// Get Universally Unique Identifier of the ${type.$type}.
             /// @return  Universally Unique Identifier of the ${type.$type}.
             const ::Smp::Uuid& GetUuid() const override;
-            ${this.hasInvokableMembers(type) ? `
-            private:
-                template <typename _Type> static void PopulateRequestHandlers(_Type* bluePrint, typename ::esa::ecss::smp::cdk::RequestContainer<_Type>::Map& handlers);
-                static ::esa::ecss::smp::cdk::RequestContainer<${name}>::Map requestHandlers;
-
-            public:
-                /// Dynamically invoke an operation using a request object that has 
-                /// been created and filled with parameter values by the caller.
-                /// @param   request Request object to invoke.
-                /// @throws  Smp::InvalidOperationName
-                /// @throws  Smp::InvalidParameterCount
-                /// @throws  Smp::InvalidParameterType
-                void Invoke(::Smp::IRequest* request) override;
-            `: undefined}
+            ${requestHandlerDeclarations}
             
             ${this.declareMembersGen(type, VisibilityKind.public, gen)}
             };
 
-            ${this.hasInvokableMembers(type) ? `
-            template <typename _Type>
-            void ${name}::PopulateRequestHandlers(_Type* bluePrint, typename ::esa::ecss::smp::cdk::RequestContainer<_Type>::Map& handlers) 
-            {
-                typedef ::esa::ecss::smp::cdk::RequestContainer<_Type> Help;
-                
-                // ---- Operations ----
-                ${this.getInvokableOperations(type).map(operation => this.generateRqHandlerOperation(operation, gen)).join('\n')}
-                
-                ::esa::ecss::smp::cdk::«t.eClass.name»::PopulateRequestHandlers<_Type>(bluePrint, handlers);
-            }
-
-                `: undefined}
+            ${populateRequestHandlersDefinition}
 
             `;
     }
@@ -411,6 +470,28 @@ export class EsaCdkGenerator extends GapPatternCppGenerator {
         const base = this.componentBase(type);
         const fqn = this.fqn(type);
         const initializer = this.initializeMembers(type, gen);
+        const hasInvokableMembers = this.hasInvokableMembers(type);
+        const populateRequestHandlers = hasInvokableMembers ? s`
+            if (requestHandlers.empty()) {
+                PopulateRequestHandlers<${name}>(this, requestHandlers);
+            }
+            ` : undefined;
+        const requestHandlerDefinitions = hasInvokableMembers ? s`
+            ::esa::ecss::smp::cdk::RequestContainer<${name}>::Map ${name}::requestHandlers;
+
+            void ${name}::Invoke(::Smp::IRequest* request) {
+                if (!request) {
+                    return;
+                }
+                auto it = requestHandlers.find(request->GetOperationName());
+                if (it != requestHandlers.end()) {
+                    it->second->Execute(*this, request);
+                } else {
+                    // pass the request down to the base class
+                    ${base}::Invoke(request);
+                }
+            }
+            ` : undefined;
         return s`
             //--------------------------- Constructor -------------------------
             ${name}::${name}(
@@ -433,9 +514,7 @@ export class EsaCdkGenerator extends GapPatternCppGenerator {
                 // Call parent class implementation first
                 ${base}::Publish(receiver);
                 
-                if (requestHandlers.empty()) {
-                    PopulateRequestHandlers<${name}>(this, requestHandlers);
-                }
+                ${populateRequestHandlers}
                 
                 ${this.publishMembers(type)}
                 
@@ -465,33 +544,7 @@ export class EsaCdkGenerator extends GapPatternCppGenerator {
                 ${base}::Disconnect();
             }
 
-            void ${name}::DoPublish(::Smp::IPublication*) {
-            }
-            
-            void ${name}::DoConfigure( ::Smp::Services::ILogger*, ::Smp::Services::ILinkRegistry*){
-            }
-            
-            void ${name}::DoConnect( ::Smp::ISimulator*){
-            }
-            
-            void ${name}::DoDisconnect(){
-            }
-
-            ${this.hasInvokableMembers(type) ? `                
-                void ${name}::Invoke(::Smp::IRequest* request) {
-                    if (!request) {
-                        return;
-                    }
-                    if (auto it = _requestHandlers.find(request->GetOperationName());
-                            it != _requestHandlers.end()) {
-                        it->second(this, request);
-                    } else {
-                        // pass the request down to the base class
-                        ${base}::Invoke(request);
-                    }
-                }
-
-                `: undefined}
+            ${requestHandlerDefinitions}
             const ::Smp::Uuid& ${name}::GetUuid() const {
                 return Uuid_${type.name};
             }
@@ -502,55 +555,18 @@ export class EsaCdkGenerator extends GapPatternCppGenerator {
 
     protected generateRqHandlerOperation(op: ast.Operation, _gen: boolean): string {
         const r = op.returnParameter;
-        const invokation = `component.${this.operationName(op)}(${op.parameter.map(param => `${this.attrHelper.isByPointer(param) ? '&' : ''}p_${param.name}`).join(', ')})`;
+        const returnType = this.type(r);
+        const parameterTypes = op.parameter.map(param => this.type(param));
+        const templateArguments = [returnType, ...parameterTypes].join(', ');
+        const containerType = this.name(op.$container, _gen);
+        const pointerType = `${returnType} (${containerType}::*)(${parameterTypes.join(', ')})${this.attrHelper.isConst(op) ? ' const' : ''}`;
         return s`
-           Help::template AddIfMissing<«IF o.returnParameter !== null»«o.returnParameter.type()»«ELSE»void«ENDIF»«FOR param : o.parameter BEFORE ', ' SEPARATOR ', '»«param.type()»«ENDFOR»>(
+            Help::template AddIfMissing<${templateArguments}>(
                 handlers,
                 "${op.name}",
                 ${this.primitiveTypeKind(r?.type.ref)},
-                static_cast<«IF o.returnParameter !== null»«o.returnParameter.type()»«ELSE»void«ENDIF»(«container.name(useGenPattern)»::*)(«FOR param : o.parameter SEPARATOR ', '»«param.type()»«ENDFOR»)«IF o.isConst»const«ENDIF»>(&«container.name(useGenPattern)»::«o.name»));
-       
-            if (handlers.find("${op.name}") == handlers.end()) {
-                handlers["${op.name}"] = [](_Type & component, [[maybe_unused]] ::Smp::IRequest* request) {
-                ${op.parameter.map(param => this.initParameter(param)).join('\n')}
-                /// Invoke ${op.name}
-                ${r ? `request->SetReturnValue({${this.primitiveTypeKind(r.type.ref)}, ${invokation}})` : `${invokation}`};
-                ${op.parameter.map(param => this.setParameter(param)).join('\n')}
-                };
-            }
+                static_cast<${pointerType}>(&${containerType}::${this.operationName(op)}));
             `;
-    }
-    /*protected override isInvokable(element: ast.Invokable): boolean {
-        if (ast.isOperation(element)) {
-            if (element.returnParameter && !ast.isSimpleType(element.returnParameter.type.ref)) {
-                return false;
-            }
-            return element.parameter.every(param => ast.isValueType(param.type.ref) && !ast.isClass(param.type.ref));
-        }
-        return super.isInvokable(element);
-    }*/
-
-    initParameter(param: ast.Parameter): string {
-        switch (param.direction ?? 'in') {
-            case 'out':
-                // only declare the parameter
-                return `${this.fqn(param.type.ref)} p_${param.name}${param.default ? this.directListInitializer(param.default) : ''};`;
-            case 'in':
-            case 'inout':
-                // declare and initialize the parameter
-                return `auto p_${param.name} = static_cast<${this.fqn(param.type.ref)}>(request->GetParameterValue(req->GetParameterIndex("${param.name}")));`;
-        }
-    }
-
-    setParameter(param: ast.Parameter): string | undefined {
-        switch (param.direction ?? 'in') {
-            case 'out':
-            case 'inout':
-                return `request->SetParameterValue(request->GetParameterIndex("${param.name}"), p_${param.name});`;
-            case 'in':
-                // do nothing
-                return undefined;
-        }
     }
 
 }

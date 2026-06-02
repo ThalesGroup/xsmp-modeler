@@ -27,8 +27,8 @@ namespace demo::support
     public:
         static void _Register(::Smp::Publication::ITypeRegistry* registry);
 
-        //«IF constructor»DeviceBase () = default;«ENDIF»
-        //«IF destructor»~DeviceBase () noexcept = default;«ENDIF»
+        //DeviceBase () = default;
+        //~DeviceBase () noexcept = default;
         //DeviceBase (const DeviceBase &) = default;
 
        private:

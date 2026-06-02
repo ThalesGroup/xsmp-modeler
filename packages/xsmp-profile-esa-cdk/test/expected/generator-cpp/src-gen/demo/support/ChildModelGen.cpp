@@ -37,9 +37,6 @@ namespace demo
             // Call parent class implementation first
             ::esa::ecss::smp::cdk::Model::Publish(receiver);
 
-            if (requestHandlers.empty()) {
-                PopulateRequestHandlers<ChildModelGen>(this, requestHandlers);
-            }
 
             // Publish field childState
             receiver->PublishField(
@@ -76,18 +73,6 @@ namespace demo
 
             // Call parent implementation last, to remove references to the Simulator and its services
             ::esa::ecss::smp::cdk::Model::Disconnect();
-        }
-
-        void ChildModelGen::DoPublish(::Smp::IPublication*) {
-        }
-
-        void ChildModelGen::DoConfigure( ::Smp::Services::ILogger*, ::Smp::Services::ILinkRegistry*){
-        }
-
-        void ChildModelGen::DoConnect( ::Smp::ISimulator*){
-        }
-
-        void ChildModelGen::DoDisconnect(){
         }
 
         const ::Smp::Uuid& ChildModelGen::GetUuid() const {

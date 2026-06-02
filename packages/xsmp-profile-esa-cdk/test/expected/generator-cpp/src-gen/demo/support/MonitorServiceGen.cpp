@@ -96,33 +96,20 @@ namespace demo
             ::esa::ecss::smp::cdk::Service::Disconnect();
         }
 
-        void MonitorServiceGen::DoPublish(::Smp::IPublication*) {
+        ::esa::ecss::smp::cdk::RequestContainer<MonitorServiceGen>::Map MonitorServiceGen::requestHandlers;
+
+        void MonitorServiceGen::Invoke(::Smp::IRequest* request) {
+            if (!request) {
+                return;
+            }
+            auto it = requestHandlers.find(request->GetOperationName());
+            if (it != requestHandlers.end()) {
+                it->second->Execute(*this, request);
+            } else {
+                // pass the request down to the base class
+                ::esa::ecss::smp::cdk::Service::Invoke(request);
+            }
         }
-
-        void MonitorServiceGen::DoConfigure( ::Smp::Services::ILogger*, ::Smp::Services::ILinkRegistry*){
-        }
-
-        void MonitorServiceGen::DoConnect( ::Smp::ISimulator*){
-        }
-
-        void MonitorServiceGen::DoDisconnect(){
-        }
-
-
-                        void MonitorServiceGen::Invoke(::Smp::IRequest* request) {
-                            if (!request) {
-                                return;
-                            }
-                            if (auto it = _requestHandlers.find(request->GetOperationName());
-                                    it != _requestHandlers.end()) {
-                                it->second(this, request);
-                            } else {
-                                // pass the request down to the base class
-                                ::esa::ecss::smp::cdk::Service::Invoke(request);
-                            }
-                        }
-
-
         const ::Smp::Uuid& MonitorServiceGen::GetUuid() const {
             return Uuid_MonitorService;
         }

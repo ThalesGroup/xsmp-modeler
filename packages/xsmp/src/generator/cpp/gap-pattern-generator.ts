@@ -375,8 +375,8 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
         public:
             static void _Register(::Smp::Publication::ITypeRegistry* registry);
             
-            //«IF constructor»${this.name(type, gen)} () = default;«ENDIF»
-            //«IF destructor»~${this.name(type, gen)} () noexcept = default;«ENDIF»
+            //${this.name(type, gen)} () = default;
+            //~${this.name(type, gen)} () noexcept = default;
             //${this.name(type, gen)} (const ${this.name(type, gen)} &) = default;
             
            ${this.declareMembersGen(type, VisibilityKind.public, gen)}

@@ -26,8 +26,8 @@ namespace demo::support
     public:
         static void _Register(::Smp::Publication::ITypeRegistry* registry);
 
-        //«IF constructor»DeviceError () = default;«ENDIF»
-        //«IF destructor»~DeviceError () noexcept = default;«ENDIF»
+        //DeviceError () = default;
+        //~DeviceError () noexcept = default;
         //DeviceError (const DeviceError &) = default;
 
 
