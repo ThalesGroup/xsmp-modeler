@@ -488,14 +488,21 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
         if (!owner) {
             return undefined;
         }
+        const referenceExpression: ast.NamedElementReference = {
+            $type: ast.NamedElementReference.$type,
+            $container: owner,
+            $containerProperty: ast.isConstant(owner) ? ast.Constant.value : ast.Field.default,
+            value: {
+                $refText: '',
+                ref: undefined,
+            },
+        };
+        AstUtils.assignMandatoryProperties(this.astReflection, referenceExpression);
         return {
             owner,
             refInfo: {
-                reference: {
-                    $refText: '',
-                    ref: undefined,
-                },
-                container: owner,
+                reference: referenceExpression.value!,
+                container: referenceExpression,
                 property: ast.NamedElementReference.value,
             },
         };
