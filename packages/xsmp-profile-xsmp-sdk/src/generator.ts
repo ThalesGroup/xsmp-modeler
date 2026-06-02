@@ -534,7 +534,7 @@ export class XsmpSdkGenerator extends GapPatternCppGenerator {
     }
 
     private requestParameterArgument(param: ast.Parameter): string {
-        let argument = isString8(param.type.ref) 
+        const argument = isString8(param.type.ref)
             ? `static_cast<${this.fqn(param.type.ref)}>(p_${param.name})`
             : `p_${param.name}`;
         if (this.attrHelper.isByPointer(param)) {
