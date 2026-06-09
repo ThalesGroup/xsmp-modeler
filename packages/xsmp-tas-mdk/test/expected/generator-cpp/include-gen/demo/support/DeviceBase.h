@@ -29,9 +29,9 @@ namespace demo
         public:
             static void _Register(::Smp::Publication::ITypeRegistry* registry);
 
-            //DeviceBase () = default;
-            //~DeviceBase () noexcept = default;
-            //DeviceBase (const DeviceBase &) = default;
+            DeviceBase() = default;
+            ~DeviceBase() noexcept = default;
+            DeviceBase(const DeviceBase&) = default;
 
            private:
            static constexpr ::Smp::Bool HasState{true};

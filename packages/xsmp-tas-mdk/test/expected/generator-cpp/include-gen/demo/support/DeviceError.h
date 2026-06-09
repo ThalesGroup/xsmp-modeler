@@ -28,9 +28,9 @@ namespace demo
         public:
             static void _Register(::Smp::Publication::ITypeRegistry* registry);
 
-            //DeviceError () = default;
-            //~DeviceError () noexcept = default;
-            //DeviceError (const DeviceError &) = default;
+            DeviceError() = default;
+            ~DeviceError() noexcept = default;
+            DeviceError(const DeviceError&) = default;
 
 
         };

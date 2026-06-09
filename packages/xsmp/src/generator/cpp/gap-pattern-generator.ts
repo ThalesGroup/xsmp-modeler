@@ -367,17 +367,21 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
     }
     async generateClassHeaderGen(type: ast.Class, gen: boolean): Promise<string | undefined> {
         const base = this.fqn(type.base?.ref, ast.isException(type) ? '::Smp::Exception' : undefined);
+        const name = this.name(type, gen);
+        const constructor = !(this.attrHelper.attributeBoolValue(type, 'Attributes.NoConstructor') ?? false)
+            && !type.elements.filter(ast.isOperation).some(operation => this.attrHelper.isConstructor(operation) && operation.parameter.length === 0);
+        const destructor = !(this.attrHelper.attributeBoolValue(type, 'Attributes.NoDestructor') ?? false);
         return s`
         ${gen ? `class ${type.name};` : ''}
-        ${this.comment(type)}class ${this.name(type, gen)}${base ? `: public ${base}` : ''}
+        ${this.comment(type)}class ${name}${base ? `: public ${base}` : ''}
         {
             ${gen ? `friend class ${this.fqn(type)};` : ''}
         public:
             static void _Register(::Smp::Publication::ITypeRegistry* registry);
             
-            //${this.name(type, gen)} () = default;
-            //~${this.name(type, gen)} () noexcept = default;
-            //${this.name(type, gen)} (const ${this.name(type, gen)} &) = default;
+            ${constructor ? `${name}() = default;` : ''}
+            ${destructor ? `~${name}() noexcept = default;` : ''}
+            ${name}(const ${name}&) = default;
             
            ${this.declareMembersGen(type, VisibilityKind.public, gen)}
         };
