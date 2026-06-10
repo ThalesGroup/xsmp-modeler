@@ -825,7 +825,7 @@ export class ADocGenerator implements XsmpGenerator {
 
             ${this.renderDescriptionBlock(description)}
 
-            ${catalogue.elements.filter(ast.isNamespace).map(namespace => this.generateNamespace(namespace)).join('\n')}
+            ${catalogue.elements.map(namespace => this.generateNamespace(namespace)).join('\n')}
         `;
     }
 
@@ -982,14 +982,25 @@ export class ADocGenerator implements XsmpGenerator {
 
     private generateNamespace(namespace: ast.Namespace): string {
         const types = namespace.elements.filter(ast.isType);
-        if (types.length === 0) {
-            return '';
-        }
+        const generatedElements = namespace.elements
+            .map(element => ast.isNamespace(element) ? this.generateNamespace(element) : this.generateType(element))
+            .filter(Boolean);
         const description = this.docHelper.getDescription(namespace);
         return s`
             == Namespace ${fqn(namespace, '::')}
 
             ${this.renderDescriptionBlock(description)}
+            ${this.generateNamespaceDiagram(namespace, types)}
+
+            ${generatedElements.join('\n')}
+        `;
+    }
+
+    private generateNamespaceDiagram(namespace: ast.Namespace, types: ast.Type[]): string | undefined {
+        if (types.length === 0) {
+            return undefined;
+        }
+        return s`
             [.center]
             [mermaid]
             ....
@@ -1006,8 +1017,6 @@ export class ADocGenerator implements XsmpGenerator {
                 `}
             }
             ....
-
-            ${types.map(type => this.generateType(type)).join('\n')}
         `;
     }
 

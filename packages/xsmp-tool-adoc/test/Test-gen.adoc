@@ -26,6 +26,10 @@ class ArrayOf3Int8 { <<Array>> }
 }
 ....
 
+== Namespace ns::nestedNs
+
+
+
 [#ns-SingleAttribute]
 === AttributeType SingleAttribute
 

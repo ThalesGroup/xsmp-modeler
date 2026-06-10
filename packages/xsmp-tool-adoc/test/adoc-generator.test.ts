@@ -97,6 +97,27 @@ namespace demo
 }
 `;
 
+const nestedNamespaceCatalogueSource = `/**
+ * Catalogue with a parent namespace that only contains another namespace.
+ */
+catalogue NestedOnly
+
+/** Parent namespace description. */
+namespace demo
+{
+    /** Child namespace description. */
+    namespace foundation
+    {
+        /** @uuid 20000000-0000-0000-0000-000000000001 */
+        public enum Mode
+        {
+            Off = 0,
+            On = 1
+        }
+    }
+}
+`;
+
 const includedConfigurationSource = `/** Included configuration reused by DemoConfig. */
 configuration ChildPreset
 `;
@@ -270,6 +291,24 @@ describe('ADoc generator tests', () => {
             ?? await generator.doGenerateCatalogue(document.parseResult.value);
 
         expect(actual).toBe(fs.readFileSync(path.resolve(__dirname, 'Test-gen.adoc')).toString());
+    });
+
+    test('renders nested namespaces whose parent has no direct types', async () => {
+        const generator = new ADocGenerator(services.shared);
+        const document = await parseCatalogue(nestedNamespaceCatalogueSource, {
+            documentUri: 'nested-only.xsmpcat',
+        });
+        setGeneratedBy(false);
+
+        const actual = checkDocumentValid(document, ast.isCatalogue, ast.Catalogue.$type)
+            ?? await generator.doGenerateCatalogue(document.parseResult.value);
+
+        expect(actual).toContain('== Namespace demo');
+        expect(actual).toContain('Parent namespace description.');
+        expect(actual).toContain('== Namespace demo::foundation');
+        expect(actual).toContain('Child namespace description.');
+        expect(actual).toContain('=== Enumeration Mode');
+        expect(actual).toContain(".Mode's literals");
     });
 
     test('test configuration', async () => {
