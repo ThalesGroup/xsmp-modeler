@@ -4,7 +4,7 @@ import { xsmpContributionPackage as adocTool } from '@xsmp/tool-adoc';
 import { xsmpContributionPackage as pythonTool } from '@xsmp/tool-python';
 import { xsmpContributionPackage as smpTool } from '@xsmp/tool-smp';
 import { xsmpContributionPackage as tasMdkProfile } from 'xsmp-tas-mdk';
-import type { XsmpContributionPackage } from 'xsmp/contributions';
+import type { XsmpContributionPackage } from '@xsmp/core/contributions';
 
 export const cliBuiltinContributionPackages = [
     smpTool,

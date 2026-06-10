@@ -1,13 +1,13 @@
-import * as ast from 'xsmp/ast';
+import * as ast from '@xsmp/core/ast';
 import { expandToString as s } from 'langium/generate';
-import { isGeneratedBy } from 'xsmp/generator';
-import * as CopyrightNoticeProvider from 'xsmp/generator';
+import { isGeneratedBy } from '@xsmp/core/generator';
+import * as CopyrightNoticeProvider from '@xsmp/core/generator';
 import { type AstNode, type URI, UriUtils } from 'langium';
 import * as fs from 'node:fs';
 import * as Path from 'node:path';
-import type { TaskAcceptor, XsmpGenerator } from 'xsmp/generator';
-import { getXsmpVersion, type XsmpSharedServices } from 'xsmp';
-import { type DocumentationHelper } from 'xsmp/utils';
+import type { TaskAcceptor, XsmpGenerator } from '@xsmp/core/generator';
+import { getXsmpVersion, type XsmpSharedServices } from '@xsmp/core';
+import { type DocumentationHelper } from '@xsmp/core/utils';
 
 export class PythonGenerator implements XsmpGenerator {
     protected readonly docHelper: DocumentationHelper;

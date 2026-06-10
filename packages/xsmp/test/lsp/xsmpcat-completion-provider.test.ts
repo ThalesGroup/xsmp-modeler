@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, test } from 'vitest';
 import { EmptyFileSystem } from 'langium';
 import { CompletionItemKind, InsertTextFormat } from 'vscode-languageserver';
-import { createXsmpServices } from 'xsmp';
+import { createXsmpServices } from '@xsmp/core';
 import { applyCompletion, createCompletionProbe, findSnippetItem, labels } from './completion-test-utils.js';
 
 let services: ReturnType<typeof createXsmpServices>;

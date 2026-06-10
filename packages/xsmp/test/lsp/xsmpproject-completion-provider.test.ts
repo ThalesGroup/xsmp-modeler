@@ -1,7 +1,7 @@
 import { afterEach, beforeAll, describe, expect, test } from 'vitest';
 import { EmptyFileSystem, type LangiumDocument } from 'langium';
 import { clearDocuments, parseHelper } from 'langium/test';
-import type { ProjectRoot } from 'xsmp/ast-partial';
+import type { ProjectRoot } from '@xsmp/core/ast-partial';
 import { createBuiltinTestXsmpServices } from '../test-services.js';
 import { createCompletionProbe, findSnippetItem, labels } from './completion-test-utils.js';
 

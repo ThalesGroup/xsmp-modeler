@@ -3,7 +3,7 @@ import { EmptyFileSystem, URI, type LangiumDocument } from "langium";
 import { expandToString as s } from "langium/generate";
 import { parseHelper, ParseHelperOptions } from "langium/test";
 import type { Diagnostic } from "vscode-languageserver-types";
-import { Project, isProject, } from 'xsmp/ast-partial';
+import { Project, isProject, } from '@xsmp/core/ast-partial';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';

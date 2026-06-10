@@ -1,4 +1,4 @@
-import type { XsmpContributionPackage } from 'xsmp/contributions';
+import type { XsmpContributionPackage } from '@xsmp/core/contributions';
 import { registerContribution } from './contributor.js';
 
 export { PythonGenerator } from './generator.js';

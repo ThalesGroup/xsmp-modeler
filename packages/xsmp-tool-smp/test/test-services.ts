@@ -1,5 +1,5 @@
 import type { LangiumDocument } from 'langium';
-import type { XsmpServices } from 'xsmp';
+import type { XsmpServices } from '@xsmp/core';
 
 export async function rebuildTestDocuments(
     services: { shared: XsmpServices['shared'] },

@@ -5,7 +5,7 @@ import { DiagnosticSeverity, FileChangeType, type DidChangeWatchedFilesParams } 
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import * as ast from 'xsmp/ast-partial';
+import * as ast from '@xsmp/core/ast-partial';
 import { createBuiltinTestXsmpServices } from '../test-services.js';
 
 const exampleFolders = [

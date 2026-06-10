@@ -1,4 +1,4 @@
-import { builtInScheme, smpMirrorScheme } from 'xsmp';
+import { builtInScheme, smpMirrorScheme } from '@xsmp/core';
 
 export const xsmpLanguageIds = [
     'xsmpproject',

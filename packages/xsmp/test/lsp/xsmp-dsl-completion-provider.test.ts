@@ -6,8 +6,8 @@ import { InsertTextFormat, type CompletionItem } from 'vscode-languageserver';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { createXsmpServices } from 'xsmp';
-import type { Assembly, Catalogue, Configuration, LinkBase, Project, Schedule } from 'xsmp/ast-partial';
+import { createXsmpServices } from '@xsmp/core';
+import type { Assembly, Catalogue, Configuration, LinkBase, Project, Schedule } from '@xsmp/core/ast-partial';
 import { createCompletionProbe, findSnippetItem, labels } from './completion-test-utils.js';
 
 let services: ReturnType<typeof createXsmpServices>;

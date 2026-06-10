@@ -5,7 +5,7 @@ import { DiagnosticSeverity } from 'vscode-languageserver';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import type { Catalogue } from 'xsmp/ast-partial';
+import type { Catalogue } from '@xsmp/core/ast-partial';
 import { createBuiltinTestXsmpServices } from '../../xsmp/test/test-services.js';
 
 const tempDirs: string[] = [];

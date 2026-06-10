@@ -1,5 +1,5 @@
 import * as path from 'node:path';
-import type { XsmpContributionScaffoldContext } from 'xsmp/contributions';
+import type { XsmpContributionScaffoldContext } from '@xsmp/core/contributions';
 
 export async function scaffoldTasMdkProject(context: XsmpContributionScaffoldContext): Promise<void> {
     context.addDependency('TasMdk');

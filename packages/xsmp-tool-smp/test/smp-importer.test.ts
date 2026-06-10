@@ -4,12 +4,12 @@ import { clearDocuments, parseHelper } from 'langium/test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { createXsmpServices } from 'xsmp';
-import * as ast from 'xsmp/ast';
-import { SmpImportService } from 'xsmp/smp';
-import { detectSmpImportKind, getDefaultImportedXsmpPath, parseSmpXml } from 'xsmp/smp';
+import { createXsmpServices } from '@xsmp/core';
+import * as ast from '@xsmp/core/ast';
+import { SmpImportService } from '@xsmp/core/smp';
+import { detectSmpImportKind, getDefaultImportedXsmpPath, parseSmpXml } from '@xsmp/core/smp';
 import { SmpGenerator } from '@xsmp/tool-smp';
-import { setGeneratedBy } from 'xsmp/generator';
+import { setGeneratedBy } from '@xsmp/core/generator';
 import { rebuildTestDocuments } from './test-services.js';
 
 let services: ReturnType<typeof createXsmpServices>;

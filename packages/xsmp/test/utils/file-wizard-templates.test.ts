@@ -3,7 +3,7 @@ import {
     createXsmpStarterFileTemplate,
     getXsmpStarterFileDefaultStem,
     getXsmpStarterFileKinds,
-} from 'xsmp/wizard/templates';
+} from '@xsmp/core/wizard/templates';
 
 describe('XSMP starter file templates', () => {
     test('exposes all supported starter file kinds', () => {

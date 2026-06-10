@@ -4,9 +4,9 @@ import { NodeFileSystem } from 'langium/node';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { createXsmpServices } from 'xsmp';
-import { resolveContributionManifestEntries } from 'xsmp/contributions';
-import type { XsmpResolvedContributionManifestEntry } from 'xsmp/contributions';
+import { createXsmpServices } from '@xsmp/core';
+import { resolveContributionManifestEntries } from '@xsmp/core/contributions';
+import type { XsmpResolvedContributionManifestEntry } from '@xsmp/core/contributions';
 
 let tempDir: string;
 

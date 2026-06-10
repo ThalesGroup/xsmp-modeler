@@ -4,16 +4,16 @@ import * as path from 'node:path';
 import { URI } from 'langium';
 import satisfies from 'semver/functions/satisfies.js';
 import { LanguageClient, TransportKind } from 'vscode-languageclient/node.js';
-import { createProjectWizard, createXsmpStarterFileWizard } from 'xsmp/wizard';
-import { GenerateAllProjects, GenerateProject, GetServerFileContentRequest, ImportSmpFile, RegisterContributions } from 'xsmp/lsp';
-import type { XsmpProjectGenerationReport } from 'xsmp/lsp';
+import { createProjectWizard, createXsmpStarterFileWizard } from '@xsmp/core/wizard';
+import { GenerateAllProjects, GenerateProject, GetServerFileContentRequest, ImportSmpFile, RegisterContributions } from '@xsmp/core/lsp';
+import type { XsmpProjectGenerationReport } from '@xsmp/core/lsp';
 import type {
     XsmpContributionRegistrationReport,
     XsmpExtensionContributionManifestEntry,
     XsmpResolvedContributionManifestEntry,
-} from 'xsmp/contributions';
-import { xsmpExtensionApiVersion } from 'xsmp';
-import { getDefaultImportedXsmpPath, getSmpMirrorSourceUri } from 'xsmp/smp';
+} from '@xsmp/core/contributions';
+import { xsmpExtensionApiVersion } from '@xsmp/core';
+import { getDefaultImportedXsmpPath, getSmpMirrorSourceUri } from '@xsmp/core/smp';
 import { registerEmbeddedDocumentation } from './embedded-documentation.js';
 import { registerSmpMirrorCommands } from './smp-mirror-commands.js';
 import { registerSmpMirrorPreview } from './smp-mirror-preview.js';

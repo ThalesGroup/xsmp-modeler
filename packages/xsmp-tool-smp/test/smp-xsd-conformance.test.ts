@@ -1,9 +1,9 @@
 import { afterEach, beforeAll, describe, expect, test } from 'vitest';
 import { EmptyFileSystem, type AstNode, type LangiumDocument, URI } from 'langium';
 import { clearDocuments, parseHelper } from 'langium/test';
-import { createXsmpServices } from 'xsmp';
+import { createXsmpServices } from '@xsmp/core';
 import { SmpGenerator } from '@xsmp/tool-smp';
-import * as ast from 'xsmp/ast';
+import * as ast from '@xsmp/core/ast';
 import { assertXmlConformsToXsd, hasXmllint, type SmpStandard } from './xsd-test-utils.js';
 import * as fs from 'node:fs';
 import * as os from 'node:os';

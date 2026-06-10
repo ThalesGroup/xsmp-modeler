@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import type { LanguageClient } from 'vscode-languageclient/node.js';
-import { GetServerFileContentRequest } from 'xsmp/lsp';
+import { GetServerFileContentRequest } from '@xsmp/core/lsp';
 import { getSmpMirrorPreviewUri, isSmpMirrorPreviewSourcePath } from './smp-mirror-preview-support.js';
 
 export const SmpMirrorPreviewViewType = 'xsmp.smpMirrorPreview';

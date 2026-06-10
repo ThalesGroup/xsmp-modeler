@@ -1,22 +1,22 @@
-import * as ast from 'xsmp/ast';
-import type * as Catalogue from 'xsmp/smp/catalogue';
-import type * as Elements from 'xsmp/smp/elements';
-import type * as Types from 'xsmp/smp/types';
-import type * as Package from 'xsmp/smp/package';
-import type * as xlink from 'xsmp/smp/xlink';
-import type * as Configuration from 'xsmp/smp/configuration';
-import type * as LinkBase from 'xsmp/smp/linkbase';
-import type * as Assembly from 'xsmp/smp/assembly';
-import type * as Schedule from 'xsmp/smp/schedule';
-import * as XsmpUtils from 'xsmp/utils';
+import * as ast from '@xsmp/core/ast';
+import type * as Catalogue from '@xsmp/core/smp/catalogue';
+import type * as Elements from '@xsmp/core/smp/elements';
+import type * as Types from '@xsmp/core/smp/types';
+import type * as Package from '@xsmp/core/smp/package';
+import type * as xlink from '@xsmp/core/smp/xlink';
+import type * as Configuration from '@xsmp/core/smp/configuration';
+import type * as LinkBase from '@xsmp/core/smp/linkbase';
+import type * as Assembly from '@xsmp/core/smp/assembly';
+import type * as Schedule from '@xsmp/core/smp/schedule';
+import * as XsmpUtils from '@xsmp/core/utils';
 
 import { type AstNode, type JSDocParagraph, type Reference, type URI, AstUtils, UriUtils, isReference } from 'langium';
 import * as fs from 'node:fs';
-import { isGeneratedBy, type TaskAcceptor, type XsmpGenerator, getCopyrightNotice } from 'xsmp/generator';
+import { isGeneratedBy, type TaskAcceptor, type XsmpGenerator, getCopyrightNotice } from '@xsmp/core/generator';
 import { create } from 'xmlbuilder2';
-import { getStandardBuiltinExportName, getXsmpVersion, isStandardBuiltinLibrary, type XsmpSharedServices } from 'xsmp';
-import type { ProjectManager } from 'xsmp/workspace';
-import type { XsmpPathService, XsmpcfgPathResolver, XsmpInstancePathResolver } from 'xsmp/references';
+import { getStandardBuiltinExportName, getXsmpVersion, isStandardBuiltinLibrary, type XsmpSharedServices } from '@xsmp/core';
+import type { ProjectManager } from '@xsmp/core/workspace';
+import type { XsmpPathService, XsmpcfgPathResolver, XsmpInstancePathResolver } from '@xsmp/core/references';
 
 const Duration = XsmpUtils;
 const Solver = XsmpUtils;

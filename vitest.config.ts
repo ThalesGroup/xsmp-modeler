@@ -5,21 +5,21 @@ const repoRoot = __dirname;
 const xsmpSrcRoot = path.join(repoRoot, 'packages', 'xsmp', 'src');
 
 const publicEntryPoints = {
-    'xsmp': path.join(xsmpSrcRoot, 'index.ts'),
-    'xsmp/ast': path.join(xsmpSrcRoot, 'generated', 'ast.ts'),
-    'xsmp/ast-partial': path.join(xsmpSrcRoot, 'generated', 'ast-partial.ts'),
-    'xsmp/contributions': path.join(xsmpSrcRoot, 'contributions/index.ts'),
-    'xsmp/grammar': path.join(xsmpSrcRoot, 'generated', 'grammar.ts'),
-    'xsmp/generator': path.join(xsmpSrcRoot, 'generator/index.ts'),
-    'xsmp/generator/cpp': path.join(xsmpSrcRoot, 'generator/cpp/index.ts'),
-    'xsmp/lsp': path.join(xsmpSrcRoot, 'lsp/index.ts'),
-    'xsmp/references': path.join(xsmpSrcRoot, 'references/index.ts'),
-    'xsmp/smp': path.join(xsmpSrcRoot, 'smp/index.ts'),
-    'xsmp/utils': path.join(xsmpSrcRoot, 'utils/index.ts'),
-    'xsmp/validation': path.join(xsmpSrcRoot, 'validation/index.ts'),
-    'xsmp/wizard': path.join(xsmpSrcRoot, 'wizard/index.ts'),
-    'xsmp/wizard/templates': path.join(xsmpSrcRoot, 'wizard/templates.ts'),
-    'xsmp/workspace': path.join(xsmpSrcRoot, 'workspace/index.ts'),
+    '@xsmp/core': path.join(xsmpSrcRoot, 'index.ts'),
+    '@xsmp/core/ast': path.join(xsmpSrcRoot, 'generated', 'ast.ts'),
+    '@xsmp/core/ast-partial': path.join(xsmpSrcRoot, 'generated', 'ast-partial.ts'),
+    '@xsmp/core/contributions': path.join(xsmpSrcRoot, 'contributions/index.ts'),
+    '@xsmp/core/grammar': path.join(xsmpSrcRoot, 'generated', 'grammar.ts'),
+    '@xsmp/core/generator': path.join(xsmpSrcRoot, 'generator/index.ts'),
+    '@xsmp/core/generator/cpp': path.join(xsmpSrcRoot, 'generator/cpp/index.ts'),
+    '@xsmp/core/lsp': path.join(xsmpSrcRoot, 'lsp/index.ts'),
+    '@xsmp/core/references': path.join(xsmpSrcRoot, 'references/index.ts'),
+    '@xsmp/core/smp': path.join(xsmpSrcRoot, 'smp/index.ts'),
+    '@xsmp/core/utils': path.join(xsmpSrcRoot, 'utils/index.ts'),
+    '@xsmp/core/validation': path.join(xsmpSrcRoot, 'validation/index.ts'),
+    '@xsmp/core/wizard': path.join(xsmpSrcRoot, 'wizard/index.ts'),
+    '@xsmp/core/wizard/templates': path.join(xsmpSrcRoot, 'wizard/templates.ts'),
+    '@xsmp/core/workspace': path.join(xsmpSrcRoot, 'workspace/index.ts'),
     '@xsmp/cli': path.join(repoRoot, 'packages', 'xsmp-cli', 'src', 'index.ts'),
     '@xsmp/tool-smp': path.join(repoRoot, 'packages', 'xsmp-tool-smp', 'src', 'index.ts'),
     '@xsmp/tool-adoc': path.join(repoRoot, 'packages', 'xsmp-tool-adoc', 'src', 'index.ts'),
@@ -38,8 +38,8 @@ function resolveAlias(importPath: string): string | undefined {
     if (direct) {
         return direct;
     }
-    if (importPath.startsWith('xsmp/smp/')) {
-        return path.join(xsmpSrcRoot, `smp/${importPath.slice('xsmp/smp/'.length)}.ts`);
+    if (importPath.startsWith('@xsmp/core/smp/')) {
+        return path.join(xsmpSrcRoot, `smp/${importPath.slice('@xsmp/core/smp/'.length)}.ts`);
     }
     return undefined;
 }
@@ -59,7 +59,7 @@ export default defineConfig({
                 replacement,
             })),
             {
-                find: /^xsmp\/smp\/(.+)$/,
+                find: /^@xsmp\/core\/smp\/(.+)$/,
                 replacement: path.join(xsmpSrcRoot, 'smp/$1.ts'),
             },
         ],

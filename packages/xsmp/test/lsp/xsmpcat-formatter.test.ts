@@ -2,7 +2,7 @@
 import { EmptyFileSystem } from 'langium';
 import { expectFormatting } from 'langium/test';
 import { describe, test } from 'vitest';
-import { createXsmpServices } from 'xsmp';
+import { createXsmpServices } from '@xsmp/core';
 import * as path from 'path';
 import * as fs from 'fs';
 

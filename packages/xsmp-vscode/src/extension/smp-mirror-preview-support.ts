@@ -1,4 +1,4 @@
-import { createSmpMirrorDescriptor, getSmpSourcePathFromMirrorPath, isSmpSourceFilePath } from 'xsmp/smp';
+import { createSmpMirrorDescriptor, getSmpSourcePathFromMirrorPath, isSmpSourceFilePath } from '@xsmp/core/smp';
 
 export function isSmpMirrorPreviewSourcePath(filePath: string): boolean {
     return isSmpSourceFilePath(filePath);

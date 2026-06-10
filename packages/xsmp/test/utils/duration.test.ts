@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import * as Duration from 'xsmp/utils'
+import * as Duration from '@xsmp/core/utils'
 
 
 describe('Check durations', () => {

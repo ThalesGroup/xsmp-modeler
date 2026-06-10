@@ -5,9 +5,9 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { FileChangeType, type DidChangeWatchedFilesParams, type LocationLink, type TextDocumentPositionParams } from 'vscode-languageserver';
-import { createXsmpServices } from 'xsmp';
-import { createSmpMirrorDescriptor } from 'xsmp/smp';
-import { resolveServerFileContent } from 'xsmp/lsp';
+import { createXsmpServices } from '@xsmp/core';
+import { createSmpMirrorDescriptor } from '@xsmp/core/smp';
+import { resolveServerFileContent } from '@xsmp/core/lsp';
 import { createBuiltinTestXsmpServices } from '../test-services.js';
 
 let tempDir: string;

@@ -1,6 +1,6 @@
 import { afterEach, beforeAll, describe, test } from 'vitest';
 import * as path from 'node:path';
-import { setClangFormat, setGeneratedBy } from 'xsmp/generator';
+import { setClangFormat, setGeneratedBy } from '@xsmp/core/generator';
 import { TasMdkGenerator, TasMdkPythonGenerator } from 'xsmp-tas-mdk';
 import {
     assertGeneratedTree,

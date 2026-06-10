@@ -1,10 +1,10 @@
 import * as fs from 'node:fs';
-import * as ast from 'xsmp/ast';
+import * as ast from '@xsmp/core/ast';
 import { type URI, UriUtils, type AstNode, type Reference, AstUtils, isReference } from 'langium';
 import { expandToString as s } from 'langium/generate';
-import type { XsmpSharedServices } from 'xsmp';
-import { type TaskAcceptor, type XsmpGenerator } from 'xsmp/generator';
-import type { XsmpPathService } from 'xsmp/references';
+import type { XsmpSharedServices } from '@xsmp/core';
+import { type TaskAcceptor, type XsmpGenerator } from '@xsmp/core/generator';
+import type { XsmpPathService } from '@xsmp/core/references';
 import {
     fqn,
     getLower,
@@ -17,7 +17,7 @@ import {
     ViewKind,
     VisibilityKind,
     VisibilityKinds,
-} from 'xsmp/utils';
+} from '@xsmp/core/utils';
 
 type AssemblyStatement = ast.FieldValue | ast.GlobalEventHandler | ast.Invocation;
 

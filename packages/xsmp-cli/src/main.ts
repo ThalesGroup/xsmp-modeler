@@ -1,7 +1,7 @@
 import { Cancellation } from 'langium';
 import { Command, CommanderError } from 'commander';
-import { getXsmpVersion } from 'xsmp';
-import { SmpImportService } from 'xsmp/smp';
+import { getXsmpVersion } from '@xsmp/core';
+import { SmpImportService } from '@xsmp/core/smp';
 import {
     CliError,
     collectDiagnostics,

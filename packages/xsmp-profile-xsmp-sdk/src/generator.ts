@@ -1,9 +1,9 @@
-import { GapPatternCppGenerator, CxxStandard, type Include } from 'xsmp/generator/cpp';
-import type { XsmpSharedServices } from 'xsmp';
-import * as ast from 'xsmp/ast';
+import { GapPatternCppGenerator, CxxStandard, type Include } from '@xsmp/core/generator/cpp';
+import type { XsmpSharedServices } from '@xsmp/core';
+import * as ast from '@xsmp/core/ast';
 import { expandToString as s } from 'langium/generate';
-import { getAccessKind, isInput, isOutput, isState, isString8, VisibilityKind } from 'xsmp/utils';
-import { getXsmpVersion } from 'xsmp';
+import { getAccessKind, isInput, isOutput, isState, isString8, VisibilityKind } from '@xsmp/core/utils';
+import { getXsmpVersion } from '@xsmp/core';
 
 export class XsmpSdkGenerator extends GapPatternCppGenerator {
     constructor(services: XsmpSharedServices) {

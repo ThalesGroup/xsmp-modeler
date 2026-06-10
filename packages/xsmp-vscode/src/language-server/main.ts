@@ -2,7 +2,7 @@ import * as path from 'node:path';
 import { NodeFileSystem } from 'langium/node';
 import { startLanguageServer, WorkspaceState } from 'langium/lsp';
 import { ProposedFeatures, createConnection } from 'vscode-languageserver/node.js';
-import { createXsmpServices } from 'xsmp';
+import { createXsmpServices } from '@xsmp/core';
 import { loadVscodeBuiltinContributionPackages } from '../builtin-packages.js';
 
 async function main(): Promise<void> {

@@ -4,8 +4,8 @@ import { DiagnosticSeverity, type Diagnostic } from 'vscode-languageserver';
 import { URI } from 'vscode-uri';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import * as ast from 'xsmp/ast-partial';
-import { createXsmpServices, isSmpMirrorDocument } from 'xsmp';
+import * as ast from '@xsmp/core/ast-partial';
+import { createXsmpServices, isSmpMirrorDocument } from '@xsmp/core';
 import { getCliBuiltinContributionPackages, getCliBuiltinDirectory } from './builtin-packages.js';
 
 const ignoredWorkspaceDirectories = new Set([

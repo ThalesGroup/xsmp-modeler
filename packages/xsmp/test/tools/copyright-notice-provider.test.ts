@@ -2,9 +2,9 @@ import { afterEach, beforeAll, describe, expect, test } from "vitest";
 import { EmptyFileSystem, type LangiumDocument } from "langium";
 import { expandToString as s } from "langium/generate";
 import { clearDocuments, parseHelper } from "langium/test";
-import { createXsmpServices } from 'xsmp';
-import { Catalogue } from 'xsmp/ast-partial';
-import * as CopyrightNoticeProvider  from 'xsmp/generator';
+import { createXsmpServices } from '@xsmp/core';
+import { Catalogue } from '@xsmp/core/ast-partial';
+import * as CopyrightNoticeProvider  from '@xsmp/core/generator';
 
 let services: ReturnType<typeof createXsmpServices>;
 let parse: ReturnType<typeof parseHelper<Catalogue>>;

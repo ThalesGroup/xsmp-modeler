@@ -4,13 +4,13 @@ import { NodeFileSystem } from 'langium/node';
 import { expandToString as s } from 'langium/generate';
 import { clearDocuments, parseHelper } from 'langium/test';
 import { DiagnosticSeverity } from 'vscode-languageserver-types';
-import { createXsmpServices } from 'xsmp';
-import * as ast from 'xsmp/ast';
+import { createXsmpServices } from '@xsmp/core';
+import * as ast from '@xsmp/core/ast';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { ADocGenerator, xsmpContributionPackage } from '@xsmp/tool-adoc';
-import { setGeneratedBy } from 'xsmp/generator';
+import { setGeneratedBy } from '@xsmp/core/generator';
 import { rebuildTestDocuments } from '../../xsmp/test/test-services.js';
 
 let services: ReturnType<typeof createXsmpServices>;

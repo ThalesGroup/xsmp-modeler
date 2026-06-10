@@ -2,13 +2,13 @@ import { afterEach, beforeAll, describe, expect, test } from "vitest";
 import { EmptyFileSystem, type LangiumDocument, URI } from "langium";
 import { expandToString as s } from "langium/generate";
 import { clearDocuments, parseHelper } from "langium/test";
-import { createXsmpServices } from 'xsmp';
-import * as ast from 'xsmp/ast';
+import { createXsmpServices } from '@xsmp/core';
+import * as ast from '@xsmp/core/ast';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import { SmpGenerator } from '@xsmp/tool-smp';
-import { setGeneratedBy } from 'xsmp/generator';
+import { setGeneratedBy } from '@xsmp/core/generator';
 import { rebuildTestDocuments } from './test-services.js';
 
 let services: ReturnType<typeof createXsmpServices>;

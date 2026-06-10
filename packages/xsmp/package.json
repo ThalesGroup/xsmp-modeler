@@ -1,9 +1,18 @@
 {
-    "name": "xsmp",
+    "name": "@xsmp/core",
     "version": "2.0.0",
     "description": "XSMP core language and runtime library.",
     "type": "module",
     "license": "MIT",
+    "homepage": "https://thalesgroup.github.io/xsmp-modeler/",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/ThalesGroup/xsmp-modeler.git",
+        "directory": "packages/xsmp"
+    },
+    "bugs": {
+        "url": "https://github.com/ThalesGroup/xsmp-modeler/issues"
+    },
     "files": [
         "lib"
     ],

@@ -4,13 +4,13 @@ import {
     type AstNodeDescription,
     UriUtils
 } from 'langium';
-import * as ast from 'xsmp/ast-partial';
-import type { XsmpcatServices } from 'xsmp';
-import * as XsmpUtils from 'xsmp/utils';
+import * as ast from '@xsmp/core/ast-partial';
+import type { XsmpcatServices } from '@xsmp/core';
+import * as XsmpUtils from '@xsmp/core/utils';
 const { VisibilityKind } = XsmpUtils;
 type DocumentationHelper = XsmpUtils.DocumentationHelper;
 type AttributeHelper = XsmpUtils.AttributeHelper;
-import type { ProjectManager } from 'xsmp/workspace';
+import type { ProjectManager } from '@xsmp/core/workspace';
 
 let validator: TasMdkValidator;
 /**

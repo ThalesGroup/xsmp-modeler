@@ -1,5 +1,5 @@
 import * as path from 'node:path';
-import type { XsmpContributionScaffoldContext } from 'xsmp/contributions';
+import type { XsmpContributionScaffoldContext } from '@xsmp/core/contributions';
 
 export async function scaffoldPythonProject(context: XsmpContributionScaffoldContext): Promise<void> {
     const pythonDir = path.join(context.projectDir, 'python');

@@ -1,6 +1,6 @@
 import * as path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import type { XsmpContributionPackage } from 'xsmp/contributions';
+import type { XsmpContributionPackage } from '@xsmp/core/contributions';
 
 const vscodeBuiltinContributionPackageNames = [
     '@xsmp/tool-smp',

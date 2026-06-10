@@ -3,8 +3,8 @@ import { clearDocuments, parseHelper } from 'langium/test';
 import { EmptyFileSystem, type LangiumDocument } from 'langium';
 import { CodeActionKind, type CodeAction } from 'vscode-languageserver';
 import type { CodeActionParams } from 'vscode-languageserver-protocol';
-import { createXsmpServices } from 'xsmp';
-import { type Catalogue } from 'xsmp/ast-partial';
+import { createXsmpServices } from '@xsmp/core';
+import { type Catalogue } from '@xsmp/core/ast-partial';
 
 let services: ReturnType<typeof createXsmpServices>;
 let parseCatalogue: ReturnType<typeof parseHelper<Catalogue>>;

@@ -4,7 +4,7 @@ import { xsmpContributionPackage as xsmpSdkProfile } from '@xsmp/profile-xsmp-sd
 import { xsmpContributionPackage as adocTool } from '@xsmp/tool-adoc';
 import { xsmpContributionPackage as pythonTool } from '@xsmp/tool-python';
 import { xsmpContributionPackage as smpTool } from '@xsmp/tool-smp';
-import { createXsmpServices, type XsmpServices } from 'xsmp';
+import { createXsmpServices, type XsmpServices } from '@xsmp/core';
 import { xsmpContributionPackage as tasMdkProfile } from 'xsmp-tas-mdk';
 
 const testBuiltinContributionPackages = [

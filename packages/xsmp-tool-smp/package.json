@@ -20,6 +20,6 @@
     "dependencies": {
         "langium": "4.2.4",
         "xmlbuilder2": "^4.0.3",
-        "xsmp": "2.0.0"
+        "@xsmp/core": "2.0.0"
     }
 }

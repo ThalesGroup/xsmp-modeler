@@ -1,7 +1,7 @@
 import { PythonGenerator } from './generator.js';
 import { scaffoldPythonProject } from './scaffold.js';
-import type { XsmpContributionRegistrationApi } from 'xsmp/contributions';
-import type { XsmpGenerator } from 'xsmp/generator';
+import type { XsmpContributionRegistrationApi } from '@xsmp/core/contributions';
+import type { XsmpGenerator } from '@xsmp/core/generator';
 
 export function registerContribution(api: XsmpContributionRegistrationApi): void {
     api.setWizardMetadata({

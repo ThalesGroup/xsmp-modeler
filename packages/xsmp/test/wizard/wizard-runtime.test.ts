@@ -96,11 +96,11 @@ import {
     GetContributionSummaries,
     GetContributionWizardPrompts,
     ScaffoldProject,
-} from 'xsmp/lsp';
+} from '@xsmp/core/lsp';
 import {
     createProjectWizard,
     createXsmpStarterFileWizard,
-} from 'xsmp/wizard';
+} from '@xsmp/core/wizard';
 
 let tempDir: string;
 

@@ -1,8 +1,8 @@
 import { afterEach, beforeAll, describe, expect, test } from 'vitest';
 import { clearDocuments, parseHelper, type ParseHelperOptions } from 'langium/test';
 import { EmptyFileSystem, type LangiumDocument, URI } from 'langium';
-import { createXsmpServices } from 'xsmp';
-import { Assembly, Catalogue, Project, isAssembly } from 'xsmp/ast-partial';
+import { createXsmpServices } from '@xsmp/core';
+import { Assembly, Catalogue, Project, isAssembly } from '@xsmp/core/ast-partial';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';

@@ -1,7 +1,7 @@
 import { afterEach, beforeAll, describe, test } from 'vitest';
 import * as path from 'node:path';
 import { EsaCdkGenerator } from '@xsmp/profile-esa-cdk';
-import { setClangFormat, setGeneratedBy } from 'xsmp/generator';
+import { setClangFormat, setGeneratedBy } from '@xsmp/core/generator';
 import {
     assertGeneratedTree,
     cleanupProfileGeneratorTestContext,

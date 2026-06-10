@@ -25,9 +25,11 @@ jobs:
     - name: Validate release tag
       shell: bash
       run: |
+        XSMP_VERSION="$(jq -r '.version' packages/xsmp/package.json)"
         CLI_VERSION="$(jq -r '.version' packages/xsmp-cli/package.json)"
         MODELER_VERSION="$(jq -r '.version' packages/xsmp-vscode/package.json)"
         TAS_MDK_VERSION="$(jq -r '.version' packages/xsmp-tas-mdk/package.json)"
+        test "$CLI_VERSION" = "$XSMP_VERSION"
         test "$CLI_VERSION" = "$MODELER_VERSION"
         test "$CLI_VERSION" = "$TAS_MDK_VERSION"
         test "v$CLI_VERSION" = "$GITHUB_REF_NAME"
@@ -84,3 +86,66 @@ jobs:
         else
           gh release create "$TAG" "${ASSETS[@]}" --generate-notes --verify-tag
         fi
+
+  publish-npm-core:
+    name: Publish @xsmp/core to npm
+    needs: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Use Node.js
+      uses: actions/setup-node@v6
+      with:
+        node-version: '22.14.0'
+        registry-url: 'https://registry.npmjs.org'
+        package-manager-cache: false
+
+    - name: Use npm with trusted publishing support
+      shell: bash
+      run: npm install -g npm@latest
+
+    - name: Validate npm package tag
+      id: core
+      shell: bash
+      run: |
+        XSMP_VERSION="$(jq -r '.version' packages/xsmp/package.json)"
+        test "v$XSMP_VERSION" = "$GITHUB_REF_NAME"
+        echo "version=$XSMP_VERSION" >> "$GITHUB_OUTPUT"
+
+        if npm view "@xsmp/core@$XSMP_VERSION" version >/dev/null 2>&1; then
+          echo "published=true" >> "$GITHUB_OUTPUT"
+          echo "@xsmp/core@$XSMP_VERSION is already published; skipping npm publish."
+        else
+          echo "published=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Install dependencies
+      if: steps.core.outputs.published != 'true'
+      shell: bash
+      run: npm ci
+
+    - name: Lint @xsmp/core
+      if: steps.core.outputs.published != 'true'
+      shell: bash
+      run: npm run lint -w @xsmp/core
+
+    - name: Test @xsmp/core
+      if: steps.core.outputs.published != 'true'
+      shell: bash
+      run: npm run test -w @xsmp/core
+
+    - name: Check npm package contents
+      if: steps.core.outputs.published != 'true'
+      shell: bash
+      run: npm pack -w @xsmp/core --dry-run
+
+    - name: Publish @xsmp/core to npm
+      if: steps.core.outputs.published != 'true'
+      shell: bash
+      run: npm publish -w @xsmp/core --access public

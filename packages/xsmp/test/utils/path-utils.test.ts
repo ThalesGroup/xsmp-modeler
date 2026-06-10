@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import * as path from 'node:path';
-import { isSameOrContainedPath, normalizePath, toXsmpIdentifier } from 'xsmp/utils';
+import { isSameOrContainedPath, normalizePath, toXsmpIdentifier } from '@xsmp/core/utils';
 
 describe('Path utils', () => {
     test('detects path containment with directory boundaries', () => {

@@ -118,7 +118,7 @@ vi.mock('vscode', async () => {
 });
 
 import * as vscode from 'vscode';
-import { GetServerFileContentRequest } from 'xsmp/lsp';
+import { GetServerFileContentRequest } from '@xsmp/core/lsp';
 import {
     OpenEmbeddedDocumentationCommand,
     registerEmbeddedDocumentation,

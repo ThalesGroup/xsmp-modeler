@@ -2,7 +2,7 @@ import { EmptyFileSystem } from 'langium';
 import { expectSymbols } from 'langium/test';
 import { describe, expect, test } from 'vitest';
 import { SymbolKind, SymbolTag, type DocumentSymbol } from 'vscode-languageserver';
-import { createXsmpServices } from 'xsmp';
+import { createXsmpServices } from '@xsmp/core';
 
 const services = createXsmpServices(EmptyFileSystem);
 const expectCatalogueSymbols = expectSymbols(services.xsmpcat);

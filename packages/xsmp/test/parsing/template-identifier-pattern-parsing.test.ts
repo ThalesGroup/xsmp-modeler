@@ -1,8 +1,8 @@
 import { beforeAll, describe, expect, test } from 'vitest';
 import { EmptyFileSystem, type LangiumDocument } from 'langium';
 import { parseHelper } from 'langium/test';
-import { createXsmpServices } from 'xsmp';
-import { ComponentConfiguration, type Configuration, PatternPathNamedSegment, isComponentConfiguration, isConfiguration, isIdentifierTemplatePart, isIdentifierTextPart, isPatternPathNamedSegment } from 'xsmp/ast-partial';
+import { createXsmpServices } from '@xsmp/core';
+import { ComponentConfiguration, type Configuration, PatternPathNamedSegment, isComponentConfiguration, isConfiguration, isIdentifierTemplatePart, isIdentifierTextPart, isPatternPathNamedSegment } from '@xsmp/core/ast-partial';
 
 let services: ReturnType<typeof createXsmpServices>;
 let parseConfiguration: ReturnType<typeof parseHelper<Configuration>>;

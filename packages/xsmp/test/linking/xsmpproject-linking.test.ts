@@ -2,7 +2,7 @@ import { afterEach, beforeAll, describe, expect, test } from "vitest";
 import { EmptyFileSystem, type LangiumDocument } from "langium";
 import { expandToString as s } from "langium/generate";
 import { clearDocuments, parseHelper } from "langium/test";
-import * as ast from 'xsmp/ast-partial';
+import * as ast from '@xsmp/core/ast-partial';
 import { createBuiltinTestXsmpServices } from '../test-services.js';
 
 
