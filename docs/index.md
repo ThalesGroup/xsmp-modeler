@@ -4,6 +4,9 @@ XSMP Modeler is a Visual Studio Code extension and tooling stack for authoring X
 
 This documentation is intentionally user-oriented. It focuses on how to install the extension, create and work with projects, understand each XSMP language, and use the built-in tools and profiles effectively.
 
+If you want to extend XSMP Modeler, see
+[Create Tools and Profiles](extending/tools-and-profiles.md).
+
 ## What you can do with XSMP Modeler
 
 - Create XSMP projects directly from VS Code with the project wizard.

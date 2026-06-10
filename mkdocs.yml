@@ -38,6 +38,8 @@ nav:
       - Projects, Tools and Profiles: concepts/projects-tools-profiles.md
       - Paths, Templates and Values: concepts/paths-templates-values.md
       - Recommended Workflow: concepts/workflow.md
+  - Extending:
+      - Create Tools and Profiles: extending/tools-and-profiles.md
   - Languages:
       - Overview: languages/overview.md
       - xsmp.project: languages/xsmpproject.md

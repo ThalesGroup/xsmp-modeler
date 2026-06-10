@@ -130,3 +130,6 @@ These effects remain project-local:
 - extra model libraries supplied by the selected profile or tools
 
 This means two projects in the same workspace can activate different tools and profiles without leaking their project-specific behavior into each other.
+
+To create your own contribution, see
+[Create Tools and Profiles](../extending/tools-and-profiles.md).
