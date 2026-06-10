@@ -45,6 +45,12 @@ export interface AssemblyPathContext {
     instance?: ast.ModelInstance | ast.AssemblyInstance;
 }
 
+export interface AssemblyChildComponentPathContext {
+    path: string;
+    component: ast.Component;
+    context: AssemblyPathContext;
+}
+
 interface TaskExecutionContext {
     component?: ast.Component;
     bindings?: TemplateBindings;
@@ -93,6 +99,7 @@ export class XsmpInstancePathResolver {
     protected readonly linkBaseEndpointPathCache: WorkspaceCache<ast.Path, InstancePathResolution>;
     protected readonly scheduleActivityPathCache: WorkspaceCache<ast.Path, InstancePathResolution>;
     protected readonly componentLinkBaseStackCache: WorkspaceCache<ast.ComponentLinkBase, readonly ast.Component[] | undefined>;
+    protected readonly componentLinkBaseAssemblyContextCache: WorkspaceCache<ast.ComponentLinkBase, AssemblyPathContext | undefined>;
     protected readonly taskExecutionContextCache: WorkspaceCache<ast.Task, TaskExecutionContext | undefined>;
 
     constructor(services: XsmpSharedServices) {
@@ -107,6 +114,7 @@ export class XsmpInstancePathResolver {
         this.linkBaseEndpointPathCache = new WorkspaceCache<ast.Path, InstancePathResolution>(services);
         this.scheduleActivityPathCache = new WorkspaceCache<ast.Path, InstancePathResolution>(services);
         this.componentLinkBaseStackCache = new WorkspaceCache<ast.ComponentLinkBase, readonly ast.Component[] | undefined>(services);
+        this.componentLinkBaseAssemblyContextCache = new WorkspaceCache<ast.ComponentLinkBase, AssemblyPathContext | undefined>(services);
         this.taskExecutionContextCache = new WorkspaceCache<ast.Task, TaskExecutionContext | undefined>(services);
     }
 
@@ -345,8 +353,28 @@ export class XsmpInstancePathResolver {
         return this.componentLinkBaseStackCache.get(linkBase, () => this.computeComponentLinkBaseComponentStack(linkBase));
     }
 
+    getComponentLinkBaseAssemblyContext(linkBase: ast.ComponentLinkBase): AssemblyPathContext | undefined {
+        return this.componentLinkBaseAssemblyContextCache.get(linkBase, () => this.computeComponentLinkBaseAssemblyContext(linkBase));
+    }
+
     getEffectiveComponentLinkBaseComponent(linkBase: ast.ComponentLinkBase): ast.Component | undefined {
-        return this.getComponentLinkBaseComponentStack(linkBase)?.at(-1);
+        return this.getComponentLinkBaseAssemblyContext(linkBase)?.component
+            ?? this.getComponentLinkBaseComponentStack(linkBase)?.at(-1);
+    }
+
+    getAssemblyChildComponentPathContexts(context: AssemblyPathContext | undefined): AssemblyChildComponentPathContext[] {
+        const node = this.getAssemblyBaseNode(context);
+        if (!node) {
+            return [];
+        }
+        return node.children.flatMap(child => {
+            const path = this.getConcreteInstanceName(child.instance.name, context?.bindings);
+            const component = child.node.component;
+            const childContext = this.getAssemblyPathContextForInstance(child.instance, child.node.bindings);
+            return path && component && childContext
+                ? [{ path, component, context: childContext }]
+                : [];
+        });
     }
 
     getTaskExecutionContextStack(task: ast.Task): readonly ast.Component[] | undefined {
@@ -419,6 +447,25 @@ export class XsmpInstancePathResolver {
         const bindings = this.getLinkBaseTemplateBindings(linkBase);
         const resolution = parentStack && linkBase.name ? this.typedPathResolver.resolveComponentPath(linkBase.name, parentStack, bindings) : undefined;
         return resolution?.finalStack;
+    }
+
+    protected computeComponentLinkBaseAssemblyContext(linkBase: ast.ComponentLinkBase): AssemblyPathContext | undefined {
+        if (!this.hasLinkBaseAssemblyAnchor(linkBase)) {
+            return undefined;
+        }
+        const parent = ast.isComponentLinkBase(linkBase.$container) ? linkBase.$container : undefined;
+        const parentContext = linkBase.name?.absolute
+            ? this.getRootLinkBaseAssemblyContext(linkBase)
+            : (parent
+                ? this.getComponentLinkBaseAssemblyContext(parent)
+                : this.getRootLinkBaseAssemblyContext(linkBase));
+        if (!parentContext || !linkBase.name) {
+            return undefined;
+        }
+        const resolution = this.resolveAssemblyComponentPathInContext(linkBase.name, parentContext);
+        return resolution.active && !resolution.invalidMessage
+            ? resolution.finalContext
+            : undefined;
     }
 
     protected computeAssemblyComponentPathResolution(path: ast.Path): AsbInstancePathResolution {
@@ -514,6 +561,14 @@ export class XsmpInstancePathResolver {
             return this.inactiveResolution();
         }
 
+        return this.resolveLinkPathAgainstAssembly(path, link, baseNode);
+    }
+
+    protected resolveLinkPathAgainstAssembly(
+        path: ast.Path,
+        link: ast.Link,
+        baseNode: AssemblyNode | undefined,
+    ): InstancePathResolution {
         if (ast.isEventLink(link)) {
             const expectedKind = path === link.ownerPath ? 'eventSource' : 'eventSink';
             return this.resolveAssemblyMemberPath(path, baseNode, [expectedKind]);
@@ -533,6 +588,12 @@ export class XsmpInstancePathResolver {
     }
 
     protected computeLinkBaseComponentPathResolution(path: ast.Path): InstancePathResolution {
+        if (this.hasLinkBaseAssemblyAnchor(path)) {
+            const baseContext = this.getBaseAssemblyContextForLinkBaseComponentPath(path);
+            return baseContext
+                ? this.assemblyInstanceResolutionToInstancePath(this.resolveAssemblyComponentPathInContext(path, baseContext))
+                : this.inactiveResolution();
+        }
         const baseStack = this.getBaseStackForLinkBaseComponentPath(path);
         const bindings = this.getLinkBaseTemplateBindings(path);
         return this.typedComponentResolutionToInstancePath(baseStack ? this.typedPathResolver.resolveComponentPath(path, baseStack, bindings) : undefined, bindings);
@@ -541,6 +602,13 @@ export class XsmpInstancePathResolver {
     protected computeLinkBaseEndpointPathResolution(path: ast.Path): InstancePathResolution {
         const link = AstUtils.getContainerOfType(path, ast.isLink);
         const componentLinkBase = link ? AstUtils.getContainerOfType(link, ast.isComponentLinkBase) : undefined;
+        if (this.hasLinkBaseAssemblyAnchor(path)) {
+            const baseContext = this.getBaseAssemblyContextForLinkBaseComponentPath(path);
+            if (!link || !baseContext) {
+                return this.inactiveResolution();
+            }
+            return this.resolveLinkPathAgainstAssembly(path, link, this.getAssemblyBaseNode(baseContext));
+        }
         const baseStack = componentLinkBase ? this.getComponentLinkBaseComponentStack(componentLinkBase) : undefined;
         const bindings = this.getLinkBaseTemplateBindings(path);
         if (!link || !baseStack) {
@@ -653,6 +721,11 @@ export class XsmpInstancePathResolver {
     }
 
     protected computeLinkBaseInterfaceLinkSourceResolution(path: ast.Path): InterfaceLinkSourceResolution {
+        if (this.hasLinkBaseAssemblyAnchor(path)) {
+            const baseContext = this.getBaseAssemblyContextForLinkBaseComponentPath(path);
+            return this.resolveAssemblyInterfaceLinkSource(path, this.getAssemblyBaseNode(baseContext));
+        }
+
         const parts = this.pathService.splitInterfaceLinkSourcePath(path);
         const namedSegments = new Map<ast.PathNamedSegment, readonly ast.NamedElement[]>();
         const segmentBindings = new Map<ast.PathNamedSegment, TemplateBindings | undefined>();
@@ -803,6 +876,22 @@ export class XsmpInstancePathResolver {
         return undefined;
     }
 
+    protected getBaseAssemblyContextForLinkBaseComponentPath(path: ast.Path): AssemblyPathContext | undefined {
+        if (path.absolute) {
+            return this.getRootLinkBaseAssemblyContext(path);
+        }
+        if (ast.isComponentLinkBase(path.$container)) {
+            return ast.isComponentLinkBase(path.$container.$container)
+                ? this.getComponentLinkBaseAssemblyContext(path.$container.$container)
+                : this.getRootLinkBaseAssemblyContext(path.$container);
+        }
+        if (ast.isLink(path.$container)) {
+            const componentLinkBase = AstUtils.getContainerOfType(path.$container, ast.isComponentLinkBase);
+            return componentLinkBase ? this.getComponentLinkBaseAssemblyContext(componentLinkBase) : undefined;
+        }
+        return undefined;
+    }
+
     protected resolveAssemblyInstancePath(
         path: ast.Path,
         baseNode: AssemblyNode | undefined,
@@ -822,6 +911,7 @@ export class XsmpInstancePathResolver {
                     active: true,
                     finalComponent: baseNode.component,
                     finalBindings: baseNode.bindings,
+                    finalContext: baseContext,
                     namedSegments,
                     segmentBindings,
                 };
@@ -1578,16 +1668,28 @@ export class XsmpInstancePathResolver {
     }
 
     protected getLinkBaseTemplateBindings(node: AstNode | undefined): TemplateBindings | undefined {
-        const linkBase = AstUtils.getContainerOfType(node, ast.isLinkBase);
-        const assembly = ast.isAssembly(linkBase?.assembly?.ref) ? linkBase.assembly.ref : undefined;
+        const assembly = this.getLinkBaseAssembly(node);
         return assembly ? this.createTemplateBindings(assembly.parameters) : undefined;
     }
 
-    protected getRootLinkBaseComponentStack(node: AstNode | undefined): readonly ast.Component[] | undefined {
+    protected hasLinkBaseAssemblyAnchor(node: AstNode | undefined): boolean {
         const linkBase = AstUtils.getContainerOfType(node, ast.isLinkBase);
-        const assembly = ast.isAssembly(linkBase?.assembly?.ref) ? linkBase.assembly.ref : undefined;
+        return Boolean(linkBase?.assembly);
+    }
+
+    protected getRootLinkBaseAssemblyContext(node: AstNode | undefined): AssemblyPathContext | undefined {
+        return this.getAssemblyPathContextForAssembly(this.getLinkBaseAssembly(node));
+    }
+
+    protected getRootLinkBaseComponentStack(node: AstNode | undefined): readonly ast.Component[] | undefined {
+        const assembly = this.getLinkBaseAssembly(node);
         const component = this.getModelComponent(assembly?.model);
         return component ? [component] : undefined;
+    }
+
+    protected getLinkBaseAssembly(node: AstNode | undefined): ast.Assembly | undefined {
+        const linkBase = AstUtils.getContainerOfType(node, ast.isLinkBase);
+        return ast.isAssembly(linkBase?.assembly?.ref) ? linkBase.assembly.ref : undefined;
     }
 
     protected createTemplateBindings(
@@ -1636,6 +1738,13 @@ export class XsmpInstancePathResolver {
             return undefined;
         }
         return value.startsWith('"') && value.endsWith('"') ? value.slice(1, -1) : value;
+    }
+
+    protected getConcreteInstanceName(name: string | undefined, bindings: TemplateBindings | undefined): string | undefined {
+        if (!name) {
+            return undefined;
+        }
+        return this.identifierPatternService.substitute(name, bindings) ?? name;
     }
 
     protected createSegmentBindingsMap(

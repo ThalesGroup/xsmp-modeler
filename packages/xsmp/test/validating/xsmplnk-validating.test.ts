@@ -69,14 +69,14 @@ afterEach(async () => {
 });
 
 describe('Validating Xsmplnk', () => {
-    test('validates typed component link bases and link endpoints and honors unsafe', async () => {
+    test('validates anchored component link bases and link endpoints by instance name and honors unsafe', async () => {
         const document = await parseInProject(`link Demo for DemoAsm
 
 /
 {
-    field link outValue -> Child.outValue
-    field link unsafe outValue -> unsafe Child.outValue
-    event link outbound -> Child.inbound
+    field link outValue -> Leaf.outValue
+    field link unsafe outValue -> unsafe Leaf.outValue
+    event link outbound -> Leaf.inbound
 
     enabled
     {
@@ -94,9 +94,53 @@ Root: demo.Root
         const messages = getMessages(document);
         expect(messages).toEqual(expect.arrayContaining([
             "The path segment 'outValue' shall resolve to a Field marked as Input of the current Component.",
-            "The path segment 'enabled' shall resolve to a child Component of the current Component.",
+            "The path segment 'enabled' shall resolve to a child Model Instance or Assembly Instance.",
         ]));
         expect(messages.some(message => message.includes('unsafe'))).toBe(false);
+    });
+
+    test('rejects component type names when an anchored assembly instance has a different name', async () => {
+        const document = await parseInProject(`link Demo for DemoAsm
+
+/
+{
+    event link outbound -> Child.inbound
+}
+`, `assembly DemoAsm
+
+Root: demo.Root
+{
+    child += Leaf: demo.Child
+}
+`);
+
+        expect(getMessages(document)).toEqual([
+            "The path segment 'Child' shall resolve to a child Model Instance or Assembly Instance.",
+        ]);
+    });
+
+    test('resolves absolute nested link paths from the assembly root', async () => {
+        const document = await parseInProject(`link Demo for DemoAsm
+
+/
+{
+    event link outbound -> inbound
+
+    Leaf
+    {
+        field link /outValue -> inValue
+        interface link /logger -> .
+    }
+}
+`, `assembly DemoAsm
+
+Root: demo.Root
+{
+    child += Leaf: demo.Child
+}
+`);
+
+        expect(getMessages(document)).toEqual([]);
     });
 
     test('keeps unanchored link bases in text mode', async () => {
@@ -130,7 +174,7 @@ Unanchored
 
 /
 {
-    field link outValue -> Child.inValue
+    field link outValue -> Leaf.inValue
 }
 `, `assembly DemoAsm
 
@@ -150,7 +194,7 @@ Root: demo.Root
 {
     field link outValue -> {Target}.inValue
 }
-`, `assembly <Target = "Child"> DemoAsm
+`, `assembly <Target = "Leaf"> DemoAsm
 
 Root: demo.Root
 {
@@ -186,7 +230,7 @@ Root: demo.Root
 
 /
 {
-    interface link logger -> Child:backLogger
+    interface link logger -> Leaf:backLogger
     interface link logger -> .
 }
 `, `assembly DemoAsm
@@ -237,7 +281,7 @@ Root: demo.Root
         ]);
     });
 
-    test('requires typed component paths and at least one link per component link base', async () => {
+    test('requires anchored instance paths and at least one link per component link base', async () => {
         const document = await parseInProject(`link Demo for DemoAsm
 
 logger
@@ -252,7 +296,7 @@ Root: demo.Root
 `);
 
         expect(getMessages(document)).toEqual(expect.arrayContaining([
-            "The path segment 'logger' shall resolve to a child Component of the current Component.",
+            "The path segment 'logger' shall resolve to a child Model Instance or Assembly Instance.",
             'A Component Link Base shall contain at least one Link.',
         ]));
     });
@@ -272,14 +316,14 @@ source "src"
 
 Root: demo.Root
 {
-    child += Child: demo.Child
+    child += Leaf: demo.Child
 }
 `, URI.file(path.join(tempDir, 'src', 'demoasm.xsmpasb')));
         const linkBaseDocument = documentFactory.fromString<LinkBase>(`link Demo for DemoAsm
 
 /
 {
-    interface link logger -> Child
+    interface link logger -> Leaf
 }
 `, URI.file(path.join(tempDir, 'src', 'demo.xsmplnk')));
 

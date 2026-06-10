@@ -15,6 +15,12 @@ PayloadPlatform: demo.payloadsegment.PayloadPlatform
     platformMode = demo.foundation.Mode.Standby
     /** Instantiates the payload child. */
     payload += PayloadUnit: demo.payload.PayloadUnit
+    {
+        /** Instantiates the payload camera head. */
+        camera += CameraHead: demo.payload.CameraHead
+        /** Instantiates the payload mass memory. */
+        memory += MassMemory: demo.payload.MassMemory
+    }
     /** Instantiates the downlink router child. */
     router += DownlinkRouter: demo.payloadsegment.DownlinkRouter
     /** Instantiates the segment logger child. */

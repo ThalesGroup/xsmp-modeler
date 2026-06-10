@@ -1,8 +1,9 @@
 import type { AstNodeDescription, GrammarAST, ReferenceInfo } from 'langium';
 import type { CompletionAcceptor, CompletionContext } from 'langium/lsp';
 import * as ast from '../generated/ast-partial.js';
+import type { AssemblyPathContext } from '../references/xsmp-instance-path-resolver.js';
 import type { XsmplnkServices } from '../xsmplnk-module.js';
-import { XsmpCompletionProviderBase } from './xsmp-completion-provider-base.js';
+import { type RelativeComponentContext, XsmpCompletionProviderBase } from './xsmp-completion-provider-base.js';
 
 export class XsmplnkCompletionProvider extends XsmpCompletionProviderBase {
     protected override readonly snippetOnlyKeywords = new Set([
@@ -67,14 +68,20 @@ export class XsmplnkCompletionProvider extends XsmpCompletionProviderBase {
             return;
         }
         const componentLinkBase = this.getRecoveryBlockContainerOfType(context, ast.isComponentLinkBase);
+        const assemblyContext = componentLinkBase
+            ? this.instancePathResolver.getComponentLinkBaseAssemblyContext(componentLinkBase)
+            : undefined;
         const component = componentLinkBase
-            ? this.instancePathResolver.getEffectiveComponentLinkBaseComponent(componentLinkBase)
+            ? assemblyContext?.component ?? this.instancePathResolver.getEffectiveComponentLinkBaseComponent(componentLinkBase)
             : undefined;
         if (!component) {
             return;
         }
 
-        for (const child of this.getDirectChildComponentContexts(component)) {
+        const directChildren = assemblyContext
+            ? this.instancePathResolver.getAssemblyChildComponentPathContexts(assemblyContext)
+            : this.getDirectChildComponentContexts(component);
+        for (const child of directChildren) {
             acceptor(context, this.createContextualValueItem(
                 context,
                 child.path,
@@ -83,9 +90,12 @@ export class XsmplnkCompletionProvider extends XsmpCompletionProviderBase {
             ));
         }
 
-        this.addContextualEventLinkCompletions(context, acceptor, component);
-        this.addContextualFieldLinkCompletions(context, acceptor, component);
-        this.addContextualInterfaceLinkCompletions(context, acceptor, component);
+        const relativeContexts = assemblyContext
+            ? this.getAssemblyRelativeComponentContexts(assemblyContext)
+            : this.getRelativeComponentContexts(component);
+        this.addContextualEventLinkCompletionsForContexts(context, acceptor, relativeContexts);
+        this.addContextualFieldLinkCompletionsForContexts(context, acceptor, relativeContexts);
+        this.addContextualInterfaceLinkCompletionsForContexts(context, acceptor, relativeContexts);
     }
 
     protected addInterfaceReferenceCompletions(context: CompletionContext, acceptor: CompletionAcceptor): void {
@@ -106,8 +116,11 @@ export class XsmplnkCompletionProvider extends XsmpCompletionProviderBase {
 
     protected getFallbackInterfaceComponent(context: CompletionContext, afterArrow: boolean): ast.Component | undefined {
         const componentLinkBase = this.getRecoveryBlockContainerOfType(context, ast.isComponentLinkBase);
+        const assemblyContext = componentLinkBase
+            ? this.instancePathResolver.getComponentLinkBaseAssemblyContext(componentLinkBase)
+            : undefined;
         const rootComponent = componentLinkBase
-            ? this.instancePathResolver.getEffectiveComponentLinkBaseComponent(componentLinkBase)
+            ? assemblyContext?.component ?? this.instancePathResolver.getEffectiveComponentLinkBaseComponent(componentLinkBase)
             : undefined;
         if (!rootComponent) {
             return undefined;
@@ -123,7 +136,45 @@ export class XsmplnkCompletionProvider extends XsmpCompletionProviderBase {
         }
         const afterArrowText = linePrefix.slice(arrowIndex + 2);
         const clientPath = afterArrowText.split(':', 1)[0]?.trim();
+        if (assemblyContext) {
+            return this.resolveRelativeAssemblyComponentPath(assemblyContext, clientPath);
+        }
         return this.resolveRelativeComponentPath(rootComponent, clientPath);
+    }
+
+    protected getAssemblyRelativeComponentContexts(assemblyContext: AssemblyPathContext | undefined): RelativeComponentContext[] {
+        const root = assemblyContext?.component
+            ? [{ path: '.', component: assemblyContext.component }]
+            : [];
+        return [
+            ...root,
+            ...this.instancePathResolver.getAssemblyChildComponentPathContexts(assemblyContext),
+        ];
+    }
+
+    protected resolveRelativeAssemblyComponentPath(
+        assemblyContext: AssemblyPathContext,
+        pathText: string | undefined,
+    ): ast.Component | undefined {
+        if (!pathText || pathText === '.') {
+            return assemblyContext.component;
+        }
+
+        let currentContext = assemblyContext;
+        for (const segment of pathText.replace(/^\//, '').split(/[./]/)) {
+            const trimmed = segment.trim();
+            if (!trimmed || trimmed === '.') {
+                continue;
+            }
+            const child = this.instancePathResolver
+                .getAssemblyChildComponentPathContexts(currentContext)
+                .find(candidate => candidate.path === trimmed);
+            if (!child) {
+                return undefined;
+            }
+            currentContext = child.context;
+        }
+        return currentContext.component;
     }
 
     protected resolveRelativeComponentPath(component: ast.Component | undefined, pathText: string | undefined): ast.Component | undefined {

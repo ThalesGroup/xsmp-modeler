@@ -15,6 +15,14 @@ OrbitalPlatform: demo.orbit.OrbitalPlatform
     missionMode = demo.foundation.Mode.Standby
     /** Instantiates the avionics child. */
     avionics += AvionicsUnit: demo.avionics.AvionicsUnit
+    {
+        /** Instantiates the avionics power chain. */
+        power += BatteryPack: demo.avionics.BatteryPack
+        /** Instantiates the attitude-control computer. */
+        computer += AttitudeComputer: demo.avionics.AttitudeComputer
+        /** Instantiates the avionics sensor head. */
+        sensor += SensorHead: demo.avionics.SensorHead
+    }
     /** Instantiates the power router child. */
     router += PowerRouter: demo.orbit.PowerRouter
     /** Instantiates the local logger child. */

@@ -27,7 +27,7 @@ import type { XsmpServices } from '../xsmp-module.js';
 
 type CompletionValueMode = 'cfg' | 'path';
 type RecoverableXsmpNode = AstNode & partialAst.XsmpAstType;
-type RelativeComponentContext = {
+export type RelativeComponentContext = {
     path: string;
     component: ast.Component;
 };
@@ -778,14 +778,22 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
         acceptor: CompletionAcceptor,
         component: ast.Component | undefined,
     ): void {
-        for (const ownerContext of this.getRelativeComponentContexts(component)) {
+        this.addContextualFieldLinkCompletionsForContexts(context, acceptor, this.getRelativeComponentContexts(component));
+    }
+
+    protected addContextualFieldLinkCompletionsForContexts(
+        context: CompletionContext,
+        acceptor: CompletionAcceptor,
+        componentContexts: readonly RelativeComponentContext[],
+    ): void {
+        for (const ownerContext of componentContexts) {
             const outputs = this.instancePathResolver.getComponentMembersByKind(ownerContext.component, ['outputField']);
             for (const output of outputs) {
                 if (!ast.isField(output) || !output.name) {
                     continue;
                 }
                 const ownerPath = this.qualifyRelativeMemberPath(ownerContext.path, output.name);
-                for (const clientContext of this.getRelativeComponentContexts(component)) {
+                for (const clientContext of componentContexts) {
                     const inputs = this.instancePathResolver.getComponentMembersByKind(clientContext.component, ['inputField']);
                     for (const input of inputs) {
                         if (!ast.isField(input) || !input.name) {
@@ -810,14 +818,22 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
         acceptor: CompletionAcceptor,
         component: ast.Component | undefined,
     ): void {
-        for (const ownerContext of this.getRelativeComponentContexts(component)) {
+        this.addContextualEventLinkCompletionsForContexts(context, acceptor, this.getRelativeComponentContexts(component));
+    }
+
+    protected addContextualEventLinkCompletionsForContexts(
+        context: CompletionContext,
+        acceptor: CompletionAcceptor,
+        componentContexts: readonly RelativeComponentContext[],
+    ): void {
+        for (const ownerContext of componentContexts) {
             const sources = this.instancePathResolver.getComponentMembersByKind(ownerContext.component, ['eventSource']);
             for (const source of sources) {
                 if (!ast.isEventSource(source) || !source.name) {
                     continue;
                 }
                 const ownerPath = this.qualifyRelativeMemberPath(ownerContext.path, source.name);
-                for (const clientContext of this.getRelativeComponentContexts(component)) {
+                for (const clientContext of componentContexts) {
                     const sinks = this.instancePathResolver.getComponentMembersByKind(clientContext.component, ['eventSink']);
                     for (const sink of sinks) {
                         if (!ast.isEventSink(sink) || !sink.name) {
@@ -842,14 +858,22 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
         acceptor: CompletionAcceptor,
         component: ast.Component | undefined,
     ): void {
-        for (const ownerContext of this.getRelativeComponentContexts(component)) {
+        this.addContextualInterfaceLinkCompletionsForContexts(context, acceptor, this.getRelativeComponentContexts(component));
+    }
+
+    protected addContextualInterfaceLinkCompletionsForContexts(
+        context: CompletionContext,
+        acceptor: CompletionAcceptor,
+        componentContexts: readonly RelativeComponentContext[],
+    ): void {
+        for (const ownerContext of componentContexts) {
             const references = this.instancePathResolver.getComponentMembersByKind(ownerContext.component, ['reference']);
             for (const reference of references) {
                 if (!ast.isReference(reference) || !reference.name) {
                     continue;
                 }
                 const expectedType = ast.isReferenceType(reference.interface?.ref) ? reference.interface.ref : undefined;
-                for (const clientContext of this.getRelativeComponentContexts(component)) {
+                for (const clientContext of componentContexts) {
                     if (ownerContext.path === clientContext.path) {
                         continue;
                     }

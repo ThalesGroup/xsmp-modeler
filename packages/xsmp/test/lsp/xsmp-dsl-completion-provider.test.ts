@@ -517,6 +517,28 @@ Root: demo.@@
         expect(labels(backRefItems)).toContain('backLogger');
     });
 
+    test('xsmplnk offers assembly instance names for anchored link-base completions', async () => {
+        const nestedCursor = extractCursor(`link Demo for DemoAsm
+/
+{
+    @@
+}
+`);
+        const { linkBaseDocument: nestedDocument } = await parseWorkspace({
+            assemblyDoc: `assembly DemoAsm
+Root: demo.Root
+{
+    child += Leaf: demo.Child
+}
+`,
+            linkBase: nestedCursor.text,
+        });
+        const nestedItems = await getCompletionItems(services.xsmplnk.lsp.CompletionProvider!, nestedDocument, nestedCursor.cursor);
+        expect(labels(nestedItems)).toContain('Leaf');
+        expect(labels(nestedItems)).not.toContain('Child');
+        expect(labels(nestedItems)).toContain('field link outValue -> Leaf.inValue');
+    });
+
     test('xsmpsed offers schedule snippets, typed values and execute-task snippets', async () => {
         const snippetCursor = extractCursor(`schedule Demo
 @@
