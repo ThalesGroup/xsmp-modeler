@@ -15,6 +15,7 @@ export namespace Xsmpasb {
         DURATION_STRING: /"[^"]*"d/,
         STRING: /"[^"]*"/,
         CHAR: /'[^']*'/,
+        ID_WITH_TEMPLATES: /((?:[_a-zA-Z]\w*)(?:\{[_a-zA-Z]\w*\})((?:\{[_a-zA-Z]\w*\})|(?:[_a-zA-Z]\w*))*)|((?:\{[_a-zA-Z]\w*\})((?:[_a-zA-Z]\w*)|(?:\{[_a-zA-Z]\w*\}))+)/,
         TEMPLATE_ID: /\{[_a-zA-Z]\w*\}/,
         ID: /[_a-zA-Z]\w*/,
         FLOATING_LITERAL: /(?:(?:[0-9][0-9']*)?\.(?:[0-9][0-9']*)|(?:[0-9][0-9']*)\.)(?:[eE][+-]?[0-9][0-9']*)?|(?:[0-9][0-9']*)(?:[eE][+-]?[0-9][0-9']*)/,
@@ -132,10 +133,6 @@ export namespace Xsmpasb {
         FloatingLiteral: FloatingLiteral
         GlobalEventHandler: GlobalEventHandler
         GlobalEventTriggeredEvent: GlobalEventTriggeredEvent
-        IdentifierPattern: IdentifierPattern
-        IdentifierPatternPart: IdentifierPatternPart
-        IdentifierTemplatePart: IdentifierTemplatePart
-        IdentifierTextPart: IdentifierTextPart
         Int16Value: Int16Value
         Int32Argument: Int32Argument
         Int32Parameter: Int32Parameter
@@ -389,10 +386,6 @@ export namespace Xsmpcat {
         FloatingLiteral: FloatingLiteral
         GlobalEventHandler: GlobalEventHandler
         GlobalEventTriggeredEvent: GlobalEventTriggeredEvent
-        IdentifierPattern: IdentifierPattern
-        IdentifierPatternPart: IdentifierPatternPart
-        IdentifierTemplatePart: IdentifierTemplatePart
-        IdentifierTextPart: IdentifierTextPart
         Int16Value: Int16Value
         Int32Argument: Int32Argument
         Int32Parameter: Int32Parameter
@@ -487,6 +480,7 @@ export namespace Xsmpcfg {
         DURATION_STRING: /"[^"]*"d/,
         STRING: /"[^"]*"/,
         CHAR: /'[^']*'/,
+        ID_WITH_TEMPLATES: /((?:[_a-zA-Z]\w*)(?:\{[_a-zA-Z]\w*\})((?:\{[_a-zA-Z]\w*\})|(?:[_a-zA-Z]\w*))*)|((?:\{[_a-zA-Z]\w*\})((?:[_a-zA-Z]\w*)|(?:\{[_a-zA-Z]\w*\}))+)/,
         TEMPLATE_ID: /\{[_a-zA-Z]\w*\}/,
         ID: /[_a-zA-Z]\w*/,
         FLOATING_LITERAL: /(?:(?:[0-9][0-9']*)?\.(?:[0-9][0-9']*)|(?:[0-9][0-9']*)\.)(?:[eE][+-]?[0-9][0-9']*)?|(?:[0-9][0-9']*)(?:[eE][+-]?[0-9][0-9']*)/,
@@ -589,10 +583,6 @@ export namespace Xsmpcfg {
         FloatingLiteral: FloatingLiteral
         GlobalEventHandler: GlobalEventHandler
         GlobalEventTriggeredEvent: GlobalEventTriggeredEvent
-        IdentifierPattern: IdentifierPattern
-        IdentifierPatternPart: IdentifierPatternPart
-        IdentifierTemplatePart: IdentifierTemplatePart
-        IdentifierTextPart: IdentifierTextPart
         Int16Value: Int16Value
         Int32Argument: Int32Argument
         Int32Parameter: Int32Parameter
@@ -683,6 +673,7 @@ export namespace Xsmplnk {
 
     export const Terminals = {
         WS: /\s+/,
+        ID_WITH_TEMPLATES: /((?:[_a-zA-Z]\w*)(?:\{[_a-zA-Z]\w*\})((?:\{[_a-zA-Z]\w*\})|(?:[_a-zA-Z]\w*))*)|((?:\{[_a-zA-Z]\w*\})((?:[_a-zA-Z]\w*)|(?:\{[_a-zA-Z]\w*\}))+)/,
         TEMPLATE_ID: /\{[_a-zA-Z]\w*\}/,
         ID: /[_a-zA-Z]\w*/,
         INT: /[+-]?(0|[1-9]\d*)/,
@@ -771,10 +762,6 @@ export namespace Xsmplnk {
         FloatingLiteral: FloatingLiteral
         GlobalEventHandler: GlobalEventHandler
         GlobalEventTriggeredEvent: GlobalEventTriggeredEvent
-        IdentifierPattern: IdentifierPattern
-        IdentifierPatternPart: IdentifierPatternPart
-        IdentifierTemplatePart: IdentifierTemplatePart
-        IdentifierTextPart: IdentifierTextPart
         Int16Value: Int16Value
         Int32Argument: Int32Argument
         Int32Parameter: Int32Parameter
@@ -904,6 +891,7 @@ export namespace Xsmpsed {
         DURATION_STRING: /"[^"]*"d/,
         STRING: /"[^"]*"/,
         CHAR: /'[^']*'/,
+        ID_WITH_TEMPLATES: /((?:[_a-zA-Z]\w*)(?:\{[_a-zA-Z]\w*\})((?:\{[_a-zA-Z]\w*\})|(?:[_a-zA-Z]\w*))*)|((?:\{[_a-zA-Z]\w*\})((?:[_a-zA-Z]\w*)|(?:\{[_a-zA-Z]\w*\}))+)/,
         TEMPLATE_ID: /\{[_a-zA-Z]\w*\}/,
         ID: /[_a-zA-Z]\w*/,
         FLOATING_LITERAL: /(?:(?:[0-9][0-9']*)?\.(?:[0-9][0-9']*)|(?:[0-9][0-9']*)\.)(?:[eE][+-]?[0-9][0-9']*)?|(?:[0-9][0-9']*)(?:[eE][+-]?[0-9][0-9']*)/,
@@ -1030,10 +1018,6 @@ export namespace Xsmpsed {
         FloatingLiteral: FloatingLiteral
         GlobalEventHandler: GlobalEventHandler
         GlobalEventTriggeredEvent: GlobalEventTriggeredEvent
-        IdentifierPattern: IdentifierPattern
-        IdentifierPatternPart: IdentifierPatternPart
-        IdentifierTemplatePart: IdentifierTemplatePart
-        IdentifierTextPart: IdentifierTextPart
         Int16Value: Int16Value
         Int32Argument: Int32Argument
         Int32Parameter: Int32Parameter
@@ -2154,65 +2138,10 @@ export function isGlobalEventTriggeredEvent(item: unknown): item is GlobalEventT
     return reflection.isInstance(item, GlobalEventTriggeredEvent.$type);
 }
 
-export interface IdentifierPattern extends langium.AstNode {
-    readonly $container: PatternPathNamedSegment;
-    readonly $type: 'IdentifierPattern';
-    parts: Array<IdentifierPatternPart>;
-}
-
-export const IdentifierPattern = {
-    $type: 'IdentifierPattern',
-    parts: 'parts'
-} as const;
-
-export function isIdentifierPattern(item: unknown): item is IdentifierPattern {
-    return reflection.isInstance(item, IdentifierPattern.$type);
-}
-
-export type IdentifierPatternPart = IdentifierTemplatePart | IdentifierTextPart;
-
-export const IdentifierPatternPart = {
-    $type: 'IdentifierPatternPart'
-} as const;
-
-export function isIdentifierPatternPart(item: unknown): item is IdentifierPatternPart {
-    return reflection.isInstance(item, IdentifierPatternPart.$type);
-}
-
-export interface IdentifierTemplatePart extends langium.AstNode {
-    readonly $container: IdentifierPattern;
-    readonly $type: 'IdentifierTemplatePart';
-    text: string;
-}
-
-export const IdentifierTemplatePart = {
-    $type: 'IdentifierTemplatePart',
-    text: 'text'
-} as const;
-
-export function isIdentifierTemplatePart(item: unknown): item is IdentifierTemplatePart {
-    return reflection.isInstance(item, IdentifierTemplatePart.$type);
-}
-
-export interface IdentifierTextPart extends langium.AstNode {
-    readonly $container: IdentifierPattern;
-    readonly $type: 'IdentifierTextPart';
-    text: string;
-}
-
-export const IdentifierTextPart = {
-    $type: 'IdentifierTextPart',
-    text: 'text'
-} as const;
-
-export function isIdentifierTextPart(item: unknown): item is IdentifierTextPart {
-    return reflection.isInstance(item, IdentifierTextPart.$type);
-}
-
 export type InstanceName = string;
 
 export function isInstanceName(item: unknown): item is InstanceName {
-    return typeof item === 'string';
+    return (typeof item === 'string' && (/[_a-zA-Z]\w*/.test(item) || /\{[_a-zA-Z]\w*\}/.test(item) || /((?:[_a-zA-Z]\w*)(?:\{[_a-zA-Z]\w*\})((?:\{[_a-zA-Z]\w*\})|(?:[_a-zA-Z]\w*))*)|((?:\{[_a-zA-Z]\w*\})((?:[_a-zA-Z]\w*)|(?:\{[_a-zA-Z]\w*\}))+)/.test(item)));
 }
 
 export interface Int16Value extends SimpleValue {
@@ -2903,12 +2832,12 @@ export function isPathSeparator(item: unknown): item is PathSeparator {
 export interface PatternPathNamedSegment extends PathNamedSegment {
     readonly $container: Path | PathMember;
     readonly $type: 'PatternPathNamedSegment';
-    pattern: IdentifierPattern;
+    text: string;
 }
 
 export const PatternPathNamedSegment = {
     $type: 'PatternPathNamedSegment',
-    pattern: 'pattern'
+    text: 'text'
 } as const;
 
 export function isPatternPathNamedSegment(item: unknown): item is PatternPathNamedSegment {
@@ -3377,6 +3306,12 @@ export const Task = {
 
 export function isTask(item: unknown): item is Task {
     return reflection.isInstance(item, Task.$type);
+}
+
+export type TaskQualifiedName = string;
+
+export function isTaskQualifiedName(item: unknown): item is TaskQualifiedName {
+    return typeof item === 'string';
 }
 
 export interface TemplateArgument extends langium.AstNode {
@@ -4601,40 +4536,6 @@ export class XsmpAstReflection extends langium.AbstractAstReflection {
             },
             superTypes: [Event.$type]
         },
-        IdentifierPattern: {
-            name: IdentifierPattern.$type,
-            properties: {
-                parts: {
-                    name: IdentifierPattern.parts,
-                    defaultValue: []
-                }
-            },
-            superTypes: []
-        },
-        IdentifierPatternPart: {
-            name: IdentifierPatternPart.$type,
-            properties: {
-            },
-            superTypes: []
-        },
-        IdentifierTemplatePart: {
-            name: IdentifierTemplatePart.$type,
-            properties: {
-                text: {
-                    name: IdentifierTemplatePart.text
-                }
-            },
-            superTypes: [IdentifierPatternPart.$type]
-        },
-        IdentifierTextPart: {
-            name: IdentifierTextPart.$type,
-            properties: {
-                text: {
-                    name: IdentifierTextPart.text
-                }
-            },
-            superTypes: [IdentifierPatternPart.$type]
-        },
         Int16Value: {
             name: Int16Value.$type,
             properties: {
@@ -5204,8 +5105,8 @@ export class XsmpAstReflection extends langium.AbstractAstReflection {
         PatternPathNamedSegment: {
             name: PatternPathNamedSegment.$type,
             properties: {
-                pattern: {
-                    name: PatternPathNamedSegment.pattern
+                text: {
+                    name: PatternPathNamedSegment.text
                 }
             },
             superTypes: [PathNamedSegment.$type, PathSegment.$type]

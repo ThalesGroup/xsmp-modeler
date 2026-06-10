@@ -323,6 +323,29 @@ Root: demo.Root
 
         expectLocation(locations, assemblyDocument, assembly.range);
     });
+
+    test('supports template parameter navigation inside assembly-backed configuration paths', async () => {
+        const assembly = extractRange(`assembly <[[Lane]] = "Ops"> DemoAsm
+Root: demo.Root
+{
+    child += Child{Lane}: demo.Child
+}
+`);
+        const configuration = extractCursor(`configuration Demo
+/Root: DemoAsm
+{
+    Child{La@@ne}
+    {
+        value = 2i32
+    }
+}
+`);
+
+        const { assemblyDocument, configurationDocument } = await parseProjectDocuments(catalogueSource, configuration.text, assembly.text);
+        const locations = await getDefinitions(configurationDocument, configuration.cursor);
+
+        expectLocation(locations, assemblyDocument, assembly.range);
+    });
 });
 
 const catalogueSource = `catalogue Demo

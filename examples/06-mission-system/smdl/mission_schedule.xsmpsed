@@ -2,7 +2,7 @@
 schedule <root: string = "/System"> MissionSchedule epoch "2025-01-01T01:00:00Z" mission "2025-01-01T01:00:00Z"
 
 /** Dispatch task starting the mission and delegating work to subsystems. */
-task Dispatch on demo.mission.MissionSystemRoot
+task Dispatch on MissionDemo
 {
     /** Logs the mission dispatch on the ground console. */
     call GroundConsole.log(message = "mission dispatch")
@@ -16,22 +16,22 @@ task Dispatch on demo.mission.MissionSystemRoot
     async emit "MissionReady"
 }
 
-/** Simple orbital tick task executed on the orbital platform. */
-task OrbitalTick on demo.orbit.OrbitalPlatform
+/** Simple orbital tick task executed on the orbital segment assembly. */
+task OrbitalTick on OrbitalSegment
 {
     /** Runs the orbital platform entry point. */
     trig run
 }
 
-/** Simple payload tick task executed on the payload platform. */
-task PayloadTick on demo.payloadsegment.PayloadPlatform
+/** Simple payload tick task executed on the payload segment assembly. */
+task PayloadTick on PayloadSegment
 {
     /** Runs the payload platform entry point. */
     trig run
 }
 
 /** Monitoring task supervising the integrated mission root. */
-task Monitor on demo.mission.MissionSystemRoot
+task Monitor on MissionDemo
 {
     /** Executes the root supervision entry point. */
     trig supervise

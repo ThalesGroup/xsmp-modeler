@@ -1,6 +1,4 @@
 import * as partialAst from '../generated/ast-partial.js';
-import type { XsmpSharedServices } from '../xsmp-module.js';
-import type { IdentifierPatternService } from './identifier-pattern-service.js';
 
 type RecoverablePath = partialAst.Path;
 type RecoverablePathSegment = partialAst.PathSegment;
@@ -15,12 +13,6 @@ export interface InterfaceLinkSourcePathParts {
 }
 
 export class XsmpPathService {
-    protected readonly identifierPatternService: IdentifierPatternService;
-
-    constructor(services: XsmpSharedServices) {
-        this.identifierPatternService = services.IdentifierPatternService;
-    }
-
     stringifyPath(path: RecoverablePath | undefined, includeUnsafe = false): string | undefined {
         if (!path) {
             return undefined;
@@ -116,7 +108,7 @@ export class XsmpPathService {
             return this.getLocalNamedReferenceText(segment);
         }
         if (partialAst.isPatternPathNamedSegment(segment)) {
-            return this.identifierPatternService.stringifyPattern(segment.pattern) ?? '';
+            return segment.text ?? '';
         }
         if (partialAst.isPathParentSegment(segment)) {
             return '..';

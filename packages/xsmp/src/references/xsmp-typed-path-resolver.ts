@@ -106,10 +106,8 @@ export class XsmpTypedPathResolver {
         return [...result.values()];
     }
 
-    getComponentPathMembers(component: RecoverableComponent | undefined): readonly ast.Component[] {
-        const result = new Map<string, ast.Component>();
-        this.collectComponentPathMembers(component, result, new Set<ast.Type>());
-        return [...result.values()];
+    getComponentPathMembers(_component: RecoverableComponent | undefined): readonly ast.Component[] {
+        return [];
     }
 
     getChildComponentForPathMember(member: RecoverableNamedElement): ast.Component | undefined {
@@ -618,9 +616,6 @@ export class XsmpTypedPathResolver {
     }
 
     protected getChildComponentForContainer(container: ast.Container): ast.Component | undefined {
-        if (ast.isComponent(container.defaultComponent?.ref)) {
-            return container.defaultComponent.ref;
-        }
         if (ast.isComponent(container.type?.ref)) {
             return container.type.ref;
         }
@@ -638,39 +633,6 @@ export class XsmpTypedPathResolver {
         }
         const matches = this.identifierPatternService.matchCandidates(segment, candidates, candidate => candidate.name, bindings).matches;
         return matches.length === 1 ? matches[0] : undefined;
-    }
-
-    protected collectComponentPathMembers(
-        type: ast.Type | undefined,
-        members: Map<string, ast.Component>,
-        visited: Set<ast.Type>,
-    ): void {
-        if (!type || visited.has(type)) {
-            return;
-        }
-        visited.add(type);
-
-        if (ast.isComponent(type)) {
-            for (const element of type.elements) {
-                if (ast.isContainer(element)) {
-                    const child = this.getChildComponentForContainer(element);
-                    if (child?.name && !members.has(child.name)) {
-                        members.set(child.name, child);
-                    }
-                }
-            }
-            this.collectComponentPathMembers(type.base?.ref, members, visited);
-            for (const base of type.interface) {
-                this.collectComponentPathMembers(base.ref, members, visited);
-            }
-            return;
-        }
-
-        if (ast.isInterface(type)) {
-            for (const base of type.base) {
-                this.collectComponentPathMembers(base.ref, members, visited);
-            }
-        }
     }
 
     protected collectComponentContainers(

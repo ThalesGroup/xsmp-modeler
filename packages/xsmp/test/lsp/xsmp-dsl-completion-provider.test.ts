@@ -247,8 +247,8 @@ Root: demo.Root
         expect(labels(snippetItems)).toContain('Sub Model Instance');
         expect(labels(snippetItems)).toContain('Field Link');
         expect(labels(snippetItems)).toContain('Interface Link');
-        expect(labels(snippetItems)).toContain('child += Child: demo.Child');
-        expect(labels(snippetItems)).toContain('field link outValue -> Child.inValue');
+        expect(labels(snippetItems)).toContain('child += Child');
+        expect(labels(snippetItems)).not.toContain('field link outValue -> Child.inValue');
 
         const prefixedCursor = extractCursor(`assembly Demo
 Root: demo.Root
@@ -260,7 +260,7 @@ Root: demo.Root
             assembly: prefixedCursor.text,
         });
         const prefixedItems = await getCompletionItems(services.xsmpasb.lsp.CompletionProvider!, prefixedDocument, prefixedCursor.cursor);
-        expect(labels(prefixedItems)).toContain('child += Child: demo.Child');
+        expect(labels(prefixedItems)).toContain('child += Child');
 
         const lastPrefixedCursor = extractCursor(`assembly Demo
 Root: demo.Root
@@ -274,7 +274,7 @@ Root: demo.Root
             assembly: lastPrefixedCursor.text,
         });
         const lastPrefixedItems = await getCompletionItems(services.xsmpasb.lsp.CompletionProvider!, lastPrefixedDocument, lastPrefixedCursor.cursor);
-        expect(labels(lastPrefixedItems)).toContain('child += Child: demo.Child');
+        expect(labels(lastPrefixedItems)).toContain('child += Child');
 
         const templatedLastPrefixedCursor = extractCursor(`assembly <Lane = "Ops"> Demo
 Root{Lane}: demo.Root
@@ -291,7 +291,7 @@ ch@@
             templatedLastPrefixedDocument,
             templatedLastPrefixedCursor.cursor
         );
-        expect(labels(templatedLastPrefixedItems)).toContain('child += Child: demo.Child');
+        expect(labels(templatedLastPrefixedItems)).toContain('child += Child');
 
         const outsideBlockCursor = extractCursor(`assembly <Lane = "Ops"> Demo
 Root{Lane}: demo.Root
@@ -314,6 +314,7 @@ Root{Lane}: demo.Root
         expect(labels(outsideBlockItems)).not.toContain('assembly');
         expect(labels(outsideBlockItems)).not.toContain('Sub Model Instance');
         expect(labels(outsideBlockItems)).not.toContain('Field Link');
+        expect(labels(outsideBlockItems)).not.toContain('child += Child');
         expect(labels(outsideBlockItems)).not.toContain('child += Child: demo.Child');
 
         const callCursor = extractCursor(`assembly Demo

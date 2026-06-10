@@ -1,6 +1,5 @@
 import * as partialAst from '../generated/ast-partial.js';
 
-type RecoverableIdentifierPattern = partialAst.IdentifierPattern;
 type RecoverablePathNamedSegment = partialAst.PathNamedSegment;
 
 export interface IdentifierPatternPartView {
@@ -16,7 +15,7 @@ export interface IdentifierPatternView {
 }
 
 export type TemplateBindings = ReadonlyMap<string, string>;
-type IdentifierPatternInput = RecoverableIdentifierPattern | IdentifierPatternView | string | undefined;
+type IdentifierPatternInput = IdentifierPatternView | string | undefined;
 
 export interface IdentifierMatchResult<T> {
     matches: readonly T[];
@@ -25,40 +24,6 @@ export interface IdentifierMatchResult<T> {
 }
 
 export class IdentifierPatternService {
-    stringifyPattern(pattern: RecoverableIdentifierPattern | undefined): string | undefined {
-        if (!pattern) {
-            return undefined;
-        }
-        return pattern.parts.map(part => part.text ?? '').join('');
-    }
-
-    stringifyPatternView(pattern: IdentifierPatternView | undefined): string | undefined {
-        return pattern?.text;
-    }
-
-    getViewFromPattern(pattern: RecoverableIdentifierPattern | undefined): IdentifierPatternView | undefined {
-        if (!pattern) {
-            return undefined;
-        }
-        const parts: IdentifierPatternPartView[] = [];
-        for (const part of pattern.parts) {
-            if (partialAst.isIdentifierTextPart(part)) {
-                parts.push({ kind: 'text', text: part.text ?? '' });
-            } else {
-                const parameterName = this.getTemplateParameterName(part.text);
-                parts.push({
-                    kind: 'template',
-                    text: part.text ?? '',
-                    parameterName,
-                });
-            }
-        }
-        return {
-            text: parts.map(part => part.text).join(''),
-            parts,
-        };
-    }
-
     parseTextPattern(text: string | undefined): IdentifierPatternView | undefined {
         if (!text) {
             return undefined;
@@ -178,7 +143,7 @@ export class IdentifierPatternService {
         bindings: TemplateBindings | undefined,
     ): IdentifierMatchResult<T> {
         const segmentPattern = this.getSegmentPattern(segment);
-        const segmentText = this.stringifyPatternView(segmentPattern) ?? '';
+        const segmentText = segmentPattern?.text ?? '';
         const concreteText = this.substitute(segmentPattern, bindings);
         const matches = candidates.filter(candidate => this.matches(segmentPattern, getCandidateText(candidate), bindings));
         return { matches, segmentText, concreteText };
@@ -190,7 +155,7 @@ export class IdentifierPatternService {
             return this.parseTextPattern(text);
         }
         if (partialAst.isPatternPathNamedSegment(segment)) {
-            return this.getViewFromPattern(segment.pattern);
+            return this.parseTextPattern(segment.text);
         }
         return undefined;
     }
@@ -213,7 +178,7 @@ export class IdentifierPatternService {
         if ('text' in pattern && 'parts' in pattern) {
             return pattern;
         }
-        return this.getViewFromPattern(pattern);
+        return undefined;
     }
 
     protected parseTemplateToken(text: string | undefined): string | undefined {

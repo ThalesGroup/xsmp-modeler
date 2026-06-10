@@ -153,11 +153,41 @@ Loose
         expect(untypedLocations).toHaveLength(0);
     });
 
+    test('supports template parameter navigation inside templated link-base paths', async () => {
+        const catalogue = extractRange(linkBaseCatalogueSource);
+        const assembly = extractRange(`assembly <[[Lane]] = "Ops"> DemoAsm
+
+Root: demo.Root
+{
+    child += Child{Lane}: demo.Child
+}
+`);
+        const linkBasePath = extractCursor(`link Demo for DemoAsm
+
+/
+{
+    field link outValue -> Child{La@@ne}.inValue
+}
+`);
+
+        const { assemblyDocument, document } = await parseLinkBaseWorkspace(catalogue.text, linkBasePath.text, assembly.text);
+        const locations = await getDefinitions(services.xsmplnk.lsp.DefinitionProvider, document, linkBasePath.cursor);
+
+        expectLocation(locations, assemblyDocument!, assembly.range);
+    });
+
     test('supports definition and hover on typed schedule paths', async () => {
         const catalogue = extractRange(scheduleCatalogueSource);
+        const assembly = `assembly DemoAsm
+
+Root: demo.Root
+{
+    child += Child: demo.Child
+}
+`;
         const schedulePath = extractCursor(`schedule Demo
 
-task Main on demo.Root
+task Main on DemoAsm
 {
     call Child.re@@set()
     execute Worker at Child
@@ -168,7 +198,7 @@ task Worker on demo.Child
 }
 `);
 
-        const { catalogueDocument, document } = await parseScheduleWorkspace(catalogue.text, schedulePath.text);
+        const { catalogueDocument, document } = await parseScheduleWorkspace(catalogue.text, schedulePath.text, assembly);
         const locations = await getDefinitions(services.xsmpsed.lsp.DefinitionProvider, document, schedulePath.cursor);
 
         expectLocation(locations, catalogueDocument, catalogue.range);
@@ -180,9 +210,16 @@ task Worker on demo.Child
 
     test('supports template parameter navigation and concretized definition on templated schedule paths', async () => {
         const catalogue = extractRange(scheduleCatalogueSource);
+        const assembly = `assembly DemoAsm
+
+Root: demo.Root
+{
+    child += Child: demo.Child
+}
+`;
         const scheduleText = `schedule <Target = "Child", Tail = "set"> Demo
 
-task Main on demo.Root
+task Main on DemoAsm
 {
     call {Target}.re{Tail}()
 }
@@ -195,13 +232,41 @@ task Main on demo.Root
         expect(placeholderOffset).toBeGreaterThanOrEqual(0);
         expect(targetOffset).toBeGreaterThanOrEqual(0);
 
-        const { catalogueDocument, document } = await parseScheduleWorkspace(catalogue.text, scheduleText);
+        const { catalogueDocument, document } = await parseScheduleWorkspace(catalogue.text, scheduleText, assembly);
 
         const parameterLocations = await getDefinitions(services.xsmpsed.lsp.DefinitionProvider, document, placeholderOffset);
         expectLocation(parameterLocations, document, [parameterOffset, parameterOffset + 'Target'.length]);
 
         const targetLocations = await getDefinitions(services.xsmpsed.lsp.DefinitionProvider, document, targetOffset);
         expectLocation(targetLocations, catalogueDocument, catalogue.range);
+    });
+
+    test('supports template parameter navigation inside templated schedule task names', async () => {
+        const catalogue = extractRange(scheduleCatalogueSource);
+        const scheduleText = `schedule <Lane = "Ops"> Demo
+
+task Task{Lane} on demo.Root
+{
+    call reset()
+}
+
+event Task{Lane} mission "PT1S"
+`;
+
+        const parameterOffset = scheduleText.indexOf('Lane = "Ops"');
+        const taskPlaceholderOffset = scheduleText.indexOf('Task{Lane}') + 'Task{'.length;
+        const eventPlaceholderOffset = scheduleText.lastIndexOf('Task{Lane}') + 'Task{'.length;
+        expect(parameterOffset).toBeGreaterThanOrEqual(0);
+        expect(taskPlaceholderOffset).toBeGreaterThanOrEqual(0);
+        expect(eventPlaceholderOffset).toBeGreaterThanOrEqual(0);
+
+        const { document } = await parseScheduleWorkspace(catalogue.text, scheduleText);
+
+        const taskLocations = await getDefinitions(services.xsmpsed.lsp.DefinitionProvider, document, taskPlaceholderOffset);
+        expectLocation(taskLocations, document, [parameterOffset, parameterOffset + 'Lane'.length]);
+
+        const eventLocations = await getDefinitions(services.xsmpsed.lsp.DefinitionProvider, document, eventPlaceholderOffset);
+        expectLocation(eventLocations, document, [parameterOffset, parameterOffset + 'Lane'.length]);
     });
 
     test('supports definition on templated instance names inherited from an assembly context', async () => {
@@ -296,6 +361,7 @@ async function parseAssemblyWorkspace(catalogueText: string, assemblyText: strin
 }
 
 async function parseLinkBaseWorkspace(catalogueText: string, linkBaseText: string, assemblyText?: string): Promise<{
+    assemblyDocument?: LangiumDocument<Assembly>;
     catalogueDocument: LangiumDocument<Catalogue>;
     document: LangiumDocument<LinkBase>;
 }> {
@@ -311,7 +377,7 @@ async function parseLinkBaseWorkspace(catalogueText: string, linkBaseText: strin
     documents.push(...(assemblyDocument ? [assemblyDocument] : []), document);
     expect(assemblyDocument?.parseResult.parserErrors ?? []).toHaveLength(0);
     expect(document.parseResult.parserErrors).toHaveLength(0);
-    return { catalogueDocument, document };
+    return { assemblyDocument, catalogueDocument, document };
 }
 
 async function parseScheduleWorkspace(catalogueText: string, scheduleText: string, assemblyText?: string): Promise<{

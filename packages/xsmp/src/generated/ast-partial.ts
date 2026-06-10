@@ -69,10 +69,6 @@ export type FloatingLiteral = AstUtils.DeepPartialAstNode<ast.FloatingLiteral>;
 export type FloatValue = AstUtils.DeepPartialAstNode<ast.FloatValue>;
 export type GlobalEventHandler = AstUtils.DeepPartialAstNode<ast.GlobalEventHandler>;
 export type GlobalEventTriggeredEvent = AstUtils.DeepPartialAstNode<ast.GlobalEventTriggeredEvent>;
-export type IdentifierPattern = AstUtils.DeepPartialAstNode<ast.IdentifierPattern>;
-export type IdentifierPatternPart = AstUtils.DeepPartialAstNode<ast.IdentifierPatternPart>;
-export type IdentifierTemplatePart = AstUtils.DeepPartialAstNode<ast.IdentifierTemplatePart>;
-export type IdentifierTextPart = AstUtils.DeepPartialAstNode<ast.IdentifierTextPart>;
 export type InstanceName = AstUtils.DeepPartialAstNode<ast.InstanceName>;
 export type Int16Value = AstUtils.DeepPartialAstNode<ast.Int16Value>;
 export type Int32Argument = AstUtils.DeepPartialAstNode<ast.Int32Argument>;
@@ -169,6 +165,7 @@ export type Structure = AstUtils.DeepPartialAstNode<ast.Structure>;
 export type StructureValue = AstUtils.DeepPartialAstNode<ast.StructureValue>;
 export type SubInstance = AstUtils.DeepPartialAstNode<ast.SubInstance>;
 export type Task = AstUtils.DeepPartialAstNode<ast.Task>;
+export type TaskQualifiedName = AstUtils.DeepPartialAstNode<ast.TaskQualifiedName>;
 export type TemplateArgument = AstUtils.DeepPartialAstNode<ast.TemplateArgument>;
 export type TemplateParameter = AstUtils.DeepPartialAstNode<ast.TemplateParameter>;
 export type TimeKind = AstUtils.DeepPartialAstNode<ast.TimeKind>;
@@ -386,18 +383,6 @@ export function isGlobalEventHandler(item: unknown): item is GlobalEventHandler 
 }
 export function isGlobalEventTriggeredEvent(item: unknown): item is GlobalEventTriggeredEvent {
     return ast.isGlobalEventTriggeredEvent(item);
-}
-export function isIdentifierPattern(item: unknown): item is IdentifierPattern {
-    return ast.isIdentifierPattern(item);
-}
-export function isIdentifierPatternPart(item: unknown): item is IdentifierPatternPart {
-    return ast.isIdentifierPatternPart(item);
-}
-export function isIdentifierTemplatePart(item: unknown): item is IdentifierTemplatePart {
-    return ast.isIdentifierTemplatePart(item);
-}
-export function isIdentifierTextPart(item: unknown): item is IdentifierTextPart {
-    return ast.isIdentifierTextPart(item);
 }
 export function isInstanceName(item: unknown): item is InstanceName {
     return ast.isInstanceName(item);
@@ -621,6 +606,9 @@ export function isSubInstance(item: unknown): item is SubInstance {
 export function isTask(item: unknown): item is Task {
     return ast.isTask(item);
 }
+export function isTaskQualifiedName(item: unknown): item is TaskQualifiedName {
+    return ast.isTaskQualifiedName(item);
+}
 export function isTemplateArgument(item: unknown): item is TemplateArgument {
     return ast.isTemplateArgument(item);
 }
@@ -743,10 +731,6 @@ export const FloatingLiteral = ast.FloatingLiteral;
 export const FloatValue = ast.FloatValue;
 export const GlobalEventHandler = ast.GlobalEventHandler;
 export const GlobalEventTriggeredEvent = ast.GlobalEventTriggeredEvent;
-export const IdentifierPattern = ast.IdentifierPattern;
-export const IdentifierPatternPart = ast.IdentifierPatternPart;
-export const IdentifierTemplatePart = ast.IdentifierTemplatePart;
-export const IdentifierTextPart = ast.IdentifierTextPart;
 export const Int16Value = ast.Int16Value;
 export const Int32Argument = ast.Int32Argument;
 export const Int32Parameter = ast.Int32Parameter;

@@ -4,7 +4,7 @@ import { type URI, UriUtils, type AstNode, type Reference, AstUtils, isReference
 import { expandToString as s } from 'langium/generate';
 import type { XsmpSharedServices } from '@xsmp/core';
 import { type TaskAcceptor, type XsmpGenerator } from '@xsmp/core/generator';
-import type { XsmpPathService } from '@xsmp/core/references';
+import type { XsmpInstancePathResolver, XsmpPathService } from '@xsmp/core/references';
 import {
     fqn,
     getLower,
@@ -29,11 +29,13 @@ export class ADocGenerator implements XsmpGenerator {
     protected readonly docHelper: DocumentationHelper;
     protected readonly attrHelper: AttributeHelper;
     protected readonly pathService: XsmpPathService;
+    protected readonly instancePathResolver: XsmpInstancePathResolver;
 
     constructor(services: XsmpSharedServices) {
         this.docHelper = services.DocumentationHelper;
         this.attrHelper = services.AttributeHelper;
         this.pathService = services.PathService;
+        this.instancePathResolver = services.InstancePathResolver;
     }
 
     static readonly defaultDocFolder = 'adoc-gen';
@@ -303,7 +305,16 @@ export class ADocGenerator implements XsmpGenerator {
         if (model.implementation?.ref) {
             return fqn(model.implementation.ref, '::');
         }
-        return model.implementation?.$refText || model.strImplementation || '';
+        if (model.implementation?.$refText || model.strImplementation) {
+            return model.implementation?.$refText || model.strImplementation || '';
+        }
+        const component = this.instancePathResolver.getModelInstanceComponent(model);
+        return component ? fqn(component, '::') : '';
+    }
+
+    private formatTaskComponent(task: ast.Task): string {
+        const component = this.instancePathResolver.getEffectiveTaskExecutionContext(task);
+        return component ? fqn(component, '::') : this.formatReferenceName(task.context, true);
     }
 
     private formatTemplateParameter(parameter: ast.TemplateParameter): { type: string; defaultValue: string } {
@@ -752,7 +763,7 @@ export class ADocGenerator implements XsmpGenerator {
             [%autowidth.stretch]
             |===
             ${this.infoRow('Name', task.name)}
-            ${this.infoRow('Component', this.formatReferenceName(task.context, true))}
+            ${this.infoRow('Component', this.formatTaskComponent(task))}
             |===
 
             ${task.elements.length > 0 ? s`

@@ -224,7 +224,7 @@ const scheduleSource = `/**
 schedule <root: string = "/Root"> DemoSchedule epoch "2025-01-01T00:00:00Z" mission "2025-01-01T00:00:00Z"
 
 /** Root orchestration task. */
-task Dispatch on demo.Root
+task Dispatch on DemoAssembly
 {
     /** Property update. */
     property count = 2
@@ -362,6 +362,7 @@ describe('ADoc generator tests', () => {
         const generator = new ADocGenerator(services.shared);
         const fixture = await createFixtureDocuments({
             'demo.xsmpcat': catalogueSource,
+            'demo-assembly.xsmpasb': assemblySource,
             'schedule-doc.xsmpsed': scheduleSource,
         });
         const document = fixture['schedule-doc.xsmpsed'] as LangiumDocument<ast.Schedule>;

@@ -300,7 +300,7 @@ export class XsmpInstancePathResolver {
 
         if (ast.isSubInstance(container) && container.container === reference) {
             const parent = ast.isModelInstance(container.$container) ? container.$container : undefined;
-            const component = parent && ast.isComponent(parent.implementation?.ref) ? parent.implementation.ref : undefined;
+            const component = this.getModelComponent(parent);
             return {
                 candidates: this.getComponentContainers(component),
                 component,
@@ -411,6 +411,10 @@ export class XsmpInstancePathResolver {
             ? this.getAssemblyNode(instance, bindings)
             : this.getAssemblyNodeForAssemblyInstance(instance);
         return this.createAssemblyPathContext(node, { instance });
+    }
+
+    getModelInstanceComponent(model: ast.ModelInstance | undefined): ast.Component | undefined {
+        return this.getModelComponent(model);
     }
 
     resolveAssemblyComponentPathInContext(
@@ -1296,7 +1300,7 @@ export class XsmpInstancePathResolver {
             getFinalCandidates: (component) => this.getComponentMembers(component, memberKinds),
             getFinalType: (element) => this.getMemberType(element),
             indexMessage: 'This path kind shall not use array indices.',
-            containerOrReferenceMessage: (segmentText) => `The path segment '${segmentText}' shall resolve to a child Component of the current Component.`,
+            containerOrReferenceMessage: (segmentText) => `The path segment '${segmentText}' shall resolve to a supported member of the current Component.`,
             finalMissingMessage: (segmentText) => `The path segment '${segmentText}' shall resolve to a supported member of the current Component.`,
             parentMessage: 'The path segment ".." shall not navigate above the typed component context.',
         }, bindings), bindings);
@@ -1488,7 +1492,23 @@ export class XsmpInstancePathResolver {
     }
 
     protected getModelComponent(model: ast.ModelInstance | undefined): ast.Component | undefined {
-        return model && ast.isComponent(model.implementation?.ref) ? model.implementation.ref : undefined;
+        if (!model || model.strImplementation !== undefined) {
+            return undefined;
+        }
+        if (ast.isComponent(model.implementation?.ref)) {
+            return model.implementation.ref;
+        }
+        return this.getImplicitModelComponent(model);
+    }
+
+    protected getImplicitModelComponent(model: ast.ModelInstance): ast.Component | undefined {
+        const subInstance = ast.isSubInstance(model.$container) ? model.$container : undefined;
+        const parentModel = subInstance && ast.isModelInstance(subInstance.$container) ? subInstance.$container : undefined;
+        const parentComponent = this.getModelComponent(parentModel);
+        const container = subInstance && parentComponent
+            ? this.getSubInstanceContainer(subInstance, parentComponent)
+            : undefined;
+        return ast.isComponent(container?.defaultComponent?.ref) ? container.defaultComponent.ref : undefined;
     }
 
     protected getSubInstanceContainer(subInstance: ast.SubInstance, component: ast.Component | undefined): ast.Container | undefined {

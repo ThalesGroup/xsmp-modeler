@@ -14,15 +14,15 @@ PayloadPlatform: demo.payloadsegment.PayloadPlatform
     /** Starts the platform in standby before schedules take over. */
     platformMode = demo.foundation.Mode.Standby
     /** Instantiates the payload child. */
-    payload += PayloadUnit: demo.payload.PayloadUnit
+    payload += PayloadUnit
     {
         /** Instantiates the payload camera head. */
-        camera += CameraHead: demo.payload.CameraHead
+        camera += CameraHead
         /** Instantiates the payload mass memory. */
-        memory += MassMemory: demo.payload.MassMemory
+        memory += MassMemory
     }
     /** Instantiates the downlink router child. */
-    router += DownlinkRouter: demo.payloadsegment.DownlinkRouter
+    router += DownlinkRouter
     /** Instantiates the segment logger child. */
-    logger += PayloadLogger: demo.payloadsegment.PayloadLogger
+    logger += PayloadLogger
 }

@@ -7,6 +7,7 @@ import {
     checkValidDateTime,
     checkValidDuration,
     checkNoParentTraversal,
+    isValidExpandedPathIdentifier,
 } from './instance-validator-utils.js';
 import { checkName, checkUniqueDocumentName } from './name-validator-utils.js';
 import type { XsmpInstancePathResolver } from '../references/xsmp-instance-path-resolver.js';
@@ -88,6 +89,11 @@ export class XsmpsedValidator extends XsmpcfgValidator {
     }
 
     checkTask(task: ast.Task, accept: ValidationAcceptor): void {
+        const pattern = this.identifierPatternService.parseTextPattern(task.name);
+        if (pattern && this.identifierPatternService.hasTemplate(pattern)) {
+            this.checkTemplatedTaskName(task, pattern, accept);
+            return;
+        }
         checkName(accept, task, task.name, ast.Task.name);
     }
 
@@ -359,6 +365,31 @@ export class XsmpsedValidator extends XsmpcfgValidator {
             bindings: scheduleBindings,
             messageContext: 'enclosing Schedule',
         };
+    }
+
+    protected checkTemplatedTaskName(
+        task: ast.Task,
+        pattern: NonNullable<ReturnType<typeof this.identifierPatternService.parseTextPattern>>,
+        accept: ValidationAcceptor,
+    ): void {
+        const schedule = AstUtils.getContainerOfType(task, ast.isSchedule);
+        const parameters = new Set((schedule?.parameters ?? []).map(parameter => parameter.name));
+        for (const templateName of this.identifierPatternService.getTemplateNames(pattern)) {
+            if (!parameters.has(templateName)) {
+                accept('error', `The placeholder '{${templateName}}' shall resolve to a Template Argument of the enclosing Schedule.`, {
+                    node: task,
+                    property: ast.Task.name,
+                });
+            }
+        }
+
+        const concreteName = this.identifierPatternService.substitute(pattern, createTemplateBindings(schedule?.parameters ?? []));
+        if (concreteName !== undefined && !isValidExpandedPathIdentifier(concreteName)) {
+            accept('error', `The expanded name '${concreteName}' is not valid for SMP Level 2.`, {
+                node: task,
+                property: ast.Task.name,
+            });
+        }
     }
 
     protected override acceptPathError(message: string | undefined, node: AstNode | undefined, accept: ValidationAcceptor): void {

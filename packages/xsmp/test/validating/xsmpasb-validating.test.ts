@@ -77,6 +77,17 @@ namespace demo
         eventsource demo.FlagEvent outbound
     }
 
+    public model RootWithoutDefault
+    {
+        container Child child
+    }
+
+    public model RootWithTwoDefaults
+    {
+        container Child first = demo.Child
+        container Child second = demo.Child
+    }
+
     public model System
     {
         container Root bus = demo.Root
@@ -154,6 +165,57 @@ Root: demo.Root
 `);
 
         expect(getMessages(document)).toEqual([]);
+    });
+
+    test('allows sub-instance model implementations to be inferred from container defaults', async () => {
+        const document = await parseInProject(`assembly Demo
+
+configure Child
+{
+    count = 1i32
+}
+
+Root: demo.Root
+{
+    child += Child
+}
+`);
+
+        expect(getMessages(document)).toEqual([]);
+
+        const adjacent = await parseInProject(`assembly Adjacent
+
+Root: demo.RootWithTwoDefaults
+{
+    first += First
+    second += Second
+}
+`);
+
+        expect(getMessages(adjacent)).toEqual([]);
+    });
+
+    test('requires a root model implementation and default-backed shorthand sub-instances', async () => {
+        const missingRootType = await parseInProject(`assembly Demo
+
+Root
+{
+}
+`);
+        expect(getMessages(missingRootType)).toEqual([
+            'A root Model Instance shall declare an implementation.',
+        ]);
+
+        const missingDefault = await parseInProject(`assembly DemoNoDefault
+
+Root: demo.RootWithoutDefault
+{
+    child += Child
+}
+`);
+        expect(getMessages(missingDefault)).toEqual([
+            'A sub-instance without an explicit implementation shall target a Container with a default component.',
+        ]);
     });
 
     test('allows unsuffixed numeric values when the safe resolved target type is known', async () => {

@@ -1222,7 +1222,7 @@ export class SmpGenerator implements XsmpGenerator {
         return {
             '@Name': model.name,
             Description: this.docHelper.getDescription(model),
-            '@Implementation': model.implementation ? model.implementation.$refText.replace('.', '::') : model.strImplementation!,
+            '@Implementation': this.getModelInstanceImplementation(model),
             Assembly: model.elements.filter(ast.isSubInstance).filter(instance => ast.isAssemblyInstance(instance.instance)).map(instance => this.convertAssemblyInstance(instance)),
             Model: model.elements.filter(ast.isSubInstance).filter(instance => ast.isModelInstance(instance.instance)).map(instance => this.convertSubModelInstance(instance)),
             Link: model.elements.filter(ast.isLink).map(link => this.convertLink(link)),
@@ -1232,6 +1232,21 @@ export class SmpGenerator implements XsmpGenerator {
 
         };
     }
+
+    protected getModelInstanceImplementation(model: ast.ModelInstance): string {
+        if (model.implementation?.ref) {
+            return XsmpUtils.fqn(model.implementation.ref, '::');
+        }
+        if (model.implementation?.$refText) {
+            return model.implementation.$refText.replaceAll('.', '::');
+        }
+        if (model.strImplementation !== undefined) {
+            return model.strImplementation;
+        }
+        const component = this.instancePathResolver.getModelInstanceComponent(model);
+        return component ? XsmpUtils.fqn(component, '::') : '';
+    }
+
     convertAssemblyInstance(instance: ast.SubInstance): Assembly.AssemblyInstance {
         const assembly = instance.instance as ast.AssemblyInstance;
         return {

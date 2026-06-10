@@ -205,6 +205,24 @@ Root: demo.Root
         expect(getMessages(document)).toEqual([]);
     });
 
+    test('resolves templated link paths without spaces inside instance names', async () => {
+        const document = await parseInProject(`link Demo for DemoAsm
+
+/
+{
+    field link outValue -> Leaf{Lane}.inValue
+}
+`, `assembly <Lane = "Ops"> DemoAsm
+
+Root: demo.Root
+{
+    child += Leaf{Lane}: demo.Child
+}
+`);
+
+        expect(getMessages(document)).toEqual([]);
+    });
+
     test('reports unknown placeholders from the anchored assembly', async () => {
         const document = await parseInProject(`link Demo for DemoAsm
 

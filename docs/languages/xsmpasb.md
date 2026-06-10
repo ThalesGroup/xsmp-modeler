@@ -227,17 +227,18 @@ A **Sub Model Instance** creates one direct child component inside a container.
 ### Syntax
 
 ```text
-<container> += <instance-name> : <component-type-or-string> [ { ... } ]
+<container> += <instance-name> [: <component-type-or-string>] [ { ... } ]
 ```
 
 Required:
 
 - the target container
 - the instance name
-- one implementation
+- one implementation when the container default component is not defined
 
 Optional:
 
+- the component type is optional when the container default component is provided in the catalogue
 - a block body
 
 Behavior:

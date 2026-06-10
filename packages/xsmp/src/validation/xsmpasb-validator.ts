@@ -72,6 +72,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
             checkName(accept, model, model.name, ast.ModelInstance.name);
         }
         this.checkTemplatedInstanceName(model.name, model, accept);
+        this.checkModelInstanceImplementation(model, accept);
 
         const seen = new Set<string>();
         for (const subInstance of model.elements.filter(ast.isSubInstance)) {
@@ -307,6 +308,34 @@ export class XsmpasbValidator extends XsmpcfgValidator {
         }
     }
 
+    private checkModelInstanceImplementation(model: ast.ModelInstance, accept: ValidationAcceptor): void {
+        if (model.implementation || model.strImplementation !== undefined) {
+            return;
+        }
+        const subInstance = ast.isSubInstance(model.$container) ? model.$container : undefined;
+        if (!subInstance) {
+            accept('error', 'A root Model Instance shall declare an implementation.', {
+                node: model,
+                property: ast.ModelInstance.name
+            });
+            return;
+        }
+        if (!subInstance.container || subInstance.container.unsafe) {
+            return;
+        }
+        const container = this.instancePathResolver.getLocalNamedReferenceTarget(subInstance.container);
+        if (!ast.isContainer(container)) {
+            return;
+        }
+        if (ast.isComponent(container.defaultComponent?.ref)) {
+            return;
+        }
+        accept('error', 'A sub-instance without an explicit implementation shall target a Container with a default component.', {
+            node: model,
+            property: ast.ModelInstance.name
+        });
+    }
+
     private checkReferenceUpperBounds(assembly: ast.Assembly, accept: ValidationAcceptor): void {
         const rootBindings = this.createTemplateBindings(assembly.parameters);
         const rootOccurrence = this.createAssemblyOccurrence(assembly, assembly.model, rootBindings, '/', new Set([assembly]));
@@ -388,10 +417,10 @@ export class XsmpasbValidator extends XsmpcfgValidator {
 
     private getSubInstanceComponent(instance: ast.ModelInstance | ast.AssemblyInstance): ast.Component | undefined {
         if (ast.isModelInstance(instance)) {
-            return ast.isComponent(instance.implementation?.ref) ? instance.implementation.ref : undefined;
+            return this.instancePathResolver.getModelInstanceComponent(instance);
         }
         const assembly = ast.isAssembly(instance.assembly?.ref) ? instance.assembly.ref : undefined;
-        return assembly && ast.isComponent(assembly.model?.implementation?.ref) ? assembly.model.implementation.ref : undefined;
+        return assembly ? this.instancePathResolver.getModelInstanceComponent(assembly.model) : undefined;
     }
 
     private collectReferenceUsage(
@@ -899,7 +928,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
         if (!model) {
             return undefined;
         }
-        const component = ast.isComponent(model.implementation?.ref) ? model.implementation.ref : undefined;
+        const component = this.instancePathResolver.getModelInstanceComponent(model);
         const children: AssemblyOccurrenceChild[] = [];
         for (const subInstance of model.elements.filter(ast.isSubInstance)) {
             const instance = subInstance.instance;

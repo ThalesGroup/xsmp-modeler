@@ -36,16 +36,6 @@ interface LocalNamedReference {
 interface ConcretePathNamedSegment extends PathNamedSegment, LocalNamedReference {
 }
 interface PatternPathNamedSegment extends PathNamedSegment {
-    pattern: IdentifierPattern
-}
-interface IdentifierPattern {
-    parts: IdentifierPatternPart[]
-}
-type IdentifierPatternPart = IdentifierTextPart | IdentifierTemplatePart
-interface IdentifierTextPart {
-    text: string
-}
-interface IdentifierTemplatePart {
     text: string
 }
 interface PathParentSegment {

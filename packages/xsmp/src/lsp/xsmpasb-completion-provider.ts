@@ -75,10 +75,15 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
             const propertyValue = AstUtils.getContainerOfType(localRef, ast.isPropertyValue);
 
             if (subInstance?.container === localRef && ast.isContainer(nodeDescription.node)) {
+                const component = this.getContainerImplementationComponent(nodeDescription.node);
+                const defaultName = component?.name ?? 'Child';
                 const instanceType = this.getContainerComponentName(nodeDescription.node);
+                const insertText = ast.isComponent(nodeDescription.node.defaultComponent?.ref)
+                    ? `${nodeDescription.name} += ${this.createPlaceholder(1, defaultName)}`
+                    : `${nodeDescription.name} += ${this.createPlaceholder(1, defaultName)}: ${this.createPlaceholder(2, instanceType)}`;
                 return this.createReferenceLikeItem(
                     nodeDescription,
-                    `${nodeDescription.name} += ${this.createPlaceholder(1, 'Child')}: ${this.createPlaceholder(2, instanceType)}`,
+                    insertText,
                     'Sub-instance container.'
                 );
             }
@@ -262,9 +267,7 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
             if (!ast.isAssembly(candidate.node)) {
                 continue;
             }
-            const rootComponent = ast.isComponent(candidate.node.model?.implementation?.ref)
-                ? candidate.node.model.implementation.ref
-                : undefined;
+            const rootComponent = this.instancePathResolver.getModelInstanceComponent(candidate.node.model);
             if (expectedType && rootComponent && !XsmpUtils.isBaseOfReferenceType(expectedType, rootComponent)) {
                 continue;
             }
@@ -283,7 +286,7 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
             return;
         }
         const model = this.getCurrentBlockModel(context);
-        const component = model && ast.isComponent(model.implementation?.ref) ? model.implementation.ref : undefined;
+        const component = this.instancePathResolver.getModelInstanceComponent(model);
         if (!component) {
             return;
         }
@@ -296,16 +299,23 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
             if (!container.name) {
                 continue;
             }
-            const childComponent = this.typedPathResolver.getChildComponentForPathMember(container);
+            const childComponent = this.getContainerImplementationComponent(container);
             if (!childComponent) {
                 continue;
             }
             const componentName = XsmpUtils.fqn(childComponent);
             const defaultName = childComponent.name ?? 'Child';
+            const hasDefaultComponent = ast.isComponent(container.defaultComponent?.ref);
+            const modelLabel = hasDefaultComponent
+                ? `${container.name} += ${defaultName}`
+                : `${container.name} += ${defaultName}: ${componentName}`;
+            const modelInsertText = hasDefaultComponent
+                ? `${container.name} += ${this.createPlaceholder(1, defaultName)}`
+                : `${container.name} += ${this.createPlaceholder(1, defaultName)}: ${componentName}`;
             acceptor(context, this.createContextualValueItem(
                 context,
-                `${container.name} += ${defaultName}: ${componentName}`,
-                `${container.name} += ${this.createPlaceholder(1, defaultName)}: ${componentName}`,
+                modelLabel,
+                modelInsertText,
                 'Sub Model Instance'
             ));
 
@@ -415,19 +425,24 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
     }
 
     protected getContainerComponentName(container: ast.Container): string {
+        const component = this.getContainerImplementationComponent(container);
+        return component ? XsmpUtils.fqn(component) : 'demo.Component';
+    }
+
+    protected getContainerImplementationComponent(container: ast.Container): ast.Component | undefined {
         if (ast.isComponent(container.defaultComponent?.ref)) {
-            return XsmpUtils.fqn(container.defaultComponent.ref);
+            return container.defaultComponent.ref;
         }
         if (ast.isComponent(container.type?.ref)) {
-            return XsmpUtils.fqn(container.type.ref);
+            return container.type.ref;
         }
-        return 'demo.Component';
+        return undefined;
     }
 
     protected getCurrentComponent(context: CompletionContext): ast.Component | undefined {
         const model = this.getCurrentBlockModel(context);
-        const implementation = model?.implementation?.ref;
-        if (ast.isComponent(implementation)) {
+        const implementation = this.instancePathResolver.getModelInstanceComponent(model);
+        if (implementation) {
             return implementation;
         }
         const configuration = this.getCurrentBlockComponentConfiguration(context);
@@ -532,9 +547,7 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
     protected getExpectedSubInstanceType(context: CompletionContext): ast.ReferenceType | undefined {
         const subInstance = this.getRecoveryContainerOfType(context, ast.isSubInstance);
         const parentModel = subInstance ? AstUtils.getContainerOfType(subInstance, ast.isModelInstance) : undefined;
-        const parentComponent = parentModel && ast.isComponent(parentModel.implementation?.ref)
-            ? parentModel.implementation.ref
-            : undefined;
+        const parentComponent = this.instancePathResolver.getModelInstanceComponent(parentModel);
         const container = subInstance && parentComponent
             ? this.instancePathResolver.getSubInstanceContainerForCompletion(subInstance, parentComponent)
             : undefined;

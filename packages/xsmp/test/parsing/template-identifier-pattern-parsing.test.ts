@@ -2,20 +2,31 @@ import { beforeAll, describe, expect, test } from 'vitest';
 import { EmptyFileSystem, type LangiumDocument } from 'langium';
 import { parseHelper } from 'langium/test';
 import { createXsmpServices } from '@xsmp/core';
-import { ComponentConfiguration, type Configuration, PatternPathNamedSegment, isComponentConfiguration, isConfiguration, isIdentifierTemplatePart, isIdentifierTextPart, isPatternPathNamedSegment } from '@xsmp/core/ast-partial';
+import {
+    ComponentConfiguration,
+    type Configuration,
+    type LinkBase,
+    PatternPathNamedSegment,
+    isComponentConfiguration,
+    isConfiguration,
+    isLinkBase,
+    isPatternPathNamedSegment
+} from '@xsmp/core/ast-partial';
 
 let services: ReturnType<typeof createXsmpServices>;
 let parseConfiguration: ReturnType<typeof parseHelper<Configuration>>;
+let parseLinkBase: ReturnType<typeof parseHelper<LinkBase>>;
 
 beforeAll(async () => {
     services = createXsmpServices(EmptyFileSystem);
     parseConfiguration = parseHelper<Configuration>(services.xsmpcfg);
+    parseLinkBase = parseHelper<LinkBase>(services.xsmplnk);
 
     await services.shared.workspace.WorkspaceManager.initializeWorkspace([]);
 });
 
 describe('Template identifier pattern parsing', () => {
-    test('splits text before and after template identifiers in parsed paths', async () => {
+    test('keeps templated path segments atomic and splits them through the pattern service', async () => {
         const document = await parseConfiguration(`configuration Demo
     Child{Lane}Ops
     {
@@ -30,14 +41,64 @@ describe('Template identifier pattern parsing', () => {
         const head = (childConfiguration as ComponentConfiguration).name!.head!;
         expect(isPatternPathNamedSegment(head)).toBe(true);
 
-        const pattern = (head as PatternPathNamedSegment).pattern;
-        expect(pattern?.parts).toHaveLength(3);
-        expect(isIdentifierTextPart(pattern?.parts[0])).toBe(true);
-        expect(pattern?.parts[0]?.text).toBe('Child');
-        expect(isIdentifierTemplatePart(pattern?.parts[1])).toBe(true);
-        expect(pattern?.parts[1]?.text).toBe('{Lane}');
-        expect(isIdentifierTextPart(pattern?.parts[2])).toBe(true);
-        expect(pattern?.parts[2]?.text).toBe('Ops');
+        const segment = head as PatternPathNamedSegment;
+        expect(segment.text).toBe('Child{Lane}Ops');
+
+        expect(services.shared.IdentifierPatternService.parseTextPattern(segment.text)?.parts).toEqual([
+            { kind: 'text', text: 'Child' },
+            { kind: 'template', text: '{Lane}', parameterName: 'Lane' },
+            { kind: 'text', text: 'Ops' },
+        ]);
+    });
+
+    test('accepts templated path segments that start with a template identifier', async () => {
+        const document = await parseConfiguration(`configuration Demo
+    {Lane}Ops
+    {
+    }
+`);
+
+        expect(checkDocumentValid(document)).toBeUndefined();
+
+        const configuration = document.parseResult.value;
+        const childConfiguration = configuration.elements[0]!;
+        expect(isComponentConfiguration(childConfiguration)).toBe(true);
+        const head = (childConfiguration as ComponentConfiguration).name!.head!;
+        expect(isPatternPathNamedSegment(head)).toBe(true);
+        expect((head as PatternPathNamedSegment).text).toBe('{Lane}Ops');
+    });
+
+    test('does not allow spaces inside templated configuration path segments', async () => {
+        const document = await parseConfiguration(`configuration Demo
+    Child {Lane}Ops
+    {
+    }
+`);
+
+        expect(document.parseResult.parserErrors).not.toHaveLength(0);
+        expect(isConfiguration(document.parseResult.value)).toBe(true);
+    });
+
+    test('does not allow spaces after leading template identifiers in path segments', async () => {
+        const document = await parseConfiguration(`configuration Demo
+    {Lane} Ops
+    {
+    }
+`);
+
+        expect(document.parseResult.parserErrors).not.toHaveLength(0);
+        expect(isConfiguration(document.parseResult.value)).toBe(true);
+    });
+
+    test('does not allow spaces inside templated link-base path segments', async () => {
+        const document = await parseLinkBase(`link Demo
+    Child {Lane}Ops
+    {
+    }
+`);
+
+        expect(document.parseResult.parserErrors).not.toHaveLength(0);
+        expect(isLinkBase(document.parseResult.value)).toBe(true);
     });
 
     test('splits text after template identifiers in the identifier pattern service', () => {

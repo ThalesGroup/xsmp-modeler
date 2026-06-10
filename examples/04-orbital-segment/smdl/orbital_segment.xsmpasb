@@ -17,14 +17,14 @@ OrbitalPlatform: demo.orbit.OrbitalPlatform
     avionics += AvionicsUnit: demo.avionics.AvionicsUnit
     {
         /** Instantiates the avionics power chain. */
-        power += BatteryPack: demo.avionics.BatteryPack
+        power += BatteryPack
         /** Instantiates the attitude-control computer. */
-        computer += AttitudeComputer: demo.avionics.AttitudeComputer
+        computer += AttitudeComputer
         /** Instantiates the avionics sensor head. */
-        sensor += SensorHead: demo.avionics.SensorHead
+        sensor += SensorHead
     }
     /** Instantiates the power router child. */
-    router += PowerRouter: demo.orbit.PowerRouter
+    router += PowerRouter
     /** Instantiates the local logger child. */
-    logger += SegmentLogger: demo.orbit.SegmentLogger
+    logger += SegmentLogger
 }

@@ -2,7 +2,7 @@
 schedule <root: string = "/PayloadPlatform"> PayloadSegmentSchedule epoch "2025-01-01T00:10:00Z" mission "2025-01-01T00:10:00Z"
 
 /** Prime task preparing the payload platform for acquisition. */
-task Prime on demo.payloadsegment.PayloadPlatform
+task Prime on PayloadSegment
 {
     /** Logs the payload bootstrap phase. */
     call PayloadLogger.log(message = "payload bootstrap")
@@ -10,23 +10,23 @@ task Prime on demo.payloadsegment.PayloadPlatform
     property mode = demo.foundation.Mode.Nominal
     /** Runs one payload capture cycle. */
     trig PayloadUnit.capture
-    /** Reuses the dedicated flush task on the payload root. */
-    execute Flush at PayloadUnit
+    /** Reuses the dedicated flush task on the payload-segment assembly. */
+    execute Flush
     /** Emits the event that starts the downlink cycle. */
     async emit "PayloadReady"
 }
 
-/** Flush task executed on the payload unit itself. */
-task Flush on demo.payload.PayloadUnit
+/** Flush task executed from the payload-segment assembly. */
+task Flush on PayloadSegment
 {
     /** Flushes the payload mass memory. */
-    trig MassMemory.flush
+    trig PayloadUnit.MassMemory.flush
     /** Forces the camera into nominal mode. */
-    call CameraHead.apply(requestedMode = demo.foundation.Mode.Nominal)
+    call PayloadUnit.CameraHead.apply(requestedMode = demo.foundation.Mode.Nominal)
 }
 
 /** Downlink task routing frame data through the segment router. */
-task Downlink on demo.payloadsegment.PayloadPlatform
+task Downlink on PayloadSegment
 {
     /** Copies camera frames to the downlink router input. */
     transfer PayloadUnit.CameraHead.frames -> DownlinkRouter.sourceFrames

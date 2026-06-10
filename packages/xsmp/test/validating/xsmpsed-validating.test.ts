@@ -41,6 +41,11 @@ namespace demo
         eventsource demo.FlagEvent outbound
     }
 
+    public model SpecializedChild extends Child
+    {
+        input field Smp.Int32 implIn
+    }
+
     public model Root
     {
         field Smp.Bool enabledState
@@ -68,6 +73,12 @@ namespace demo
 
         eventsink demo.FlagEvent inbound
         eventsource demo.FlagEvent outbound
+    }
+
+    public model RootWithDefault
+    {
+        output field Smp.Int32 outValue
+        container Child child = demo.SpecializedChild
     }
 }
 `;
@@ -126,20 +137,50 @@ event Main mission "PT1S"
         expect(messages).toEqual(expect.arrayContaining([
             "The path segment 'enabled' shall resolve to a supported member of the current Component.",
             "The path segment 'child' shall resolve to a supported member of the current Component.",
-            "The path segment 'outValue' shall resolve to a Field marked as Input of the current Component.",
+            "The path segment 'Child' shall resolve to a Field marked as Input of the current Component.",
             "The path segment 'missing' shall resolve to a supported member of the current Component.",
             'The root path shall resolve to a Component compatible with the execution context of task Worker.',
         ]));
         expect(messages.some(message => message.includes('unsafe'))).toBe(false);
     });
 
-    test('resolves templated schedule paths with schedule defaults', async () => {
-        const document = await parseInProject(`schedule <Target = "Child"> Demo
+    test('does not treat container types or default components as child instances in typed schedule paths', async () => {
+        const document = await parseInProject(`schedule <Root = "root"> Demo
 
-task Main on demo.Root
+task Main on demo.RootWithDefault
+{
+    transfer outValue -> Child.inValue
+    transfer outValue -> SpecializedChild.implIn
+}
+`);
+
+        expect(getMessages(document)).toEqual(expect.arrayContaining([
+            "The path segment 'Child' shall resolve to a Field marked as Input of the current Component.",
+            "The path segment 'SpecializedChild' shall resolve to a Field marked as Input of the current Component.",
+        ]));
+    });
+
+    test('resolves templated schedule paths with schedule defaults', async () => {
+        const document = await parseInProject(`schedule <Target = "ChildOps"> Demo
+
+task Main on DemoAsm
 {
     call {Target}.reset()
 }
+`, assemblySource);
+
+        expect(getMessages(document)).toEqual([]);
+    });
+
+    test('accepts templated task names as atomic schedule names', async () => {
+        const document = await parseInProject(`schedule <Lane = "Ops"> Demo
+
+task Task{Lane} on demo.Root
+{
+    call reset()
+}
+
+event Task{Lane} mission "PT1S"
 `);
 
         expect(getMessages(document)).toEqual([]);
@@ -195,13 +236,13 @@ task Main on demo.Root
     });
 
     test('warns when a schedule template parameter is not used', async () => {
-        const document = await parseInProject(`schedule <Target = "Child", Unused = 7> Demo
+        const document = await parseInProject(`schedule <Target = "ChildOps", Unused = 7> Demo
 
-task Main on demo.Root
+task Main on DemoAsm
 {
     call {Target}.reset()
 }
-`);
+`, assemblySource);
 
         expect(getMessages(document)).toEqual([
             "The Template Parameter 'Unused' is not used.",

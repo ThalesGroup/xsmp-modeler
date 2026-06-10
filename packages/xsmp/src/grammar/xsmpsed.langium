@@ -144,7 +144,7 @@ ExecuteTask returns ExecuteTask:
      * execute PowerBalance at avionics
      * ```
      */
-    'execute' task=[Task:QualifiedName] ('<' parameter+=TemplateArgument (',' parameter+=TemplateArgument)*'>')? ('at' root=Path)?;
+    'execute' task=[Task:TaskQualifiedName] ('<' parameter+=TemplateArgument (',' parameter+=TemplateArgument)*'>')? ('at' root=Path)?;
 
 TemplateArgument returns TemplateArgument:
     StringArgument | Int32Argument;
@@ -190,7 +190,7 @@ GlobalEventTriggeredEvent returns GlobalEventTriggeredEvent:
      * ```
      */
     'event'
-    task=[Task:QualifiedName] 'on' startEvent=STRING
+    task=[Task:TaskQualifiedName] 'on' startEvent=STRING
     ('until' stopEvent=STRING)?
     ('using' timeKind=TimeKind)?
     ('delay' delay=STRING)?
@@ -208,7 +208,7 @@ MissionEvent returns MissionEvent:
      * ```
      */
     'event'
-    task=[Task:QualifiedName] 'mission' missionTime=STRING ('cycle' cycleTime=STRING ('repeat' repeatCount=INT)?)?;
+    task=[Task:TaskQualifiedName] 'mission' missionTime=STRING ('cycle' cycleTime=STRING ('repeat' repeatCount=INT)?)?;
 
 EpochEvent returns EpochEvent:
     /**
@@ -222,7 +222,7 @@ EpochEvent returns EpochEvent:
      * ```
      */
     'event'
-    task=[Task:QualifiedName] 'epoch' epochTime=STRING ('cycle' cycleTime=STRING ('repeat' repeatCount=INT)?)?;
+    task=[Task:TaskQualifiedName] 'epoch' epochTime=STRING ('cycle' cycleTime=STRING ('repeat' repeatCount=INT)?)?;
 
 
 SimulationEvent returns SimulationEvent:
@@ -237,7 +237,7 @@ SimulationEvent returns SimulationEvent:
      * ```
      */
     'event'
-    task=[Task:QualifiedName] 'simulation' simulationTime=STRING ('cycle' cycleTime=STRING ('repeat' repeatCount=INT)?)?;
+    task=[Task:TaskQualifiedName] 'simulation' simulationTime=STRING ('cycle' cycleTime=STRING ('repeat' repeatCount=INT)?)?;
 
 ZuluEvent returns ZuluEvent:
     /**
@@ -251,10 +251,13 @@ ZuluEvent returns ZuluEvent:
      * ```
      */
     'event'
-    task=[Task:QualifiedName] 'zulu' zuluTime=STRING ('cycle' cycleTime=STRING ('repeat' repeatCount=INT)?)?;
+    task=[Task:TaskQualifiedName] 'zulu' zuluTime=STRING ('cycle' cycleTime=STRING ('repeat' repeatCount=INT)?)?;
 
 Name returns string:
-    ValidID;
+    ValidID | TEMPLATE_ID | ID_WITH_TEMPLATES;
+
+TaskQualifiedName returns string:
+    Name ('.' Name)*;
 
 
 QualifiedName returns string:
@@ -291,25 +294,10 @@ PathSegment returns PathSegment:
     ConcretePathNamedSegment | PatternPathNamedSegment | PathParentSegment | PathSelfSegment;
 
 ConcretePathNamedSegment returns ConcretePathNamedSegment:
-    reference=[NamedElement:Name];
+    reference=[NamedElement:ValidID];
 
 PatternPathNamedSegment returns PatternPathNamedSegment:
-    pattern=TemplateIdentifierPattern;
-
-TemplateIdentifierPattern returns IdentifierPattern:
-    {IdentifierPattern}
-    parts+=IdentifierTextPart*
-    parts+=IdentifierTemplatePart
-    parts+=IdentifierPatternPart*;
-
-IdentifierPatternPart returns IdentifierPatternPart:
-    IdentifierTextPart | IdentifierTemplatePart;
-
-IdentifierTextPart returns IdentifierTextPart:
-    text=ID;
-
-IdentifierTemplatePart returns IdentifierTemplatePart:
-    text=TEMPLATE_ID;
+    text=(TEMPLATE_ID | ID_WITH_TEMPLATES);
 
 PathParentSegment returns PathParentSegment:
     {PathParentSegment} '..';
@@ -378,6 +366,7 @@ terminal DURATION_STRING: /"[^"]*"d/;
 terminal STRING: /"[^"]*"/;
 terminal CHAR: /'[^']*'/;
 
+terminal ID_WITH_TEMPLATES: (ID TEMPLATE_ID (TEMPLATE_ID | ID)*) | (TEMPLATE_ID (ID | TEMPLATE_ID)+);
 terminal TEMPLATE_ID: /\{[_a-zA-Z]\w*\}/;
 terminal ID: /[_a-zA-Z]\w*/;
 

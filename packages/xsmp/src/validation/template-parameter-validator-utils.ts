@@ -18,7 +18,7 @@ export function collectUsedTemplateParameterNames(
             continue;
         }
 
-        if (ast.isModelInstance(node) || ast.isAssemblyInstance(node)) {
+        if (ast.isModelInstance(node) || ast.isAssemblyInstance(node) || ast.isTask(node)) {
             for (const name of identifierPatternService.getTemplateNames(node.name)) {
                 used.add(name);
             }

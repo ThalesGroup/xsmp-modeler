@@ -16,5 +16,5 @@ System: demo.mission.MissionSystemRoot
     /** Instantiates the payload segment sub-assembly with its config and link base. */
     payload += PayloadPlatform: PayloadSegment using config PayloadSegmentNominal using link PayloadSegmentLinks
     /** Instantiates the ground console child. */
-    ground += GroundConsole: demo.mission.GroundConsole
+    ground += GroundConsole
 }

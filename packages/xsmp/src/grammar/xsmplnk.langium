@@ -125,22 +125,7 @@ ConcretePathNamedSegment returns ConcretePathNamedSegment:
     reference=[NamedElement:ValidID];
 
 PatternPathNamedSegment returns PatternPathNamedSegment:
-    pattern=TemplateIdentifierPattern;
-
-TemplateIdentifierPattern returns IdentifierPattern:
-    {IdentifierPattern}
-    parts+=IdentifierTextPart*
-    parts+=IdentifierTemplatePart
-    parts+=IdentifierPatternPart*;
-
-IdentifierPatternPart returns IdentifierPatternPart:
-    IdentifierTextPart | IdentifierTemplatePart;
-
-IdentifierTextPart returns IdentifierTextPart:
-    text=ID;
-
-IdentifierTemplatePart returns IdentifierTemplatePart:
-    text=TEMPLATE_ID;
+    text=(TEMPLATE_ID | ID_WITH_TEMPLATES);
 
 PathParentSegment returns PathParentSegment:
     {PathParentSegment} '..';
@@ -153,6 +138,7 @@ PathSeparator returns string:
 
 hidden terminal WS: /\s+/;
 
+terminal ID_WITH_TEMPLATES: (ID TEMPLATE_ID (TEMPLATE_ID | ID)*) | (TEMPLATE_ID (ID | TEMPLATE_ID)+);
 terminal TEMPLATE_ID: /\{[_a-zA-Z]\w*\}/;
 terminal ID: /[_a-zA-Z]\w*/;
 
