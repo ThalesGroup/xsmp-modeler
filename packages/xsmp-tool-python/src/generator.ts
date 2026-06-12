@@ -61,7 +61,7 @@ export class PythonGenerator implements XsmpGenerator {
                 await fs.promises.writeFile(path, content, { encoding: 'utf8' });
             }
         } catch (error) {
-            console.error(`Error generating file ${path}:`, error);
+            throw new Error(`Error generating file ${path}.`, { cause: error });
         }
     }
     fqn(node: ast.NamedElement, separator: string = '/'): string {

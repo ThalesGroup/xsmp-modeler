@@ -329,6 +329,46 @@ namespace ext
             ]),
         );
     });
+
+    test('rejects external contribution paths outside the extension root', async () => {
+        const extensionRoot = path.join(tempDir, 'extension');
+        const outsideRoot = path.join(tempDir, 'outside');
+        fs.mkdirSync(extensionRoot, { recursive: true });
+        fs.mkdirSync(outsideRoot, { recursive: true });
+
+        fs.writeFileSync(path.join(extensionRoot, 'handler.mjs'), 'export function registerContribution() {}\n');
+        fs.writeFileSync(path.join(outsideRoot, 'external-tool.xsmptool'), 'tool "external-tool"\n');
+
+        expect(() => resolveContributionManifestEntries('test.external', extensionRoot, [
+            {
+                descriptor: '../outside/external-tool.xsmptool',
+                handler: 'handler.mjs',
+                apiVersion: '^1.0.0',
+            },
+        ])).toThrow('not contained within extension root');
+
+        const services = createXsmpServices(NodeFileSystem);
+        await services.shared.ContributionRegistry.ready;
+
+        const report = await services.shared.ContributionRegistry.registerExtensionManifestEntries([
+            {
+                extensionId: 'test.external',
+                extensionRoot,
+                descriptorPath: path.join(outsideRoot, 'external-tool.xsmptool'),
+                handlerPath: path.join(extensionRoot, 'handler.mjs'),
+                apiVersion: '^1.0.0',
+                aliases: [],
+                deprecatedAliases: [],
+                builtins: [],
+            },
+        ]);
+
+        expect(report.registered).toEqual([]);
+        expect(report.failures).toHaveLength(1);
+        expect(report.failures[0]?.phase).toBe('descriptor');
+        expect(report.failures[0]?.message).toContain('Contribution descriptor path');
+        expect(report.failures[0]?.message).toContain('not contained within extension root');
+    });
 });
 
 function createProjectFixture(rootDir: string, name: string, projectText: string, catalogueText: string): string {

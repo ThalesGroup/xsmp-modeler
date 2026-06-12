@@ -7,7 +7,7 @@ import satisfies from 'semver/functions/satisfies.js';
 import * as ast from '../generated/ast-partial.js';
 import type { XsmpSharedServices } from '../xsmp-module.js';
 import { builtInScheme } from '../builtins.js';
-import { toXsmpIdentifier } from '../utils/path-utils.js';
+import { isSameOrContainedPath, toXsmpIdentifier } from '../utils/path-utils.js';
 import { xsmpExtensionApiVersion } from '../version.js';
 import type {
     XsmpContributionHandlerModule,
@@ -103,7 +103,11 @@ function contributionUri(extensionId: string, relativePath: string): URI {
 
 export function resolveContributionPackagePath(extensionRoot: string, relativePath: string): string {
     const normalized = normalizeBuiltinPath(relativePath);
-    const directPath = path.resolve(extensionRoot, normalized);
+    const rootPath = path.resolve(extensionRoot);
+    const directPath = path.resolve(rootPath, normalized);
+    if (!isSameOrContainedPath(rootPath, directPath, path)) {
+        throw new Error(`Contribution path '${relativePath}' is not contained within extension root '${extensionRoot}'.`);
+    }
     if (fs.existsSync(directPath)) {
         return directPath;
     }
@@ -431,6 +435,7 @@ export class XsmpContributionRegistry {
         if (isBuiltinContributionEntry(entry)) {
             registerContribution = entry.registerContribution;
         } else {
+            this.assertExternalContributionPath(entry, entry.handlerPath, 'handler');
             const module = await import(pathToFileURL(entry.handlerPath).href) as XsmpContributionHandlerModule;
             registerContribution = module.registerContribution ?? module.register;
         }
@@ -470,6 +475,7 @@ export class XsmpContributionRegistry {
     }
 
     protected async loadDescriptorDocument(entry: ContributionRegistryEntry): Promise<LangiumDocument<ast.ProjectRoot>> {
+        this.assertExternalContributionPath(entry, entry.descriptorPath, 'descriptor');
         const content = await fs.promises.readFile(entry.descriptorPath, 'utf-8');
         const relativePath = path.relative(entry.extensionRoot, entry.descriptorPath);
         return this.documentFactory.fromString<ast.ProjectRoot>(content, contributionUri(entry.extensionId, relativePath));
@@ -478,9 +484,22 @@ export class XsmpContributionRegistry {
     protected async loadBuiltinDocuments(entry: ContributionRegistryEntry): Promise<LangiumDocument[]> {
         const documents: LangiumDocument[] = [];
         for (const builtinPath of entry.builtins) {
+            this.assertExternalContributionPath(entry, builtinPath, 'builtin');
             await this.collectBuiltinDocuments(entry.extensionId, entry.extensionRoot, builtinPath, documents);
         }
         return documents;
+    }
+
+    protected assertExternalContributionPath(entry: ContributionRegistryEntry, targetPath: string, label: string): void {
+        if (isBuiltinContributionEntry(entry)) {
+            return;
+        }
+
+        const extensionRoot = path.resolve(entry.extensionRoot);
+        const absolutePath = path.resolve(targetPath);
+        if (!isSameOrContainedPath(extensionRoot, absolutePath, path)) {
+            throw new Error(`Contribution ${label} path '${targetPath}' is not contained within extension root '${entry.extensionRoot}'.`);
+        }
     }
 
     protected async collectBuiltinDocuments(

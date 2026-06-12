@@ -300,6 +300,37 @@ source 'src'
         expect(services.shared.workspace.LangiumDocuments.getDocument(mirrorUri!)).toBeUndefined();
     });
 
+    test('does not scan SMP source folders outside the project directory', async () => {
+        const outsideDir = path.join(tempDir, 'outside');
+        fs.mkdirSync(outsideDir, { recursive: true });
+        const outsideSmpPath = path.join(outsideDir, 'leaked.smpcat');
+        fs.writeFileSync(outsideSmpPath, `<?xml version="1.0" encoding="UTF-8"?>
+<Catalogue:Catalogue xmlns:Catalogue="http://www.ecss.nl/smp/2025/Smdl/Catalogue" xmlns:Elements="http://www.ecss.nl/smp/2025/Core/Elements" xmlns:Types="http://www.ecss.nl/smp/2025/Core/Types" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" Id="leaked" Name="leaked">
+  <Namespace Name="outside">
+    <Type xsi:type="Types:Structure" Id="outside.Leaked" Name="Leaked" Uuid="abababab-abab-abab-abab-abababababab"/>
+  </Namespace>
+</Catalogue:Catalogue>
+`, 'utf-8');
+        const projectDir = createProject(tempDir, 'app', `
+project 'app'
+using 'ECSS_SMP_2025'
+source '../outside'
+`, {});
+
+        const services = await createBuiltinTestXsmpServices(NodeFileSystem);
+        await services.shared.workspace.WorkspaceManager.initializeWorkspace([
+            { name: 'app', uri: URI.file(projectDir).toString() },
+        ]);
+
+        expect(services.shared.SmpWorkspaceIndex.getMirrorUriForSourcePath(outsideSmpPath)).toBeUndefined();
+        const projectDocument = services.shared.workspace.LangiumDocuments.getDocument(URI.file(path.join(projectDir, 'xsmp.project')));
+        expect(projectDocument).toBeDefined();
+        await services.shared.workspace.DocumentBuilder.build([projectDocument!], { validation: true }, Cancellation.CancellationToken.None);
+        expect(projectDocument?.diagnostics?.some(diagnostic =>
+            diagnostic.message.includes("Source path '../outside' is not contained within the project directory.")
+        )).toBe(true);
+    });
+
     test('revalidates surviving XSMP documents after deleting an SMP mirror source', async () => {
         const projectDir = createProject(tempDir, 'app', `
 project 'app'
@@ -392,6 +423,43 @@ tool 'smp'
         expect(report.generatedProjects).toEqual(['app']);
         expect(fs.existsSync(path.join(projectDir, 'smdl-gen', 'types.smpcat'))).toBe(true);
         expect(fs.existsSync(path.join(projectDir, 'smdl-gen', 'types.smppkg'))).toBe(true);
+    });
+
+    test('skips validated project generation when visible documents have errors', async () => {
+        const projectDir = createProject(tempDir, 'app', `
+project 'app'
+using 'ECSS_SMP_2025'
+source 'src'
+tool 'smp'
+`, {
+            'src/app.xsmpcat': `
+catalogue app
+
+namespace app
+{
+    /** @uuid dddddddd-dddd-dddd-dddd-dddddddddddd */
+    struct Broken
+    {
+        field MissingType missing
+    }
+}
+`,
+        });
+
+        const services = await createBuiltinTestXsmpServices(NodeFileSystem);
+        await services.shared.workspace.WorkspaceManager.initializeWorkspace([
+            { name: 'app', uri: URI.file(projectDir).toString() },
+        ]);
+
+        const project = services.shared.workspace.ProjectManager.getProjects().find(candidate => candidate.name === 'app');
+        expect(project).toBeDefined();
+        const report = await services.shared.DocumentGenerator.generateValidatedProject(project!, Cancellation.CancellationToken.None);
+
+        expect(report.generatedProjects).toEqual([]);
+        expect(report.skippedProjects).toHaveLength(1);
+        expect(report.skippedProjects[0].projectName).toBe('app');
+        expect(report.skippedProjects[0].errorCount).toBeGreaterThan(0);
+        expect(fs.existsSync(path.join(projectDir, 'smdl-gen'))).toBe(false);
     });
 
     test('switches from a real XSMP source to an SMP mirror after watched file updates', async () => {

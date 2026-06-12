@@ -432,7 +432,7 @@ export abstract class CppGenerator implements XsmpGenerator {
                 await fs.promises.writeFile(path, formatted, { encoding: 'utf8' });
             }
         } catch (error) {
-            console.error(`Error generating file ${path}:`, error);
+            throw new Error(`Error generating file ${path}.`, { cause: error });
         }
     }
     protected comment(element: ast.NamedElement): string {

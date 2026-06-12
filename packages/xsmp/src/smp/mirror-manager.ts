@@ -9,6 +9,7 @@ import * as path from 'node:path';
 import * as ast from '../generated/ast-partial.js';
 import { isSmpMirrorDocument } from '../builtins.js';
 import type { XsmpSharedServices } from '../xsmp-module.js';
+import { isSameOrContainedPath, normalizePath } from '../utils/path-utils.js';
 import { SmpImportService } from './import/service.js';
 import {
     collectSmpSearchRoots,
@@ -273,7 +274,10 @@ export class SmpMirrorManager {
                 if (!source.path) {
                     continue;
                 }
-                const sourceDirectory = path.resolve(projectDirectory, source.path);
+                const sourceDirectory = path.resolve(projectDirectory, normalizePath(source.path));
+                if (!isSameOrContainedPath(projectDirectory, sourceDirectory, path)) {
+                    continue;
+                }
                 await collectSmpSourceFiles(sourceDirectory, sourcePaths);
             }
         }

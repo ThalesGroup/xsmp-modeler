@@ -190,7 +190,7 @@ export class TasMdkPythonGenerator implements XsmpGenerator {
             await fs.promises.writeFile(path, content);
 
         } catch (error) {
-            console.error(`Error generating file ${path}:`, error);
+            throw new Error(`Error generating file ${path}.`, { cause: error });
         }
     }
 

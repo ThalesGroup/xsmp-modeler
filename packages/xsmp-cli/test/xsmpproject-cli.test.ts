@@ -300,6 +300,33 @@ namespace mission
         expect(controlInit).toContain('ecss_smp.Smp.Uuid("cccccccc-cccc-cccc-cccc-cccccccccccc")');
     });
 
+    test('fails generation when a tool cannot write an output file', async () => {
+        const projectDir = createProject(tempDir, 'mission-demo', `
+project "mission-demo" using "ECSS_SMP_2025"
+source "smdl"
+tool "python"
+`, {
+            'smdl/mission_demo.xsmpcat': `
+catalogue mission_demo
+
+namespace mission_demo
+{
+    /** @uuid 12121212-1212-1212-1212-121212121212 */
+    model Root
+    {
+    }
+}
+`,
+        });
+        fs.mkdirSync(path.join(projectDir, 'python', 'mission_demo', '__init__.py'), { recursive: true });
+
+        const result = await runCliWithOutput(['generate', projectDir]);
+
+        expect(result.exitCode).toBe(2);
+        expect(result.stderr).toContain('Error generating file');
+        expect(result.stderr).toContain(path.join('python', 'mission_demo', '__init__.py'));
+    });
+
     test('validates a project with a resolved dependency from an explicit workspace root', async () => {
         const workspaceRoot = path.join(tempDir, 'workspace');
         createProject(workspaceRoot, 'foundation', `

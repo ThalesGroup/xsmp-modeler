@@ -3,11 +3,13 @@ import type { Cancellation, LangiumDocument, LangiumDocuments, ServiceRegistry, 
 import * as ast from '../generated/ast-partial.js';
 import { DiagnosticSeverity } from 'vscode-languageserver';
 import pLimit from 'p-limit';
+import * as path from 'node:path';
 import type { Task, TaskAcceptor } from '../generator/generator.js';
 import type { XsmpSharedServices } from '../xsmp-module.js';
 import type { ProjectManager } from './project-manager.js';
 import type { XsmpContributionRegistry } from '../contributions/xsmp-contribution-registry.js';
 import type { XsmpRegisteredContribution } from '../contributions/xsmp-extension-types.js';
+import { isSameOrContainedPath, normalizePath } from '../utils/path-utils.js';
 
 const limit = pLimit(8);
 
@@ -29,6 +31,7 @@ export class XsmpDocumentGenerator {
     protected readonly documentBuilder: XsmpSharedServices['workspace']['DocumentBuilder'];
     protected readonly workspaceManager: XsmpSharedServices['workspace']['WorkspaceManager'];
     protected readonly workspaceLock: XsmpSharedServices['workspace']['WorkspaceLock'];
+    protected readonly smpMirrorManager: XsmpSharedServices['SmpMirrorManager'];
 
     constructor(services: XsmpSharedServices) {
         this.langiumDocuments = services.workspace.LangiumDocuments;
@@ -38,6 +41,7 @@ export class XsmpDocumentGenerator {
         this.documentBuilder = services.workspace.DocumentBuilder;
         this.workspaceManager = services.workspace.WorkspaceManager;
         this.workspaceLock = services.workspace.WorkspaceLock;
+        this.smpMirrorManager = services.SmpMirrorManager;
     }
 
     private isValid(document: LangiumDocument): boolean {
@@ -93,6 +97,14 @@ export class XsmpDocumentGenerator {
         const projectName = this.getProjectDisplayName(project);
         await this.rebuildWorkspace(cancelToken);
 
+        const errorCount = this.getProjectErrorCount(project);
+        if (errorCount > 0) {
+            return {
+                generatedProjects: [],
+                skippedProjects: [{ projectName, errorCount }],
+            };
+        }
+
         await this.generateProject(project, cancelToken);
         return {
             generatedProjects: [projectName],
@@ -108,6 +120,11 @@ export class XsmpDocumentGenerator {
 
         for (const project of projects) {
             const projectName = this.getProjectDisplayName(project);
+            const errorCount = this.getProjectErrorCount(project);
+            if (errorCount > 0) {
+                skippedProjects.push({ projectName, errorCount });
+                continue;
+            }
 
             await this.generateProject(project, cancelToken);
             generatedProjects.push(projectName);
@@ -147,6 +164,77 @@ export class XsmpDocumentGenerator {
             await this.documentBuilder.build(this.langiumDocuments.all.toArray(), { validation: true }, token);
             await interruptAndCheck(cancelToken);
         });
+    }
+
+    protected getProjectErrorCount(project: ast.Project): number {
+        const documents = this.getVisibleProjectDocuments(project);
+        const documentErrors = documents.reduce((count, document) =>
+            count
+            + document.parseResult.lexerErrors.length
+            + document.parseResult.parserErrors.length
+            + (document.parseResult.lexerReport?.diagnostics.length ?? 0)
+            + (document.diagnostics?.filter(diagnostic => diagnostic.severity === DiagnosticSeverity.Error).length ?? 0),
+        0);
+
+        return documentErrors + this.getSmpMirrorSourceErrorCount(project);
+    }
+
+    protected getVisibleProjectDocuments(project: ast.Project): LangiumDocument[] {
+        const dependencies = this.projectManager.getDependencies(project);
+        return this.langiumDocuments.all
+            .filter(document => {
+                const root = document.parseResult.value;
+                if (ast.isProject(root)) {
+                    return dependencies.has(root);
+                }
+                const ownerProject = this.projectManager.getProject(document);
+                return ownerProject !== undefined && dependencies.has(ownerProject);
+            })
+            .toArray();
+    }
+
+    protected getSmpMirrorSourceErrorCount(project: ast.Project): number {
+        const sourceFolders = this.getVisibleSourceFolders(project);
+        if (sourceFolders.size === 0) {
+            return 0;
+        }
+
+        return this.smpMirrorManager.getSourceDiagnosticEntries()
+            .filter(entry => entry.uri.scheme === 'file' && this.isUriInSourceFolders(entry.uri, sourceFolders))
+            .reduce((count, entry) =>
+                count + entry.diagnostics.filter(diagnostic => diagnostic.severity === DiagnosticSeverity.Error).length,
+            0);
+    }
+
+    protected getVisibleSourceFolders(project: ast.Project): Set<string> {
+        const sourceFolders = new Set<string>();
+        for (const dependency of this.projectManager.getDependencies(project)) {
+            const dependencyDocument = dependency.$document;
+            if (!dependencyDocument) {
+                continue;
+            }
+
+            const projectDirectory = UriUtils.dirname(dependencyDocument.uri).fsPath;
+            for (const source of dependency.elements.filter(ast.isSource)) {
+                if (!source.path) {
+                    continue;
+                }
+                const sourceDirectory = path.resolve(projectDirectory, normalizePath(source.path));
+                if (isSameOrContainedPath(projectDirectory, sourceDirectory, path)) {
+                    sourceFolders.add(sourceDirectory);
+                }
+            }
+        }
+        return sourceFolders;
+    }
+
+    protected isUriInSourceFolders(uri: URI, sourceFolders: ReadonlySet<string>): boolean {
+        for (const sourceFolder of sourceFolders) {
+            if (isSameOrContainedPath(sourceFolder, uri.fsPath, path)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     protected getProjectDisplayName(project: ast.Project): string {
