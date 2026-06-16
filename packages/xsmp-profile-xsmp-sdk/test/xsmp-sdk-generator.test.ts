@@ -6,6 +6,7 @@ import * as os from 'node:os';
 import { XsmpSdkGenerator } from '@xsmp/profile-xsmp-sdk';
 import * as ast from '@xsmp/core/ast';
 import { setClangFormat, setGeneratedBy } from '@xsmp/core/generator';
+import { XsmpValueConverter } from '../../xsmp/src/parser/value-converter.js';
 import { DiagnosticSeverity } from 'vscode-languageserver';
 import {
     assertGeneratedTree,
@@ -92,6 +93,58 @@ describe('@xsmp/profile-xsmp-sdk generator', () => {
         expect(generatedSource).not.toContain('Handler for Operation outString');
         expect(generatedSource).not.toContain('Handler for Operation inoutString');
         expect(generatedSource).not.toContain('Handler for Operation returnString');
+    });
+    // A @unit tag is free user text emitted verbatim into a C++ string literal in the
+    // generated _Register_ function. A quote or backslash in it must be escaped, otherwise
+    // it terminates the literal and injects tokens into the generated source.
+    const HOSTILE_UNIT = 'kg\\m"s';
+
+    function extractUnitLiteral(generated: string): string {
+        const match = generated.match(/"((?:[^"\\]|\\.)*)", \/\/ Unit/);
+        expect(match, `Unit is not a well-formed C++ string literal in:\n${generated}`).not.toBeNull();
+        return new XsmpValueConverter().convertString(`"${match![1]}"`);
+    }
+
+    test('escapes the @unit tag in the generated integer registration', async () => {
+        const document = await parseProfileGeneratorSource(`
+            catalogue UnitEscapingInteger
+
+            namespace demo
+            {
+                /**
+                 * @unit ${HOSTILE_UNIT}
+                 * @uuid 11111111-1111-1111-1111-111111111111
+                 */
+                public integer Measure
+            }
+        `);
+        const generator = new XsmpSdkGenerator(context.services.shared);
+        const integer = AstUtils.streamAllContents(document.parseResult.value).find(ast.isInteger)!;
+
+        const generated = (await generator.generateIntegerSourceGen(integer, false))!;
+
+        expect(extractUnitLiteral(generated)).toBe(HOSTILE_UNIT);
+    });
+
+    test('escapes the @unit tag in the generated float registration', async () => {
+        const document = await parseProfileGeneratorSource(`
+            catalogue UnitEscapingFloat
+
+            namespace demo
+            {
+                /**
+                 * @unit ${HOSTILE_UNIT}
+                 * @uuid 22222222-2222-2222-2222-222222222222
+                 */
+                public float Measure
+            }
+        `);
+        const generator = new XsmpSdkGenerator(context.services.shared);
+        const float = AstUtils.streamAllContents(document.parseResult.value).find(ast.isFloat)!;
+
+        const generated = (await generator.generateFloatSourceGen(float, false))!;
+
+        expect(extractUnitLiteral(generated)).toBe(HOSTILE_UNIT);
     });
 });
 
