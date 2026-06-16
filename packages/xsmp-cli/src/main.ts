@@ -116,11 +116,19 @@ async function importSmpCommand(inputPath: string, options: CliImportCommandOpti
     const services = await createCliServices();
     await services.shared.workspace.WorkspaceManager.initializeWorkspace([]);
     const importer = new SmpImportService(services.shared);
-    const result = await importer.importFile({
-        inputPath,
-        outputPath: options.output,
-        overwrite: options.force ?? false,
-    });
+    let result;
+    try {
+        result = await importer.importFile({
+            inputPath,
+            outputPath: options.output,
+            overwrite: options.force ?? false,
+        });
+    } catch (error) {
+        // Importing is pure I/O + conversion: surface failures (missing file, unsupported
+        // root, overwrite refusal, write error, malformed value) as a clean message rather
+        // than leaking a stack trace.
+        throw new CliError(error instanceof Error ? error.message : String(error), 2);
+    }
     io.stdout(`Imported ${result.kind} to ${result.outputPath}\n`);
     for (const warning of result.warnings) {
         io.stderr(`warning ${warning}\n`);

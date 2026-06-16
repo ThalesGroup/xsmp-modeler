@@ -511,6 +511,8 @@ namespace app
 
         expect(result.exitCode).toBe(2);
         expect(result.stderr).toContain('Refusing to overwrite existing file');
+        // An expected operational failure must be a clean message, not a stack trace.
+        expect(result.stderr).not.toMatch(/\n\s+at /);
         expect(fs.readFileSync(outputPath, 'utf-8')).toBe('existing');
     });
 
