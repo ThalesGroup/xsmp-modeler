@@ -1,7 +1,6 @@
 import { create } from 'xmlbuilder2';
 import * as fs from 'node:fs/promises';
 import { toXsmpIdentifier } from '../../utils/path-utils.js';
-import { escape } from '../../utils/index.js';
 
 export type SmpImportKind = 'catalogue' | 'configuration' | 'linkbase' | 'assembly' | 'schedule';
 
@@ -389,12 +388,17 @@ export function sanitizeReferenceText(value: string): string {
         .join('.') || '__missing__';
 }
 
+// SMP String8/Char8 `Value` attributes are already C-style escaped by the SMP exporter
+// (via `escape()`), so the imported value is already a valid XSMP string/char literal body
+// and must be emitted verbatim. Re-escaping it here would double every backslash and break
+// the import round-trip. Free SMP text (event names, times) is emitted verbatim too: the
+// xsmpsed/xsmpasb STRING terminals are simple (`"[^"]*"`) and do not accept escapes.
 export function renderStringLiteral(value: string): string {
-    return `"${escape(value)}"`;
+    return `"${value}"`;
 }
 
 export function renderCharacterLiteral(value: string): string {
-    return `'${escape(value)}'`;
+    return `'${value}'`;
 }
 
 const scalarValueSuffixes = new Map<string, string>([

@@ -29,6 +29,11 @@ export function escape(input: string | undefined): string {
         return '';
     }
     return input
+        // Backslash must be escaped first so the backslashes introduced by the
+        // replacements below are not escaped again. Otherwise the round-trip
+        // through XsmpValueConverter.convertString is lossy and a trailing
+        // backslash escapes the closing quote, producing uncompilable C++.
+        .replaceAll('\\', String.raw`\\`)
         .replaceAll('\t', String.raw`\t`)
         .replaceAll('\b', String.raw`\b`)
         .replaceAll('\n', String.raw`\n`)
