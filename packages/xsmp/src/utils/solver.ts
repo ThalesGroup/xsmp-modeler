@@ -7,6 +7,11 @@ import { type FloatingPTK, type IntegralPTK, isFloatingType, isIntegralType, PTK
 import { Location } from 'vscode-languageserver';
 import * as IssueCodes from '../validation/xsmpcat-issue-codes.js';
 
+// Constants currently being evaluated, used to break circular references. getValue runs
+// synchronously to completion, so a single shared set with add/remove around each constant
+// resolution is re-entrancy safe.
+const evaluatingConstants = new Set<ast.Constant>();
+
 abstract class Value<T> {
 
     abstract getValue(): boolean | bigint | number | string | ast.EnumerationLiteral
@@ -165,7 +170,9 @@ export class IntegralValue extends Value<IntegralValue> {
             isUnsigned = true;
             text = text.slice(0, -1);
         }
-        const value = BigInt(text);
+        // A leading zero followed by octal digits is C-style octal (e.g. 017 === 15), which is
+        // how the C++ generator emits it; BigInt() would otherwise read it as decimal.
+        const value = /^0[0-7]+$/.test(text) ? BigInt(`0o${text.slice(1)}`) : BigInt(text);
 
         let type: IntegralPTK;
         if (value > 0x7FFFFFFFFFFFFFFFn) {
@@ -229,7 +236,12 @@ export class IntegralValue extends Value<IntegralValue> {
         return result;
     }
     override floatValue(type: FloatingPTK): FloatValue { return new FloatValue(Number(this.value), type); }
-    override charValue(): CharValue | undefined { return new CharValue(String.fromCodePoint(Number(this.value))); }
+    override charValue(): CharValue | undefined {
+        if (this.value < 0n || this.value > 0x10FFFFn) {
+            return undefined;
+        }
+        return new CharValue(String.fromCodePoint(Number(this.value)));
+    }
 
     override unaryComplement(): IntegralValue { return new IntegralValue(~this.value, this.type); }
     override plus(): this { return this; }
@@ -259,11 +271,23 @@ export class IntegralValue extends Value<IntegralValue> {
     override xor(val: IntegralValue): IntegralValue { return new IntegralValue(this.value ^ val.value, this.promote(val.type)); }
     override add(val: IntegralValue): IntegralValue { return new IntegralValue(this.value + val.value, this.promote(val.type)); }
     override subtract(val: IntegralValue): IntegralValue { return new IntegralValue(this.value - val.value, this.promote(val.type)); }
-    override divide(val: IntegralValue): IntegralValue { return new IntegralValue(this.value / val.value, this.promote(val.type)); }
+    override divide(val: IntegralValue): IntegralValue {
+        if (val.value === 0n) { throw new Error('Division by zero.'); }
+        return new IntegralValue(this.value / val.value, this.promote(val.type));
+    }
     override multiply(val: IntegralValue): IntegralValue { return new IntegralValue(this.value * val.value, this.promote(val.type)); }
-    override remainder(val: IntegralValue): IntegralValue { return new IntegralValue(this.value % val.value, this.promote(val.type)); }
-    override shiftLeft(n: IntegralValue): IntegralValue { return new IntegralValue(this.value << n.value, this.type); }
-    override shiftRight(n: IntegralValue): IntegralValue { return new IntegralValue(this.value >> n.value, this.type); }
+    override remainder(val: IntegralValue): IntegralValue {
+        if (val.value === 0n) { throw new Error('Division by zero.'); }
+        return new IntegralValue(this.value % val.value, this.promote(val.type));
+    }
+    override shiftLeft(n: IntegralValue): IntegralValue {
+        if (n.value < 0n) { throw new Error('Shift amount must be non-negative.'); }
+        return new IntegralValue(this.value << n.value, this.type);
+    }
+    override shiftRight(n: IntegralValue): IntegralValue {
+        if (n.value < 0n) { throw new Error('Shift amount must be non-negative.'); }
+        return new IntegralValue(this.value >> n.value, this.type);
+    }
     override equal(val: IntegralValue): BoolValue { return new BoolValue(this.value === val.value); }
     override notEqual(val: IntegralValue): BoolValue { return new BoolValue(this.value !== val.value); }
     override less(val: IntegralValue): BoolValue { return new BoolValue(this.value < val.value); }
@@ -399,8 +423,18 @@ export function getValue<T>(expression: ast.Expression | undefined, accept?: Val
                             accept('error', 'The Constant is not visible.', { node: expression });
                         }
                         if (cst.type?.ref) {
-                            //do not forward accept
-                            return getValueAs(cst.value, cst.type.ref);
+                            // Guard against circular constant references (e.g. A = B, B = A),
+                            // which would otherwise recurse forever and crash the evaluator.
+                            if (evaluatingConstants.has(cst)) {
+                                return undefined;
+                            }
+                            evaluatingConstants.add(cst);
+                            try {
+                                //do not forward accept
+                                return getValueAs(cst.value, cst.type.ref);
+                            } finally {
+                                evaluatingConstants.delete(cst);
+                            }
                         }
                     }
                 }
@@ -618,7 +652,7 @@ function binaryOperation<T>(expression: ast.BinaryOperation, accept?: Validation
     }
     catch (error) {
         if (accept) {
-            accept('error', `${error}`, { node: expression });
+            accept('error', error instanceof Error ? error.message : `${error}`, { node: expression });
         } else {
             console.warn(`Binary operation '${expression.feature}' failed:`, error);
         }
