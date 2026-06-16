@@ -666,24 +666,10 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
         };
     }
 
-    protected getDirectChildComponentContexts(component: ast.Component | undefined): RelativeComponentContext[] {
-        if (!component) {
-            return [];
-        }
-        return this.typedPathResolver.getComponentPathMembers(component)
-            .flatMap(childComponent => {
-                if (!childComponent.name) {
-                    return [];
-                }
-                return [{ path: childComponent.name, component: childComponent }];
-            });
-    }
-
     protected getRelativeComponentContexts(component: ast.Component | undefined): RelativeComponentContext[] {
-        if (!component) {
-            return [];
-        }
-        return [{ path: '.', component }, ...this.getDirectChildComponentContexts(component)];
+        // A component type exposes no named sub-instances, so the only relative context is the component
+        // itself; navigating to children is resolved against an assembly instance tree, not a type.
+        return component ? [{ path: '.', component }] : [];
     }
 
     protected qualifyRelativeMemberPath(basePath: string, memberName: string): string {

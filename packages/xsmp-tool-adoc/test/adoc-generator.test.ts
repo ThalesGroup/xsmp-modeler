@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, describe, expect, test } from 'vitest';
-import { Cancellation, EmptyFileSystem, type LangiumDocument, URI } from 'langium';
+import { type AstNode, Cancellation, EmptyFileSystem, type LangiumDocument, URI } from 'langium';
 import { NodeFileSystem } from 'langium/node';
 import { expandToString as s } from 'langium/generate';
 import { clearDocuments, parseHelper } from 'langium/test';

@@ -3,7 +3,7 @@ import * as ast from '../generated/ast-partial.js';
 import type { XsmplnkServices } from '../xsmplnk-module.js';
 import { checkName, checkUniqueDocumentName } from './name-validator-utils.js';
 import type { XsmpInstancePathResolver } from '../references/xsmp-instance-path-resolver.js';
-import type { IdentifierPatternService, TemplateBindings } from '../references/identifier-pattern-service.js';
+import type { IdentifierPatternService } from '../references/identifier-pattern-service.js';
 import type { XsmpPathService } from '../references/xsmp-path-service.js';
 import { checkTemplatedPathSegments, createTemplateBindings } from './template-parameter-validator-utils.js';
 import * as XsmpUtils from '../utils/xsmp-utils.js';
@@ -245,22 +245,11 @@ export class XsmplnkValidator {
         if (!source?.referenceSegment) {
             return;
         }
-        const ownerContext: {
-            active: boolean;
-            finalComponent?: ast.Component;
-            finalBindings?: TemplateBindings;
-            invalidMessage?: string;
-        } = source.ownerPath
-            ? this.pathResolver.getLinkBaseEndpointPathResolution(source.ownerPath)
-            : {
-                active: true,
-                finalComponent: this.pathResolver.getInterfaceLinkEndpointContext(link, 'owner').component,
-                finalBindings: this.pathResolver.getInterfaceLinkEndpointContext(link, 'owner').bindings,
-            };
-        if (!ownerContext.active || ownerContext.invalidMessage || !ownerContext.finalComponent) {
+        const ownerContext = this.pathResolver.getInterfaceLinkEndpointContext(link, 'owner');
+        if (!ownerContext.component) {
             return;
         }
-        const targetReference = this.pathResolver.resolveReferenceSegmentTarget(source.referenceSegment, ownerContext.finalComponent, ownerContext.finalBindings);
+        const targetReference = this.pathResolver.resolveReferenceSegmentTarget(source.referenceSegment, ownerContext.component, ownerContext.bindings);
         if (!targetReference) {
             return;
         }

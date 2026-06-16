@@ -80,7 +80,7 @@ export class XsmplnkCompletionProvider extends XsmpCompletionProviderBase {
 
         const directChildren = assemblyContext
             ? this.instancePathResolver.getAssemblyChildComponentPathContexts(assemblyContext)
-            : this.getDirectChildComponentContexts(component);
+            : [];
         for (const child of directChildren) {
             acceptor(context, this.createContextualValueItem(
                 context,
@@ -181,23 +181,11 @@ export class XsmplnkCompletionProvider extends XsmpCompletionProviderBase {
         if (!component || !pathText) {
             return component;
         }
-
-        let current: ast.Component | undefined = component;
-        const segments = pathText.split('.');
-        for (const segment of segments) {
-            const trimmed = segment.trim();
-            if (!trimmed || trimmed === '.') {
-                continue;
-            }
-            const member: ast.Component | undefined = this.instancePathResolver
-                .getComponentPathMembers(current)
-                .find(candidate => candidate.name === trimmed);
-            current = member;
-            if (!current) {
-                return undefined;
-            }
-        }
-        return current;
+        // Without an assembly instance tree, only the current component is reachable: any named segment
+        // would require navigating sub-instances by name, which a component type cannot expose.
+        return pathText.split('.').every(segment => !segment.trim() || segment.trim() === '.')
+            ? component
+            : undefined;
     }
 
     protected createLinkBaseDefinitionSnippet(context: CompletionContext): string {

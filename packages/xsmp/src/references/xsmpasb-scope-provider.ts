@@ -14,6 +14,7 @@ import type {
 } from 'langium';
 import { AstUtils, DocumentCache, EMPTY_SCOPE, StreamScope, WorkspaceCache, stream } from 'langium';
 import * as ast from '../generated/ast-partial.js';
+import type { IdentifierPatternService, TemplateBindings } from './identifier-pattern-service.js';
 import type { XsmpInstancePathResolver } from './xsmp-instance-path-resolver.js';
 import type { ProjectManager } from '../workspace/project-manager.js';
 import type { XsmpServices } from '../xsmp-module.js';
@@ -27,6 +28,7 @@ export class XsmpasbScopeProvider implements ScopeProvider {
     protected readonly descriptions: AstNodeDescriptionProvider;
     protected readonly pathResolver: XsmpInstancePathResolver;
     protected readonly projectManager: ProjectManager;
+    protected readonly identifierPatternService: IdentifierPatternService;
 
     constructor(services: XsmpServices) {
         this.reflection = services.shared.AstReflection;
@@ -36,6 +38,7 @@ export class XsmpasbScopeProvider implements ScopeProvider {
         this.descriptions = services.workspace.AstNodeDescriptionProvider;
         this.pathResolver = services.shared.InstancePathResolver;
         this.projectManager = services.shared.workspace.ProjectManager;
+        this.identifierPatternService = services.shared.IdentifierPatternService;
     }
 
     protected collectScopesFromNode(node: AstNode, scopes: Array<Map<string, AstNodeDescription>>, document: LangiumDocument): void {
@@ -108,8 +111,21 @@ export class XsmpasbScopeProvider implements ScopeProvider {
     }
 
     protected getPathScope(segment: ast.ConcretePathNamedSegment): Scope {
-        const candidates = this.pathResolver.getNamedSegmentCandidates(segment);
-        return candidates.length > 0 ? this.createScope(candidates) : EMPTY_SCOPE;
+        const { candidates, bindings } = this.pathResolver.getNamedSegmentResolutionContext(segment);
+        return candidates.length > 0 ? this.createScopeForNamedElements(candidates, bindings) : EMPTY_SCOPE;
+    }
+
+    protected createScopeForNamedElements(elements: Iterable<ast.NamedElement>, bindings?: TemplateBindings, outerScope?: Scope, options?: ScopeOptions): Scope {
+        return new StreamScope(
+            stream(elements)
+                .filter((element): element is ast.NamedElement => Boolean(element.name))
+                .map(element => this.descriptions.createDescription(
+                    element,
+                    this.identifierPatternService.substitute(element.name, bindings) ?? element.name
+                )),
+            outerScope,
+            options
+        );
     }
 
     protected getLocalNamedReferenceScope(reference: ast.LocalNamedReference): Scope {

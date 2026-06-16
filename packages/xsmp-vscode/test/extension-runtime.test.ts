@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import type { URI as VscodeUri } from 'vscode-uri';
 
 const vscodeState = vi.hoisted(() => ({
     commandHandlers: new Map<string, (...args: any[]) => any>(),
@@ -53,7 +54,7 @@ vi.mock('vscode', async () => {
 
     class TabInputCustom {
         constructor(
-            public readonly uri: InstanceType<typeof URI>,
+            public readonly uri: VscodeUri,
             public readonly viewType: string,
         ) { }
     }
@@ -81,7 +82,7 @@ vi.mock('vscode', async () => {
             },
         },
         workspace: {
-            openTextDocument: async (uri: InstanceType<typeof URI>) => {
+            openTextDocument: async (uri: VscodeUri) => {
                 const document = { uri };
                 vscodeState.openedDocuments.push(document);
                 return document;
@@ -303,7 +304,7 @@ function createExtensionContext(root = tempDir) {
         asAbsolutePath(relativePath: string) {
             return path.join(root, relativePath);
         },
-    } as const;
+    } as unknown as vscode.ExtensionContext;
 }
 
 function createTextDocument(languageId: string, text: string, uri: ReturnType<typeof vscode.Uri.file>) {

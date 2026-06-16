@@ -476,7 +476,7 @@ source "src"
         expect(beforeBuild.component).toBeUndefined();
 
         await services.shared.workspace.DocumentBuilder.build(
-            [projectDocument, catalogueDocument, assemblyDocument, otherConfigurationDocument, configurationDocument],
+            [projectDocument, catalogueDocument, assemblyDocument, otherConfigurationDocument, configurationDocument] as LangiumDocument[],
             { validation: true }
         );
 

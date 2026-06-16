@@ -2,7 +2,7 @@ import { afterEach, beforeAll, describe, expect, test } from 'vitest';
 import { clearDocuments, parseHelper, type ParseHelperOptions } from 'langium/test';
 import { EmptyFileSystem, type LangiumDocument, URI } from 'langium';
 import { createXsmpServices } from '@xsmp/core';
-import { Assembly, Catalogue, Project, isAssembly } from '@xsmp/core/ast-partial';
+import { Assembly, Catalogue, Project, isAssembly, isConcretePathNamedSegment } from '@xsmp/core/ast-partial';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -480,6 +480,64 @@ Root: demo.Root
             'The selected reference shall resolve to a Reference of the Client Component.',
             'The selected reference shall be compatible with the Owner Component.',
         ]));
+    });
+
+    test('reports recursive assembly instantiation without crashing', async () => {
+        const document = await parseInProject(`assembly Demo
+
+Root: demo.System
+{
+    bus += Inner: Demo
+}
+`);
+
+        expect(getMessages(document)).toContain('Recursive Assembly instantiation is not allowed.');
+    });
+
+    test('navigates to templated child instances from a concrete configuration path', async () => {
+        const document = await parseInProject(`assembly <Lane = "A"> Demo
+
+Root: demo.System
+{
+    bus += Unit{Lane}: demo.Root
+}
+configure UnitA
+{
+}
+`);
+
+        expect(getMessages(document)).toEqual([]);
+        const configuration = document.parseResult.value.configurations.find(candidate => candidate.name?.head);
+        const head = configuration?.name?.head;
+        expect(head && isConcretePathNamedSegment(head)).toBe(true);
+        if (!head || !isConcretePathNamedSegment(head)) {
+            throw new Error('Expected a concrete path named segment.');
+        }
+        expect(head.reference?.ref?.name).toBe('Unit{Lane}');
+    });
+
+    test('rejects an out-of-bounds array index in an assembly field path', async () => {
+        const document = await parseInProject(`assembly Demo
+
+Root: demo.Root
+{
+    state.values[5] = 0i32
+}
+`);
+
+        expect(getMessages(document)).toContain('Array index 5 is out of bounds for the array of size 4.');
+    });
+
+    test('rejects a negative array index in an assembly field path', async () => {
+        const document = await parseInProject(`assembly Demo
+
+Root: demo.Root
+{
+    state.values[-1] = 0i32
+}
+`);
+
+        expect(getMessages(document)).toContain('Array index shall not be negative.');
     });
 });
 

@@ -1,4 +1,4 @@
-import type { LangiumServices } from 'langium';
+import type { LangiumServices } from 'langium/lsp';
 import { expectCompletion, type ParseHelperOptions } from 'langium/test';
 import { InsertTextFormat, type CompletionItem, type CompletionList, type Position } from 'vscode-languageserver';
 

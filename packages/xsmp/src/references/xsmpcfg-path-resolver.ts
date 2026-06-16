@@ -18,7 +18,6 @@ export interface CfgComponentPathResolution {
     finalComponent?: ast.Component;
     finalBindings?: TemplateBindings;
     finalStack?: readonly ast.Component[];
-    parentStackForUntypedTarget?: readonly ast.Component[];
     finalAssemblyContext?: AssemblyPathContext;
     invalidMessage?: string;
     invalidNode?: AstNode;
@@ -355,7 +354,6 @@ export class XsmpcfgPathResolver {
             active: resolution.active,
             finalComponent: resolution.finalComponent,
             finalStack: resolution.finalStack,
-            parentStackForUntypedTarget: resolution.parentStackForUntypedTarget,
             invalidMessage: resolution.invalidMessage,
             invalidNode: resolution.invalidNode,
             namedSegments: resolution.namedSegments,
@@ -392,9 +390,6 @@ export class XsmpcfgPathResolver {
     ): readonly ast.Component[] {
         if (resolution?.finalStack && resolution.finalStack.length > 0) {
             return [...resolution.finalStack.slice(0, -1), explicitComponent];
-        }
-        if (resolution?.parentStackForUntypedTarget) {
-            return [...resolution.parentStackForUntypedTarget, explicitComponent];
         }
         return parentContext?.componentStack ? [...parentContext.componentStack, explicitComponent] : [explicitComponent];
     }

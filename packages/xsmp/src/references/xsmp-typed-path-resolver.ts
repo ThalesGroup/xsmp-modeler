@@ -1,12 +1,13 @@
 import type { AstNode } from 'langium';
 import * as ast from '../generated/ast-partial.js';
 import type { XsmpSharedServices } from '../xsmp-module.js';
+import * as Solver from '../utils/solver.js';
+import { PTK } from '../utils/primitive-type-kind.js';
 import type { IdentifierPatternService, TemplateBindings } from './identifier-pattern-service.js';
 import type { XsmpPathService } from './xsmp-path-service.js';
 
 type RecoverableType = ast.Type;
 type RecoverableComponent = ast.Component;
-type RecoverableNamedElement = ast.NamedElement;
 type RecoverablePathElement = ast.PathElement;
 type RecoverablePathSegment = ast.PathSegment;
 type RecoverablePathNamedSegment = ast.PathNamedSegment;
@@ -18,7 +19,6 @@ export interface TypedComponentPathResolution {
     invalidMessage?: string;
     invalidNode?: AstNode;
     namedSegments: ReadonlyMap<ast.PathNamedSegment, readonly ast.NamedElement[]>;
-    parentStackForUntypedTarget?: readonly ast.Component[];
 }
 
 export interface TypedFieldPathResolution {
@@ -106,18 +106,7 @@ export class XsmpTypedPathResolver {
         return [...result.values()];
     }
 
-    getComponentPathMembers(_component: RecoverableComponent | undefined): readonly ast.Component[] {
-        return [];
-    }
-
-    getChildComponentForPathMember(member: RecoverableNamedElement): ast.Component | undefined {
-        if (ast.isContainer(member)) {
-            return this.getChildComponentForContainer(member);
-        }
-        return ast.isComponent(member) ? member : undefined;
-    }
-
-    resolveComponentPath(path: ast.Path, initialStack: readonly ast.Component[] | undefined, bindings?: TemplateBindings): TypedComponentPathResolution {
+    resolveComponentPath(path: ast.Path, initialStack: readonly ast.Component[] | undefined): TypedComponentPathResolution {
         const namedSegments = new Map<ast.PathNamedSegment, readonly ast.NamedElement[]>();
         if (!initialStack || initialStack.length === 0) {
             return { active: false, namedSegments };
@@ -142,15 +131,9 @@ export class XsmpTypedPathResolver {
             };
         }
 
-        let currentComponent: ast.Component | undefined = stack.at(-1);
-        let parentStackForUntypedTarget: readonly ast.Component[] | undefined;
-
         for (const segment of segments) {
             if (ast.isPathIndex(segment)) {
                 continue;
-            }
-            if (!currentComponent) {
-                break;
             }
             const actualSegment = ast.isPathMember(segment) ? segment.segment : segment;
             if (ast.isPathSelfSegment(actualSegment)) {
@@ -166,42 +149,28 @@ export class XsmpTypedPathResolver {
                     };
                 }
                 stack.pop();
-                currentComponent = stack.at(-1);
-                parentStackForUntypedTarget = undefined;
                 continue;
             }
             if (!ast.isPathNamedSegment(actualSegment)) {
                 continue;
             }
-
-            const candidates = this.getComponentPathMembers(currentComponent);
-            namedSegments.set(actualSegment, candidates);
-            const resolved = this.resolveNamedElement(actualSegment, candidates, bindings);
-            if (!resolved) {
-                return {
-                    active: true,
-                    invalidMessage: `The path segment '${this.pathService.getSegmentText(actualSegment)}' shall resolve to a child Component of the current Component.`,
-                    invalidNode: actualSegment,
-                    namedSegments,
-                };
-            }
-            const nextComponent = this.getChildComponentForPathMember(resolved);
-            if (nextComponent) {
-                stack.push(nextComponent);
-                currentComponent = nextComponent;
-                parentStackForUntypedTarget = undefined;
-            } else {
-                parentStackForUntypedTarget = [...stack];
-                currentComponent = undefined;
-            }
+            // A component type exposes no named sub-instances: such navigation is only possible by instance
+            // name against an assembly tree, never against a type, so a named segment never resolves here.
+            namedSegments.set(actualSegment, []);
+            return {
+                active: true,
+                invalidMessage: `The path segment '${this.pathService.getSegmentText(actualSegment)}' shall resolve to a child Component of the current Component.`,
+                invalidNode: actualSegment,
+                namedSegments,
+            };
         }
 
+        const finalComponent = stack.at(-1);
         return {
             active: true,
-            finalComponent: currentComponent,
-            finalStack: currentComponent ? [...stack] : undefined,
+            finalComponent,
+            finalStack: finalComponent ? [...stack] : undefined,
             namedSegments,
-            parentStackForUntypedTarget,
         };
     }
 
@@ -372,21 +341,16 @@ export class XsmpTypedPathResolver {
                 };
             }
 
-            const candidates = this.getComponentPathMembers(currentComponent);
-            namedSegments.set(actualSegment, candidates);
-            const resolved = this.resolveNamedElement(actualSegment, candidates, bindings);
-            const nextComponent = resolved ? this.getChildComponentForPathMember(resolved) : undefined;
-            if (!resolved || !nextComponent) {
-                return {
-                    active: true,
-                    finalComponent: currentComponent,
-                    invalidMessage: options.containerOrReferenceMessage(this.pathService.getSegmentText(actualSegment)),
-                    invalidNode: actualSegment,
-                    namedSegments,
-                };
-            }
-            stack.push(nextComponent);
-            currentComponent = nextComponent;
+            // A non-final named segment would require navigating to a child instance by name, which is only
+            // possible against an assembly tree, not a component type.
+            namedSegments.set(actualSegment, []);
+            return {
+                active: true,
+                finalComponent: currentComponent,
+                invalidMessage: options.containerOrReferenceMessage(this.pathService.getSegmentText(actualSegment)),
+                invalidNode: actualSegment,
+                namedSegments,
+            };
         }
 
         return { active: true, finalComponent: currentComponent, namedSegments };
@@ -455,58 +419,41 @@ export class XsmpTypedPathResolver {
                 };
             }
 
-            const childCandidates = this.getComponentPathMembers(currentComponent);
+            // A field path resolves its first named segment as a field of the current component, then walks
+            // structure/array members via resolveFieldTail. Navigation into a child instance by name is only
+            // possible against an assembly tree, so it never happens here.
             const fieldCandidates = options.getFinalCandidates(currentComponent);
+            namedSegments.set(actualSegment, fieldCandidates);
             const resolvedField = this.resolveNamedElement(actualSegment, fieldCandidates, bindings);
-            const isLast = index === segments.length - 1;
-
-            if (isLast || !this.hasTraversableChild(actualSegment, childCandidates, bindings)) {
-                namedSegments.set(actualSegment, fieldCandidates);
-                if (!resolvedField) {
-                    return {
-                        active: true,
-                        finalComponent: currentComponent,
-                        invalidMessage: options.finalMissingMessage(this.pathService.getSegmentText(actualSegment)),
-                        invalidNode: actualSegment,
-                        namedSegments,
-                    };
-                }
-
-                const tail = this.resolveFieldTail(
-                    segments,
-                    index + 1,
-                    resolvedField,
-                    resolvedField.type?.ref,
-                    (fieldSegment, candidates) => namedSegments.set(fieldSegment, candidates),
-                    options.pathRuleMessage,
-                    options.structureRequiredMessage,
-                    options.structureFieldMessage,
-                );
-                return {
-                    active: true,
-                    finalElement: tail.finalField,
-                    finalType: tail.finalType,
-                    finalComponent: currentComponent,
-                    invalidMessage: tail.invalidMessage,
-                    invalidNode: tail.invalidNode,
-                    namedSegments,
-                };
-            }
-
-            namedSegments.set(actualSegment, childCandidates);
-            const child = this.resolveNamedElement(actualSegment, childCandidates, bindings);
-            const nextComponent = child ? this.getChildComponentForPathMember(child) : undefined;
-            if (!nextComponent) {
+            if (!resolvedField) {
                 return {
                     active: true,
                     finalComponent: currentComponent,
-                    invalidMessage: options.containerOrReferenceMessage(this.pathService.getSegmentText(actualSegment)),
+                    invalidMessage: options.finalMissingMessage(this.pathService.getSegmentText(actualSegment)),
                     invalidNode: actualSegment,
                     namedSegments,
                 };
             }
-            stack.push(nextComponent);
-            currentComponent = nextComponent;
+
+            const tail = this.resolveFieldTail(
+                segments,
+                index + 1,
+                resolvedField,
+                resolvedField.type?.ref,
+                (fieldSegment, candidates) => namedSegments.set(fieldSegment, candidates),
+                options.pathRuleMessage,
+                options.structureRequiredMessage,
+                options.structureFieldMessage,
+            );
+            return {
+                active: true,
+                finalElement: tail.finalField,
+                finalType: tail.finalType,
+                finalComponent: currentComponent,
+                invalidMessage: tail.invalidMessage,
+                invalidNode: tail.invalidNode,
+                namedSegments,
+            };
         }
 
         return { active: true, finalComponent: currentComponent, namedSegments };
@@ -535,6 +482,26 @@ export class XsmpTypedPathResolver {
                         invalidMessage: 'Array indices shall only be applied to array-typed values.',
                         invalidNode: segment,
                     };
+                }
+                const indexValue = segment.index;
+                if (indexValue !== undefined) {
+                    if (indexValue < BigInt(0)) {
+                        return {
+                            finalField,
+                            finalType: currentType,
+                            invalidMessage: 'Array index shall not be negative.',
+                            invalidNode: segment,
+                        };
+                    }
+                    const size = Solver.getValue(currentType.size)?.integralValue(PTK.Int64)?.getValue();
+                    if (size !== undefined && indexValue >= size) {
+                        return {
+                            finalField,
+                            finalType: currentType,
+                            invalidMessage: `Array index ${indexValue} is out of bounds for the array of size ${size}.`,
+                            invalidNode: segment,
+                        };
+                    }
                 }
                 currentType = currentType.itemType?.ref;
                 continue;
@@ -604,22 +571,6 @@ export class XsmpTypedPathResolver {
             finalField,
             finalType: currentType,
         };
-    }
-
-    protected hasTraversableChild(
-        segment: RecoverablePathNamedSegment,
-        candidates: readonly ast.Component[],
-        bindings?: TemplateBindings,
-    ): boolean {
-        const child = this.resolveNamedElement(segment, candidates, bindings);
-        return Boolean(child && this.getChildComponentForPathMember(child));
-    }
-
-    protected getChildComponentForContainer(container: ast.Container): ast.Component | undefined {
-        if (ast.isComponent(container.type?.ref)) {
-            return container.type.ref;
-        }
-        return undefined;
     }
 
     resolveNamedElement<T extends ast.NamedElement>(segment: RecoverablePathNamedSegment, candidates: readonly T[], bindings?: TemplateBindings): T | undefined {

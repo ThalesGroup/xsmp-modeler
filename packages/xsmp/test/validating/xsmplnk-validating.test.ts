@@ -265,6 +265,45 @@ Root: demo.Root
         ]);
     });
 
+    test('reports when an owner-prefixed source reference upper bound is exceeded in a link base', async () => {
+        const document = await parseInProject(`link Demo for DemoAsm
+
+/
+{
+    interface link Leaf.backLogger -> .
+    interface link Leaf.backLogger -> Leaf
+}
+`, `assembly DemoAsm
+
+Root: demo.Root
+{
+    child += Leaf: demo.Child
+}
+`);
+
+        expect(getMessages(document).filter(message =>
+            message.includes("'backLogger'") && message.includes('shall not be connected more than 1 time(s).'),
+        )).toHaveLength(2);
+    });
+
+    test('rejects an event link owner path that selects no member', async () => {
+        const document = await parseInProject(`link Demo for DemoAsm
+
+/
+{
+    event link . -> Leaf.inbound
+}
+`, `assembly DemoAsm
+
+Root: demo.Root
+{
+    child += Leaf: demo.Child
+}
+`);
+
+        expect(getMessages(document)).toContain('The path shall resolve to a supported member of the current Component.');
+    });
+
     test('rejects parent traversal in component, owner, client, and source link paths', async () => {
         const document = await parseInProject(`link Demo for DemoAsm
 
@@ -369,15 +408,19 @@ Root: demo.Root
             throw new Error('Expected an interface link.');
         }
 
-        const beforeBuild = services.shared.InstancePathResolver.getLinkBaseEndpointPathResolution(interfaceLink.clientPath);
+        const clientPath = interfaceLink.clientPath;
+        if (!clientPath) {
+            throw new Error('Expected a client path.');
+        }
+        const beforeBuild = services.shared.InstancePathResolver.getLinkBaseEndpointPathResolution(clientPath);
         expect(beforeBuild.active).toBe(false);
 
         await services.shared.workspace.DocumentBuilder.build(
-            [projectDocument, catalogueDocument, linkBaseDocument, assemblyDocument],
+            [projectDocument, catalogueDocument, linkBaseDocument, assemblyDocument] as LangiumDocument[],
             { validation: true }
         );
 
-        const afterBuild = services.shared.InstancePathResolver.getLinkBaseEndpointPathResolution(interfaceLink.clientPath);
+        const afterBuild = services.shared.InstancePathResolver.getLinkBaseEndpointPathResolution(clientPath);
         expect(afterBuild.active).toBe(true);
         expect(afterBuild.finalComponent?.name).toBe('Child');
         expect(getMessages(linkBaseDocument)).toEqual([]);

@@ -3,7 +3,7 @@ import { EmptyFileSystem, type LangiumDocument } from "langium";
 import { expandToString as s } from "langium/generate";
 import { clearDocuments, parseHelper } from "langium/test";
 import { createXsmpServices } from '@xsmp/core';
-import { Catalogue, isCatalogue, isClass, isNamespace, isOperation } from '@xsmp/core/ast-partial';
+import { Catalogue, isCatalogue, isClass, isNamespace, isOperation, type Operation } from '@xsmp/core/ast-partial';
 
 let services: ReturnType<typeof createXsmpServices>;
 let parse: ReturnType<typeof parseHelper<Catalogue>>;
@@ -69,8 +69,9 @@ describe('Linking tests', () => {
         `);
 
         const namespace = document.parseResult.value.elements[0];
+        const namespaceType = namespace?.$type ?? 'undefined';
         if (!namespace || !isNamespace(namespace)) {
-            throw new Error(`Root element is a ${namespace?.$type ?? 'undefined'}, expected a namespace.`);
+            throw new Error(`Root element is a ${namespaceType}, expected a namespace.`);
         }
 
         const clazz = namespace.elements[0];
@@ -78,14 +79,14 @@ describe('Linking tests', () => {
             throw new Error(`Namespace element is a ${clazz?.$type ?? 'undefined'}, expected a class.`);
         }
 
-        const constructor = clazz.elements.find(element => isOperation(element) && element.name === 'Toto');
-        const copy = clazz.elements.find(element => isOperation(element) && element.name === 'Copy');
+        const constructor = clazz.elements.find((element): element is Operation => isOperation(element) && element.name === 'Toto');
+        const copy = clazz.elements.find((element): element is Operation => isOperation(element) && element.name === 'Copy');
 
         expect(checkDocumentValid(document)).toBeUndefined();
         expect(copy).toBeDefined();
         expect(constructor).toBeDefined();
-        expect(copy?.parameter[0]?.type.ref).toBe(clazz);
-        expect(copy?.parameter[0]?.type.ref).not.toBe(constructor);
+        expect(copy?.parameter[0]?.type?.ref).toBe(clazz);
+        expect(copy?.parameter[0]?.type?.ref).not.toBe(constructor);
     });
 });
 

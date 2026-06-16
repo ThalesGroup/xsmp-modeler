@@ -102,6 +102,40 @@ export class XsmpasbValidator extends XsmpcfgValidator {
             checkName(accept, instance, instance.name, ast.AssemblyInstance.name);
         }
         this.checkTemplatedInstanceName(instance.name, instance, accept);
+        if (this.isRecursiveAssemblyInstance(instance)) {
+            accept('error', 'Recursive Assembly instantiation is not allowed.', {
+                node: instance,
+                property: ast.AssemblyInstance.assembly,
+            });
+        }
+    }
+
+    private isRecursiveAssemblyInstance(instance: ast.AssemblyInstance): boolean {
+        const containingAssembly = AstUtils.getContainerOfType(instance, ast.isAssembly);
+        const referenced = ast.isAssembly(instance.assembly?.ref) ? instance.assembly.ref : undefined;
+        if (!containingAssembly || !referenced) {
+            return false;
+        }
+        // The instance is recursive if the referenced assembly can transitively reach the containing assembly.
+        const visited = new Set<ast.Assembly>();
+        const queue: ast.Assembly[] = [referenced];
+        while (queue.length > 0) {
+            const current = queue.shift()!;
+            if (current === containingAssembly) {
+                return true;
+            }
+            if (visited.has(current) || !current.model) {
+                continue;
+            }
+            visited.add(current);
+            for (const nested of AstUtils.streamAllContents(current.model).filter(ast.isAssemblyInstance)) {
+                const next = ast.isAssembly(nested.assembly?.ref) ? nested.assembly.ref : undefined;
+                if (next) {
+                    queue.push(next);
+                }
+            }
+        }
+        return false;
     }
 
     checkSubInstance(subInstance: ast.SubInstance, accept: ValidationAcceptor): void {
@@ -949,13 +983,13 @@ export class XsmpasbValidator extends XsmpcfgValidator {
             }
             if (ast.isAssemblyInstance(instance)) {
                 const childAssembly = ast.isAssembly(instance.assembly?.ref) ? instance.assembly.ref : undefined;
-                const childBindings = childAssembly ? this.createTemplateBindings(childAssembly.parameters, instance.arguments) : undefined;
-                const childStack = childAssembly && !stack.has(childAssembly)
-                    ? new Set([...stack, childAssembly])
-                    : stack;
-                const childOccurrence = childAssembly
-                    ? this.createAssemblyOccurrence(childAssembly, childAssembly.model, childBindings, childPath, childStack)
-                    : undefined;
+                if (!childAssembly || stack.has(childAssembly)) {
+                    // Skip recursive assembly instantiation to avoid infinite recursion (reported by checkAssemblyInstance).
+                    continue;
+                }
+                const childBindings = this.createTemplateBindings(childAssembly.parameters, instance.arguments);
+                const childStack = new Set([...stack, childAssembly]);
+                const childOccurrence = this.createAssemblyOccurrence(childAssembly, childAssembly.model, childBindings, childPath, childStack);
                 if (childOccurrence) {
                     children.push({ name: concreteName, occurrence: childOccurrence });
                 }

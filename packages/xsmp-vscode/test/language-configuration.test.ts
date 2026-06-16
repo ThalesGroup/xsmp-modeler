@@ -109,7 +109,7 @@ describe('language configuration', () => {
             });
 
             const doubleQuotePair = configuration.autoClosingPairs?.find(pair => pair.open === '"');
-            if (expected.autoClosingPairs.includes('"')) {
+            if ((expected.autoClosingPairs as readonly string[]).includes('"')) {
                 expect(doubleQuotePair).toEqual({
                     open: '"',
                     close: '"',
@@ -120,7 +120,7 @@ describe('language configuration', () => {
             }
 
             const singleQuotePair = configuration.autoClosingPairs?.find(pair => pair.open === "'");
-            if (expected.autoClosingPairs.includes("'")) {
+            if ((expected.autoClosingPairs as readonly string[]).includes("'")) {
                 expect(singleQuotePair).toEqual({
                     open: "'",
                     close: "'",

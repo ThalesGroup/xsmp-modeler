@@ -122,10 +122,6 @@ export class XsmpInstancePathResolver {
         return this.typedPathResolver.getFieldCandidatesForType(type);
     }
 
-    getComponentPathMembers(component: RecoverableComponent | undefined): readonly ast.Component[] {
-        return this.typedPathResolver.getComponentPathMembers(component);
-    }
-
     getComponentContainers(component: RecoverableComponent | undefined): readonly ast.Container[] {
         return this.typedPathResolver.getComponentContainers(component);
     }
@@ -448,8 +444,7 @@ export class XsmpInstancePathResolver {
     protected computeComponentLinkBaseComponentStack(linkBase: ast.ComponentLinkBase): readonly ast.Component[] | undefined {
         const parent = ast.isComponentLinkBase(linkBase.$container) ? linkBase.$container : undefined;
         const parentStack = parent ? this.getComponentLinkBaseComponentStack(parent) : this.getRootLinkBaseComponentStack(linkBase);
-        const bindings = this.getLinkBaseTemplateBindings(linkBase);
-        const resolution = parentStack && linkBase.name ? this.typedPathResolver.resolveComponentPath(linkBase.name, parentStack, bindings) : undefined;
+        const resolution = parentStack && linkBase.name ? this.typedPathResolver.resolveComponentPath(linkBase.name, parentStack) : undefined;
         return resolution?.finalStack;
     }
 
@@ -600,7 +595,7 @@ export class XsmpInstancePathResolver {
         }
         const baseStack = this.getBaseStackForLinkBaseComponentPath(path);
         const bindings = this.getLinkBaseTemplateBindings(path);
-        return this.typedComponentResolutionToInstancePath(baseStack ? this.typedPathResolver.resolveComponentPath(path, baseStack, bindings) : undefined, bindings);
+        return this.typedComponentResolutionToInstancePath(baseStack ? this.typedPathResolver.resolveComponentPath(path, baseStack) : undefined, bindings);
     }
 
     protected computeLinkBaseEndpointPathResolution(path: ast.Path): InstancePathResolution {
@@ -629,7 +624,7 @@ export class XsmpInstancePathResolver {
             if (path === link.sourcePath) {
                 return this.computeLinkBaseInterfaceLinkSourceResolution(path);
             }
-            return this.typedComponentResolutionToInstancePath(this.typedPathResolver.resolveComponentPath(path, baseStack, bindings), bindings);
+            return this.typedComponentResolutionToInstancePath(this.typedPathResolver.resolveComponentPath(path, baseStack), bindings);
         }
 
         return this.inactiveResolution();
@@ -761,7 +756,7 @@ export class XsmpInstancePathResolver {
         let ownerComponent = baseStack.at(-1);
         const ownerBindings = bindings;
         if (parts.ownerPath) {
-            const ownerResolution = this.typedPathResolver.resolveComponentPath(parts.ownerPath, baseStack, bindings);
+            const ownerResolution = this.typedPathResolver.resolveComponentPath(parts.ownerPath, baseStack);
             this.mergeNamedSegments(namedSegments, ownerResolution.namedSegments);
             if (!ownerResolution.active || ownerResolution.invalidMessage || !ownerResolution.finalComponent) {
                 return {
@@ -823,7 +818,7 @@ export class XsmpInstancePathResolver {
                 );
             }
             return this.typedComponentResolutionToInstancePath(
-                taskContext?.componentStack ? this.typedPathResolver.resolveComponentPath(path, taskContext.componentStack, bindings) : undefined,
+                taskContext?.componentStack ? this.typedPathResolver.resolveComponentPath(path, taskContext.componentStack) : undefined,
                 bindings
             );
         }
@@ -1146,7 +1141,16 @@ export class XsmpInstancePathResolver {
             currentBindings = this.mergeTemplateBindings(inheritedBindings, resolvedNext.node.bindings);
         }
 
-        return { active: true, finalComponent: currentNode.component, finalBindings: currentBindings, namedSegments, segmentBindings };
+        // The path was made of self segments only and never selected a member.
+        return {
+            active: true,
+            finalComponent: currentNode.component,
+            finalBindings: currentBindings,
+            invalidMessage: 'The path shall resolve to a supported member of the current Component.',
+            invalidNode: path,
+            namedSegments,
+            segmentBindings,
+        };
     }
 
     protected resolveAssemblyFieldEndpointPath(
@@ -1202,17 +1206,6 @@ export class XsmpInstancePathResolver {
             if (!ast.isPathNamedSegment(actualSegment)) {
                 return {
                     active: true,
-                    invalidMessage: 'Field paths shall start with a Field.',
-                    invalidNode: actualSegment,
-                    namedSegments,
-                    segmentBindings,
-                };
-            }
-            if (!ast.isPathNamedSegment(actualSegment)) {
-                return {
-                    active: true,
-                    finalComponent: currentNode.component,
-                    finalBindings: currentNode.bindings,
                     invalidMessage: 'Field paths shall start with a Field.',
                     invalidNode: actualSegment,
                     namedSegments,
@@ -1446,28 +1439,34 @@ export class XsmpInstancePathResolver {
         };
     }
 
-    protected getAssemblyNode(model: ast.ModelInstance | undefined, bindings?: TemplateBindings): AssemblyNode | undefined {
+    protected getAssemblyNode(model: ast.ModelInstance | undefined, bindings?: TemplateBindings, visited?: Set<ast.ModelInstance>): AssemblyNode | undefined {
         if (!model) {
+            return undefined;
+        }
+        if (visited?.has(model)) {
+            // Recursive assembly instantiation: break the cycle to avoid infinite recursion.
             return undefined;
         }
         const signature = this.getBindingsSignature(bindings);
         const variants = this.assemblyNodeCache.get(model, () => new Map<string, AssemblyNode>());
         let node = variants.get(signature);
         if (!node) {
-            node = this.computeAssemblyNode(model, bindings);
+            node = this.computeAssemblyNode(model, bindings, visited);
             variants.set(signature, node);
         }
         return node;
     }
 
-    protected getAssemblyNodeForAssemblyInstance(instance: ast.AssemblyInstance | undefined): AssemblyNode | undefined {
+    protected getAssemblyNodeForAssemblyInstance(instance: ast.AssemblyInstance | undefined, visited?: Set<ast.ModelInstance>): AssemblyNode | undefined {
         const assembly = instance && ast.isAssembly(instance.assembly?.ref) ? instance.assembly.ref : undefined;
-        return this.getAssemblyNode(assembly?.model, assembly ? this.createTemplateBindings(assembly.parameters, instance?.arguments ?? []) : undefined);
+        return this.getAssemblyNode(assembly?.model, assembly ? this.createTemplateBindings(assembly.parameters, instance?.arguments ?? []) : undefined, visited);
     }
 
-    protected computeAssemblyNode(model: ast.ModelInstance, bindings?: TemplateBindings): AssemblyNode {
+    protected computeAssemblyNode(model: ast.ModelInstance, bindings?: TemplateBindings, visited?: Set<ast.ModelInstance>): AssemblyNode {
         const component = this.getModelComponent(model);
         const children: AssemblyNodeChild[] = [];
+        const nextVisited = visited ? new Set(visited) : new Set<ast.ModelInstance>();
+        nextVisited.add(model);
         for (const subInstance of model.elements.filter(ast.isSubInstance)) {
             const member = this.getSubInstanceContainer(subInstance, component);
             if (!member) {
@@ -1475,14 +1474,14 @@ export class XsmpInstancePathResolver {
             }
             const instance = subInstance.instance;
             if (ast.isModelInstance(instance)) {
-                const childNode = this.getAssemblyNode(instance, bindings);
+                const childNode = this.getAssemblyNode(instance, bindings, nextVisited);
                 if (childNode) {
                     children.push({ member, instance, node: childNode });
                 }
                 continue;
             }
             if (ast.isAssemblyInstance(instance)) {
-                const childNode = this.getAssemblyNodeForAssemblyInstance(instance);
+                const childNode = this.getAssemblyNodeForAssemblyInstance(instance, nextVisited);
                 if (childNode) {
                     children.push({ member, instance, node: childNode });
                 }
