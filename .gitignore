@@ -9,6 +9,7 @@ node_modules/
 /packages/*/out/
 /packages/*/.tsbuildinfo/
 /packages/*/tsconfig.tsbuildinfo
+/tsconfig.tsbuildinfo
 coverage/
 site/
 .scannerwork
