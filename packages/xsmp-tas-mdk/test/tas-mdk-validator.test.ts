@@ -68,6 +68,30 @@ namespace demo
         ]));
     });
 
+    test('terminates on cyclic component inheritance instead of hanging', async () => {
+        // The core validator flags the cycle but keeps base references resolved, so the
+        // TAS-MDK getRootBase traversal must guard against cycles; otherwise it loops
+        // forever and hangs the language server (DoS).
+        const document = await loadTasMdkCatalogue(`
+catalogue Demo
+
+namespace demo
+{
+    /** @uuid 11111111-1111-4111-8111-111111111111 */
+    public model CyclicA extends CyclicB
+    {
+    }
+
+    /** @uuid 22222222-2222-4222-8222-222222222222 */
+    public model CyclicB extends CyclicA
+    {
+    }
+}
+`);
+
+        expect(errorMessages(document)).toContain('Cyclic dependency detected.');
+    });
+
     test('enforces TAS naming, publicability, and documentation rules for component members', async () => {
         const document = await loadTasMdkCatalogue(`
 catalogue Demo

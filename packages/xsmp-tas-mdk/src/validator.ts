@@ -40,7 +40,15 @@ export function registerTasMdkValidationChecks(
 }
 
 function getRootBase(component: ast.Component): ast.Component | undefined {
+    // Guard against cyclic inheritance: the core validator reports the cycle but keeps
+    // base references resolved, so walking base.ref unconditionally would loop forever
+    // and hang the language server.
+    const visited = new Set<ast.Component>();
     while (ast.isComponent(component.base?.ref)) {
+        if (visited.has(component)) {
+            return undefined;
+        }
+        visited.add(component);
         component = component.base.ref;
     }
     if (component.base) {
