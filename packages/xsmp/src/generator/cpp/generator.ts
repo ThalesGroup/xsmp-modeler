@@ -1,5 +1,5 @@
 import * as ast from '../../generated/ast.js';
-import { type AstNode, AstUtils, type JSDocElement, type JSDocTag, type URI, UriUtils, WorkspaceCache } from 'langium';
+import { type AstNode, AstUtils, DocumentCache, type JSDocElement, type JSDocTag, type URI, UriUtils } from 'langium';
 import * as fs from 'node:fs';
 import { isClangFormatEnabled, isGeneratedBy, type TaskAcceptor, type XsmpGenerator } from '../generator.js';
 import { escape, fqn, getAccessKind, getNodeType, getPTK, isAbstractType, isInput, isOutput, isState } from '../../utils/xsmp-utils.js';
@@ -42,16 +42,29 @@ export abstract class CppGenerator implements XsmpGenerator {
 
     protected readonly cxxStandard: CxxStandard;
     protected readonly typeProvider: XsmpTypeProvider;
-    protected readonly cache: WorkspaceCache<unknown, unknown>;
+    protected readonly cache: DocumentCache<AstNode, Map<string, unknown>>;
     protected readonly docHelper: DocumentationHelper;
     protected readonly attrHelper: AttributeHelper;
 
     constructor(services: XsmpSharedServices, cxxStandard: CxxStandard) {
         this.cxxStandard = cxxStandard;
         this.typeProvider = services.TypeProvider;
-        this.cache = new WorkspaceCache(services);
+        this.cache = new DocumentCache(services);
         this.docHelper = services.DocumentationHelper;
         this.attrHelper = services.AttributeHelper;
+    }
+    /**
+     * Memoize a value per node and discriminator. Entries are keyed by the AST node and
+     * evicted with their document; the discriminator is the per-node string sub-key.
+     */
+    protected cached<T>(node: AstNode, key: string, provider: () => T): T {
+        const perNode = this.cache.get(AstUtils.getDocument(node).uri, node, () => new Map<string, unknown>());
+        if (perNode.has(key)) {
+            return perNode.get(key) as T;
+        }
+        const value = provider();
+        perNode.set(key, value);
+        return value;
     }
 
     clean(_projectUri: URI) {
@@ -186,8 +199,7 @@ export abstract class CppGenerator implements XsmpGenerator {
     }
 
     protected constants(type: ast.WithBody): ast.Constant[] {
-        const key = { id: 'constants', value: type };
-        return this.cache.get(key, () => { return this.sortedConstants(type); }) as ast.Constant[];
+        return this.cached(type, 'constants', () => this.sortedConstants(type));
     }
 
     private sortedConstants(type: ast.WithBody): ast.Constant[] {
@@ -466,8 +478,7 @@ export abstract class CppGenerator implements XsmpGenerator {
         if (!reference) {
             return defaultFqn ?? '';
         }
-        const key = { id: 'fqn', value: reference };
-        return this.cache.get(key, () => `::${fqn(reference, '::')}`) as string;
+        return this.cached(reference, 'fqn', () => `::${fqn(reference, '::')}`);
     }
     // list of types with uuids defined in namespace ::Smp::Uuids
     static readonly smpUuidsTypes = new Set<string>(['Smp.Uuid', 'Smp.Char8', 'Smp.Bool', 'Smp.Int8', 'Smp.UInt8', 'Smp.Int16', 'Smp.UInt16', 'Smp.Int32',

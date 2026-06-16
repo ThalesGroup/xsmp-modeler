@@ -504,8 +504,7 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
         if (!reference) return '';
         const parent = reference.$container;
         if (ast.isNamedElement(parent)) {
-            const key = { id: 'field_fqn', value: reference };
-            return this.cache.get(key, () => `${this.fqn(parent, '::')}::${ast.isSimpleType(reference) ? '' : '_'}${reference.name}`) as string;
+            return this.cached(reference, 'field_fqn', () => `${this.fqn(parent, '::')}::${ast.isSimpleType(reference) ? '' : '_'}${reference.name}`);
         }
         return '';
     }
@@ -854,10 +853,9 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
     }
 
     protected override isCdkField(field: ast.Field): boolean {
-        const key = { id: 'isCdkField', value: field };
-        return this.cache.get(key, () => ast.isComponent(field.$container) && !this.attrHelper.isStatic(field) && !ast.isClass(field.type.ref) &&
+        return this.cached(field, 'isCdkField', () => ast.isComponent(field.$container) && !this.attrHelper.isStatic(field) && !ast.isClass(field.type.ref) &&
             (isOutput(field) || isInput(field) || this.attrHelper.isFailure(field) || this.attrHelper.isForcible(field) || this.isOfInput(field) || this.isOfOutput(field)
-                || this.isOfFailure(field) || this.isCdkFieldType(field.type.ref))) as boolean;
+                || this.isOfFailure(field) || this.isCdkFieldType(field.type.ref)));
     }
     override headerIncludesField(field: ast.Field): Include[] {
         if (this.isCdkField(field)) {

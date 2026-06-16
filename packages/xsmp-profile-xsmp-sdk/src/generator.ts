@@ -630,8 +630,7 @@ export class XsmpSdkGenerator extends GapPatternCppGenerator {
     }
 
     protected override isCdkField(field: ast.Field): boolean {
-        const key = { id: 'isCdkField', value: field };
-        return this.cache.get(key, () => ast.isComponent(field.$container) && !this.attrHelper.isStatic(field) && !ast.isClass(field.type.ref) && (isOutput(field) || this.attrHelper.isFailure(field) || this.attrHelper.isForcible(field) || this.isCdkFieldType(field.type.ref))) as boolean;
+        return this.cached(field, 'isCdkField', () => ast.isComponent(field.$container) && !this.attrHelper.isStatic(field) && !ast.isClass(field.type.ref) && (isOutput(field) || this.attrHelper.isFailure(field) || this.attrHelper.isForcible(field) || this.isCdkFieldType(field.type.ref)));
     }
     override headerIncludesField(field: ast.Field): Include[] {
         if (this.isCdkField(field)) {

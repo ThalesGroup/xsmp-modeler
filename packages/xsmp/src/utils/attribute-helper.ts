@@ -1,5 +1,5 @@
 
-import { type AstNode, type Stream, WorkspaceCache, stream } from 'langium';
+import { type AstNode, AstUtils, DocumentCache, type Stream, stream } from 'langium';
 import * as ast from '../generated/ast-partial.js';
 import { type XsmpSharedServices } from '../xsmp-module.js';
 import { fqn, getRealVisibility } from './xsmp-utils.js';
@@ -28,13 +28,25 @@ enum ArgKind {
     BY_VALUE, BY_PTR, BY_REF
 }
 export class AttributeHelper {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    protected readonly cache: WorkspaceCache<{ key: string, node: AstNode }, any>;
+    protected readonly cache: DocumentCache<AstNode, Map<string, unknown>>;
     constructor(services: XsmpSharedServices) {
-        this.cache = new WorkspaceCache(services);
+        this.cache = new DocumentCache(services);
+    }
+    /**
+     * Memoize a value per node and discriminator. Entries are keyed by the AST node and
+     * evicted with their document; the discriminator is the per-node string sub-key.
+     */
+    protected cached<T>(node: AstNode, key: string, provider: () => T): T {
+        const perNode = this.cache.get(AstUtils.getDocument(node).uri, node, () => new Map<string, unknown>());
+        if (perNode.has(key)) {
+            return perNode.get(key) as T;
+        }
+        const value = provider();
+        perNode.set(key, value);
+        return value;
     }
     attribute(element: ast.NamedElement | ast.ReturnParameter, id: Attributes): ast.Attribute | undefined {
-        return this.cache.get({ key: id, node: element }, () =>
+        return this.cached(element, id, () =>
             element.attributes.find((attribute): attribute is ast.Attribute =>
                 ast.isAttribute(attribute) && !!attribute.type?.ref && fqn(attribute.type.ref) === id
             )
@@ -58,12 +70,12 @@ export class AttributeHelper {
     }
 
     isConstructor(element: ast.NamedElement | ast.ReturnParameter): boolean {
-        return this.cache.get({ key: 'isConstructor', node: element }, () =>
+        return this.cached(element, 'isConstructor', () =>
             this.attributeBoolValue(element, 'Attributes.Constructor') ?? false
         ) as boolean;
     }
     operatorKind(op: ast.Operation): OperatorKind {
-        return this.cache.get({ key: 'isConstructor', node: op }, () => {
+        return this.cached(op, 'operatorKind', () => {
             const attr = this.attribute(op, 'Attributes.Operator');
             if (!attr?.value || !ast.isAttributeType(attr.type?.ref) || !attr.type.ref.type?.ref) {
                 return OperatorKind.NONE;
@@ -98,38 +110,38 @@ export class AttributeHelper {
         });
     }
     isFailure(element: ast.Field): boolean {
-        return this.cache.get({ key: 'isFailure', node: element }, () =>
+        return this.cached(element, 'isFailure', () =>
             this.attributeBoolValue(element, 'Attributes.Failure') ?? false
         ) as boolean;
     }
     isForcible(element: ast.Field): boolean {
-        return this.cache.get({ key: 'isForcible', node: element }, () =>
+        return this.cached(element, 'isForcible', () =>
             this.attributeBoolValue(element, 'Attributes.Forcible') ?? false
         ) as boolean;
     }
     isStatic(element: ast.Operation | ast.Property | ast.Field | ast.Association): boolean {
-        return this.cache.get({ key: 'isStatic', node: element }, () =>
+        return this.cached(element, 'isStatic', () =>
             !this.isConstructor(element) && (this.attributeBoolValue(element, 'Attributes.Static') ?? false)
         ) as boolean;
     }
     isAbstract(element: ast.Operation | ast.Property): boolean {
-        return this.cache.get({ key: 'isAbstract', node: element }, () =>
+        return this.cached(element, 'isAbstract', () =>
             !this.isStatic(element) && (ast.isInterface(element.$container) || (this.attributeBoolValue(element, 'Attributes.Abstract') ?? false))
         ) as boolean;
     }
     isVirtual(element: ast.Operation | ast.Property): boolean {
-        return this.cache.get({ key: 'isVirtual', node: element }, () =>
+        return this.cached(element, 'isVirtual', () =>
             !this.isConstructor(element) && (this.isAbstract(element) || (this.attributeBoolValue(element, 'Attributes.Virtual') ?? (ast.isReferenceType(element.$container) && !this.isStatic(element))))
         ) as boolean;
     }
 
     isMutable(element: ast.Field | ast.Association): boolean {
-        return this.cache.get({ key: 'isMutable', node: element }, () =>
+        return this.cached(element, 'isMutable', () =>
             this.attributeBoolValue(element, 'Attributes.Mutable') ?? false
         ) as boolean;
     }
     isConst(element: ast.Parameter | ast.ReturnParameter | ast.Association | ast.Operation | ast.Property): boolean {
-        return this.cache.get({ key: 'isConst', node: element }, () => {
+        return this.cached(element, 'isConst', () => {
             if (this.isConstructor(element)) {
                 return false;
             }
@@ -137,11 +149,11 @@ export class AttributeHelper {
         }) as boolean;
     }
     isConstGetter(element: ast.Property): boolean {
-        return this.cache.get({ key: 'isConstGetter', node: element }, () => this.attributeBoolValue(element, 'Attributes.ConstGetter') ?? false) as boolean;
+        return this.cached(element, 'isConstGetter', () => this.attributeBoolValue(element, 'Attributes.ConstGetter') ?? false) as boolean;
     }
 
     isByPointer(element: ast.Parameter | ast.ReturnParameter | ast.Association | ast.Property): boolean {
-        return this.cache.get({ key: 'isByPointer', node: element }, () => {
+        return this.cached(element, 'isByPointer', () => {
             const value = this.attributeBoolValue(element, 'Attributes.ByPointer');
             switch (element.$type) {
                 case ast.Association.$type: return value ?? ast.isReferenceType(element.type?.ref);
@@ -154,7 +166,7 @@ export class AttributeHelper {
 
     }
     isByReference(element: ast.Parameter | ast.ReturnParameter | ast.Property): boolean {
-        return this.cache.get({ key: 'isByReference', node: element }, () => {
+        return this.cached(element, 'isByReference', () => {
             const value = this.attributeBoolValue(element, 'Attributes.ByReference');
             switch (element.$type) {
                 case ast.Property.$type: return value ?? false;
@@ -166,12 +178,12 @@ export class AttributeHelper {
     }
 
     isSimpleArray(element: ast.ArrayType): boolean {
-        return this.cache.get({ key: 'isSimpleArray', node: element }, () =>
+        return this.cached(element, 'isSimpleArray', () =>
             this.attributeBoolValue(element, 'Attributes.SimpleArray') ?? false
         ) as boolean;
     }
     getViewKind(node: ast.Property | ast.Field | ast.Operation | ast.EntryPoint): ViewKind | undefined {
-        return this.cache.get({ key: 'getViewKind', node: node }, () =>
+        return this.cached(node, 'getViewKind', () =>
             this.computeViewKind(node)
         ) as ViewKind | undefined;
     }
