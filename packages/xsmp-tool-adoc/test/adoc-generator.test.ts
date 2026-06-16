@@ -374,7 +374,7 @@ describe('ADoc generator tests', () => {
         assertGolden('schedule-doc-gen.adoc', actual);
     });
 
-    test('writes basename-based output files for every supported DSL', async () => {
+    test('writes document-name-based output files for every supported DSL', async () => {
         const generator = new ADocGenerator(services.shared);
         const fixture = await createFixtureDocuments({
             'demo.xsmpcat': catalogueSource,
@@ -396,11 +396,11 @@ describe('ADoc generator tests', () => {
         await generator.generateLinkBase((fixture['links-doc.xsmplnk'] as LangiumDocument<ast.LinkBase>).parseResult.value, projectUri);
         await generator.generateSchedule((fixture['schedule-doc.xsmpsed'] as LangiumDocument<ast.Schedule>).parseResult.value, projectUri);
 
-        expect(fs.existsSync(path.join(outputDir, 'adoc-gen', 'demo-gen.adoc'))).toBe(true);
-        expect(fs.existsSync(path.join(outputDir, 'adoc-gen', 'config-doc-gen.adoc'))).toBe(true);
-        expect(fs.existsSync(path.join(outputDir, 'adoc-gen', 'assembly-doc-gen.adoc'))).toBe(true);
-        expect(fs.existsSync(path.join(outputDir, 'adoc-gen', 'links-doc-gen.adoc'))).toBe(true);
-        expect(fs.existsSync(path.join(outputDir, 'adoc-gen', 'schedule-doc-gen.adoc'))).toBe(true);
+        expect(fs.existsSync(path.join(outputDir, 'adoc-gen', 'Demo-gen.adoc'))).toBe(true);
+        expect(fs.existsSync(path.join(outputDir, 'adoc-gen', 'DemoConfig-gen.adoc'))).toBe(true);
+        expect(fs.existsSync(path.join(outputDir, 'adoc-gen', 'DemoAssembly-gen.adoc'))).toBe(true);
+        expect(fs.existsSync(path.join(outputDir, 'adoc-gen', 'DemoLinks-gen.adoc'))).toBe(true);
+        expect(fs.existsSync(path.join(outputDir, 'adoc-gen', 'DemoSchedule-gen.adoc'))).toBe(true);
     });
 
     test('project generation produces one AsciiDoc output per supported source document', async () => {
@@ -434,12 +434,12 @@ describe('ADoc generator tests', () => {
 
         expect(generationReport.generatedProjects).toEqual(['Demo']);
         expect(generationReport.skippedProjects).toEqual([]);
-        expect(fs.existsSync(path.join(workspaceDir, 'adoc-gen', 'demo-gen.adoc'))).toBe(true);
-        expect(fs.existsSync(path.join(workspaceDir, 'adoc-gen', 'child-preset-gen.adoc'))).toBe(true);
-        expect(fs.existsSync(path.join(workspaceDir, 'adoc-gen', 'config-doc-gen.adoc'))).toBe(true);
-        expect(fs.existsSync(path.join(workspaceDir, 'adoc-gen', 'assembly-doc-gen.adoc'))).toBe(true);
-        expect(fs.existsSync(path.join(workspaceDir, 'adoc-gen', 'links-doc-gen.adoc'))).toBe(true);
-        expect(fs.existsSync(path.join(workspaceDir, 'adoc-gen', 'schedule-doc-gen.adoc'))).toBe(true);
+        expect(fs.existsSync(path.join(workspaceDir, 'adoc-gen', 'Demo-gen.adoc'))).toBe(true);
+        expect(fs.existsSync(path.join(workspaceDir, 'adoc-gen', 'ChildPreset-gen.adoc'))).toBe(true);
+        expect(fs.existsSync(path.join(workspaceDir, 'adoc-gen', 'DemoConfig-gen.adoc'))).toBe(true);
+        expect(fs.existsSync(path.join(workspaceDir, 'adoc-gen', 'DemoAssembly-gen.adoc'))).toBe(true);
+        expect(fs.existsSync(path.join(workspaceDir, 'adoc-gen', 'DemoLinks-gen.adoc'))).toBe(true);
+        expect(fs.existsSync(path.join(workspaceDir, 'adoc-gen', 'DemoSchedule-gen.adoc'))).toBe(true);
     });
 });
 

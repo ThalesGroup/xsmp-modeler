@@ -92,12 +92,10 @@ export class ADocGenerator implements XsmpGenerator {
     }
 
     private getOutputFileName(document: ast.Document): string {
-        return `${this.getSourceBasename(document)}-gen.adoc`;
-    }
-
-    private getSourceBasename(document: ast.Document): string {
-        const uri = AstUtils.getDocument(document).uri;
-        return UriUtils.basename(uri).replace(/\.[^.]+$/, '');
+        // Derive the output name from the (unique) SMP document name, not the source file
+        // basename: the basename drops the extension, so demo.xsmpcat and demo.xsmpcfg would
+        // both produce demo-gen.adoc and silently overwrite each other.
+        return `${document.name}-gen.adoc`;
     }
 
     // ========== Shared Rendering Helpers ==========
