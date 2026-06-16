@@ -73,6 +73,12 @@ export class BoolValue extends Value<BoolValue> {
     override boolValue(): this { return this; }
     override integralValue(type: IntegralPTK): IntegralValue { return new IntegralValue(BigInt(this.value), type); }
     override floatValue(type: FloatingPTK): FloatValue { return new FloatValue(Number(this.value), type); }
+    override equal(val: BoolValue): BoolValue { return new BoolValue(this.value === val.value); }
+    override notEqual(val: BoolValue): BoolValue { return new BoolValue(this.value !== val.value); }
+    override less(val: BoolValue): BoolValue { return new BoolValue(Number(this.value) < Number(val.value)); }
+    override greater(val: BoolValue): BoolValue { return new BoolValue(Number(this.value) > Number(val.value)); }
+    override lessEqual(val: BoolValue): BoolValue { return new BoolValue(Number(this.value) <= Number(val.value)); }
+    override greaterEqual(val: BoolValue): BoolValue { return new BoolValue(Number(this.value) >= Number(val.value)); }
 }
 export class StringValue extends Value<StringValue> {
     readonly value: string;
@@ -258,6 +264,12 @@ export class IntegralValue extends Value<IntegralValue> {
     override remainder(val: IntegralValue): IntegralValue { return new IntegralValue(this.value % val.value, this.promote(val.type)); }
     override shiftLeft(n: IntegralValue): IntegralValue { return new IntegralValue(this.value << n.value, this.type); }
     override shiftRight(n: IntegralValue): IntegralValue { return new IntegralValue(this.value >> n.value, this.type); }
+    override equal(val: IntegralValue): BoolValue { return new BoolValue(this.value === val.value); }
+    override notEqual(val: IntegralValue): BoolValue { return new BoolValue(this.value !== val.value); }
+    override less(val: IntegralValue): BoolValue { return new BoolValue(this.value < val.value); }
+    override greater(val: IntegralValue): BoolValue { return new BoolValue(this.value > val.value); }
+    override lessEqual(val: IntegralValue): BoolValue { return new BoolValue(this.value <= val.value); }
+    override greaterEqual(val: IntegralValue): BoolValue { return new BoolValue(this.value >= val.value); }
 }
 
 export class FloatValue extends Value<FloatValue> {
@@ -303,6 +315,12 @@ export class FloatValue extends Value<FloatValue> {
     override subtract(val: FloatValue): FloatValue { return new FloatValue(this.value - val.value, val.type === PTK.Float64 || this.type === PTK.Float64 ? PTK.Float64 : PTK.Float32); }
     override divide(val: FloatValue): FloatValue { return new FloatValue(this.value / val.value, val.type === PTK.Float64 || this.type === PTK.Float64 ? PTK.Float64 : PTK.Float32); }
     override multiply(val: FloatValue): FloatValue { return new FloatValue(this.value * val.value, val.type === PTK.Float64 || this.type === PTK.Float64 ? PTK.Float64 : PTK.Float32); }
+    override equal(val: FloatValue): BoolValue { return new BoolValue(this.value === val.value); }
+    override notEqual(val: FloatValue): BoolValue { return new BoolValue(this.value !== val.value); }
+    override less(val: FloatValue): BoolValue { return new BoolValue(this.value < val.value); }
+    override greater(val: FloatValue): BoolValue { return new BoolValue(this.value > val.value); }
+    override lessEqual(val: FloatValue): BoolValue { return new BoolValue(this.value <= val.value); }
+    override greaterEqual(val: FloatValue): BoolValue { return new BoolValue(this.value >= val.value); }
 }
 type BuiltInConstants = 'PI' | 'E';
 const builtInConstants = new Set<BuiltInConstants>([
