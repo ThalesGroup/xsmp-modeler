@@ -25,17 +25,38 @@ export class TasMdkPythonGenerator implements XsmpGenerator {
     generate(node: AstNode, projectUri: URI, acceptTask: TaskAcceptor) {
         if (ast.isCatalogue(node)) {
             const notice = CopyrightNoticeProvider.getCopyrightNotice(node.$document, '# ');
-            const libName = `lib${node.name.toLowerCase()}.so`;
+
+            const helperInit = UriUtils.joinPath(projectUri, this.helpersFolder, '__init__.py').fsPath;
+            if (!fs.existsSync(helperInit)) {
+                acceptTask(() => this.generateFile(helperInit, s`${notice}`));
+            }
+
+            const builderInit = UriUtils.joinPath(projectUri, this.helpersFolder, 'builder', '__init__.py').fsPath;
+            if (!fs.existsSync(builderInit)) {
+                acceptTask(() => this.generateFile(builderInit, s`${notice}`));
+            }
 
             const testInit = UriUtils.joinPath(projectUri, this.helpersFolder, 'test_utils', '__init__.py').fsPath;
             if (!fs.existsSync(testInit)) {
-                acceptTask(() => this.generateFile(testInit, ''));
+                acceptTask(() => this.generateFile(testInit, s`${notice}`));
             }
-            node.elements.forEach(ns => this.generateNamespace(ns, projectUri, notice, libName, acceptTask));
+
+            node.elements.forEach(ns => this.generateNamespace(ns, projectUri, notice, node.name, acceptTask));
         }
     }
 
     public generateNamespace(ns: ast.Namespace, projectUri: URI, notice: string | undefined, libName: string, acceptTask: TaskAcceptor) {
+        const qualifiedName = fqn(ns, '/');
+
+        const builderInit = UriUtils.joinPath(projectUri, this.helpersFolder, 'builder', qualifiedName, '__init__.py').fsPath;
+        if (!fs.existsSync(builderInit)) {
+            acceptTask(() => this.generateFile(builderInit, s`${notice}`));
+        }
+
+        const testInit = UriUtils.joinPath(projectUri, this.helpersFolder, 'test_utils', qualifiedName, '__init__.py').fsPath;
+        if (!fs.existsSync(testInit)) {
+            acceptTask(() => this.generateFile(testInit, s`${notice}`));
+        }
 
         for (const elem of ns.elements) {
             switch (elem.$type) {
@@ -64,8 +85,42 @@ export class TasMdkPythonGenerator implements XsmpGenerator {
                 
                 # Model specific data
                 MODEL_UUID = "${this.docHelper.getUuid(type)}"
-                MODEL_LIB_NAME = "${libName}"
+                MODEL_LIB_NAME = "lib${libName.toLowerCase()}.so"
 
+
+            `));
+
+        const imp_lst: Array<string | undefined> = [];
+        for (const c of type.interface) {
+            const name = fqn(c.ref);
+            if (!name.startsWith("Smp.")) {
+                imp_lst.push(name);
+            }
+        }
+        const ref_lst: Array<Object | undefined> = [];
+        for (const c of type.elements.filter(ast.isReference)) {
+            ref_lst.push({name: c.name, kind: fqn(c.interface.ref)});
+        }
+        const esi_lst: Array<string | undefined> = [];
+        for (const c of type.elements.filter(ast.isEventSink)) {
+            esi_lst.push(c.name);
+        }
+        const eso_lst: Array<string | undefined> = [];
+        for (const c of type.elements.filter(ast.isEventSource)) {
+            eso_lst.push(c.name);
+        }
+
+        acceptTask(() => this.generateFile(UriUtils.joinPath(projectUri, this.helpersFolder, 'builder', qualifiedName, 'generated_icd.py').fsPath,
+            s`
+                #!/usr/bin/env python
+                # -*- coding: utf-8 -*-
+                ${notice}
+                
+                # Model specific data
+                IMPLEMENTATIONS = ${JSON.stringify(imp_lst)}
+                REFERENCES = ${JSON.stringify(ref_lst)}
+                EVENTSINKS = ${JSON.stringify(esi_lst)}
+                EVENTSOURCES = ${JSON.stringify(eso_lst)}
 
             `));
 
@@ -85,11 +140,52 @@ export class TasMdkPythonGenerator implements XsmpGenerator {
 
                 `));
         }
+
         const builderInit = UriUtils.joinPath(projectUri, this.helpersFolder, 'builder', qualifiedName, '__init__.py').fsPath;
         if (!fs.existsSync(builderInit)) {
-            acceptTask(() => this.generateFile(builderInit, ''));
+            acceptTask(() => this.generateFile(builderInit, s`${notice}`));
+        }
+
+        let base_wrapper_name = "Model";
+        let base_wrapper_path = "TasMdk.tools.model_wrapper";
+        let base_wrapper_root = "TasMdk__CommonModels";
+        if (type.base) {
+            const wrapper_module = this.splitByLastDot(fqn(type.base.ref));
+            base_wrapper_name = wrapper_module[1];
+            base_wrapper_path = wrapper_module[0]+"."+wrapper_module[1];
+            base_wrapper_root = wrapper_module[0].split(".")[0];
+        }
+        const builder_module = this.splitByLastDot(fqn(type));
+
+        const wrapperCode = UriUtils.joinPath(projectUri, this.helpersFolder, 'test_utils', qualifiedName, 'wrapper.py').fsPath;
+        // if (!fs.existsSync(wrapperCode)) {
+            acceptTask(() => this.generateFile(wrapperCode,
+                s`
+                    #!/usr/bin/env python
+                    # -*- coding: utf-8 -*-
+                    ${notice}
+                    from ${base_wrapper_root}.test_utils.${base_wrapper_path} import ${base_wrapper_name}Wrapper
+                    from ${libName}.builder.${builder_module[0]} import ${builder_module[1]}
+                    
+                    class ${type.name}Wrapper( ${base_wrapper_name}Wrapper ):
+                        builder = ${type.name}
+
+                `));
+        // }
+
+        const testInit = UriUtils.joinPath(projectUri, this.helpersFolder, 'test_utils', qualifiedName, '__init__.py').fsPath;
+        if (!fs.existsSync(testInit)) {
+            acceptTask(() => this.generateFile(testInit,
+                s`
+                    #!/usr/bin/env python
+                    # -*- coding: utf-8 -*-
+                    ${notice}
+                    from .wrapper import ${type.name}Wrapper
+
+                `));
         }
     }
+
     protected async generateFile(path: string, content: string) {
         try {
             await fs.promises.mkdir(Path.dirname(path), { recursive: true });
@@ -100,4 +196,14 @@ export class TasMdkPythonGenerator implements XsmpGenerator {
         }
     }
 
+    protected splitByLastDot(str: string) {
+        const idx = str.lastIndexOf('.'); // dernier '.'
+        if (idx === -1) {
+            // aucun point trouvé
+            return ["TBD", str];
+        }
+        const before = str.slice(0, idx);
+        const after = str.slice(idx + 1);
+        return [before, after];
+    }
 }
