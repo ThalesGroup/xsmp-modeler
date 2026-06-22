@@ -76,8 +76,6 @@ export class TasMdkPythonGenerator implements XsmpGenerator {
 
         acceptTask(() => this.generateFile(UriUtils.joinPath(projectUri, this.helpersFolder, 'builder', qualifiedName, 'generated_info.py').fsPath,
             s`
-                #!/usr/bin/env python
-                # -*- coding: utf-8 -*-
                 ${notice}
                 
                 # Import user-defined methods for model integration
@@ -112,8 +110,6 @@ export class TasMdkPythonGenerator implements XsmpGenerator {
 
         acceptTask(() => this.generateFile(UriUtils.joinPath(projectUri, this.helpersFolder, 'builder', qualifiedName, 'generated_icd.py').fsPath,
             s`
-                #!/usr/bin/env python
-                # -*- coding: utf-8 -*-
                 ${notice}
                 
                 # Model specific data
@@ -128,8 +124,6 @@ export class TasMdkPythonGenerator implements XsmpGenerator {
         if (!fs.existsSync(userCode)) {
             acceptTask(() => this.generateFile(userCode,
                 s`
-                    #!/usr/bin/env python
-                    # -*- coding: utf-8 -*-
                     ${notice}
                     
                     def configureInstance(jsim, instance_data):
@@ -158,11 +152,9 @@ export class TasMdkPythonGenerator implements XsmpGenerator {
         const builder_module = this.splitByLastDot(fqn(type));
 
         const wrapperCode = UriUtils.joinPath(projectUri, this.helpersFolder, 'test_utils', qualifiedName, 'wrapper.py').fsPath;
-        // if (!fs.existsSync(wrapperCode)) {
+        if (!fs.existsSync(wrapperCode)) {
             acceptTask(() => this.generateFile(wrapperCode,
                 s`
-                    #!/usr/bin/env python
-                    # -*- coding: utf-8 -*-
                     ${notice}
                     from ${base_wrapper_root}.test_utils.${base_wrapper_path} import ${base_wrapper_name}Wrapper
                     from ${libName}.builder.${builder_module[0]} import ${builder_module[1]}
@@ -171,14 +163,12 @@ export class TasMdkPythonGenerator implements XsmpGenerator {
                         builder = ${type.name}
 
                 `));
-        // }
+        }
 
         const testInit = UriUtils.joinPath(projectUri, this.helpersFolder, 'test_utils', qualifiedName, '__init__.py').fsPath;
         if (!fs.existsSync(testInit)) {
             acceptTask(() => this.generateFile(testInit,
                 s`
-                    #!/usr/bin/env python
-                    # -*- coding: utf-8 -*-
                     ${notice}
                     from .wrapper import ${type.name}Wrapper
 
