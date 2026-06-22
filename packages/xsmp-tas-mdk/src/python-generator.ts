@@ -91,11 +91,11 @@ export class TasMdkPythonGenerator implements XsmpGenerator {
         const imp_lst: Array<string | undefined> = [];
         for (const c of type.interface) {
             const name = fqn(c.ref);
-            if (!name.startsWith("Smp.")) {
+            if (!name.startsWith('Smp.')) {
                 imp_lst.push(name);
             }
         }
-        const ref_lst: Array<Object | undefined> = [];
+        const ref_lst: Array<object | undefined> = [];
         for (const c of type.elements.filter(ast.isReference)) {
             ref_lst.push({name: c.name, kind: fqn(c.interface.ref)});
         }
@@ -140,14 +140,14 @@ export class TasMdkPythonGenerator implements XsmpGenerator {
             acceptTask(() => this.generateFile(builderInit, s`${notice}`));
         }
 
-        let base_wrapper_name = "Model";
-        let base_wrapper_path = "TasMdk.tools.model_wrapper";
-        let base_wrapper_root = "TasMdk__CommonModels";
+        let base_wrapper_name = 'Model';
+        let base_wrapper_path = 'TasMdk.tools.model_wrapper';
+        let base_wrapper_root = 'TasMdk__CommonModels';
         if (type.base) {
             const wrapper_module = this.splitByLastDot(fqn(type.base.ref));
             base_wrapper_name = wrapper_module[1];
-            base_wrapper_path = wrapper_module[0]+"."+wrapper_module[1];
-            base_wrapper_root = wrapper_module[0].split(".")[0];
+            base_wrapper_path = wrapper_module[0]+'.'+wrapper_module[1];
+            base_wrapper_root = wrapper_module[0].split('.')[0];
         }
         const builder_module = this.splitByLastDot(fqn(type));
 
@@ -190,7 +190,7 @@ export class TasMdkPythonGenerator implements XsmpGenerator {
         const idx = str.lastIndexOf('.'); // dernier '.'
         if (idx === -1) {
             // aucun point trouvé
-            return ["TBD", str];
+            return ['TBD', str];
         }
         const before = str.slice(0, idx);
         const after = str.slice(idx + 1);
