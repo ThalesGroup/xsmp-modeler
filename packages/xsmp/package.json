@@ -92,9 +92,9 @@
         "test": "cd ../.. && npm run build && vitest run packages/xsmp/test --config vitest.config.ts"
     },
     "dependencies": {
-        "langium": "4.2.4",
+        "langium": "4.3.0",
         "p-limit": "^7.3.0",
-        "semver": "^7.8.1",
+        "semver": "^7.8.5",
         "vscode-languageserver": "~9.0.1",
         "xmlbuilder2": "^4.0.3"
     }
