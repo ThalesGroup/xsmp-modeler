@@ -141,13 +141,21 @@ export class TasMdkPythonGenerator implements XsmpGenerator {
         }
 
         let base_wrapper_name = 'Model';
-        let base_wrapper_path = 'TasMdk.tools.model_wrapper';
+        let base_wrapper_path = 'TasMdk.Model';
         let base_wrapper_root = 'TasMdk__CommonModels';
         if (type.base) {
             const wrapper_module = this.splitByLastDot(fqn(type.base.ref));
             base_wrapper_name = wrapper_module[1];
             base_wrapper_path = wrapper_module[0]+'.'+wrapper_module[1];
             base_wrapper_root = wrapper_module[0].split('.')[0];
+            // Workaround for the TasMdk case
+            if (base_wrapper_root === 'TasMdk') {
+                if (base_wrapper_path.startsWith('TasMdk.CommonModels') || base_wrapper_path.startsWith('TasMdk.InterfacesImplem') || base_wrapper_path.startsWith('TasMdk.Model')) {
+                    base_wrapper_root = 'TasMdk__CommonModels';
+                } else if (base_wrapper_path.startsWith('TasMdk.CommonTestModels')) {
+                    base_wrapper_root = 'TasMdk__CommonTestModels';
+                }
+            }
         }
         const builder_module = this.splitByLastDot(fqn(type));
 
