@@ -1,6 +1,6 @@
 {
     "name": "@xsmp/core",
-    "version": "2.0.0",
+    "version": "2.0.1",
     "description": "XSMP core language and runtime library.",
     "type": "module",
     "license": "MIT",
@@ -92,7 +92,7 @@
         "test": "cd ../.. && npm run build && vitest run packages/xsmp/test --config vitest.config.ts"
     },
     "dependencies": {
-        "langium": "4.3.0",
+        "langium": "4.2.2",
         "p-limit": "^7.3.0",
         "semver": "^7.8.5",
         "vscode-languageserver": "~9.0.1",
