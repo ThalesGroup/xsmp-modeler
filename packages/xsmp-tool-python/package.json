@@ -1,6 +1,6 @@
 {
     "name": "@xsmp/tool-python",
-    "version": "2.0.1",
+    "version": "2.0.2",
     "type": "module",
     "private": true,
     "license": "MIT",
@@ -19,6 +19,6 @@
     },
     "dependencies": {
         "langium": "4.2.2",
-        "@xsmp/core": "2.0.1"
+        "@xsmp/core": "2.0.2"
     }
 }

@@ -2,7 +2,7 @@
     "name": "xsmp-modeler",
     "displayName": "XSMP Modeler",
     "description": "XSMP development framework.",
-    "version": "2.0.1",
+    "version": "2.0.2",
     "publisher": "ydaveluy",
     "author": "ydaveluy",
     "homepage": "https://github.com/thalesgroup/xsmp-modeler",
@@ -370,6 +370,6 @@
         "semver": "^7.8.5",
         "vscode-languageclient": "~9.0.1",
         "vscode-languageserver": "~9.0.1",
-        "@xsmp/core": "2.0.1"
+        "@xsmp/core": "2.0.2"
     }
 }
