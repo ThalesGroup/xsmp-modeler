@@ -9,7 +9,7 @@ interface PackageInfo {
     root: string;
 }
 
-let cached: PackageInfo | undefined;
+let cachedPackageInfo: PackageInfo | undefined;
 
 function getDirName(): string {
     try {
@@ -20,50 +20,50 @@ function getDirName(): string {
     }
 }
 
-function findPackagePath(startDir: string): string {
+function loadPackageInfoFrom(startDir: string): PackageInfo | undefined {
     let currentDir = startDir;
     for (;;) {
         const candidate = path.join(currentDir, 'package.json');
         if (fs.existsSync(candidate)) {
-            return candidate;
+            const json = JSON.parse(fs.readFileSync(candidate, 'utf-8')) as { version?: unknown };
+            if (typeof json.version === 'string' && json.version.length > 0) {
+                return { version: json.version, root: currentDir };
+            }
         }
         const parentDir = path.dirname(currentDir);
         if (parentDir === currentDir) {
-            throw new Error(`Unable to locate package.json from '${startDir}'.`);
+            return undefined;
         }
         currentDir = parentDir;
     }
 }
 
-function load(): PackageInfo {
-    if (cached) {
-        return cached;
+function getConfiguredVersion(): string | undefined {
+    const version = process.env.XSMP_CORE_VERSION;
+    return version && version.length > 0 ? version : undefined;
+}
+
+function loadPackageInfo(): PackageInfo {
+    if (cachedPackageInfo) {
+        return cachedPackageInfo;
     }
 
     const dirname = getDirName();
-    const candidates: string[] = [];
-    try {
-        candidates.push(findPackagePath(dirname));
-    } catch {
-        // Fall back to the current working directory below.
-    }
-    candidates.push(path.resolve(process.cwd(), 'package.json'));
-
-    for (const candidate of candidates) {
-        if (fs.existsSync(candidate)) {
-            const json = JSON.parse(fs.readFileSync(candidate, 'utf-8')) as { version: string };
-            cached = { version: json.version, root: path.dirname(candidate) };
-            return cached;
+    for (const candidateDir of [dirname, process.cwd()]) {
+        const packageInfo = loadPackageInfoFrom(candidateDir);
+        if (packageInfo) {
+            cachedPackageInfo = packageInfo;
+            return cachedPackageInfo;
         }
     }
 
-    throw new Error(`Unable to locate package.json from '${dirname}' or '${process.cwd()}'.`);
+    throw new Error(`Unable to locate package.json with a version from '${dirname}' or '${process.cwd()}'.`);
 }
 
 export function getXsmpVersion(): string {
-    return load().version;
+    return getConfiguredVersion() ?? loadPackageInfo().version;
 }
 
 export function getXsmpPackageRoot(): string {
-    return load().root;
+    return loadPackageInfo().root;
 }

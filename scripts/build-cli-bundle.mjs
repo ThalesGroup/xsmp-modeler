@@ -7,7 +7,9 @@ import { repoRoot } from './workspace-build-utils.mjs';
 
 const outputDir = path.join(repoRoot, 'out', 'cli-bundle');
 const cliPackageJsonPath = path.join(repoRoot, 'packages', 'xsmp-cli', 'package.json');
+const corePackageJsonPath = path.join(repoRoot, 'packages', 'xsmp', 'package.json');
 const cliVersion = JSON.parse(await fsp.readFile(cliPackageJsonPath, 'utf8')).version;
+const coreVersion = JSON.parse(await fsp.readFile(corePackageJsonPath, 'utf8')).version;
 const artifactPath = path.join(outputDir, `xsmpproject-cli-${cliVersion}.cjs`);
 
 await fsp.mkdir(outputDir, { recursive: true });
@@ -31,6 +33,7 @@ await build({
     },
     define: {
         __XSMP_CLI_VERSION__: JSON.stringify(cliVersion),
+        __XSMP_CORE_VERSION__: JSON.stringify(coreVersion),
     },
     plugins: [
         {
