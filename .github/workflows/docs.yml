@@ -1,6 +1,7 @@
 name: Docs
 
 on:
+  workflow_dispatch:
   pull_request:
     branches:
       - main
@@ -14,8 +15,8 @@ permissions:
   id-token: write
 
 concurrency:
-  group: github-pages
-  cancel-in-progress: true
+  group: pages
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -32,19 +33,21 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r docs/requirements.txt
       - name: Configure GitHub Pages
-        if: github.event_name == 'push'
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         uses: actions/configure-pages@v6
       - name: Build documentation
         run: |
           python -m mkdocs build --strict
       - name: Upload GitHub Pages artifact
-        if: github.event_name == 'push'
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v5
         with:
+          name: github-pages
           path: site
+          retention-days: 7
 
   deploy:
-    if: github.event_name == 'push'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
     environment:
