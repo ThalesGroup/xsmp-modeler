@@ -15,7 +15,7 @@ const coreVersion = JSON.parse(fs.readFileSync(corePackageJsonPath, 'utf-8')).ve
 const standaloneBundlePath = path.join(repoRoot, 'out', 'cli-bundle', `xsmpproject-cli-${cliVersion}.cjs`);
 
 beforeAll(() => {
-    const tasMdkBuildResult = runProcess('npm', ['run', 'build:release', '-w', 'xsmp-tas-mdk']);
+    const tasMdkBuildResult = runProcess('npm', ['run', 'build:release', '-w', 'xsmp-tas-mdk', '--loglevel=error']);
     expect(tasMdkBuildResult.status).toBe(0);
     expect(tasMdkBuildResult.stderr).toBe('');
 
