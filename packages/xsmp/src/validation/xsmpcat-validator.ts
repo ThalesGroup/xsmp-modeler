@@ -71,6 +71,16 @@ const validUsages = new Set(['NamedElement', 'Array', 'Association', 'AttributeT
         'Structure', 'Type', 'ValueReference', 'ValueType', 'VisibilityElement']);
 
 /**
+ * The problematic fields (if any) transitively reachable from a Field's type: the first field, in
+ * declaration order, that is directly non-ValueType, and independently the first field that is
+ * directly (or via an array item type) String8.
+ */
+interface FieldIssues {
+    readonly nonValueTypeField?: ast.Field;
+    readonly string8Field?: ast.Field;
+}
+
+/**
  * Implementation of custom validations.
  */
 export class XsmpcatValidator {
@@ -78,6 +88,7 @@ export class XsmpcatValidator {
     protected readonly globalCache: WorkspaceCache<string, MultiMap<string, AstNodeDescription>>;
     protected readonly visibleCache: WorkspaceCache<URI, MultiMap<string, AstNodeDescription>>;
     protected readonly catalogueCycleCache: WorkspaceCache<URI, Map<string, AstNodeDescription[]>>;
+    protected readonly fieldIssuesCache: WorkspaceCache<ast.Type, FieldIssues>;
     protected readonly docHelper: DocumentationHelper;
     protected readonly attrHelper: AttributeHelper;
     protected readonly projectManager: ProjectManager;
@@ -87,6 +98,7 @@ export class XsmpcatValidator {
         this.globalCache = new WorkspaceCache<string, MultiMap<string, AstNodeDescription>>(services.shared);
         this.visibleCache = new WorkspaceCache<URI, MultiMap<string, AstNodeDescription>>(services.shared);
         this.catalogueCycleCache = new WorkspaceCache<URI, Map<string, AstNodeDescription[]>>(services.shared);
+        this.fieldIssuesCache = new WorkspaceCache<ast.Type, FieldIssues>(services.shared);
         this.docHelper = services.shared.DocumentationHelper;
         this.attrHelper = services.shared.AttributeHelper;
         this.projectManager = services.shared.workspace.ProjectManager;
@@ -467,18 +479,42 @@ export class XsmpcatValidator {
                     accept('error', 'A Field of a Model or Service shall have a ValueType type.', { node: field, property: ast.Field.type });
                 }
                 else {
-                    const invalidField = this.findNonValueTypeField(type);
-                    if (invalidField) {
+                    const { nonValueTypeField, string8Field } = this.getFieldIssues(type);
+                    if (nonValueTypeField) {
                         accept('error', 'A Field of a Model or Service shall not use a type containing non-ValueType fields.', {
                             node: field,
                             property: ast.Field.type,
-                            relatedInformation: this.getFieldRelatedInformation(invalidField)
+                            relatedInformation: this.getFieldRelatedInformation(nonValueTypeField, 'Non-ValueType')
+                        });
+                    }
+
+                    if (this.resolvesToString8(type)) {
+                        accept('error', 'A Field of a Model or Service shall not use the String8 type.', { node: field, property: ast.Field.type });
+                    }
+                    else if (string8Field) {
+                        accept('error', 'A Field of a Model or Service shall not use a type containing a String8 field.', {
+                            node: field,
+                            property: ast.Field.type,
+                            relatedInformation: this.getFieldRelatedInformation(string8Field, 'String8')
                         });
                     }
                 }
             }
             else if (!ast.isValueType(type)) {
                 accept('warning', 'Field type is not a ValueType. This is allowed outside Model/Service but is not SMP compatible.', { node: field, property: ast.Field.type });
+            }
+            else if (this.resolvesToString8(type)) {
+                accept('warning', 'Field type is String8. This is allowed outside Model/Service but is not SMP compatible.', { node: field, property: ast.Field.type });
+            }
+            else {
+                const { string8Field } = this.getFieldIssues(type);
+                if (string8Field) {
+                    accept('warning', 'Field type contains a String8 field. This is allowed outside Model/Service but is not SMP compatible.', {
+                        node: field,
+                        property: ast.Field.type,
+                        relatedInformation: this.getFieldRelatedInformation(string8Field, 'String8')
+                    });
+                }
             }
 
             if (ast.isValueType(type)) {
@@ -487,31 +523,82 @@ export class XsmpcatValidator {
         }
     }
 
-    private findNonValueTypeField(type: ast.Type | undefined, visited = new Set<ast.Type>()): ast.Field | undefined {
+    /**
+     * Returns the (cached) FieldIssues for `type`, i.e. whether it transitively contains a
+     * non-ValueType field and/or a String8 field. Only ever caches at this outer boundary — one entry
+     * per distinct Type a Field directly declares — never for a type reached mid-recursion (see
+     * computeFieldIssues), which is what keeps this safe: each cache entry is written exactly once,
+     * from a single, fully-completed top-level traversal, so a Type shared as a nested field of two
+     * different outer types can never see a partially-explored result cached under its own key.
+     */
+    private getFieldIssues(type: ast.Type): FieldIssues {
+        return this.fieldIssuesCache.get(type, () => this.computeFieldIssues(type, new Set()));
+    }
+
+    /**
+     * Walks the transitive field graph of a struct/class (or array thereof) ONE time, finding both the
+     * first directly non-ValueType field and the first directly (possibly array-wrapped) String8 field
+     * in declaration order - the two facts checkField needs. A field's type can never be both (a
+     * non-ValueType type is never a PrimitiveType, so never String8 either), so at most one of the two
+     * branches below fires per field; whichever doesn't fire recurses into that field's own type looking
+     * further, exactly like the field itself would if it were the root.
+     *
+     * `visited` is a plain, call-local cycle guard, uncached and never shared across separate
+     * getFieldIssues(...) calls: struct/class graphs can be self- or mutually-recursive in an invalid
+     * document (reported separately as "Recursive Field Type"), and revisiting a type already on the
+     * current path safely contributes no further findings, since by construction a type is only added to
+     * `visited` once its own field list has started being considered by an enclosing call already in
+     * progress on this exact call chain.
+     */
+    private computeFieldIssues(type: ast.Type | undefined, visited: Set<ast.Type>): FieldIssues {
         if (!type || visited.has(type)) {
-            return undefined;
+            return {};
         }
         visited.add(type);
 
         if (ast.isArrayType(type)) {
-            return this.findNonValueTypeField(type.itemType?.ref, visited);
+            return this.computeFieldIssues(type.itemType?.ref, visited);
         }
 
         if (!ast.isStructure(type)) {
-            return undefined;
+            return {};
         }
 
+        let nonValueTypeField: ast.Field | undefined;
+        let string8Field: ast.Field | undefined;
         for (const field of this.getAllNonStaticFields(type)) {
             const fieldType = field.type?.ref;
-            if (fieldType && !ast.isValueType(fieldType)) {
-                return field;
+            if (!fieldType) {
+                continue;
             }
-            const invalidField = this.findNonValueTypeField(fieldType, visited);
-            if (invalidField) {
-                return invalidField;
+            if (!ast.isValueType(fieldType)) {
+                nonValueTypeField ??= field;
+            }
+            else if (this.resolvesToString8(fieldType)) {
+                string8Field ??= field;
+            }
+            else {
+                const nested = this.computeFieldIssues(fieldType, visited);
+                nonValueTypeField ??= nested.nonValueTypeField;
+                string8Field ??= nested.string8Field;
+            }
+            if (nonValueTypeField && string8Field) {
+                break;
             }
         }
-        return undefined;
+        return { nonValueTypeField, string8Field };
+    }
+
+    /** Unwraps (possibly nested) ArrayType item types so an array of String8 is treated like a direct String8 usage. */
+    private resolvesToString8(type: ast.Type | undefined, visited = new Set<ast.Type>()): boolean {
+        if (!type || visited.has(type)) {
+            return false;
+        }
+        if (ast.isArrayType(type)) {
+            visited.add(type);
+            return this.resolvesToString8(type.itemType?.ref, visited);
+        }
+        return XsmpUtils.isString8(type);
     }
 
     private getAllNonStaticFields(type: ast.Structure, visited = new Set<ast.Structure>()): ast.Field[] {
@@ -528,13 +615,13 @@ export class XsmpcatValidator {
         return fields;
     }
 
-    private getFieldRelatedInformation(field: ast.Field) {
+    private getFieldRelatedInformation(field: ast.Field, label: string) {
         if (!field.$cstNode) {
             return undefined;
         }
         return [{
             location: Location.create(AstUtils.getDocument(field).uri.toString(), field.$cstNode.range),
-            message: `Non-ValueType field ${XsmpUtils.fqn(field)}`
+            message: `${label} field ${XsmpUtils.fqn(field)}`
         }];
     }
 

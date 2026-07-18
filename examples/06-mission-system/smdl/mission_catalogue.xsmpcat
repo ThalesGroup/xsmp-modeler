@@ -5,13 +5,19 @@ catalogue mission_catalogue
 namespace demo::mission
 {
     /**
+     * Bounded buffer used to store the last message displayed by the ground console.
+     * @uuid f34c9d57-d945-4171-9d0a-1f848450a416
+     */
+    public string ConsoleMessage[64]
+
+    /**
      * Ground console acting as logger and uplink source.
      * @uuid 36bc5aa6-2356-4e04-addf-07c7fc35857d
      */
     public model GroundConsole implements demo.foundation.ILogger
     {
         /** Last message displayed by the console. */
-        field Smp.String8 consoleMessage = "idle"
+        field demo.mission.ConsoleMessage consoleMessage = "idle"
         /** Mode commanded from the ground. */
         output field demo.foundation.Mode uplinkMode = demo.foundation.Mode.Standby
 

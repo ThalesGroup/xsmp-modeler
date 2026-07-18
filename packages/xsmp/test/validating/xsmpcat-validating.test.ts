@@ -226,6 +226,219 @@ describe('Validating Xsmpcat', () => {
         expect(errorMessages).toContain('A Field of a Model or Service shall have a ValueType type.');
     });
 
+    test('rejects direct String8 fields in models and services', async () => {
+        document = await parse(`
+            catalogue FieldString8Direct
+
+            namespace fieldString8Direct
+            {
+                /** @uuid 1a9c318b-3e5c-4b8a-9a3b-6e6f0a2a9e01 */
+                public model Root
+                {
+                    field Smp.String8 name
+                }
+            }
+        `, { documentUri: 'field-string8-model-error.xsmpcat' });
+
+        const errorMessages = (document.diagnostics ?? [])
+            .filter(d => d.severity === DiagnosticSeverity.Error)
+            .map(d => d.message);
+
+        expect(errorMessages).toContain('A Field of a Model or Service shall not use the String8 type.');
+    });
+
+    test('rejects fields of an array-of-String8 type in models and services', async () => {
+        document = await parse(`
+            catalogue FieldString8ArrayDirect
+
+            namespace fieldString8ArrayDirect
+            {
+                /** @uuid ed574447-6b50-48a7-a595-574ee4196294 */
+                public array Messages = Smp.String8[4]
+
+                /** @uuid 1a9c318b-3e5c-4b8a-9a3b-6e6f0a2a9e06 */
+                public model Root
+                {
+                    field fieldString8ArrayDirect.Messages messages
+                }
+            }
+        `, { documentUri: 'field-string8-array-model-error.xsmpcat' });
+
+        const errorMessages = (document.diagnostics ?? [])
+            .filter(d => d.severity === DiagnosticSeverity.Error)
+            .map(d => d.message);
+
+        expect(errorMessages).toContain('A Field of a Model or Service shall not use the String8 type.');
+    });
+
+    test('correctly flags a String8 field shared by two sibling branches and reused directly elsewhere', async () => {
+        // Regression test for a caching hazard: Outer has two sibling fields (viaB, viaC) that both
+        // transitively reach the SAME shared struct (Packet, containing a String8 field) within one
+        // top-level traversal. A naive cache that memoizes intermediate/nested types visited along the
+        // way (not just the field's own directly-declared type) can end up permanently caching an
+        // incomplete result for one of the shared branches, which would then silently suppress the
+        // diagnostic for `direct` and `viaCDirect` below, which reference the same nested types directly.
+        document = await parse(`
+            catalogue FieldString8Diamond
+
+            namespace fieldString8Diamond
+            {
+                /** @uuid 8cd9004c-aacb-4d9a-b8a5-23ab699e935d */
+                public struct Packet
+                {
+                    field Smp.String8 label
+                }
+
+                /** @uuid b16aa34d-b3e9-4b66-9bdc-5f8604091c0c */
+                public struct WrapperB
+                {
+                    field fieldString8Diamond.Packet viaB
+                }
+
+                /** @uuid f2ad730a-bef5-47bb-ac06-397e422506e9 */
+                public struct WrapperC
+                {
+                    field fieldString8Diamond.Packet viaC
+                }
+
+                /** @uuid 5cba6a1c-33df-461b-8211-6ba8f5f5b7f6 */
+                public struct Outer
+                {
+                    field fieldString8Diamond.WrapperB b
+                    field fieldString8Diamond.WrapperC c
+                }
+
+                /** @uuid 4c6cadcb-d3e5-4f32-9e41-0f35d574cdca */
+                public model Root
+                {
+                    field fieldString8Diamond.Outer wide
+                    field fieldString8Diamond.WrapperC viaCDirect
+                    field fieldString8Diamond.Packet direct
+                }
+            }
+        `, { documentUri: 'field-string8-diamond-error.xsmpcat' });
+
+        const errors = (document.diagnostics ?? [])
+            .filter(d => d.severity === DiagnosticSeverity.Error && d.message === 'A Field of a Model or Service shall not use a type containing a String8 field.');
+
+        expect(errors).toHaveLength(3);
+        for (const error of errors) {
+            expect(error.relatedInformation?.[0]?.message).toContain('label');
+        }
+    });
+
+    test('rejects model fields whose value type contains a String8 field', async () => {
+        document = await parse(`
+            catalogue FieldString8Transitive
+
+            namespace fieldString8Transitive
+            {
+                /** @uuid 2b8b6a0c-4f5d-4c9a-8b1a-7f6f0a2a9e02 */
+                public struct Packet
+                {
+                    field Smp.String8 label
+                }
+
+                /** @uuid 3c9c7b1d-5a6e-4d0b-9c2b-8a7a0b3a9e03 */
+                public struct Envelope
+                {
+                    field fieldString8Transitive.Packet packet
+                }
+
+                /** @uuid 4d0d8c2e-6b7f-4e1c-ad3c-9b8b0c4a9e04 */
+                public model Root
+                {
+                    field fieldString8Transitive.Envelope envelope
+                }
+            }
+        `, { documentUri: 'field-string8-transitive-model-error.xsmpcat' });
+
+        const errors = (document.diagnostics ?? [])
+            .filter(d => d.severity === DiagnosticSeverity.Error && d.message === 'A Field of a Model or Service shall not use a type containing a String8 field.');
+
+        expect(errors).toHaveLength(1);
+        expect(errors[0].relatedInformation?.[0]?.message).toContain('label');
+    });
+
+    test('warns on direct String8 fields in structs and classes', async () => {
+        document = await parse(`
+            catalogue FieldString8StructWarning
+
+            namespace fieldString8StructWarning
+            {
+                /** @uuid 5e1d9d3f-7c8f-4f2d-be4d-ac9c1d5a9e05 */
+                public struct Packet
+                {
+                    field Smp.String8 label
+                }
+
+                /** @uuid 6f2eae40-8d90-403e-cf5e-bdad2e6b9f06 */
+                public class Envelope
+                {
+                    field Smp.String8 tag
+                }
+            }
+        `, { documentUri: 'field-string8-struct-warning.xsmpcat' });
+
+        const diagnostics = document.diagnostics ?? [];
+        expect(diagnostics.filter(d => d.severity === DiagnosticSeverity.Error)).toHaveLength(0);
+        expect(diagnostics.filter(d => d.severity === DiagnosticSeverity.Warning).map(d => d.message)).toEqual(expect.arrayContaining([
+            'Field type is String8. This is allowed outside Model/Service but is not SMP compatible.',
+            'Field type is String8. This is allowed outside Model/Service but is not SMP compatible.',
+        ]));
+    });
+
+    test('warns on fields of an array-of-String8 type in structs and classes', async () => {
+        document = await parse(`
+            catalogue FieldString8ArrayWarning
+
+            namespace fieldString8ArrayWarning
+            {
+                /** @uuid 18071710-ba26-40ff-bf1b-7afda003e66d */
+                public array Messages = Smp.String8[4]
+
+                /** @uuid 6f2eae40-8d90-403e-cf5e-bdad2e6b9f07 */
+                public struct Log
+                {
+                    field fieldString8ArrayWarning.Messages messages
+                }
+            }
+        `, { documentUri: 'field-string8-array-struct-warning.xsmpcat' });
+
+        const diagnostics = document.diagnostics ?? [];
+        expect(diagnostics.filter(d => d.severity === DiagnosticSeverity.Error)).toHaveLength(0);
+        expect(diagnostics.filter(d => d.severity === DiagnosticSeverity.Warning).map(d => d.message)).toContain(
+            'Field type is String8. This is allowed outside Model/Service but is not SMP compatible.'
+        );
+    });
+
+    test('warns on struct fields whose value type transitively contains a String8 field', async () => {
+        document = await parse(`
+            catalogue FieldString8TransitiveWarning
+
+            namespace fieldString8TransitiveWarning
+            {
+                /** @uuid 7a3fbf51-9ea1-414f-d06f-cebe3f7ca017 */
+                public struct Packet
+                {
+                    field Smp.String8 label
+                }
+
+                /** @uuid 8b40c062-af02-425f-e17f-dfcf408db128 */
+                public struct Envelope
+                {
+                    field fieldString8TransitiveWarning.Packet packet
+                }
+            }
+        `, { documentUri: 'field-string8-transitive-struct-warning.xsmpcat' });
+
+        const warnings = (document.diagnostics ?? [])
+            .filter(d => d.severity === DiagnosticSeverity.Warning && d.message === 'Field type contains a String8 field. This is allowed outside Model/Service but is not SMP compatible.');
+
+        expect(warnings).toHaveLength(1);
+        expect(warnings[0].relatedInformation?.[0]?.message).toContain('label');
+    });
+
     test('rejects model fields whose value type contains non-ValueType fields', async () => {
         document = await parse(`
             catalogue FieldTransitive

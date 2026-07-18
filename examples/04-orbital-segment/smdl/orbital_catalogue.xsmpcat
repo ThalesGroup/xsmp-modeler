@@ -5,13 +5,19 @@ catalogue orbital_catalogue
 namespace demo::orbit
 {
     /**
+     * Bounded buffer used to store the last log message of a segment logger.
+     * @uuid 352c1e40-940c-41f4-84bb-f7c47ec3da21
+     */
+    public string LogMessage[64]
+
+    /**
      * Segment-local logger implementation.
      * @uuid bca8388b-3f43-4ab6-ad7f-3b0ef3450f0c
      */
     public model SegmentLogger implements demo.foundation.ILogger
     {
         /** Last emitted log message. */
-        field Smp.String8 lastMessage = "idle"
+        field demo.orbit.LogMessage lastMessage = "idle"
 
         /** Records one message in the logger. */
         public def void log(in Smp.String8 message)

@@ -26,13 +26,19 @@ namespace demo::payloadsegment
     }
 
     /**
+     * Bounded buffer used to store the last log message of the payload logger.
+     * @uuid 38c5356d-00aa-40a4-9347-0326adb058c3
+     */
+    public string LogMessage[64]
+
+    /**
      * Logger dedicated to the payload segment.
      * @uuid 015e89db-00aa-4712-932f-d606212a5d98
      */
     public model PayloadLogger implements demo.foundation.ILogger
     {
         /** Last payload log message. */
-        field Smp.String8 lastMessage = "payload idle"
+        field demo.payloadsegment.LogMessage lastMessage = "payload idle"
 
         /** Records one payload log message. */
         public def void log(in Smp.String8 message)
