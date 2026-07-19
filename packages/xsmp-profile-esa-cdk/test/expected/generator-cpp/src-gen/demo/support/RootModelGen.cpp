@@ -168,6 +168,8 @@ namespace demo
                 false, // Input
                 false // Output
             );
+            // WARNING: Operation ping is not invokable: its 'measured' out parameter is not supported for dynamic invocation (only 'in' parameters are supported).
+
             // Publish Property connected
             receiver->PublishProperty(
                 "connected", // Name

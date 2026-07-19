@@ -1281,13 +1281,25 @@ export abstract class CppGenerator implements XsmpGenerator {
     }
 
     protected isInvokable(element: ast.Invokable): boolean {
+        return this.getNotInvokableReason(element) === undefined;
+    }
+
+    /**
+     * Returns why `element` cannot be published/exposed for dynamic invocation (via
+     * `Smp::IRequest`/`Invoke()`), or `undefined` if it can. Subclasses that layer on additional
+     * restrictions (e.g. String8 parameters) should override this - not `isInvokable` - and fall back to
+     * `super.getNotInvokableReason(...)` so callers can report a precise reason instead of silently
+     * omitting the element.
+     */
+    protected getNotInvokableReason(element: ast.Invokable): string | undefined {
         if (ast.isProperty(element)) {
-            return ast.isSimpleType(element.type.ref);
+            return ast.isSimpleType(element.type.ref) ? undefined : 'its type is not a SimpleType';
         }
         if (element.returnParameter && !ast.isSimpleType(element.returnParameter.type.ref)) {
-            return false;
+            return 'its return type is not a SimpleType';
         }
-        return element.parameter.every(param => ast.isSimpleType(param.type.ref));
+        const invalidParam = element.parameter.find(param => !ast.isSimpleType(param.type.ref));
+        return invalidParam ? `parameter '${invalidParam.name}' is not a SimpleType` : undefined;
     }
     protected componentBase(type: ast.Component): string | undefined {
         if (type.base) { return this.fqn(type.base.ref); }
@@ -1383,45 +1395,53 @@ export abstract class CppGenerator implements XsmpGenerator {
     }
 
     publishOperation(op: ast.Operation): string | undefined {
-        if (this.isInvokable(op)) {
-            const r = op.returnParameter;
+        const reason = this.getNotInvokableReason(op);
+        if (reason) {
             return s`
-                // Publish operation ${op.name}
-                ${r || op.parameter.length > 0 ? `auto* op_${op.name} = ` : ''}receiver->PublishOperation(
-                    "${op.name}", // Name
-                    ${this.description(op)}, // Description
-                    ${this.viewKind(op)} // View Kind
-                );
-                ${op.parameter.map(param => `op_${op.name}->PublishParameter(
+                // WARNING: Operation ${op.name} is not invokable: ${reason}.
+
+                `;
+        }
+        const r = op.returnParameter;
+        return s`
+            // Publish operation ${op.name}
+            ${r || op.parameter.length > 0 ? `auto* op_${op.name} = ` : ''}receiver->PublishOperation(
+                "${op.name}", // Name
+                ${this.description(op)}, // Description
+                ${this.viewKind(op)} // View Kind
+            );
+            ${op.parameter.map(param => `op_${op.name}->PublishParameter(
                     "${param.name}", // Name
                     ${this.description(param)}, // Description
                     ${this.uuid(param.type.ref)}, // Type UUID
                     ${this.parameterDirectionKind(param)} // Parameter Direction Kind
                 );`).join('\n')}
-                ${r ? `op_${op.name}->PublishParameter(
+            ${r ? `op_${op.name}->PublishParameter(
                     "${r.name ?? 'return'}", // Name
                     ${this.description(r)}, // Description
                     ${this.uuid(r.type.ref)}, // Type UUID
                     ${this.parameterDirectionKind(r)} // Parameter Direction Kind
                 );` : ''}
-                `;
-        }
-        return undefined;
+            `;
     }
     publishProperty(property: ast.Property): string | undefined {
-        if (this.isInvokable(property)) {
+        const reason = this.getNotInvokableReason(property);
+        if (reason) {
             return s`
-                // Publish Property ${property.name}
-                receiver->PublishProperty(
-                    "${property.name}", // Name
-                    ${this.description(property)}, // Description
-                    ${this.uuid(property.type.ref)}, // Type UUID
-                    ${this.accessKind(property)}, // Access Kind
-                    ${this.viewKind(property)} // View Kind
-                );
+                // WARNING: Property ${property.name} is not invokable: ${reason}.
+
                 `;
         }
-        return undefined;
+        return s`
+            // Publish Property ${property.name}
+            receiver->PublishProperty(
+                "${property.name}", // Name
+                ${this.description(property)}, // Description
+                ${this.uuid(property.type.ref)}, // Type UUID
+                ${this.accessKind(property)}, // Access Kind
+                ${this.viewKind(property)} // View Kind
+            );
+            `;
     }
     accessKind(element: ast.Property): string {
         const kind = getAccessKind(element);

@@ -93,6 +93,10 @@ describe('@xsmp/profile-xsmp-sdk generator', () => {
         expect(generatedSource).not.toContain('Handler for Operation outString');
         expect(generatedSource).not.toContain('Handler for Operation inoutString');
         expect(generatedSource).not.toContain('Handler for Operation returnString');
+        expect(generatedSource).not.toContain('"outString", // Name');
+        expect(generatedSource).toContain("// WARNING: Operation outString is not invokable: its 'value' out parameter is of type Smp.String8");
+        expect(generatedSource).toContain("// WARNING: Operation inoutString is not invokable: its 'value' inout parameter is of type Smp.String8");
+        expect(generatedSource).toContain('// WARNING: Operation returnString is not invokable: its return type is Smp.String8');
     });
     // A @unit tag is free user text emitted verbatim into a C++ string literal in the
     // generated _Register_ function. A quote or backslash in it must be escaped, otherwise

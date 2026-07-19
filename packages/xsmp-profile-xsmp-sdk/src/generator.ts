@@ -518,19 +518,20 @@ export class XsmpSdkGenerator extends GapPatternCppGenerator {
 
             `;
     }
-    protected override isInvokable(element: ast.Invokable): boolean {
+    protected override getNotInvokableReason(element: ast.Invokable): string | undefined {
         if (ast.isOperation(element)) {
             // we cannot handle properly a returnParameter of type String8 because
             // we don't know how to deallocate the memory
             if (isString8(element.returnParameter?.type.ref)) {
-                return false;
+                return 'its return type is Smp.String8 (its memory ownership cannot be determined, so it cannot be safely deallocated)';
             }
             // same thing for out/inout parameters of type String8
-            if (element.parameter.some(param => isString8(param.type.ref) && (param.direction ?? 'in') !== 'in')) {
-                return false;
+            const invalidParam = element.parameter.find(param => isString8(param.type.ref) && (param.direction ?? 'in') !== 'in');
+            if (invalidParam) {
+                return `its '${invalidParam.name}' ${invalidParam.direction} parameter is of type Smp.String8 (its memory ownership cannot be determined, so it cannot be safely deallocated)`;
             }
         }
-        return super.isInvokable(element);
+        return super.getNotInvokableReason(element);
     }
 
     private requestParameterArgument(param: ast.Parameter): string {

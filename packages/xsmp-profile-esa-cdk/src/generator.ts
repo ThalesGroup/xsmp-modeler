@@ -337,19 +337,26 @@ export class EsaCdkGenerator extends GapPatternCppGenerator {
     private getInvokableOperations(type: ast.Component): ast.Operation[] {
         return type.elements.filter(ast.isOperation).filter(operation => this.isInvokable(operation));
     }
-    protected override isInvokable(element: ast.Invokable): boolean {
+    protected override getNotInvokableReason(element: ast.Invokable): string | undefined {
         if (!ast.isOperation(element)) {
-            return super.isInvokable(element);
+            return super.getNotInvokableReason(element);
         }
-        if (!super.isInvokable(element)) {
-            return false;
+        const baseReason = super.getNotInvokableReason(element);
+        if (baseReason) {
+            return baseReason;
         }
-        return this.attrHelper.getViewKind(element) !== undefined
-            && element.parameter.every(param =>
-                ast.isSimpleType(param.type.ref)
-                && !ast.isStringType(param.type.ref)
-                && param.direction !== 'out'
-                && param.direction !== 'inout');
+        if (this.attrHelper.getViewKind(element) === undefined) {
+            return 'it has no @View attribute';
+        }
+        const invalidParam = element.parameter.find(param =>
+            ast.isStringType(param.type.ref) || param.direction === 'out' || param.direction === 'inout');
+        if (invalidParam) {
+            if (ast.isStringType(invalidParam.type.ref)) {
+                return `its '${invalidParam.name}' parameter is of a String type, which is not supported for dynamic invocation`;
+            }
+            return `its '${invalidParam.name}' ${invalidParam.direction} parameter is not supported for dynamic invocation (only 'in' parameters are supported)`;
+        }
+        return undefined;
     }
     protected override componentBases(type: ast.Component): string[] {
         const bases = super.componentBases(type);
