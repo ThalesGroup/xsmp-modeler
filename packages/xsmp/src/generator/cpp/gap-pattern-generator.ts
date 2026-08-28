@@ -308,7 +308,7 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
 
                 ${this.includes([...this.sourceIncludes(type), type])} 
 
-                ${this.namespace(type, body)}
+                ${this.sourcePrologue(type)}${this.namespace(type, body)}
                 `);
         }
     }

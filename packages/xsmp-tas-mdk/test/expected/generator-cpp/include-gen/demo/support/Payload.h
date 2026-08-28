@@ -14,6 +14,7 @@
 #include <demo/support/Counter.h>
 #include <Smp/PrimitiveTypes.h>
 #include <Smp/Publication/ITypeRegistry.h>
+#include <Smp/ViewKind.h>
 #include <TasMdk/Types/Structure.h>
 
 // ----------------------------------------------------------------------------

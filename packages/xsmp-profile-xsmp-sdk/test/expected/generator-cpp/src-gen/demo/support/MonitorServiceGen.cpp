@@ -9,9 +9,21 @@
 // ----------------------------------------------------------------------------
 
 #include <demo/support/MonitorService.h>
+#include <Smp/ViewKind.h>
+#include <string>
 #include <Xsmp/ComponentHelper.h>
 #include <Xsmp/Request.h>
 
+
+#if defined(__has_include)
+#if __has_include(<Smp/Version.h>)
+#include <Smp/Version.h>
+#endif
+#endif
+
+#ifndef ECSS_SMP_VERSION
+#define ECSS_SMP_VERSION 202003L
+#endif
 
 namespace demo::support
 {
@@ -118,7 +130,18 @@ namespace demo::support
                         if (!request) {
                             return;
                         }
-                        if (auto it = _requestHandlers.find(request->GetOperationName());
+                    #if ECSS_SMP_VERSION >= 202503L
+                        // the request carries the bare property name and tells a getter
+                        // from a setter apart through its type
+                        const std::string key =
+                                (request->GetType() == ::Smp::RequestType::RT_Get ? "get_"
+                                 : request->GetType() == ::Smp::RequestType::RT_Set ? "set_"
+                                 : "") + std::string{request->GetName()};
+                    #else
+                        // the request already names the property accessor
+                        const std::string_view key{request->GetOperationName()};
+                    #endif
+                        if (auto it = _requestHandlers.find(key);
                                 it != _requestHandlers.end()) {
                             it->second(this, request);
                         } else {

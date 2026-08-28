@@ -11,6 +11,7 @@
 #include <demo/support/MonitorService.h>
 #include <esa/ecss/smp/cdk/Request.h>
 #include <Smp/IPublication.h>
+#include <Smp/ViewKind.h>
 
 
 namespace demo

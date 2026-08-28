@@ -34,6 +34,24 @@ export namespace ForwardedType {
 }
 export type Include = string | ast.Type | ForwardedType | undefined;
 
+/**
+ * ECSS-E-ST-40-07C (2 March 2020) declares no version of its own, so it is
+ * identified by the absence of Smp/Version.h and given a version here. The
+ * generated code then compares revisions plainly.
+ */
+export const smpVersionDetection = `#if defined(__has_include)
+#if __has_include(<Smp/Version.h>)
+#include <Smp/Version.h>
+#endif
+#endif
+
+#ifndef ECSS_SMP_VERSION
+#define ECSS_SMP_VERSION 202003L
+#endif`;
+
+/** The first revision that carries a version macro. */
+export const smpVersion2025 = '202503L';
+
 export abstract class CppGenerator implements XsmpGenerator {
     protected static readonly defaultIncludeFolder = 'src';
     protected static readonly defaultSourceFolder = 'src';
@@ -139,7 +157,10 @@ export abstract class CppGenerator implements XsmpGenerator {
             // --------------------------------- Includes ---------------------------------
             // ----------------------------------------------------------------------------
             #include <Smp/ISimulator.h>
+            #include <Smp/PrimitiveTypes.h>
             #include <Smp/Publication/ITypeRegistry.h>
+
+            ${smpVersionDetection}
 
             // Entry points for static library
             extern "C" {
@@ -150,10 +171,22 @@ export abstract class CppGenerator implements XsmpGenerator {
                 bool Initialise_${catalogue.name}(
                     ::Smp::ISimulator* simulator,
                     ::Smp::Publication::ITypeRegistry* typeRegistry);
-            
+
+            #if ECSS_SMP_VERSION >= ${smpVersion2025}
+                /// Finalise Package ${catalogue.name}.
+                /// @param simulator Simulator to finalise.
+                /// @return True if finalisation was successful, false otherwise.
+                bool Finalise_${catalogue.name}(::Smp::ISimulator* simulator);
+
+                /// Get the revision of the SMP standard Package ${catalogue.name} was
+                /// built against.
+                /// @return The revision of the SMP standard.
+                ::Smp::UInt64 GetSmpVersion_${catalogue.name}();
+            #else
                 /// Finalise Package ${catalogue.name}.
                 /// @return True if finalisation was successful, false otherwise.
                 bool Finalise_${catalogue.name}();
+            #endif
             }
 
             #endif // ${guard}
@@ -305,6 +338,27 @@ export abstract class CppGenerator implements XsmpGenerator {
             
             extern "C"
             {
+            #if ECSS_SMP_VERSION >= ${smpVersion2025}
+                /// Finalise Package ${catalogue.name}.
+                /// @param simulator Simulator to finalise.
+                /// @return True if finalisation was successful, false otherwise.
+                bool Finalise_${catalogue.name}(::Smp::ISimulator* simulator) {
+                    // avoid double finalisation of that simulator
+                    if (::simulators.erase(simulator) == 0) {
+                        return true;
+                    }
+                    ${deps.length > 0 ? `// Finalisation of dependent Package(s)
+                        return ${deps.map(dep => `Finalise_${dep.name}(simulator)`).join(' && ')};
+                        ` : 'return true;'}
+                }
+
+                /// Get the revision of the SMP standard Package ${catalogue.name} was
+                /// built against.
+                /// @return The revision of the SMP standard.
+                ::Smp::UInt64 GetSmpVersion_${catalogue.name}() {
+                    return ECSS_SMP_VERSION;
+                }
+            #else
                 /// Finalise Package ${catalogue.name}.
                 /// @return True if finalisation was successful, false otherwise.
                 bool Finalise_${catalogue.name}() {
@@ -318,6 +372,7 @@ export abstract class CppGenerator implements XsmpGenerator {
                         return ${deps.map(dep => `Finalise_${dep.name}()`).join(' && ')};
                         ` : 'return true;'}
                 }
+            #endif
             }
             
             `);
@@ -335,8 +390,11 @@ export abstract class CppGenerator implements XsmpGenerator {
             // -----------------------------------------------------------------------------
             #include <${this.catalogueFileName(catalogue)}.h>
             #include <Smp/ISimulator.h>
+            #include <Smp/PrimitiveTypes.h>
             #include <Smp/Publication/ITypeRegistry.h>
-                            
+
+            ${smpVersionDetection}
+
             #ifdef  WIN32
             #define DLL_EXPORT __declspec(dllexport) // %RELAX<mconst> Visual Studio requires a define
             #else
@@ -367,10 +425,32 @@ export abstract class CppGenerator implements XsmpGenerator {
                 /// Global Finalise function of Package ${catalogue.name}.
                 /// @param simulator Simulator.
                 /// @return True if finalisation was successful, false otherwise.
-                DLL_EXPORT bool Finalise(::Smp::ISimulator*) {
+                DLL_EXPORT bool Finalise(::Smp::ISimulator* simulator) {
+            #if ECSS_SMP_VERSION >= ${smpVersion2025}
+                    return Finalise_${catalogue.name}(simulator);
+            #else
+                    static_cast<void>(simulator);
                     return Finalise_${catalogue.name}();
+            #endif
                 }
             }
+
+            // -----------------------------------------------------------------------------
+            // ------------------------- GetSmpVersion Function ----------------------------
+            // -----------------------------------------------------------------------------
+
+            #if ECSS_SMP_VERSION >= ${smpVersion2025}
+            extern "C" {
+                /// Global GetSmpVersion function of Package ${catalogue.name}.
+                /// The simulator refuses to load a package built against another
+                /// revision of the standard than its own.
+                /// @return The revision of the SMP standard this package was built
+                /// against.
+                DLL_EXPORT ::Smp::UInt64 GetSmpVersion() {
+                    return GetSmpVersion_${catalogue.name}();
+                }
+            }
+            #endif
             
             `);
     }
@@ -877,7 +957,8 @@ export abstract class CppGenerator implements XsmpGenerator {
         return ['Smp/Publication/ITypeRegistry.h', ...type.elements.flatMap(element => this.headerIncludes(element)), type.base?.ref];
     }
     headerIncludesStructure(type: ast.Structure): Include[] {
-        return ['Smp/Publication/ITypeRegistry.h', ...type.elements.flatMap(element => this.headerIncludes(element))];
+        // the Publish declaration defaults its view kind
+        return ['Smp/Publication/ITypeRegistry.h', 'Smp/ViewKind.h', ...type.elements.flatMap(element => this.headerIncludes(element))];
     }
     headerIncludesInteger(type: ast.Integer): Include[] {
         return ['Smp/Publication/ITypeRegistry.h', 'Smp/PrimitiveTypes.h', ...this.expressionIncludes(type.minimum), ...this.expressionIncludes(type.maximum)];
@@ -908,6 +989,17 @@ export abstract class CppGenerator implements XsmpGenerator {
     }
     headerIncludesNativeType(type: ast.NativeType): Include[] {
         return ['Smp/Publication/ITypeRegistry.h', this.docHelper.getNativeLocation(type)];
+    }
+    /**
+     * Text emitted between the includes and the namespaces of a generated
+     * source file, for the preprocessor definitions its body relies on.
+     */
+    protected sourcePrologue(_type: ast.Type): string {
+        return '';
+    }
+    /** The version detection block, followed by the blank line that separates it. */
+    protected smpVersionPrologue(): string {
+        return `${smpVersionDetection}\n\n`;
     }
     protected sourceIncludes(element: ast.NamedElement): Include[] {
         switch (element.$type) {
@@ -969,7 +1061,13 @@ export abstract class CppGenerator implements XsmpGenerator {
         return [];
     }
     sourceIncludesOperation(element: ast.Operation): Include[] {
-        return [...this.sourceIncludesParameter(element.returnParameter), ...element.parameter.flatMap(param => this.sourceIncludesParameter(param))];
+        const includes: Include[] = [...this.sourceIncludesParameter(element.returnParameter), ...element.parameter.flatMap(param => this.sourceIncludesParameter(param))];
+        // the IPublishOperation returned by PublishOperation is dereferenced to
+        // publish the parameters, and Smp/IPublication.h only forward declares it
+        if (!this.getNotInvokableReason(element) && (element.returnParameter !== undefined || element.parameter.length > 0)) {
+            includes.push('Smp/Publication/IPublishOperation.h');
+        }
+        return includes;
     }
     sourceIncludesProperty(element: ast.Property): Include[] {
         return this.sourceIncludesPointerMember(element);
@@ -988,7 +1086,7 @@ export abstract class CppGenerator implements XsmpGenerator {
     }
     sourceIncludesStructure(type: ast.Structure): Include[] {
         //offsetof needs cstddef
-        return ['cstddef', 'Smp/Publication/IStructureType.h', ...type.elements.flatMap(element => this.sourceIncludes(element))];
+        return ['cstddef', 'Smp/Publication/IStructureType.h', 'Smp/ViewKind.h', ...type.elements.flatMap(element => this.sourceIncludes(element))];
     }
 
     expressionIncludes(expr: ast.Expression | undefined): Include[] {
@@ -1023,7 +1121,8 @@ export abstract class CppGenerator implements XsmpGenerator {
         return this.sourceIncludesBoundedType(type);
     }
     sourceIncludesComponent(type: ast.Component): Include[] {
-        return [...type.elements.flatMap(element => this.sourceIncludes(element))];
+        // the members are published with a view kind
+        return ['Smp/ViewKind.h', ...type.elements.flatMap(element => this.sourceIncludes(element))];
     }
     sourceIncludesModel(type: ast.Model): Include[] {
         return this.sourceIncludesComponent(type);

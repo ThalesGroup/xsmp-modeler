@@ -1,4 +1,4 @@
-import { GapPatternCppGenerator, CxxStandard, type Include } from '@xsmp/core/generator/cpp';
+import { GapPatternCppGenerator, CxxStandard, smpVersion2025, type Include } from '@xsmp/core/generator/cpp';
 import type { XsmpSharedServices } from '@xsmp/core';
 import * as ast from '@xsmp/core/ast';
 import { expandToString as s } from 'langium/generate';
@@ -238,12 +238,39 @@ export class XsmpSdkGenerator extends GapPatternCppGenerator {
         `;
     }
 
+    /// SMP 2025 dropped the memory size of an enumeration: it is always backed
+    /// by an Smp::Int32. The two calls are kept apart by the preprocessor so
+    /// that one generated file compiles against either revision.
+    override async generateEnumerationSourceGen(type: ast.Enumeration, _gen: boolean): Promise<string | undefined> {
+        return s`
+        void _Register_${type.name}(::Smp::Publication::ITypeRegistry* registry) {
+        auto *type = registry->AddEnumerationType(
+            "${type.name}", // Name
+            ${this.description(type)}, // Description
+            ${this.uuid(type)} // UUID
+        #if ECSS_SMP_VERSION < ${smpVersion2025}
+            , sizeof(${this.fqn(type)}) // Size
+        #endif
+            );
+    
+        // Register the Literals of the Enumeration
+        ${type.literal.map(literal => `type->AddLiteral("${literal.name}", ${this.description(literal)}, static_cast<::Smp::Int32>(${this.fqn(literal)}));`).join('\n')}
+        }
+        ${this.uuidDefinition(type)}
+        `;
+    }
+    override sourcePrologue(type: ast.Type): string {
+        if (ast.isEnumeration(type) || (ast.isComponent(type) && this.hasInvokableMembers(type))) {
+            return this.smpVersionPrologue();
+        }
+        return super.sourcePrologue(type);
+    }
     override sourceIncludesComponent(type: ast.Component): Include[] {
         const includes = super.sourceIncludesComponent(type);
         includes.push('Xsmp/ComponentHelper.h');
 
         if (this.hasInvokableMembers(type)) {
-            includes.push('Xsmp/Request.h');
+            includes.push('Xsmp/Request.h', 'string');
         }
         return includes;
     }
@@ -476,7 +503,18 @@ export class XsmpSdkGenerator extends GapPatternCppGenerator {
                     if (!request) {
                         return;
                     }
-                    if (auto it = _requestHandlers.find(request->GetOperationName());
+                #if ECSS_SMP_VERSION >= ${smpVersion2025}
+                    // the request carries the bare property name and tells a getter
+                    // from a setter apart through its type
+                    const std::string key =
+                            (request->GetType() == ::Smp::RequestType::RT_Get ? "get_"
+                             : request->GetType() == ::Smp::RequestType::RT_Set ? "set_"
+                             : "") + std::string{request->GetName()};
+                #else
+                    // the request already names the property accessor
+                    const std::string_view key{request->GetOperationName()};
+                #endif
+                    if (auto it = _requestHandlers.find(key);
                             it != _requestHandlers.end()) {
                         it->second(this, request);
                     } else {
