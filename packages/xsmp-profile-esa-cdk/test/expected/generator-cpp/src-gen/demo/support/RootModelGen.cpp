@@ -11,6 +11,7 @@
 #include <demo/support/RootModel.h>
 #include <esa/ecss/smp/cdk/EntryPoint.h>
 #include <esa/ecss/smp/cdk/EventSinkArg.h>
+#include <Smp/ViewKind.h>
 
 
 namespace demo

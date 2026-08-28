@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <demo/support/Payload.h>
 #include <Smp/Publication/IStructureType.h>
+#include <Smp/ViewKind.h>
 
 
 namespace demo

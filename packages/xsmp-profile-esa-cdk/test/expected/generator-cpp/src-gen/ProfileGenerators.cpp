@@ -107,6 +107,25 @@ extern "C"
 
 extern "C"
 {
+#if ECSS_SMP_VERSION >= 202503L
+    /// Finalise Package ProfileGenerators.
+    /// @param simulator Simulator to finalise.
+    /// @return True if finalisation was successful, false otherwise.
+    bool Finalise_ProfileGenerators(::Smp::ISimulator* simulator) {
+        // avoid double finalisation of that simulator
+        if (::simulators.erase(simulator) == 0) {
+            return true;
+        }
+        return true;
+    }
+
+    /// Get the revision of the SMP standard Package ProfileGenerators was
+    /// built against.
+    /// @return The revision of the SMP standard.
+    ::Smp::UInt64 GetSmpVersion_ProfileGenerators() {
+        return ECSS_SMP_VERSION;
+    }
+#else
     /// Finalise Package ProfileGenerators.
     /// @return True if finalisation was successful, false otherwise.
     bool Finalise_ProfileGenerators() {
@@ -118,4 +137,5 @@ extern "C"
 
         return true;
     }
+#endif
 }

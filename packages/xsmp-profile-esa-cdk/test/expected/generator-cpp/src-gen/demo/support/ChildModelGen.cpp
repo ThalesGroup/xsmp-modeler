@@ -9,6 +9,7 @@
 // ----------------------------------------------------------------------------
 
 #include <demo/support/ChildModel.h>
+#include <Smp/ViewKind.h>
 
 
 namespace demo
