@@ -27,7 +27,7 @@
         "@xsmp/tool-python": "2.0.2",
         "@xsmp/tool-smp": "2.0.2",
         "commander": "~15.0.0",
-        "langium": "4.2.2",
+        "langium": "4.3.1",
         "@xsmp/core": "2.0.2",
         "xsmp-tas-mdk": "2.0.2"
     }

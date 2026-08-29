@@ -18,7 +18,7 @@
         "test": "cd ../.. && npm run build && vitest run packages/xsmp-profile-xsmp-sdk/test --config vitest.config.ts"
     },
     "dependencies": {
-        "langium": "4.2.2",
+        "langium": "4.3.1",
         "@xsmp/core": "2.0.2"
     }
 }
