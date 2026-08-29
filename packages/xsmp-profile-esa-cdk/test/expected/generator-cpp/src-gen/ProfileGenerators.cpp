@@ -82,19 +82,19 @@ extern "C"
 
         // Register factory for Model ChildModel
         simulator->RegisterFactory(new ::esa::ecss::smp::cdk::Factory<::demo::support::ChildModel>(
-                            "ChildModel", // Name
-                             "", // Description
-                            simulator, // Simulator
-                            ::demo::support::Uuid_ChildModel // UUID
-                            ));
+            "ChildModel", // Name
+            "", // Description
+            simulator, // Simulator
+            ::demo::support::Uuid_ChildModel // UUID
+            ));
 
         // Register factory for Model RootModel
         simulator->RegisterFactory(new ::esa::ecss::smp::cdk::Factory<::demo::support::RootModel>(
-                            "RootModel", // Name
-                             "", // Description
-                            simulator, // Simulator
-                            ::demo::support::Uuid_RootModel // UUID
-                            ));
+            "RootModel", // Name
+            "", // Description
+            simulator, // Simulator
+            ::demo::support::Uuid_RootModel // UUID
+            ));
 
 
         return true;

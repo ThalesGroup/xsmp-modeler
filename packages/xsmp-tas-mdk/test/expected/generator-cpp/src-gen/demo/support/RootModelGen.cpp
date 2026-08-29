@@ -191,23 +191,23 @@ namespace demo
                      ::Smp::ViewKind::VK_All // View Kind
                  );
                  op_ping->PublishParameter(
-                                     "requested", // Name
-                                     "", // Description
-                                     ::demo::support::Uuid_Ratio, // Type UUID
-                                     Smp::Publication::ParameterDirectionKind::PDK_In // Parameter Direction Kind
-                                 );
+                     "requested", // Name
+                     "", // Description
+                     ::demo::support::Uuid_Ratio, // Type UUID
+                     Smp::Publication::ParameterDirectionKind::PDK_In // Parameter Direction Kind
+                     );
                  op_ping->PublishParameter(
-                                     "measured", // Name
-                                     "", // Description
-                                     ::Smp::Uuids::Uuid_Float64, // Type UUID
-                                     Smp::Publication::ParameterDirectionKind::PDK_Out // Parameter Direction Kind
-                                 );
+                     "measured", // Name
+                     "", // Description
+                     ::Smp::Uuids::Uuid_Float64, // Type UUID
+                     Smp::Publication::ParameterDirectionKind::PDK_Out // Parameter Direction Kind
+                     );
                  op_ping->PublishParameter(
-                                     "return", // Name
-                                     "", // Description
-                                     ::Smp::Uuids::Uuid_Bool, // Type UUID
-                                     Smp::Publication::ParameterDirectionKind::PDK_Return // Parameter Direction Kind
-                                 );
+                     "return", // Name
+                     "", // Description
+                     ::Smp::Uuids::Uuid_Bool, // Type UUID
+                     Smp::Publication::ParameterDirectionKind::PDK_Return // Parameter Direction Kind
+                     );
                  // Publish Property connected
                  receiver->PublishProperty(
                      "connected", // Name

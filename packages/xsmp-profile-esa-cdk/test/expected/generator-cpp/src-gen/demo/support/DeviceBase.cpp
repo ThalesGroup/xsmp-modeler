@@ -34,18 +34,16 @@ namespace demo
                 );
 
             // Register the Fields of the Class
-
-                              type->AddField(
-                                "active", // Name
-                                "", // Description
-                                ::Smp::Uuids::Uuid_Bool, // Type UUID
-                                offsetof(DeviceBase, active), // Field offset
-                                ::Smp::ViewKind::VK_All, // View Kind
-                                true, // State
-                                false, // Input
-                                false // Output
-                                );
-
+            type->AddField(
+                "active", // Name
+                "", // Description
+                ::Smp::Uuids::Uuid_Bool, // Type UUID
+                offsetof(DeviceBase, active), // Field offset
+                ::Smp::ViewKind::VK_All, // View Kind
+                true, // State
+                false, // Input
+                false // Output
+                );
         }
 
     } // namespace support

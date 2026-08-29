@@ -95,19 +95,17 @@ namespace demo::support
     /// Get Universally Unique Identifier of the Service.
     /// @return  Universally Unique Identifier of the Service.
     const ::Smp::Uuid& GetUuid() const override;
+    private:
+    static std::map<std::string_view, std::function<void(MonitorServiceGen*, ::Smp::IRequest*)>> _requestHandlers;
 
-                private:
-                static std::map<std::string_view, std::function<void(MonitorServiceGen*, ::Smp::IRequest*)>> _requestHandlers;
-
-                public:
-                    /// Dynamically invoke an operation using a request object that has
-                    /// been created and filled with parameter values by the caller.
-                    /// @param   request Request object to invoke.
-                    /// @throws  Smp::InvalidOperationName
-                    /// @throws  Smp::InvalidParameterCount
-                    /// @throws  Smp::InvalidParameterType
-                    void Invoke(::Smp::IRequest* request) override;
-
+    public:
+        /// Dynamically invoke an operation using a request object that has
+        /// been created and filled with parameter values by the caller.
+        /// @param   request Request object to invoke.
+        /// @throws  Smp::InvalidOperationName
+        /// @throws  Smp::InvalidParameterCount
+        /// @throws  Smp::InvalidParameterType
+        void Invoke(::Smp::IRequest* request) override;
 
     private:
     /// Get Running.

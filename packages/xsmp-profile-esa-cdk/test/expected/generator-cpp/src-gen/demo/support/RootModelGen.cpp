@@ -26,64 +26,64 @@ namespace demo
             ::Smp::ISimulator* simulator):
             // Base class
             ::esa::ecss::smp::cdk::Model(name, description, parent, simulator),
-                                                                                                  // EntryPoint: main
-                                                                              main{ new ::esa::ecss::smp::cdk::EntryPoint(
-                                                                                  "main", // Name
-                                                                                  "", // Description
-                                                                                  this,
-                                                                                  simulator,
-                                                                                  &RootModelGen::_main)}
-                                                                              ,
-                                                                              // Event Sink: onTick
-                                                                              onTick{ new ::esa::ecss::smp::cdk::EventSinkArg<::demo::support::Counter>(
-                                                                                  "onTick", // Name
-                                                                                  "", // Description
-                                                                                  this,
-                                                                                  simulator,
-                                                                                  &RootModelGen::_onTick)}
-                                                                              ,
-                                                                              // Event Source: onDone
-                                                                              onDone{ new ::esa::ecss::smp::cdk::EventSourceVoid(
-                                                                                  "onDone", // Name
-                                                                                  "", // Description
-                                                                                  this,
-                                                                                  simulator)}
-                                                                              ,
-                                                                              // Field name
-                                                                              name {"root"},
-                                                                              // Field counters
-                                                                              counters {{ 0, 1, 2}},
-                                                                              // Field payload
-                                                                              payload { true, 1},
-                                                                              // Field connectedState
-                                                                              connectedState {false},
-                                                                              // Container: child
-                                                                              child {new ::esa::ecss::smp::cdk::Container<::Smp::IComposite>(
-                                                                                  "child",
-                                                                                  "",
-                                                                                  this,
-                                                                                  simulator,
-                                                                                  1,
-                                                                                  1)}
-                                                                              ,
-                                                                              // Reference: deviceRef
-                                                                              deviceRef {new ::esa::ecss::smp::cdk::Reference<::demo::support::IDevice>(
-                                                                                  "deviceRef",
-                                                                                  "",
-                                                                                  this,
-                                                                                  simulator,
-                                                                                  1,
-                                                                                  1)}
-                                                                              ,
-                                                                              // Reference: childRef
-                                                                              childRef {new ::esa::ecss::smp::cdk::Reference<::demo::support::ChildModel>(
-                                                                                  "childRef",
-                                                                                  "",
-                                                                                  this,
-                                                                                  simulator,
-                                                                                  1,
-                                                                                  1)}
-                                                                               {
+            // EntryPoint: main
+            main{ new ::esa::ecss::smp::cdk::EntryPoint(
+                "main", // Name
+                "", // Description
+                this,
+                simulator,
+                &RootModelGen::_main)}
+            ,
+            // Event Sink: onTick
+            onTick{ new ::esa::ecss::smp::cdk::EventSinkArg<::demo::support::Counter>(
+                "onTick", // Name
+                "", // Description
+                this,
+                simulator,
+                &RootModelGen::_onTick)}
+            ,
+            // Event Source: onDone
+            onDone{ new ::esa::ecss::smp::cdk::EventSourceVoid(
+                "onDone", // Name
+                "", // Description
+                this,
+                simulator)}
+            ,
+            // Field name
+            name {"root"},
+            // Field counters
+            counters {{ 0, 1, 2}},
+            // Field payload
+            payload { true, 1},
+            // Field connectedState
+            connectedState {false},
+            // Container: child
+            child {new ::esa::ecss::smp::cdk::Container<::Smp::IComposite>(
+                "child",
+                "",
+                this,
+                simulator,
+                1,
+                1)}
+            ,
+            // Reference: deviceRef
+            deviceRef {new ::esa::ecss::smp::cdk::Reference<::demo::support::IDevice>(
+                "deviceRef",
+                "",
+                this,
+                simulator,
+                1,
+                1)}
+            ,
+            // Reference: childRef
+            childRef {new ::esa::ecss::smp::cdk::Reference<::demo::support::ChildModel>(
+                "childRef",
+                "",
+                this,
+                simulator,
+                1,
+                1)}
+             {
             // Add reference deviceRef
             this->AddReference(deviceRef);
             // Add reference childRef

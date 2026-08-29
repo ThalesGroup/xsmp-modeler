@@ -404,18 +404,16 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
                 ); 
             
             ${fields.length > 0 ? '// Register the Fields of the Class' : ''}
-            ${fields.map(f => `
-                  type->AddField(
-                    "${f.name}", // Name
-                    ${this.description(f)}, // Description
-                    ${this.uuid(f.type.ref)}, // Type UUID
-                    offsetof(${type.name}, ${f.name}), // Field offset
-                    ${this.viewKind(f)}, // View Kind
-                    ${isState(f)}, // State
-                    ${isInput(f)}, // Input
-                    ${isOutput(f)} // Output
-                    );  
-                `).join('\n')}
+            ${fields.map(f => `type->AddField(
+    "${f.name}", // Name
+    ${this.description(f)}, // Description
+    ${this.uuid(f.type.ref)}, // Type UUID
+    offsetof(${type.name}, ${f.name}), // Field offset
+    ${this.viewKind(f)}, // View Kind
+    ${isState(f)}, // State
+    ${isInput(f)}, // Input
+    ${isOutput(f)} // Output
+    );`).join('\n')}
         }
         
         ${this.uuidDefinition(type)}
@@ -468,24 +466,23 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
         ${this.defineMembersGen(type, gen)}
         void ${this.name(type, gen)}::_Register(::Smp::Publication::ITypeRegistry* registry) 
         {
-                ${fields.length > 0 ? 'auto *type = ' : ''}registry->AddStructureType(
+            ${fields.length > 0 ? 'auto *type = ' : ''}registry->AddStructureType(
                 "${type.name}", // Name
                 ${this.description(type)}, // Description
                 ${this.uuid(type)} // UUID
-                ); 
-                
+                );
+
             ${fields.length > 0 ? '// Register the Fields of the Class' : ''}
             ${fields.map(f => `type->AddField(
-                    "${f.name}", // Name
-                    ${this.description(f)}, // Description
-                    ${this.uuid(f.type.ref)}, // Type UUID
-                    offsetof(${type.name}, ${f.name}), // Field offset
-                    ${this.viewKind(f)}, // View Kind
-                    ${isState(f)}, // State
-                    ${isInput(f)}, // Input
-                    ${isOutput(f)} // Output
-                    );  
-                `).join('')}
+    "${f.name}", // Name
+    ${this.description(f)}, // Description
+    ${this.uuid(f.type.ref)}, // Type UUID
+    offsetof(${type.name}, ${f.name}), // Field offset
+    ${this.viewKind(f)}, // View Kind
+    ${isState(f)}, // State
+    ${isInput(f)}, // Input
+    ${isOutput(f)} // Output
+    );`).join('\n')}
         }
 
         ${this.uuidDefinition(type)}
@@ -994,10 +991,10 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
             return undefined;
         if (this.attrHelper.isStatic(op) || !this.attrHelper.isVirtual(op) || !this.attrHelper.isAbstract(op))
             return `${this.type(op.returnParameter)} ${op.$container.name}::${this.operationName(op)}(${op.parameter.map(param => this.defineParameter(param)).join(', ')})${this.attrHelper.isConst(op) ? ' const' : ''} {
-                    // TODO
-                    ${op.returnParameter ? `return ${this.defaultReturn(op.returnParameter)};` : ''}
-                }
-                `;
+    // TODO
+    ${op.returnParameter ? `return ${this.defaultReturn(op.returnParameter)};` : ''}
+}
+`;
         return undefined;
     }
     protected declarePropertyGen(element: ast.Property, gen: boolean): string | undefined {

@@ -10,9 +10,9 @@ namespace demo
     namespace support
     {
         void DeviceBase::reset() {
-                            // TODO
+            // TODO
 
-                        }
+        }
 
     } // namespace support
 } // namespace demo

@@ -26,8 +26,8 @@ namespace demo
             ::Smp::ISimulator* simulator):
             // Base class
             ::esa::ecss::smp::cdk::Service(name, description, parent, simulator),
-                                                                                                    // Field running
-                                                                                running {false} {
+            // Field running
+            running {false} {
 
         }
 

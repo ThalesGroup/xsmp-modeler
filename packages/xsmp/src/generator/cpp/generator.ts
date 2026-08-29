@@ -1510,17 +1510,17 @@ export abstract class CppGenerator implements XsmpGenerator {
                 ${this.viewKind(op)} // View Kind
             );
             ${op.parameter.map(param => `op_${op.name}->PublishParameter(
-                    "${param.name}", // Name
-                    ${this.description(param)}, // Description
-                    ${this.uuid(param.type.ref)}, // Type UUID
-                    ${this.parameterDirectionKind(param)} // Parameter Direction Kind
-                );`).join('\n')}
+    "${param.name}", // Name
+    ${this.description(param)}, // Description
+    ${this.uuid(param.type.ref)}, // Type UUID
+    ${this.parameterDirectionKind(param)} // Parameter Direction Kind
+    );`).join('\n')}
             ${r ? `op_${op.name}->PublishParameter(
-                    "${r.name ?? 'return'}", // Name
-                    ${this.description(r)}, // Description
-                    ${this.uuid(r.type.ref)}, // Type UUID
-                    ${this.parameterDirectionKind(r)} // Parameter Direction Kind
-                );` : ''}
+    "${r.name ?? 'return'}", // Name
+    ${this.description(r)}, // Description
+    ${this.uuid(r.type.ref)}, // Type UUID
+    ${this.parameterDirectionKind(r)} // Parameter Direction Kind
+    );` : ''}
             `;
     }
     publishProperty(property: ast.Property): string | undefined {

@@ -35,8 +35,8 @@ namespace demo::support
         ::Smp::ISimulator* simulator):
         // Base class
         ::Xsmp::Service(name, description, parent, simulator),
-                                                                                 // Field running
-                                                             running {false} { }
+        // Field running
+        running {false} { }
 
     void MonitorServiceGen::Publish(::Smp::IPublication* receiver) {
         // Call parent class implementation first
@@ -99,8 +99,8 @@ namespace demo::support
     }
 
 
-                    std::map<std::string_view, std::function<void(MonitorServiceGen*, ::Smp::IRequest*)>> MonitorServiceGen::_requestHandlers{
-                        // Handler for Operation start
+        std::map<std::string_view, std::function<void(MonitorServiceGen*, ::Smp::IRequest*)>> MonitorServiceGen::_requestHandlers{
+            // Handler for Operation start
     {"start",
     [](MonitorServiceGen* component, ::Smp::IRequest *) {
 
@@ -124,31 +124,31 @@ namespace demo::support
     }},
 
 
-                    };
+        };
 
-                    void MonitorServiceGen::Invoke(::Smp::IRequest* request) {
-                        if (!request) {
-                            return;
-                        }
-                    #if ECSS_SMP_VERSION >= 202503L
-                        // the request carries the bare property name and tells a getter
-                        // from a setter apart through its type
-                        const std::string key =
-                                (request->GetType() == ::Smp::RequestType::RT_Get ? "get_"
-                                 : request->GetType() == ::Smp::RequestType::RT_Set ? "set_"
-                                 : "") + std::string{request->GetName()};
-                    #else
-                        // the request already names the property accessor
-                        const std::string_view key{request->GetOperationName()};
-                    #endif
-                        if (auto it = _requestHandlers.find(key);
-                                it != _requestHandlers.end()) {
-                            it->second(this, request);
-                        } else {
-                            // pass the request down to the base class
-                            ::Xsmp::Service::Invoke(request);
-                        }
-                    }
+        void MonitorServiceGen::Invoke(::Smp::IRequest* request) {
+            if (!request) {
+                return;
+            }
+        #if ECSS_SMP_VERSION >= 202503L
+            // the request carries the bare property name and tells a getter
+            // from a setter apart through its type
+            const std::string key =
+                    (request->GetType() == ::Smp::RequestType::RT_Get ? "get_"
+                     : request->GetType() == ::Smp::RequestType::RT_Set ? "set_"
+                     : "") + std::string{request->GetName()};
+        #else
+            // the request already names the property accessor
+            const std::string_view key{request->GetOperationName()};
+        #endif
+            if (auto it = _requestHandlers.find(key);
+                    it != _requestHandlers.end()) {
+                it->second(this, request);
+            } else {
+                // pass the request down to the base class
+                ::Xsmp::Service::Invoke(request);
+            }
+        }
 
 
     const ::Smp::Uuid& MonitorServiceGen::GetUuid() const {

@@ -19,7 +19,7 @@ namespace demo::support
 
     void Payload::_Register(::Smp::Publication::ITypeRegistry* registry)
     {
-            auto *type = registry->AddStructureType(
+        auto *type = registry->AddStructureType(
             "Payload", // Name
             "", // Description
             ::demo::support::Uuid_Payload // UUID
@@ -27,26 +27,25 @@ namespace demo::support
 
         // Register the Fields of the Class
         type->AddField(
-                            "enabled", // Name
-                            "", // Description
-                            ::Smp::Uuids::Uuid_Bool, // Type UUID
-                            offsetof(Payload, enabled), // Field offset
-                            ::Smp::ViewKind::VK_All, // View Kind
-                            true, // State
-                            false, // Input
-                            false // Output
-                            );
-                        type->AddField(
-                            "count", // Name
-                            "", // Description
-                            ::demo::support::Uuid_Counter, // Type UUID
-                            offsetof(Payload, count), // Field offset
-                            ::Smp::ViewKind::VK_All, // View Kind
-                            true, // State
-                            false, // Input
-                            false // Output
-                            );
-
+            "enabled", // Name
+            "", // Description
+            ::Smp::Uuids::Uuid_Bool, // Type UUID
+            offsetof(Payload, enabled), // Field offset
+            ::Smp::ViewKind::VK_All, // View Kind
+            true, // State
+            false, // Input
+            false // Output
+            );
+        type->AddField(
+            "count", // Name
+            "", // Description
+            ::demo::support::Uuid_Counter, // Type UUID
+            offsetof(Payload, count), // Field offset
+            ::Smp::ViewKind::VK_All, // View Kind
+            true, // State
+            false, // Input
+            false // Output
+            );
     }
 
 } // namespace demo::support

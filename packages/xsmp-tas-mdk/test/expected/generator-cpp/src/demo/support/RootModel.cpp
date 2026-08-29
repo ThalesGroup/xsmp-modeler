@@ -33,9 +33,9 @@ namespace demo
 
         }
         ::Smp::Bool RootModel::ping(::demo::support::Ratio requested, ::Smp::Float64* measured) {
-                            // TODO
-                            return false;
-                        }
+            // TODO
+            return false;
+        }
 
     } // namespace support
 } // namespace demo
