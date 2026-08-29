@@ -2,7 +2,7 @@
     "name": "xsmp-tas-mdk",
     "displayName": "XSMP TAS-MDK",
     "description": "TAS MDK support for XSMP Modeler.",
-    "version": "2.0.2",
+    "version": "2.0.3",
     "publisher": "ydaveluy",
     "author": "ydaveluy",
     "homepage": "https://github.com/thalesgroup/xsmp-modeler",
@@ -62,6 +62,6 @@
     },
     "dependencies": {
         "langium": "4.2.2",
-        "@xsmp/core": "2.0.2"
+        "@xsmp/core": "2.0.3"
     }
 }
