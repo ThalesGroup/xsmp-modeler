@@ -36,59 +36,59 @@ namespace demo::support
         ::Smp::ISimulator* simulator):
         // Base class
         ::Xsmp::Model(name, description, parent, simulator),
-                                                                               // EntryPoint main
-                                                           main{
-                                                               "main", // Name
-                                                               "", // Description
-                                                               this, // Parent
-                                                               [this]{this->_main();} // Callback
-                                                           },
-                                                           // EventSink onTick
-                                                           onTick{
-                                                               "onTick", // Name
-                                                               "", // Description
-                                                               this, // Parent
-                                                               [this](::Smp::IObject *sender, ::demo::support::Counter value) {this->_onTick(sender, value);}, // Callback
-                                                               ::Smp::PrimitiveTypeKind::PTK_Int32 // Primitive Type Kind
-                                                           },
-                                                           // EventSource onDone
-                                                           onDone{
-                                                               "onDone", // Name
-                                                               "", // Description
-                                                               this // Parent
-                                                           },
-                                                           // Field name
-                                                           name {"root"},
-                                                           // Field counters
-                                                           counters {{ 0, 1, 2}},
-                                                           // Field payload
-                                                           payload { true, 1},
-                                                           // Field connectedState
-                                                           connectedState {false},
-                                                           // Container child
-                                                           child {
-                                                               "child", // Name
-                                                               "", // Description
-                                                               this, // Parent
-                                                               1, // Lower bound
-                                                               1 // Upper bound
-                                                           },
-                                                           // Reference deviceRef
-                                                           deviceRef{
-                                                               "deviceRef", // Name
-                                                               "", // Description
-                                                               this, // Parent
-                                                               1, // Lower bound
-                                                               1 // Upper bound
-                                                           },
-                                                           // Reference childRef
-                                                           childRef{
-                                                               "childRef", // Name
-                                                               "", // Description
-                                                               this, // Parent
-                                                               1, // Lower bound
-                                                               1 // Upper bound
-                                                           } { }
+        // EntryPoint main
+        main{
+            "main", // Name
+            "", // Description
+            this, // Parent
+            [this]{this->_main();} // Callback
+        },
+        // EventSink onTick
+        onTick{
+            "onTick", // Name
+            "", // Description
+            this, // Parent
+            [this](::Smp::IObject *sender, ::demo::support::Counter value) {this->_onTick(sender, value);}, // Callback
+            ::Smp::PrimitiveTypeKind::PTK_Int32 // Primitive Type Kind
+        },
+        // EventSource onDone
+        onDone{
+            "onDone", // Name
+            "", // Description
+            this // Parent
+        },
+        // Field name
+        name {"root"},
+        // Field counters
+        counters {{ 0, 1, 2}},
+        // Field payload
+        payload { true, 1},
+        // Field connectedState
+        connectedState {false},
+        // Container child
+        child {
+            "child", // Name
+            "", // Description
+            this, // Parent
+            1, // Lower bound
+            1 // Upper bound
+        },
+        // Reference deviceRef
+        deviceRef{
+            "deviceRef", // Name
+            "", // Description
+            this, // Parent
+            1, // Lower bound
+            1 // Upper bound
+        },
+        // Reference childRef
+        childRef{
+            "childRef", // Name
+            "", // Description
+            this, // Parent
+            1, // Lower bound
+            1 // Upper bound
+        } { }
 
     void RootModelGen::Publish(::Smp::IPublication* receiver) {
         // Call parent class implementation first
@@ -144,23 +144,23 @@ namespace demo::support
             ::Smp::ViewKind::VK_All // View Kind
         );
         op_ping->PublishParameter(
-                            "requested", // Name
-                            "", // Description
-                            ::demo::support::Uuid_Ratio, // Type UUID
-                            Smp::Publication::ParameterDirectionKind::PDK_In // Parameter Direction Kind
-                        );
+            "requested", // Name
+            "", // Description
+            ::demo::support::Uuid_Ratio, // Type UUID
+            Smp::Publication::ParameterDirectionKind::PDK_In // Parameter Direction Kind
+            );
         op_ping->PublishParameter(
-                            "measured", // Name
-                            "", // Description
-                            ::Smp::Uuids::Uuid_Float64, // Type UUID
-                            Smp::Publication::ParameterDirectionKind::PDK_Out // Parameter Direction Kind
-                        );
+            "measured", // Name
+            "", // Description
+            ::Smp::Uuids::Uuid_Float64, // Type UUID
+            Smp::Publication::ParameterDirectionKind::PDK_Out // Parameter Direction Kind
+            );
         op_ping->PublishParameter(
-                            "return", // Name
-                            "", // Description
-                            ::Smp::Uuids::Uuid_Bool, // Type UUID
-                            Smp::Publication::ParameterDirectionKind::PDK_Return // Parameter Direction Kind
-                        );
+            "return", // Name
+            "", // Description
+            ::Smp::Uuids::Uuid_Bool, // Type UUID
+            Smp::Publication::ParameterDirectionKind::PDK_Return // Parameter Direction Kind
+            );
         // Publish Property connected
         receiver->PublishProperty(
             "connected", // Name
@@ -200,8 +200,8 @@ namespace demo::support
     }
 
 
-                    std::map<std::string_view, std::function<void(RootModelGen*, ::Smp::IRequest*)>> RootModelGen::_requestHandlers{
-                        // Handler for Operation ping
+        std::map<std::string_view, std::function<void(RootModelGen*, ::Smp::IRequest*)>> RootModelGen::_requestHandlers{
+            // Handler for Operation ping
     {"ping",
     [](RootModelGen* component, ::Smp::IRequest *request) {
         auto p_requested = ::Xsmp::Request::get<::demo::support::Ratio>(component, request, "requested", ::Smp::PrimitiveTypeKind::PTK_Float64);
@@ -227,31 +227,31 @@ namespace demo::support
     }},
 
 
-                    };
+        };
 
-                    void RootModelGen::Invoke(::Smp::IRequest* request) {
-                        if (!request) {
-                            return;
-                        }
-                    #if ECSS_SMP_VERSION >= 202503L
-                        // the request carries the bare property name and tells a getter
-                        // from a setter apart through its type
-                        const std::string key =
-                                (request->GetType() == ::Smp::RequestType::RT_Get ? "get_"
-                                 : request->GetType() == ::Smp::RequestType::RT_Set ? "set_"
-                                 : "") + std::string{request->GetName()};
-                    #else
-                        // the request already names the property accessor
-                        const std::string_view key{request->GetOperationName()};
-                    #endif
-                        if (auto it = _requestHandlers.find(key);
-                                it != _requestHandlers.end()) {
-                            it->second(this, request);
-                        } else {
-                            // pass the request down to the base class
-                            ::Xsmp::Model::Invoke(request);
-                        }
-                    }
+        void RootModelGen::Invoke(::Smp::IRequest* request) {
+            if (!request) {
+                return;
+            }
+        #if ECSS_SMP_VERSION >= 202503L
+            // the request carries the bare property name and tells a getter
+            // from a setter apart through its type
+            const std::string key =
+                    (request->GetType() == ::Smp::RequestType::RT_Get ? "get_"
+                     : request->GetType() == ::Smp::RequestType::RT_Set ? "set_"
+                     : "") + std::string{request->GetName()};
+        #else
+            // the request already names the property accessor
+            const std::string_view key{request->GetOperationName()};
+        #endif
+            if (auto it = _requestHandlers.find(key);
+                    it != _requestHandlers.end()) {
+                it->second(this, request);
+            } else {
+                // pass the request down to the base class
+                ::Xsmp::Model::Invoke(request);
+            }
+        }
 
 
     const ::Smp::Uuid& RootModelGen::GetUuid() const {

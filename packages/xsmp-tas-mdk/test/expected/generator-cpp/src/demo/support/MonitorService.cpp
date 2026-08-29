@@ -25,9 +25,9 @@ namespace demo
         }
 
         void MonitorService::start() {
-                            // TODO
+            // TODO
 
-                        }
+        }
 
     } // namespace support
 } // namespace demo

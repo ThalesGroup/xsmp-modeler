@@ -8,8 +8,8 @@
 namespace demo::support
 {
     void DeviceBase::reset() {
-                        // TODO
+        // TODO
 
-                    }
+    }
 
 } // namespace demo::support

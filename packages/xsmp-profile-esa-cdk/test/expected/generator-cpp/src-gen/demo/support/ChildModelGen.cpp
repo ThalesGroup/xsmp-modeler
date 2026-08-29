@@ -24,8 +24,8 @@ namespace demo
             ::Smp::ISimulator* simulator):
             // Base class
             ::esa::ecss::smp::cdk::Model(name, description, parent, simulator),
-                                                                                                  // Field childState
-                                                                              childState {false} {
+            // Field childState
+            childState {false} {
 
         }
 

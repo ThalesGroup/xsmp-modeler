@@ -21,9 +21,9 @@ namespace demo
         void MonitorService::DoDisconnect() {
         }
         void MonitorService::start() {
-                            // TODO
+            // TODO
 
-                        }
+        }
 
     } // namespace support
 } // namespace demo

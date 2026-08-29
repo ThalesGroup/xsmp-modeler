@@ -404,19 +404,17 @@ export class XsmpSdkGenerator extends GapPatternCppGenerator {
             /// Get Universally Unique Identifier of the ${type.$type}.
             /// @return  Universally Unique Identifier of the ${type.$type}.
             const ::Smp::Uuid& GetUuid() const override;
-            ${this.hasInvokableMembers(type) ? `
-            private:
-            static std::map<std::string_view, std::function<void(${name}*, ::Smp::IRequest*)>> _requestHandlers;
+            ${this.hasInvokableMembers(type) ? `private:
+static std::map<std::string_view, std::function<void(${name}*, ::Smp::IRequest*)>> _requestHandlers;
 
-            public:
-                /// Dynamically invoke an operation using a request object that has 
-                /// been created and filled with parameter values by the caller.
-                /// @param   request Request object to invoke.
-                /// @throws  Smp::InvalidOperationName
-                /// @throws  Smp::InvalidParameterCount
-                /// @throws  Smp::InvalidParameterType
-                void Invoke(::Smp::IRequest* request) override;
-            `: undefined}
+public:
+    /// Dynamically invoke an operation using a request object that has
+    /// been created and filled with parameter values by the caller.
+    /// @param   request Request object to invoke.
+    /// @throws  Smp::InvalidOperationName
+    /// @throws  Smp::InvalidParameterCount
+    /// @throws  Smp::InvalidParameterType
+    void Invoke(::Smp::IRequest* request) override;` : undefined}
             
             ${this.declareMembersGen(type, VisibilityKind.public, gen)}
             };
@@ -455,8 +453,7 @@ export class XsmpSdkGenerator extends GapPatternCppGenerator {
                 ::Smp::IComposite* parent,
                 ::Smp::ISimulator* simulator):
                 // Base class
-                ${base}(name, description, parent, simulator)${initializer.length > 0 ? `,
-                    ${initializer.join(',\n')}` : ''} { }
+                ${[`${base}(name, description, parent, simulator)`, ...initializer].join(',\n')} { }
             
             void ${name}::Publish(::Smp::IPublication* receiver) {
                 // Call parent class implementation first
@@ -494,34 +491,34 @@ export class XsmpSdkGenerator extends GapPatternCppGenerator {
             }
             
             ${this.hasInvokableMembers(type) ? `
-                std::map<std::string_view, std::function<void(${name}*, ::Smp::IRequest*)>> ${name}::_requestHandlers{
-                    ${this.getInvokableOperations(type).map(operation => this.generateRqHandlerOperation(operation, gen)).join('\n')}
-                    ${this.getInvokableProperties(type).map(property => this.generateRqHandlerProperty(property, gen)).join('\n')}
-                };
-                
-                void ${name}::Invoke(::Smp::IRequest* request) {
-                    if (!request) {
-                        return;
-                    }
-                #if ECSS_SMP_VERSION >= ${smpVersion2025}
-                    // the request carries the bare property name and tells a getter
-                    // from a setter apart through its type
-                    const std::string key =
-                            (request->GetType() == ::Smp::RequestType::RT_Get ? "get_"
-                             : request->GetType() == ::Smp::RequestType::RT_Set ? "set_"
-                             : "") + std::string{request->GetName()};
-                #else
-                    // the request already names the property accessor
-                    const std::string_view key{request->GetOperationName()};
-                #endif
-                    if (auto it = _requestHandlers.find(key);
-                            it != _requestHandlers.end()) {
-                        it->second(this, request);
-                    } else {
-                        // pass the request down to the base class
-                        ${base}::Invoke(request);
-                    }
-                }
+    std::map<std::string_view, std::function<void(${name}*, ::Smp::IRequest*)>> ${name}::_requestHandlers{
+        ${this.getInvokableOperations(type).map(operation => this.generateRqHandlerOperation(operation, gen)).join('\n')}
+        ${this.getInvokableProperties(type).map(property => this.generateRqHandlerProperty(property, gen)).join('\n')}
+    };
+    
+    void ${name}::Invoke(::Smp::IRequest* request) {
+        if (!request) {
+            return;
+        }
+    #if ECSS_SMP_VERSION >= ${smpVersion2025}
+        // the request carries the bare property name and tells a getter
+        // from a setter apart through its type
+        const std::string key =
+                (request->GetType() == ::Smp::RequestType::RT_Get ? "get_"
+                 : request->GetType() == ::Smp::RequestType::RT_Set ? "set_"
+                 : "") + std::string{request->GetName()};
+    #else
+        // the request already names the property accessor
+        const std::string_view key{request->GetOperationName()};
+    #endif
+        if (auto it = _requestHandlers.find(key);
+                it != _requestHandlers.end()) {
+            it->second(this, request);
+        } else {
+            // pass the request down to the base class
+            ${base}::Invoke(request);
+        }
+    }
 
                 `: undefined}
             const ::Smp::Uuid& ${name}::GetUuid() const {

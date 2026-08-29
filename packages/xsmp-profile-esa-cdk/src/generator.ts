@@ -16,11 +16,11 @@ export class EsaCdkGenerator extends GapPatternCppGenerator {
         return s`
         // Register factory for Model ${model.name}
         simulator->RegisterFactory(new ::esa::ecss::smp::cdk::Factory<${this.fqn(model)}>(
-                            "${model.name}", // Name
-                             ${this.description(model)}, // Description
-                            simulator, // Simulator
-                            ${this.uuid(model)} // UUID
-                            ));
+            "${model.name}", // Name
+            ${this.description(model)}, // Description
+            simulator, // Simulator
+            ${this.uuid(model)} // UUID
+            ));
         
         `;
     }
@@ -507,8 +507,7 @@ export class EsaCdkGenerator extends GapPatternCppGenerator {
                 ::Smp::IComposite* parent,
                 ::Smp::ISimulator* simulator):
                 // Base class
-                ${base}(name, description, parent, simulator)${initializer.length > 0 ? `,
-                    ${initializer.join(',\n')}` : ''} { 
+                ${[`${base}(name, description, parent, simulator)`, ...initializer].join(',\n')} { 
                 ${this.constructMembers(type)}
             }
 

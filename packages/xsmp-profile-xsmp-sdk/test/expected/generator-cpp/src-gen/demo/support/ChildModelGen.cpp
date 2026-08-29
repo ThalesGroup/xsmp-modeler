@@ -23,8 +23,8 @@ namespace demo::support
         ::Smp::ISimulator* simulator):
         // Base class
         ::Xsmp::Model(name, description, parent, simulator),
-                                                                               // Field childState
-                                                           childState {false} { }
+        // Field childState
+        childState {false} { }
 
     void ChildModelGen::Publish(::Smp::IPublication* receiver) {
         // Call parent class implementation first
