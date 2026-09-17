@@ -506,7 +506,7 @@ function renderCatalogueValue(value: SmpXmlObject, context: CatalogueImportConte
     const resolvedExpectedType = resolveTypeInfo(expectedTypeLink, context);
     switch (valueType) {
         case 'BoolValue':
-            return `${fieldPrefix}${getAttribute(value, 'Value') === 'true' ? 'true' : 'false'}`;
+            return `${fieldPrefix}${parseBooleanAttribute(value, 'Value') ? 'true' : 'false'}`;
         case 'Char8Value':
             return `${fieldPrefix}${renderCharacterLiteral(getAttribute(value, 'Value') ?? '')}`;
         case 'String8Value':

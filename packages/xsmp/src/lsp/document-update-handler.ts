@@ -1,20 +1,33 @@
-import { DocumentState, stream, type LangiumDocument, type LangiumDocuments, type TextDocument, URI } from 'langium';
+import { Cancellation, DocumentState, isOperationCancelled, stream, type LangiumDocument, type LangiumDocuments, type TextDocument, URI } from 'langium';
 import { DefaultDocumentUpdateHandler } from 'langium/lsp';
 import { FileChangeType, type DidChangeWatchedFilesParams, type TextDocumentChangeEvent } from 'vscode-languageserver';
 import type { ProjectManager } from '../workspace/project-manager.js';
 import type { XsmpSharedServices } from '../xsmp-module.js';
-import type { SmpMirrorManager } from '../smp/index.js';
+import type { SmpMirrorManager, SmpMirrorRefreshResult } from '../smp/index.js';
+import { SmpMirrorsChangedNotification } from './protocol.js';
 
 export class XsmpDocumentUpdateHandler extends DefaultDocumentUpdateHandler {
     protected readonly smpMirrorManager: SmpMirrorManager;
     protected readonly projectManager: ProjectManager;
     protected readonly documents: LangiumDocuments;
+    protected readonly connection: XsmpSharedServices['lsp']['Connection'];
 
     constructor(services: XsmpSharedServices) {
         super(services);
         this.smpMirrorManager = services.SmpMirrorManager;
         this.projectManager = services.workspace.ProjectManager;
         this.documents = services.workspace.LangiumDocuments;
+        this.connection = services.lsp.Connection;
+    }
+
+    protected override fireDocumentUpdate(changed: URI[], deleted: URI[]): void {
+        void this.workspaceManager.ready
+            .then(() => this.workspaceLock.write(token => this.documentBuilder.update(changed, deleted, token)))
+            .catch(error => {
+                if (!isOperationCancelled(error)) {
+                    console.error('Could not perform document update.', error);
+                }
+            });
     }
 
     didOpenDocument(change: TextDocumentChangeEvent<TextDocument>): void {
@@ -46,30 +59,46 @@ export class XsmpDocumentUpdateHandler extends DefaultDocumentUpdateHandler {
             .map(change => change.parsedUri)
             .toArray();
         const requiresMirrorRefresh = watchedChanges.some(change => this.smpMirrorManager.isMirrorRelevantUri(change.parsedUri));
+        let completedMirrorRefresh: SmpMirrorRefreshResult | undefined;
 
         await this.workspaceManager.ready;
         await this.workspaceLock.write(async token => {
-            await this.documentBuilder.update(changedUris, deletedUris, token);
+            // A watched-file event is a delta that a later write cannot reconstruct. Once mirrors
+            // are involved, keep the source update, refresh and dependent rebuild atomic.
+            const updateToken = requiresMirrorRefresh ? Cancellation.CancellationToken.None : token;
+            await this.documentBuilder.update(changedUris, deletedUris, updateToken);
             if (!requiresMirrorRefresh) {
                 return;
             }
 
-            const mirrorRefresh = await this.smpMirrorManager.refreshWorkspaceMirrors(token);
+            const mirrorRefresh = await this.smpMirrorManager.refreshWorkspaceMirrors(updateToken);
             const updatedMirrorUris = [...mirrorRefresh.changed, ...mirrorRefresh.deleted];
             if (updatedMirrorUris.length > 0) {
                 // Mirror add/remove events change project visibility, but they don't necessarily
                 // show up as reference-index changes on the surviving XSMP documents.
                 const mirrorAffectedDocuments = this.collectMirrorAffectedDocuments(updatedMirrorUris);
-                await this.documentBuilder.update(mirrorRefresh.changed, mirrorRefresh.deleted, token);
+                await this.documentBuilder.update(mirrorRefresh.changed, mirrorRefresh.deleted, updateToken);
                 if (mirrorAffectedDocuments.length > 0) {
                     for (const document of mirrorAffectedDocuments) {
                         this.documentBuilder.resetToState(document, DocumentState.ComputedScopes);
                     }
-                    await this.documentBuilder.build(mirrorAffectedDocuments, this.documentBuilder.updateBuildOptions, token);
+                    await this.documentBuilder.build(mirrorAffectedDocuments, this.documentBuilder.updateBuildOptions, updateToken);
                 }
             }
             this.smpMirrorManager.publishSourceDiagnostics();
+            completedMirrorRefresh = mirrorRefresh;
         });
+
+        if (completedMirrorRefresh && (completedMirrorRefresh.changed.length > 0 || completedMirrorRefresh.deleted.length > 0)) {
+            try {
+                await this.connection?.sendNotification(SmpMirrorsChangedNotification, {
+                    changed: completedMirrorRefresh.changed.map(uri => uri.toString()),
+                    deleted: completedMirrorRefresh.deleted.map(uri => uri.toString()),
+                });
+            } catch (error) {
+                console.error('Could not notify the client about refreshed SMP mirrors.', error);
+            }
+        }
     }
 
     protected collectMirrorAffectedDocuments(mirrorUris: readonly URI[]): LangiumDocument[] {

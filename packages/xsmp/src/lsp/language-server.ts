@@ -31,35 +31,46 @@ export class XsmpLanguageServer extends DefaultLanguageServer {
 
     protected override eagerLoadServices(): void {
         super.eagerLoadServices();
+        const sharedServices = this.services as XsmpSharedServices;
+        this.services.lsp.Connection?.workspace.onDidChangeWorkspaceFolders(event => {
+            void sharedServices.workspace.WorkspaceManager.updateWorkspaceFolders(event).catch(error => {
+                console.error('Could not update XSMP workspace folders.', error);
+            });
+        });
         this.services.lsp.Connection?.onRequest(GetServerFileContentRequest, async (uri) => {
-            return await resolveServerFileContent(this.services as XsmpSharedServices, URI.parse(uri));
+            await sharedServices.workspace.WorkspaceManager.ready;
+            return await sharedServices.workspace.WorkspaceLock.read(() =>
+                resolveServerFileContent(sharedServices, URI.parse(uri))
+            );
         });
 
         this.services.lsp.Connection?.onRequest(RegisterContributions, async (entries) => {
-            return await (this.services as XsmpSharedServices).ContributionRegistry.registerExtensionManifestEntries(entries);
+            return await sharedServices.ContributionRegistry.registerExtensionManifestEntries(entries);
         });
 
         this.services.lsp.Connection?.onRequest(GetContributionSummaries, async (kind) => {
-            const registry = (this.services as XsmpSharedServices).ContributionRegistry;
-            await registry.ready;
-            return registry.getContributionSummaries(kind);
+            return await sharedServices.workspace.WorkspaceLock.read(() =>
+                sharedServices.ContributionRegistry.getContributionSummaries(kind)
+            );
         });
 
         this.services.lsp.Connection?.onRequest(GetContributionWizardPrompts, async (request) => {
-            const registry = (this.services as XsmpSharedServices).ContributionRegistry;
-            await registry.ready;
-            return await registry.getWizardPrompts(request);
+            return await sharedServices.workspace.WorkspaceLock.read(() =>
+                sharedServices.ContributionRegistry.getWizardPrompts(request)
+            );
         });
 
         this.services.lsp.Connection?.onRequest(ScaffoldProject, async (request) => {
-            const registry = (this.services as XsmpSharedServices).ContributionRegistry;
-            await registry.ready;
-            return await registry.scaffoldProject(request);
+            return await sharedServices.workspace.WorkspaceLock.read(() =>
+                sharedServices.ContributionRegistry.scaffoldProject(request)
+            );
         });
 
         this.services.lsp.Connection?.onRequest(GenerateProject, async (uri) => {
-            const sharedServices = this.services as XsmpSharedServices;
-            const project = await this.resolveProjectFromUri(sharedServices, uri);
+            await sharedServices.workspace.WorkspaceManager.ready;
+            const project = await sharedServices.workspace.WorkspaceLock.read(() =>
+                this.resolveProjectFromUri(sharedServices, uri)
+            );
             if (!project) {
                 return {
                     generatedProjects: [],
@@ -70,15 +81,15 @@ export class XsmpLanguageServer extends DefaultLanguageServer {
         });
 
         this.services.lsp.Connection?.onRequest(GenerateAllProjects, async () => {
-            const sharedServices = this.services as XsmpSharedServices;
             await sharedServices.workspace.WorkspaceManager.ready;
-            const projects = sharedServices.workspace.ProjectManager.getProjects().toArray()
-                .sort((left, right) => (left.name ?? '').localeCompare(right.name ?? ''));
+            const projects = await sharedServices.workspace.WorkspaceLock.read(() =>
+                sharedServices.workspace.ProjectManager.getProjects().toArray()
+                    .sort((left, right) => (left.name ?? '').localeCompare(right.name ?? ''))
+            );
             return await sharedServices.DocumentGenerator.generateValidatedProjects(projects, Cancellation.CancellationToken.None);
         });
 
         this.services.lsp.Connection?.onRequest(ImportSmpFile, async (request) => {
-            const sharedServices = this.services as XsmpSharedServices;
             const importer = new SmpImportService(sharedServices);
             return await importer.importFile({
                 inputPath: URI.parse(request.uri).fsPath,
@@ -98,7 +109,10 @@ export class XsmpLanguageServer extends DefaultLanguageServer {
             return undefined;
         }
 
-        const document = await services.workspace.LangiumDocuments.getOrCreateDocument(parsedUri);
+        const document = services.workspace.LangiumDocuments.getDocument(parsedUri);
+        if (!document) {
+            return undefined;
+        }
         if (ast.isProject(document.parseResult.value)) {
             return document.parseResult.value;
         }
@@ -117,13 +131,9 @@ export class XsmpLanguageServer extends DefaultLanguageServer {
 }
 
 export async function resolveServerFileContent(services: XsmpSharedServices, uri: URI): Promise<string | null> {
-    const existingDocument = services.workspace.LangiumDocuments.all.find(document => document.uri.toString() === uri.toString());
-    if (existingDocument) {
-        return existingDocument.textDocument.getText();
+    if (isSmpMirrorDocument(uri)) {
+        return await services.SmpMirrorManager.getOrCreateMirrorContent(uri) ?? null;
     }
 
-    if (!isSmpMirrorDocument(uri)) {
-        return null;
-    }
-    return await services.SmpMirrorManager.getOrCreateMirrorContent(uri) ?? null;
+    return services.workspace.LangiumDocuments.getDocument(uri)?.textDocument.getText() ?? null;
 }

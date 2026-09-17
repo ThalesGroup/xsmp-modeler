@@ -198,7 +198,13 @@ export function parseBooleanAttribute(node: SmpXmlObject, localName: string): bo
     if (value === undefined) {
         return undefined;
     }
-    return value === 'true';
+    if (value === 'true' || value === '1') {
+        return true;
+    }
+    if (value === 'false' || value === '0') {
+        return false;
+    }
+    throw new Error(`Invalid XML Schema boolean value '${value}' for attribute '${localName}'.`);
 }
 
 export function parseBigIntAttribute(node: SmpXmlObject, localName: string): bigint | undefined {
@@ -482,7 +488,7 @@ export function renderImportedValue(node: SmpXmlObject, warnings: string[]): str
     const valueType = getXsiTypeLocalName(node, 'Types:Value');
     switch (valueType) {
         case 'BoolValue':
-            return getAttribute(node, 'Value') === 'true' ? 'true' : 'false';
+            return parseBooleanAttribute(node, 'Value') ? 'true' : 'false';
         case 'Char8Value':
             return renderCharacterLiteral(getAttribute(node, 'Value') ?? '');
         case 'String8Value':

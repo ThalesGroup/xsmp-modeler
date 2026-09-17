@@ -60,7 +60,12 @@ export class SmpImportService {
             throw new Error(`Refusing to overwrite existing file '${outputPath}'.`);
         }
 
-        const rendered = await this.renderImportedDocument({ inputPath, outputUri: URI.file(outputPath) });
+        const workspaceIndex = this.services.SmpWorkspaceIndex.createSnapshot();
+        const rendered = await this.renderImportedDocument({
+            inputPath,
+            outputUri: URI.file(outputPath),
+            workspaceIndex,
+        });
 
         await this.ensureOutputDirectory(outputPath);
         await fs.writeFile(outputPath, rendered.content, 'utf-8');

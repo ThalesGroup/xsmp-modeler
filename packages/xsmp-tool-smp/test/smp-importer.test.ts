@@ -7,7 +7,13 @@ import * as path from 'node:path';
 import { createXsmpServices } from '@xsmp/core';
 import * as ast from '@xsmp/core/ast';
 import { SmpImportService } from '@xsmp/core/smp';
-import { detectSmpImportKind, getDefaultImportedXsmpPath, parseSmpXml } from '@xsmp/core/smp';
+import {
+    detectSmpImportKind,
+    getDefaultImportedXsmpPath,
+    parseBooleanAttribute,
+    parseSmpXml,
+    renderImportedValue,
+} from '@xsmp/core/smp';
 import { SmpGenerator } from '@xsmp/tool-smp';
 import { setGeneratedBy } from '@xsmp/core/generator';
 import { rebuildTestDocuments } from './test-services.js';
@@ -57,6 +63,31 @@ describe('SMP importer', () => {
         expect(detectSmpImportKind(parseSmpXml('<LinkBase:LinkBase xmlns:LinkBase="http://www.ecss.nl/smp/2025/Smdl/LinkBase"/>'))).toBe('linkbase');
         expect(detectSmpImportKind(parseSmpXml('<Assembly:Assembly xmlns:Assembly="http://www.ecss.nl/smp/2025/Smdl/Assembly"/>'))).toBe('assembly');
         expect(detectSmpImportKind(parseSmpXml('<Schedule:Schedule xmlns:Schedule="http://www.ecss.nl/smp/2025/Smdl/Schedule"/>'))).toBe('schedule');
+    });
+
+    test('supports all XML Schema boolean lexical forms', () => {
+        expect(parseBooleanAttribute({ '@Value': 'true' }, 'Value')).toBe(true);
+        expect(parseBooleanAttribute({ '@Value': '1' }, 'Value')).toBe(true);
+        expect(parseBooleanAttribute({ '@Value': 'false' }, 'Value')).toBe(false);
+        expect(parseBooleanAttribute({ '@Value': '0' }, 'Value')).toBe(false);
+        expect(parseBooleanAttribute({}, 'Value')).toBeUndefined();
+        expect(() => parseBooleanAttribute({ '@Value': 'yes' }, 'Value')).toThrow(/Invalid XML Schema boolean value/u);
+
+        expect(renderImportedValue({ '@xsi:type': 'Types:BoolValue', '@Value': '1' }, [])).toBe('true');
+        expect(renderImportedValue({ '@xsi:type': 'Types:BoolValue', '@Value': '0' }, [])).toBe('false');
+    });
+
+    test('preserves zero-valued runtime enumeration literals when generating SMP', () => {
+        const generator = new SmpGenerator(services.shared);
+        const zero = generator.convertValue({
+            $type: ast.EnumerationValue.$type,
+            value: 0n,
+        } as ast.EnumerationValue);
+
+        expect(zero).toEqual({
+            '@xsi:type': 'Types:EnumerationValue',
+            '@Value': 0n,
+        });
     });
 
     test('imports a catalogue and regenerates the same SMP XML', async () => {
@@ -111,6 +142,37 @@ describe('SMP importer', () => {
 
         expect(result.warnings).toEqual([]);
         expect(importedText).toContain('reference Child childRef');
+    });
+
+    test('imports numeric XML Schema booleans in catalogue attributes and values', async () => {
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-smp-import-bool-'));
+        tempDirs.push(tempDir);
+        const inputPath = path.join(tempDir, 'demo.smpcat');
+        fs.writeFileSync(inputPath, `<?xml version="1.0" encoding="UTF-8"?>
+<Catalogue:Catalogue xmlns:Catalogue="http://www.ecss.nl/smp/2025/Smdl/Catalogue" xmlns:Elements="http://www.ecss.nl/smp/2025/Core/Elements" xmlns:Types="http://www.ecss.nl/smp/2025/Core/Types" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" Id="demo" Name="Demo">
+  <Namespace Name="demo">
+    <Type xsi:type="Catalogue:Model" Id="demo.Root" Name="Root" Abstract="1">
+      <Field Id="demo.Root.enabled" Name="enabled" Input="1" Output="0" State="0">
+        <Type xlink:href="#Smp.Bool" xlink:title="Bool"/>
+        <Default xsi:type="Types:BoolValue" Value="1"/>
+      </Field>
+      <Field Id="demo.Root.disabled" Name="disabled">
+        <Type xlink:href="#Smp.Bool" xlink:title="Bool"/>
+        <Default xsi:type="Types:BoolValue" Value="0"/>
+      </Field>
+    </Type>
+  </Namespace>
+</Catalogue:Catalogue>
+`, 'utf-8');
+
+        const importer = new SmpImportService(services.shared);
+        const result = await importer.importFile({ inputPath });
+        const importedText = fs.readFileSync(result.outputPath, 'utf-8');
+
+        expect(result.warnings).toEqual([]);
+        expect(importedText).toContain('abstract model Root');
+        expect(importedText).toContain('input transient field Bool enabled = true');
+        expect(importedText).toContain('field Bool disabled = false');
     });
 
     test('imports a configuration and regenerates the same SMP XML', async () => {
@@ -598,6 +660,11 @@ describe('SMP importer', () => {
 
         expect(result.warnings).toEqual([]);
         expect(importedText).toContain('field dep.IndexedStruct external');
+        expect(services.shared.SmpWorkspaceIndex.findWorkspaceCandidates(
+            'dependency.smpcat',
+            'dependency.smpcat',
+            tempDir,
+        )).toEqual([]);
     });
 
     test('warns when multiple indexed SMP files match the same external href without selecting one arbitrarily', async () => {

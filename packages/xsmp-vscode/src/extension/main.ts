@@ -3,22 +3,29 @@ import * as vscode from 'vscode';
 import * as path from 'node:path';
 import { URI } from 'langium';
 import satisfies from 'semver/functions/satisfies.js';
-import { LanguageClient, TransportKind } from 'vscode-languageclient/node.js';
+import { LanguageClient, State, TransportKind } from 'vscode-languageclient/node.js';
 import { createProjectWizard, createXsmpStarterFileWizard } from '@xsmp/core/wizard';
-import { GenerateAllProjects, GenerateProject, GetServerFileContentRequest, ImportSmpFile, RegisterContributions } from '@xsmp/core/lsp';
+import {
+    GenerateAllProjects,
+    GenerateProject,
+    GetServerFileContentRequest,
+    ImportSmpFile,
+    RegisterContributions,
+    SmpMirrorsChangedNotification,
+} from '@xsmp/core/lsp';
 import type { XsmpProjectGenerationReport } from '@xsmp/core/lsp';
 import type {
     XsmpContributionRegistrationReport,
     XsmpExtensionContributionManifestEntry,
     XsmpResolvedContributionManifestEntry,
 } from '@xsmp/core/contributions';
-import { xsmpExtensionApiVersion } from '@xsmp/core';
+import { smpMirrorScheme, xsmpExtensionApiVersion } from '@xsmp/core';
 import { getDefaultImportedXsmpPath, getSmpMirrorSourceUri } from '@xsmp/core/smp';
 import { registerEmbeddedDocumentation } from './embedded-documentation.js';
 import { registerSmpMirrorCommands } from './smp-mirror-commands.js';
 import { registerSmpMirrorPreview } from './smp-mirror-preview.js';
-import { getSmpMirrorSyncChanges, type SmpMirrorSyncChangeKind } from './smp-mirror-preview-support.js';
 import { createXsmpDocumentSelector, xsmpFileWatcherPatterns, xsmpLanguageIds, xsmpReadonlySchemes } from './xsmp-language-support.js';
+import { registerLanguageClientRestartTask, startLanguageClientAndRunTask, stopLanguageClientWhenReady } from './language-client-running-handler.js';
 
 let client: LanguageClient | undefined;
 let contributionOutputChannel: vscode.OutputChannel | undefined;
@@ -28,15 +35,62 @@ const xsmpLanguageIdSet = new Set<string>(xsmpLanguageIds);
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
     contributionOutputChannel = vscode.window.createOutputChannel('XSMP Contributions');
     context.subscriptions.push(contributionOutputChannel);
+    let mirrorNotification: vscode.Disposable | undefined;
 
     try {
-        client = await startLanguageClient(context);
+        const languageClient = createLanguageClient(context);
+        client = languageClient;
         const readonlyProvider = ReadonlyXsmpFileSystemProvider.register(context);
-        registerReadonlyMirrorFileSync(context, readonlyProvider);
-        registerSmpMirrorPreview(context, getClient);
-        registerSmpMirrorCommands(context, getClient);
-        await registerDiscoveredXsmpContributions(context);
+        mirrorNotification = languageClient.onNotification(
+            SmpMirrorsChangedNotification,
+            ({ changed, deleted }) => readonlyProvider.emitMirrorSyncChanges(changed, deleted),
+        );
+        context.subscriptions.push(mirrorNotification);
+        await startLanguageClientAndRunTask(
+            languageClient,
+            State.Starting,
+            State.Running,
+            async () => {
+                registerSmpMirrorPreview(context, getClient);
+                registerSmpMirrorCommands(context, getClient);
+                const initialContributionRegistration = registerDiscoveredXsmpContributions(context, languageClient);
+                const restartRegistration = registerLanguageClientRestartTask(
+                    languageClient,
+                    State.Running,
+                    async () => {
+                        readonlyProvider.emitMirrorSyncChanges(
+                            [...new Set(
+                                vscode.workspace.textDocuments
+                                    .filter(document => document.uri.scheme === smpMirrorScheme)
+                                    .map(document => document.uri.toString()),
+                            )],
+                            [],
+                        );
+                        await registerDiscoveredXsmpContributions(context, languageClient);
+                    },
+                    error => {
+                        logContributionMessage('Failed to restore external XSMP contributions after the language server restarted.');
+                        logContributionError(error);
+                        contributionOutputChannel?.show(true);
+                    },
+                    initialContributionRegistration,
+                );
+                try {
+                    await initialContributionRegistration;
+                    context.subscriptions.push(restartRegistration);
+                } catch (error) {
+                    restartRegistration.dispose();
+                    throw error;
+                }
+            },
+            stopError => {
+                logContributionMessage('Failed to stop the XSMP language client after activation failed.');
+                logContributionError(stopError);
+            },
+        );
     } catch (error) {
+        mirrorNotification?.dispose();
+        client = undefined;
         logContributionMessage('Failed to activate XSMP extension.');
         logContributionError(error);
         contributionOutputChannel.show(true);
@@ -121,7 +175,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 }
 
-async function registerDiscoveredXsmpContributions(context: vscode.ExtensionContext): Promise<void> {
+async function registerDiscoveredXsmpContributions(
+    context: vscode.ExtensionContext,
+    languageClient: LanguageClient,
+): Promise<void> {
     const contributions: XsmpResolvedContributionManifestEntry[] = [];
     const skippedEntries: string[] = [];
     for (const extension of vscode.extensions.all) {
@@ -159,7 +216,7 @@ async function registerDiscoveredXsmpContributions(context: vscode.ExtensionCont
 
     if (contributions.length > 0) {
         logContributionMessage(`Registering ${contributions.length} external XSMP contribution(s).`);
-        const report = await getClient().sendRequest(RegisterContributions, contributions);
+        const report = await languageClient.sendRequest(RegisterContributions, contributions);
         reportContributionRegistration(report, 'Some XSMP contributions failed to initialize.');
     }
 }
@@ -337,7 +394,9 @@ function reportAutomaticProjectGeneration(report: XsmpProjectGenerationReport, d
 
 // This function is called when the extension is deactivated.
 export function deactivate(): Thenable<void> | undefined {
-    return client?.stop();
+    return client
+        ? stopLanguageClientWhenReady(client, State.Starting, State.Running)
+        : undefined;
 }
 
 function getClient(): LanguageClient {
@@ -368,7 +427,7 @@ async function generateAllOnStartupIfEnabled(): Promise<void> {
     }
 }
 
-async function startLanguageClient(context: vscode.ExtensionContext): Promise<LanguageClient> {
+function createLanguageClient(context: vscode.ExtensionContext): LanguageClient {
     const fileEventWatchers = createXsmpFileWatchers(context);
     const serverModule = context.asAbsolutePath(path.join('out', 'language', 'main.cjs')),
         // The debug options for the server
@@ -395,15 +454,13 @@ async function startLanguageClient(context: vscode.ExtensionContext): Promise<La
         },
 
         // Create the language client and start the client.
-        client = new LanguageClient(
+        languageClient = new LanguageClient(
             'xsmp',
             'Xsmp',
             serverOptions,
             clientOptions
         );
-    // Start the client. This will also launch the server
-    await client.start();
-    return client;
+    return languageClient;
 }
 
 function createXsmpFileWatchers(context: vscode.ExtensionContext): vscode.FileSystemWatcher[] {
@@ -459,11 +516,17 @@ export class ReadonlyXsmpFileSystemProvider implements vscode.FileSystemProvider
     private readonly didChangeFile = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
     onDidChangeFile = this.didChangeFile.event;
 
-    emitMirrorSyncChanges(filePath: string, kind: SmpMirrorSyncChangeKind): void {
-        const changes = getSmpMirrorSyncChanges(filePath, kind).map(change => ({
-            type: toVscodeFileChangeType(change.kind),
-            uri: vscode.Uri.parse(change.uri),
-        }));
+    emitMirrorSyncChanges(changed: readonly string[], deleted: readonly string[]): void {
+        const changes: vscode.FileChangeEvent[] = [
+            ...changed.map(uri => ({
+                type: vscode.FileChangeType.Changed,
+                uri: vscode.Uri.parse(uri),
+            })),
+            ...deleted.map(uri => ({
+                type: vscode.FileChangeType.Deleted,
+                uri: vscode.Uri.parse(uri),
+            })),
+        ];
         if (changes.length > 0) {
             this.didChangeFile.fire(changes);
         }
@@ -498,31 +561,4 @@ export class ReadonlyXsmpFileSystemProvider implements vscode.FileSystemProvider
 
 function toVscodeUri(uri: ReturnType<typeof getSmpMirrorSourceUri>): vscode.Uri | undefined {
     return uri ? vscode.Uri.parse(uri.toString()) : undefined;
-}
-
-function registerReadonlyMirrorFileSync(
-    context: vscode.ExtensionContext,
-    provider: ReadonlyXsmpFileSystemProvider,
-): void {
-    const mirrorRelevantPatterns = xsmpFileWatcherPatterns.filter(pattern => pattern !== '**/xsmp.project');
-    for (const pattern of mirrorRelevantPatterns) {
-        const watcher = vscode.workspace.createFileSystemWatcher(pattern);
-        context.subscriptions.push(
-            watcher,
-            watcher.onDidCreate(uri => provider.emitMirrorSyncChanges(uri.fsPath, 'created')),
-            watcher.onDidChange(uri => provider.emitMirrorSyncChanges(uri.fsPath, 'changed')),
-            watcher.onDidDelete(uri => provider.emitMirrorSyncChanges(uri.fsPath, 'deleted')),
-        );
-    }
-}
-
-function toVscodeFileChangeType(kind: SmpMirrorSyncChangeKind): vscode.FileChangeType {
-    switch (kind) {
-        case 'created':
-            return vscode.FileChangeType.Created;
-        case 'deleted':
-            return vscode.FileChangeType.Deleted;
-        default:
-            return vscode.FileChangeType.Changed;
-    }
 }

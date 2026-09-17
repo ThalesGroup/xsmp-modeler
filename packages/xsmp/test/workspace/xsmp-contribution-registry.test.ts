@@ -369,7 +369,77 @@ namespace ext
         expect(report.failures[0]?.message).toContain('Contribution descriptor path');
         expect(report.failures[0]?.message).toContain('not contained within extension root');
     });
+
+    test('serializes contribution registration after active workspace writes', async () => {
+        const extensionRoot = path.join(tempDir, 'serialized-extension');
+        fs.mkdirSync(extensionRoot, { recursive: true });
+        fs.writeFileSync(path.join(extensionRoot, 'serialized-tool.xsmptool'), 'tool "serialized-tool"\n');
+        fs.writeFileSync(path.join(extensionRoot, 'handler.mjs'), 'export function registerContribution() {}\n');
+
+        const services = createXsmpServices(NodeFileSystem);
+        let releaseWrite!: () => void;
+        let markWriteStarted!: () => void;
+        const writeStarted = new Promise<void>(resolve => { markWriteStarted = resolve; });
+        const writeGate = new Promise<void>(resolve => { releaseWrite = resolve; });
+        const activeWrite = services.shared.workspace.WorkspaceLock.write(async () => {
+            markWriteStarted();
+            await writeGate;
+        });
+        await writeStarted;
+
+        const registration = services.shared.ContributionRegistry.registerExtensionManifestEntries([
+            contributionEntry(extensionRoot, 'serialized-tool.xsmptool', 'test.serialized'),
+        ]);
+        await new Promise<void>(resolve => setImmediate(resolve));
+
+        expect(services.shared.ContributionRegistry.getContributions('tool')).toHaveLength(0);
+
+        releaseWrite();
+        await activeWrite;
+        const report = await registration;
+        expect(report.failures).toEqual([]);
+        expect(services.shared.ContributionRegistry.getCanonicalNames('tool')).toContain('serialized-tool');
+    });
+
+    test('rejects profile and tool names that collide across contribution kinds', async () => {
+        const extensionRoot = path.join(tempDir, 'colliding-extension');
+        fs.mkdirSync(extensionRoot, { recursive: true });
+        fs.writeFileSync(path.join(extensionRoot, 'shared.xsmpprofile'), 'profile "shared"\n');
+        fs.writeFileSync(path.join(extensionRoot, 'shared.xsmptool'), 'tool "shared"\n');
+        fs.writeFileSync(path.join(extensionRoot, 'handler.mjs'), 'export function registerContribution() {}\n');
+
+        const services = createXsmpServices(NodeFileSystem);
+        const report = await services.shared.ContributionRegistry.registerExtensionManifestEntries([
+            contributionEntry(extensionRoot, 'shared.xsmpprofile', 'test.shared-profile'),
+            contributionEntry(extensionRoot, 'shared.xsmptool', 'test.shared-tool'),
+        ]);
+
+        expect(report.registered).toEqual([
+            { id: 'shared', kind: 'profile', extensionId: 'test.shared-profile' },
+        ]);
+        expect(report.failures).toHaveLength(1);
+        expect(report.failures[0]).toMatchObject({
+            extensionId: 'test.shared-tool',
+            contributionId: 'shared',
+            phase: 'descriptor',
+        });
+        expect(report.failures[0]?.message).toContain("conflicts with profile contribution 'shared'");
+        expect(services.shared.ContributionRegistry.getCanonicalNames('tool')).not.toContain('shared');
+    });
 });
+
+function contributionEntry(extensionRoot: string, descriptor: string, extensionId: string): XsmpResolvedContributionManifestEntry {
+    return {
+        extensionId,
+        extensionRoot,
+        descriptorPath: path.join(extensionRoot, descriptor),
+        handlerPath: path.join(extensionRoot, 'handler.mjs'),
+        apiVersion: '^1.0.0',
+        aliases: [],
+        deprecatedAliases: [],
+        builtins: [],
+    };
+}
 
 function createProjectFixture(rootDir: string, name: string, projectText: string, catalogueText: string): string {
     const projectDir = path.join(rootDir, name);

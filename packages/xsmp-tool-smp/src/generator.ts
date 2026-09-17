@@ -1065,7 +1065,7 @@ export class SmpGenerator implements XsmpGenerator {
             case ast.UInt64Value.$type: return { '@xsi:type': 'Types:UInt64Value', '@Value': (value as ast.UInt64Value).value } as Types.UInt64Value;
             case ast.EnumerationValue.$type: {
                 const enumValue = value as ast.EnumerationValue;
-                if (enumValue.value)
+                if (enumValue.value !== undefined)
                     return { '@xsi:type': 'Types:EnumerationValue', '@Value': enumValue.value } as Types.EnumerationValue;
                 const literalValue = enumValue.reference?.ref?.value;
                 if (!literalValue) {

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { Cancellation, DocumentState, OperationCancelled, URI } from 'langium';
 import { NodeFileSystem } from 'langium/node';
 import * as fs from 'node:fs';
@@ -13,6 +13,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+    vi.restoreAllMocks();
     fs.rmSync(tempDir, { recursive: true, force: true });
 });
 
@@ -84,6 +85,25 @@ catalogue app
         ).resolves.toEqual(documentUri);
 
         expect(services.shared.workspace.LangiumDocuments.getDocument(documentUri)?.diagnostics).toBeDefined();
+    });
+
+    test('handles document build failures without leaving an unhandled rejection', async () => {
+        const services = await createBuiltinTestXsmpServices(NodeFileSystem);
+        await services.shared.workspace.WorkspaceManager.initializeWorkspace([]);
+        const document = services.shared.workspace.LangiumDocumentFactory.fromString(
+            'catalogue app\n',
+            URI.file('/workspace/app.xsmpcat'),
+        );
+        const updateError = new Error('synthetic document build failure');
+        vi.spyOn(services.shared.workspace.DocumentBuilder, 'update').mockRejectedValueOnce(updateError);
+        const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+        services.shared.lsp.DocumentUpdateHandler.didChangeContent?.({
+            document: document.textDocument,
+        });
+
+        await expect.poll(() => consoleError.mock.calls.length).toBe(1);
+        expect(consoleError).toHaveBeenCalledWith('Could not perform document update.', updateError);
     });
 });
 

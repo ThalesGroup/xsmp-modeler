@@ -1,13 +1,13 @@
-import { afterEach, beforeEach, describe, expect, test } from 'vitest';
-import { Cancellation, type LangiumDocument, URI } from 'langium';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { Cancellation, type LangiumDocument, OperationCancelled, URI } from 'langium';
 import { NodeFileSystem } from 'langium/node';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { FileChangeType, type DidChangeWatchedFilesParams, type LocationLink, type TextDocumentPositionParams } from 'vscode-languageserver';
 import { createXsmpServices } from '@xsmp/core';
-import { createSmpMirrorDescriptor } from '@xsmp/core/smp';
-import { resolveServerFileContent } from '@xsmp/core/lsp';
+import { createSmpMirrorDescriptor, type SmpImportService } from '@xsmp/core/smp';
+import { resolveServerFileContent, SmpMirrorsChangedNotification } from '@xsmp/core/lsp';
 import { createBuiltinTestXsmpServices } from '../test-services.js';
 
 let tempDir: string;
@@ -17,6 +17,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+    vi.restoreAllMocks();
     fs.rmSync(tempDir, { recursive: true, force: true });
 });
 
@@ -60,6 +61,69 @@ namespace app
 
         const appDocument = services.shared.workspace.LangiumDocuments.getDocument(URI.file(path.join(projectDir, 'src', 'app.xsmpcat')));
         expect(appDocument?.diagnostics?.some(diagnostic => diagnostic.message.includes('Could not resolve reference'))).not.toBe(true);
+    });
+
+    test('does not publish partial mirror state when a refresh is cancelled', async () => {
+        const projectDir = createProject(tempDir, 'app', `
+project 'app'
+using 'ECSS_SMP_2025'
+source 'src'
+`, {
+            'src/a.smpcat': createSmpCatalogue('a', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
+            'src/b.smpcat': createSmpCatalogue('b', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'),
+        });
+
+        const services = await createBuiltinTestXsmpServices(NodeFileSystem);
+        await services.shared.workspace.WorkspaceManager.initializeWorkspace([
+            { name: 'app', uri: URI.file(projectDir).toString() },
+        ]);
+
+        const mirrorManager = services.shared.SmpMirrorManager;
+        const aMirrorUri = services.shared.SmpWorkspaceIndex.getMirrorUriForSourcePath(path.join(projectDir, 'src', 'a.smpcat'))!;
+        const bMirrorUri = services.shared.SmpWorkspaceIndex.getMirrorUriForSourcePath(path.join(projectDir, 'src', 'b.smpcat'))!;
+        const previousAContent = mirrorManager.getMirrorContent(aMirrorUri);
+        const previousBContent = mirrorManager.getMirrorContent(bMirrorUri);
+        const previousEligibleSourcePaths = [...services.shared.SmpWorkspaceIndex.getEligibleSourcePaths()];
+        const previousDiagnostics = mirrorManager.getSourceDiagnosticEntries().map(entry => ({
+            uri: entry.uri.toString(),
+            diagnostics: entry.diagnostics,
+        }));
+        const cSourcePath = path.join(projectDir, 'src', 'c.smpcat');
+        const cMirrorUri = createSmpMirrorDescriptor(cSourcePath)!.mirrorUri;
+        fs.writeFileSync(cSourcePath, createSmpCatalogue('c', 'cccccccc-cccc-cccc-cccc-cccccccccccc'));
+
+        const importer = (mirrorManager as unknown as { importer: SmpImportService }).importer;
+        const renderImportedDocument = importer.renderImportedDocument.bind(importer);
+        const cancellation = new Cancellation.CancellationTokenSource();
+        vi.spyOn(importer, 'renderImportedDocument').mockImplementationOnce(async request => {
+            const result = await renderImportedDocument(request);
+            cancellation.cancel();
+            return {
+                ...result,
+                content: `${result.content}\n// staged but never published`,
+                warnings: [...result.warnings, 'staged warning'],
+            };
+        });
+
+        await expect(mirrorManager.refreshWorkspaceMirrors(cancellation.token)).rejects.toBe(OperationCancelled);
+
+        expect(mirrorManager.getMirrorContent(aMirrorUri)).toBe(previousAContent);
+        expect(mirrorManager.getMirrorContent(bMirrorUri)).toBe(previousBContent);
+        expect(services.shared.workspace.LangiumDocuments.getDocument(aMirrorUri)).toBeDefined();
+        expect(services.shared.workspace.LangiumDocuments.getDocument(bMirrorUri)).toBeDefined();
+        expect(services.shared.SmpWorkspaceIndex.getEligibleSourcePaths()).toEqual(previousEligibleSourcePaths);
+        expect(services.shared.SmpWorkspaceIndex.getMirrorUriForSourcePath(cSourcePath)).toBeUndefined();
+        expect(mirrorManager.getMirrorContent(cMirrorUri)).toBeUndefined();
+        expect(mirrorManager.getSourceDiagnosticEntries().map(entry => ({
+            uri: entry.uri.toString(),
+            diagnostics: entry.diagnostics,
+        }))).toEqual(previousDiagnostics);
+
+        const nextRefresh = await mirrorManager.refreshWorkspaceMirrors(Cancellation.CancellationToken.None);
+        expect(nextRefresh.changed.map(uri => uri.toString())).toContain(cMirrorUri.toString());
+        expect(services.shared.SmpWorkspaceIndex.getMirrorUriForSourcePath(cSourcePath)?.toString()).toBe(cMirrorUri.toString());
+        expect(mirrorManager.getMirrorContent(cMirrorUri)).toContain('catalogue c');
+        expect(services.shared.workspace.LangiumDocuments.getDocument(cMirrorUri)).toBeDefined();
     });
 
     test('resolves cross-project references against SMP mirrors from dependency source folders', async () => {
@@ -264,9 +328,160 @@ namespace dep
         expect(content).toContain('@uuid bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb');
         expect(content).not.toContain('@uuid 22222222-2222-2222-2222-222222222222');
 
+        const refresh = await services.shared.SmpMirrorManager.refreshWorkspaceMirrors();
+        expect(refresh.deleted.map(uri => uri.toString())).toContain(mirrorUri!.toString());
+
         const mirrorDocument = await services.shared.workspace.LangiumDocuments.getOrCreateDocument(mirrorUri!);
         await services.shared.workspace.DocumentBuilder.build([mirrorDocument], { validation: true }, Cancellation.CancellationToken.None);
         expect(mirrorDocument.textDocument.getText()).toContain('catalogue types');
+    });
+
+    test('does not restore an on-demand mirror after a refresh removes its source', async () => {
+        const projectDir = createProject(tempDir, 'app', `
+project 'app'
+using 'ECSS_SMP_2025'
+source 'src'
+`, {
+            'src/types.smpcat': createSmpCatalogue('types', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'),
+        });
+
+        const services = await createBuiltinTestXsmpServices(NodeFileSystem);
+        await services.shared.workspace.WorkspaceManager.initializeWorkspace([
+            { name: 'app', uri: URI.file(projectDir).toString() },
+        ]);
+
+        const sourcePath = path.join(projectDir, 'src', 'types.smpcat');
+        const staleCachePath = path.join(projectDir, 'src', 'stale-external.smpcat');
+        const mirrorUri = services.shared.SmpWorkspaceIndex.getMirrorUriForSourcePath(sourcePath)!;
+        const mirrorManager = services.shared.SmpMirrorManager;
+        const mutableMirrorManager = mirrorManager as unknown as {
+            importer: SmpImportService;
+            mirrorContentByUri: Map<string, string>;
+        };
+        mutableMirrorManager.mirrorContentByUri.delete(mirrorUri.toString());
+        services.shared.workspace.LangiumDocuments.deleteDocument(mirrorUri);
+
+        const renderImportedDocument = mutableMirrorManager.importer.renderImportedDocument.bind(mutableMirrorManager.importer);
+        let notifyRenderFinished!: () => void;
+        const renderFinished = new Promise<void>(resolve => {
+            notifyRenderFinished = resolve;
+        });
+        let resumeRender!: () => void;
+        const renderCanFinish = new Promise<void>(resolve => {
+            resumeRender = resolve;
+        });
+        vi.spyOn(mutableMirrorManager.importer, 'renderImportedDocument').mockImplementationOnce(async request => {
+            const rendered = await renderImportedDocument(request);
+            notifyRenderFinished();
+            await renderCanFinish;
+            request.workspaceIndex?.setCachedExternalDocumentIndex(staleCachePath, {});
+            return rendered;
+        });
+
+        const pendingContent = resolveServerFileContent(services.shared, mirrorUri);
+        await renderFinished;
+        fs.rmSync(sourcePath);
+        try {
+            await mirrorManager.refreshWorkspaceMirrors(Cancellation.CancellationToken.None);
+        } finally {
+            resumeRender();
+        }
+
+        await expect(pendingContent).resolves.toBeNull();
+        expect(mirrorManager.getMirrorContent(mirrorUri)).toBeUndefined();
+        expect(services.shared.SmpWorkspaceIndex.getMirrorUriForSourcePath(sourcePath)).toBeUndefined();
+        expect(services.shared.SmpWorkspaceIndex.getCachedExternalDocumentIndex(staleCachePath)).toBeUndefined();
+
+        const staleDocument = services.shared.workspace.LangiumDocumentFactory.fromString('catalogue stale\n', mirrorUri);
+        services.shared.workspace.LangiumDocuments.addDocument(staleDocument);
+        await expect(resolveServerFileContent(services.shared, mirrorUri)).resolves.toBeNull();
+    });
+
+    test('preserves both results when two mirrors are rendered on demand concurrently', async () => {
+        const projectDir = createProject(tempDir, 'app', `
+project 'app'
+using 'ECSS_SMP_2025'
+source 'src'
+`, {
+            'src/a.smpcat': createSmpCatalogue('a', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
+            'src/b.smpcat': createSmpCatalogue('b', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'),
+        });
+
+        const services = await createBuiltinTestXsmpServices(NodeFileSystem);
+        await services.shared.workspace.WorkspaceManager.initializeWorkspace([
+            { name: 'app', uri: URI.file(projectDir).toString() },
+        ]);
+
+        const mirrorManager = services.shared.SmpMirrorManager;
+        const mutableMirrorManager = mirrorManager as unknown as {
+            importer: SmpImportService;
+            mirrorContentByUri: Map<string, string>;
+        };
+        const mirrorUris = ['a', 'b'].map(name =>
+            services.shared.SmpWorkspaceIndex.getMirrorUriForSourcePath(path.join(projectDir, 'src', `${name}.smpcat`))!
+        );
+        for (const mirrorUri of mirrorUris) {
+            mutableMirrorManager.mirrorContentByUri.delete(mirrorUri.toString());
+            services.shared.workspace.LangiumDocuments.deleteDocument(mirrorUri);
+        }
+
+        const renderImportedDocument = mutableMirrorManager.importer.renderImportedDocument.bind(mutableMirrorManager.importer);
+        let notifyBothRendersFinished!: () => void;
+        const bothRendersFinished = new Promise<void>(resolve => {
+            notifyBothRendersFinished = resolve;
+        });
+        let resumeRenders!: () => void;
+        const rendersCanFinish = new Promise<void>(resolve => {
+            resumeRenders = resolve;
+        });
+        let finishedRenderCount = 0;
+        vi.spyOn(mutableMirrorManager.importer, 'renderImportedDocument').mockImplementation(async request => {
+            const rendered = await renderImportedDocument(request);
+            finishedRenderCount++;
+            if (finishedRenderCount === mirrorUris.length) {
+                notifyBothRendersFinished();
+            }
+            await rendersCanFinish;
+            return rendered;
+        });
+
+        const pendingContents = mirrorUris.map(uri => resolveServerFileContent(services.shared, uri));
+        await bothRendersFinished;
+        resumeRenders();
+
+        const contents = await Promise.all(pendingContents);
+        expect(contents[0]).toContain('catalogue a');
+        expect(contents[1]).toContain('catalogue b');
+        expect(mirrorManager.getMirrorContent(mirrorUris[0])).toBe(contents[0]);
+        expect(mirrorManager.getMirrorContent(mirrorUris[1])).toBe(contents[1]);
+    });
+
+    test('unblocks an on-demand mirror read after a refresh is cancelled', async () => {
+        const projectDir = createProject(tempDir, 'app', `
+project 'app'
+using 'ECSS_SMP_2025'
+source 'src'
+`, {
+            'src/types.smpcat': createSmpCatalogue('types', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'),
+        });
+
+        const services = await createBuiltinTestXsmpServices(NodeFileSystem);
+        await services.shared.workspace.WorkspaceManager.initializeWorkspace([
+            { name: 'app', uri: URI.file(projectDir).toString() },
+        ]);
+
+        const mirrorManager = services.shared.SmpMirrorManager;
+        const mirrorUri = services.shared.SmpWorkspaceIndex.getMirrorUriForSourcePath(
+            path.join(projectDir, 'src', 'types.smpcat'),
+        )!;
+        const cancellation = new Cancellation.CancellationTokenSource();
+        cancellation.cancel();
+        const refresh = mirrorManager.refreshWorkspaceMirrors(cancellation.token);
+        const refreshAssertion = expect(refresh).rejects.toBe(OperationCancelled);
+        const content = mirrorManager.getOrCreateMirrorContent(mirrorUri);
+
+        await refreshAssertion;
+        await expect(content).resolves.toContain('catalogue types');
     });
 
     test('does not render SMP mirrors on demand for files outside declared source folders', async () => {
@@ -525,9 +740,12 @@ namespace demo::avionics
 </Catalogue:Catalogue>
 `);
 
+        const sendNotification = vi.fn(async () => undefined);
         const updateHandler = services.shared.lsp.DocumentUpdateHandler as unknown as {
+            connection: { sendNotification: typeof sendNotification };
             updateWatchedFiles(params: DidChangeWatchedFilesParams): Promise<void>;
         };
+        updateHandler.connection = { sendNotification };
 
         await updateHandler.updateWatchedFiles({
             changes: [
@@ -539,9 +757,103 @@ namespace demo::avionics
         const mirrorUri = services.shared.SmpWorkspaceIndex.getMirrorUriForSourcePath(foundationSmpPath);
         expect(mirrorUri).toBeDefined();
         expect(mirrorUri && services.shared.workspace.LangiumDocuments.getDocument(mirrorUri)).toBeDefined();
+        expect(sendNotification).toHaveBeenCalledWith(SmpMirrorsChangedNotification, {
+            changed: [mirrorUri!.toString()],
+            deleted: [],
+        });
 
         const avionicsDocumentAfter = services.shared.workspace.LangiumDocuments.getDocument(avionicsUri);
         expect(avionicsDocumentAfter?.diagnostics?.some(diagnostic => diagnostic.message.includes('Could not resolve reference'))).not.toBe(true);
+    });
+
+    test('does not notify mirror changes when the locked refresh is cancelled', async () => {
+        const projectDir = createProject(tempDir, 'app', `
+project 'app'
+using 'ECSS_SMP_2025'
+source 'src'
+`, {});
+        const services = await createBuiltinTestXsmpServices(NodeFileSystem);
+        await services.shared.workspace.WorkspaceManager.initializeWorkspace([
+            { name: 'app', uri: URI.file(projectDir).toString() },
+        ]);
+
+        vi.spyOn(services.shared.SmpMirrorManager, 'refreshWorkspaceMirrors').mockRejectedValueOnce(OperationCancelled);
+        const sendNotification = vi.fn(async () => undefined);
+        const updateHandler = services.shared.lsp.DocumentUpdateHandler as unknown as {
+            connection: { sendNotification: typeof sendNotification };
+            updateWatchedFiles(params: DidChangeWatchedFilesParams): Promise<void>;
+        };
+        updateHandler.connection = { sendNotification };
+
+        await expect(updateHandler.updateWatchedFiles({
+            changes: [{
+                uri: URI.file(path.join(projectDir, 'xsmp.project')).toString(),
+                type: FileChangeType.Changed,
+            }],
+        })).resolves.toBeUndefined();
+
+        expect(sendNotification).not.toHaveBeenCalled();
+    });
+
+    test.each([
+        ['source update', 1],
+        ['committed mirror rebuild', 2],
+    ] as const)('finishes an atomic mirror refresh when a newer workspace write arrives during the %s', async (_phase, cancelOnCall) => {
+        const projectDir = createProject(tempDir, 'app', `
+project 'app'
+using 'ECSS_SMP_2025'
+source 'src'
+`, {
+            'src/a.smpcat': createSmpCatalogue('before', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
+        });
+        const services = await createBuiltinTestXsmpServices(NodeFileSystem);
+        await services.shared.workspace.WorkspaceManager.initializeWorkspace([
+            { name: 'app', uri: URI.file(projectDir).toString() },
+        ]);
+
+        const sourcePath = path.join(projectDir, 'src', 'a.smpcat');
+        const mirrorUri = services.shared.SmpWorkspaceIndex.getMirrorUriForSourcePath(sourcePath)!;
+        const mirrorDocument = services.shared.workspace.LangiumDocuments.getDocument(mirrorUri)!;
+        const previousContent = mirrorDocument.textDocument.getText();
+        fs.writeFileSync(sourcePath, createSmpCatalogue('after', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'));
+
+        const sendNotification = vi.fn(async () => undefined);
+        const updateHandler = services.shared.lsp.DocumentUpdateHandler as unknown as {
+            connection: { sendNotification: typeof sendNotification };
+            updateWatchedFiles(params: DidChangeWatchedFilesParams): Promise<void>;
+        };
+        updateHandler.connection = { sendNotification };
+
+        const documentBuilder = services.shared.workspace.DocumentBuilder;
+        const originalUpdate = documentBuilder.update.bind(documentBuilder);
+        let updateCallCount = 0;
+        let newerWriteRan = false;
+        let newerWrite: Promise<void> | undefined;
+        vi.spyOn(documentBuilder, 'update').mockImplementation(async (changed, deleted, cancelToken) => {
+            updateCallCount++;
+            if (updateCallCount === cancelOnCall) {
+                newerWrite = services.shared.workspace.WorkspaceLock.write(() => {
+                    newerWriteRan = true;
+                });
+            }
+            await originalUpdate(changed, deleted, cancelToken);
+        });
+
+        await updateHandler.updateWatchedFiles({
+            changes: [{ uri: URI.file(sourcePath).toString(), type: FileChangeType.Changed }],
+        });
+        await newerWrite;
+
+        const updatedContent = services.shared.SmpMirrorManager.getMirrorContent(mirrorUri);
+        expect(newerWriteRan).toBe(true);
+        expect(updateCallCount).toBeGreaterThanOrEqual(2);
+        expect(updatedContent).not.toBe(previousContent);
+        expect(updatedContent).toContain('catalogue after');
+        expect(mirrorDocument.textDocument.getText()).toBe(updatedContent);
+        expect(sendNotification).toHaveBeenCalledWith(SmpMirrorsChangedNotification, {
+            changed: [mirrorUri.toString()],
+            deleted: [],
+        });
     });
 
     test('keeps the server alive when a stale SMP mirror document is reopened', async () => {
@@ -587,6 +899,16 @@ function createProject(rootDir: string, name: string, projectContent: string, fi
     }
 
     return projectDir;
+}
+
+function createSmpCatalogue(name: string, uuid: string): string {
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<Catalogue:Catalogue xmlns:Catalogue="http://www.ecss.nl/smp/2025/Smdl/Catalogue" xmlns:Elements="http://www.ecss.nl/smp/2025/Core/Elements" xmlns:Types="http://www.ecss.nl/smp/2025/Core/Types" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" Id="${name}" Name="${name}">
+  <Namespace Id="demo" Name="demo">
+    <Type xsi:type="Types:Structure" Id="demo.${name}" Name="${name}" Uuid="${uuid}"/>
+  </Namespace>
+</Catalogue:Catalogue>
+`;
 }
 
 function positionParams(document: LangiumDocument, offset: number): TextDocumentPositionParams {

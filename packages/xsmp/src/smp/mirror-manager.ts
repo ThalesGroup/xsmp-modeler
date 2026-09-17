@@ -1,5 +1,8 @@
 import {
     Cancellation,
+    interruptAndCheck,
+    isOperationCancelled,
+    type LangiumDocument,
     URI,
     UriUtils,
 } from 'langium';
@@ -13,7 +16,7 @@ import { isSameOrContainedPath, normalizePath } from '../utils/path-utils.js';
 import { SmpImportService } from './import/service.js';
 import {
     collectSmpSearchRoots,
-    type SmpWorkspaceIndex,
+    SmpWorkspaceIndex,
 } from './workspace-index.js';
 import {
     getSmpMirrorSourceUri,
@@ -44,6 +47,8 @@ export class SmpMirrorManager {
     protected mirrorContentByUri = new Map<string, string>();
     protected activeSourceUriByMirrorUri = new Map<string, URI>();
     protected baseSourceDiagnostics = new Map<string, Diagnostic[]>();
+    protected mirrorStateVersion = 0;
+    protected readonly activeRefreshes = new Set<Promise<void>>();
 
     constructor(services: XsmpSharedServices) {
         this.services = services;
@@ -60,44 +65,61 @@ export class SmpMirrorManager {
     }
 
     async getOrCreateMirrorContent(uri: URI): Promise<string | undefined> {
-        const existingContent = this.getMirrorContent(uri);
-        if (existingContent !== undefined) {
-            return existingContent;
-        }
         if (!this.isMirrorUri(uri)) {
             return undefined;
         }
 
-        const sourceUri = this.getSourceUri(uri) ?? getSmpMirrorSourceUri(uri);
-        if (!sourceUri) {
-            return undefined;
-        }
-        if (!this.isEligibleMirrorSource(sourceUri)) {
-            return undefined;
-        }
-
-        try {
-            const rendered = await this.importer.renderImportedDocument({
-                inputPath: sourceUri.fsPath,
-                outputUri: uri,
-                workspaceIndex: this.workspaceIndex,
-            });
-            this.mirrorContentByUri.set(uri.toString(), rendered.content);
-            return rendered.content;
-        } catch (error) {
-            const diagnostic = createSourceDiagnostic(
-                DiagnosticSeverity.Error,
-                error instanceof Error ? error.message : String(error),
-            );
-            this.setBaseDiagnostics(this.baseSourceDiagnostics, sourceUri, [diagnostic]);
-            const connection = this.services.lsp.Connection;
-            if (connection) {
-                connection.sendDiagnostics({
-                    uri: sourceUri.toString(),
-                    diagnostics: this.getSourceDiagnostics(sourceUri),
-                });
+        for (;;) {
+            const refreshes = [...this.activeRefreshes];
+            if (refreshes.length > 0) {
+                await Promise.all(refreshes);
+                continue;
             }
-            return undefined;
+
+            const stateVersion = this.mirrorStateVersion;
+            const existingContent = this.getMirrorContent(uri);
+            if (existingContent !== undefined) {
+                return existingContent;
+            }
+
+            // On-demand imports must not mutate the live workspace index while a workspace
+            // refresh is being staged. The snapshot also prevents an import that finishes after
+            // a refresh from repopulating the live external-document cache with stale data.
+            const workspaceIndex = this.workspaceIndex.createSnapshot();
+            const sourceUri = this.getSourceUri(uri) ?? getSmpMirrorSourceUri(uri);
+            if (!sourceUri || !this.isEligibleMirrorSource(sourceUri, workspaceIndex)) {
+                return undefined;
+            }
+
+            try {
+                const rendered = await this.importer.renderImportedDocument({
+                    inputPath: sourceUri.fsPath,
+                    outputUri: uri,
+                    workspaceIndex,
+                });
+                if (stateVersion !== this.mirrorStateVersion || this.activeRefreshes.size > 0) {
+                    continue;
+                }
+                this.mirrorContentByUri.set(uri.toString(), rendered.content);
+                return rendered.content;
+            } catch (error) {
+                if (stateVersion !== this.mirrorStateVersion || this.activeRefreshes.size > 0) {
+                    continue;
+                }
+                const diagnostic = createSourceDiagnostic(
+                    DiagnosticSeverity.Error,
+                    error instanceof Error ? error.message : String(error),
+                );
+                this.setBaseDiagnostics(this.baseSourceDiagnostics, sourceUri, [diagnostic]);
+                const connection = this.services.lsp.Connection;
+                if (connection) {
+                    connection.sendDiagnostics({
+                        uri: sourceUri.toString(),
+                        diagnostics: this.getSourceDiagnostics(sourceUri),
+                    });
+                }
+                return undefined;
+            }
         }
     }
 
@@ -151,17 +173,33 @@ export class SmpMirrorManager {
     }
 
     async refreshWorkspaceMirrors(cancelToken = Cancellation.CancellationToken.None): Promise<SmpMirrorRefreshResult> {
+        this.mirrorStateVersion++;
+        const refresh = this.doRefreshWorkspaceMirrors(cancelToken);
+        const completion = refresh.then(() => undefined, () => undefined);
+        this.activeRefreshes.add(completion);
+        try {
+            return await refresh;
+        } finally {
+            this.mirrorStateVersion++;
+            this.activeRefreshes.delete(completion);
+        }
+    }
+
+    protected async doRefreshWorkspaceMirrors(cancelToken: Cancellation.CancellationToken): Promise<SmpMirrorRefreshResult> {
+        await interruptAndCheck(cancelToken);
         const previousSourceUris = this.getTrackedSourceUris();
         const previousMirrorUris = new Set(this.mirrorContentByUri.keys());
         const nextMirrorContentByUri = new Map<string, string>();
         const nextActiveSourceUriByMirrorUri = new Map<string, URI>();
         const nextBaseSourceDiagnostics = new Map<string, Diagnostic[]>();
+        const documentsToAdd: LangiumDocument[] = [];
         const changed: URI[] = [];
         const deleted: URI[] = [];
         const eligibleSourcePaths = await this.collectEligibleSourcePaths();
-
-        this.workspaceIndex.setEligibleSourcePaths(eligibleSourcePaths);
-        await this.workspaceIndex.rebuildSearchRoots(
+        await interruptAndCheck(cancelToken);
+        const nextWorkspaceIndex = new SmpWorkspaceIndex();
+        nextWorkspaceIndex.setEligibleSourcePaths(eligibleSourcePaths);
+        await nextWorkspaceIndex.rebuildSearchRoots(
             collectSmpSearchRoots(
                 this.services.workspace.WorkspaceManager.workspaceFolders,
                 eligibleSourcePaths.map(sourcePath => path.dirname(sourcePath)),
@@ -169,11 +207,9 @@ export class SmpMirrorManager {
         );
 
         for (const sourcePath of eligibleSourcePaths) {
-            if (cancelToken.isCancellationRequested) {
-                break;
-            }
+            await interruptAndCheck(cancelToken);
 
-            const descriptor = this.workspaceIndex.getDescriptorForSourcePath(sourcePath);
+            const descriptor = nextWorkspaceIndex.getDescriptorForSourcePath(sourcePath);
             if (!descriptor) {
                 continue;
             }
@@ -193,7 +229,7 @@ export class SmpMirrorManager {
                 const result = await this.importer.renderImportedDocument({
                     inputPath: sourcePath,
                     outputUri: mirrorUri,
-                    workspaceIndex: this.workspaceIndex,
+                    workspaceIndex: nextWorkspaceIndex,
                 });
                 nextMirrorContentByUri.set(mirrorUri.toString(), result.content);
                 nextActiveSourceUriByMirrorUri.set(mirrorUri.toString(), sourceUri);
@@ -206,12 +242,15 @@ export class SmpMirrorManager {
                 }
 
                 if (!this.documents.hasDocument(mirrorUri)) {
-                    this.documents.addDocument(this.services.workspace.LangiumDocumentFactory.fromString(result.content, mirrorUri));
+                    documentsToAdd.push(this.services.workspace.LangiumDocumentFactory.fromString(result.content, mirrorUri));
                     changed.push(mirrorUri);
                 } else if (this.mirrorContentByUri.get(mirrorUri.toString()) !== result.content) {
                     changed.push(mirrorUri);
                 }
             } catch (error) {
+                if (isOperationCancelled(error)) {
+                    throw error;
+                }
                 this.setBaseDiagnostics(
                     nextBaseSourceDiagnostics,
                     sourceUri,
@@ -227,9 +266,16 @@ export class SmpMirrorManager {
             if (nextMirrorContentByUri.has(uri)) {
                 continue;
             }
-            const mirrorUri = URI.parse(uri);
-            if (this.documents.hasDocument(mirrorUri)) {
-                deleted.push(mirrorUri);
+            deleted.push(URI.parse(uri));
+        }
+
+        // Nothing observable is committed until every source has been processed and the
+        // cancellation token has passed one final check.
+        await interruptAndCheck(cancelToken);
+        this.workspaceIndex.replaceWith(nextWorkspaceIndex);
+        for (const document of documentsToAdd) {
+            if (!this.documents.hasDocument(document.uri)) {
+                this.documents.addDocument(document);
             }
         }
 
@@ -292,8 +338,8 @@ export class SmpMirrorManager {
         return new Set<string>(this.baseSourceDiagnostics.keys());
     }
 
-    protected isEligibleMirrorSource(sourceUri: URI): boolean {
-        return sourceUri.scheme === 'file' && this.workspaceIndex.hasEligibleSourcePath(sourceUri.fsPath);
+    protected isEligibleMirrorSource(sourceUri: URI, workspaceIndex = this.workspaceIndex): boolean {
+        return sourceUri.scheme === 'file' && workspaceIndex.hasEligibleSourcePath(sourceUri.fsPath);
     }
 
     protected setBaseDiagnostics(

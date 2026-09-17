@@ -39,13 +39,20 @@ export class ProjectManager {
     }
 
     protected doGetProject(document: LangiumDocument): ast.Project | undefined {
+        let bestProject: ast.Project | undefined;
+        let bestProjectDirectoryLength = -1;
         for (const doc of this.documents.all) {
             const project = this.getProjectForDocument(doc, document);
-            if (project) {
-                return project;
+            if (!project) {
+                continue;
+            }
+            const projectDirectoryLength = UriUtils.dirname(doc.uri).path.length;
+            if (projectDirectoryLength > bestProjectDirectoryLength) {
+                bestProject = project;
+                bestProjectDirectoryLength = projectDirectoryLength;
             }
         }
-        return undefined;
+        return bestProject;
     }
 
     protected getProjectForDocument(doc: LangiumDocument, document: LangiumDocument): ast.Project | undefined {

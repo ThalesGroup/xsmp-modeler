@@ -124,12 +124,14 @@ export class XsmpContributionRegistry {
     protected readonly descriptorDocuments = new Map<string, LangiumDocument>();
     protected readonly builtinDocuments = new Map<string, LangiumDocument>();
     protected readonly payloadBuiltinDocumentUris = new Map<string, string>();
+    protected readonly workspaceLock: () => XsmpSharedServices['workspace']['WorkspaceLock'];
     protected bootstrapServices?: XsmpContributionBootstrapServices;
 
     constructor(services: XsmpSharedServices) {
         this.documentFactory = services.workspace.LangiumDocumentFactory;
         this.langiumDocuments = services.workspace.LangiumDocuments;
         this.serviceRegistry = services.ServiceRegistry;
+        this.workspaceLock = () => services.workspace.WorkspaceLock;
     }
 
     get ready(): Promise<void> {
@@ -141,11 +143,11 @@ export class XsmpContributionRegistry {
     }
 
     async registerBuiltinPackages(packages: readonly XsmpContributionPackage[]): Promise<XsmpContributionRegistrationReport> {
-        return await this.registerEntries(packages.map(toBuiltinContributionEntry), true);
+        return await this.registerEntriesWithWorkspaceLock(packages.map(toBuiltinContributionEntry));
     }
 
     async registerExtensionManifestEntries(entries: readonly XsmpResolvedContributionManifestEntry[]) {
-        return await this.registerEntries(entries, true);
+        return await this.registerEntriesWithWorkspaceLock(entries);
     }
 
     getContributions(kind?: XsmpContributionKind): readonly XsmpRegisteredContribution[] {
@@ -301,6 +303,27 @@ export class XsmpContributionRegistry {
         return this.descriptorDocuments.has(uriString) || this.builtinDocuments.has(uriString);
     }
 
+    protected async registerEntriesWithWorkspaceLock(entries: readonly ContributionRegistryEntry[]): Promise<XsmpContributionRegistrationReport> {
+        const workspaceLock = this.workspaceLock();
+
+        // Waiting through a read avoids cancelling an initial workspace build that already owns the
+        // write lock. Before initialization this resolves immediately, so built-in and test-time
+        // registrations can still be activated eagerly.
+        await workspaceLock.read(() => undefined);
+
+        let report: XsmpContributionRegistrationReport | undefined;
+        await workspaceLock.write(async () => {
+            // Contribution registration mutates validation registries, document collections and the
+            // workspace index. Keep the complete operation under the same write lock and deliberately
+            // finish it even when a later document update is queued.
+            report = await this.registerEntries(entries, true);
+        });
+        if (!report) {
+            throw new Error('Contribution registration did not complete.');
+        }
+        return report;
+    }
+
     protected async registerEntries(entries: readonly ContributionRegistryEntry[], activateDocuments: boolean): Promise<XsmpContributionRegistrationReport> {
         const report: {
             registered: Array<XsmpContributionRegistrationReport['registered'][number]>;
@@ -364,7 +387,12 @@ export class XsmpContributionRegistry {
             throw new Error(`Contribution '${id}' is already registered by '${existing.extensionId}'.`);
         }
 
-        this.assertUniqueContributionNames(kind, id, entry.aliases, entry.deprecatedAliases);
+        await this.runRegistrationPhase(
+            'descriptor',
+            entry,
+            () => this.assertUniqueContributionNames(kind, id, entry.aliases, entry.deprecatedAliases),
+            id,
+        );
 
         const registration = this.createPendingRegistration(kind, id, entry.extensionId);
         await this.runRegistrationPhase('handler', entry, () => this.invokeHandler(entry, registration), id);
@@ -554,15 +582,16 @@ export class XsmpContributionRegistry {
         aliases: readonly string[],
         deprecatedAliases: readonly string[],
     ): void {
-        const map = kind === 'tool' ? this.toolContributions : this.profileContributions;
         const allNames = new Set<string>([canonicalId, ...aliases, ...deprecatedAliases]);
         for (const name of allNames) {
-            const resolution = this.resolveContribution(kind, name);
-            if (resolution) {
-                throw new Error(`Contribution name '${name}' for '${canonicalId}' conflicts with '${resolution.contribution.id}'.`);
-            }
-            if (map.has(name)) {
-                throw new Error(`Contribution '${canonicalId}' conflicts with canonical id '${name}'.`);
+            for (const existingKind of ['profile', 'tool'] as const) {
+                const resolution = this.resolveContribution(existingKind, name);
+                if (resolution) {
+                    throw new Error(
+                        `${kind} contribution name '${name}' for '${canonicalId}' conflicts with `
+                        + `${existingKind} contribution '${resolution.contribution.id}'.`,
+                    );
+                }
             }
         }
     }

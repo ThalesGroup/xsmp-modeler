@@ -161,6 +161,7 @@ export interface XsmpAddedSharedServices {
     readonly SmpWorkspaceIndex: SmpWorkspaceIndex,
     readonly workspace: {
         ProjectManager: ProjectManager,
+        WorkspaceManager: XsmpWorkspaceManager,
     },
 }
 

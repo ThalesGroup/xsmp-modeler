@@ -15,6 +15,18 @@ export class SmpWorkspaceIndex {
     protected readonly externalDocumentIndexCache = new Map<string, object | null>();
     protected searchIndexUpdate = Promise.resolve();
 
+    createSnapshot(): SmpWorkspaceIndex {
+        const snapshot = new SmpWorkspaceIndex();
+        snapshot.replaceWith(this);
+        return snapshot;
+    }
+
+    replaceWith(other: SmpWorkspaceIndex): void {
+        replaceSet(this.scannedSourcePaths, other.scannedSourcePaths);
+        replaceSet(this.indexedSearchRoots, other.indexedSearchRoots);
+        this.setEligibleSourcePaths(other.getEligibleSourcePaths());
+    }
+
     setEligibleSourcePaths(sourcePaths: readonly string[]): void {
         this.descriptorsBySourcePath.clear();
         this.sourceUriByMirrorUri.clear();
@@ -213,4 +225,11 @@ function normalizeSearchRoots(searchRoots: readonly string[]): string[] {
 
 function isSmpSearchFile(filename: string): boolean {
     return smpSearchExtensions.has(path.extname(filename));
+}
+
+function replaceSet<T>(target: Set<T>, source: ReadonlySet<T>): void {
+    target.clear();
+    for (const value of source) {
+        target.add(value);
+    }
 }

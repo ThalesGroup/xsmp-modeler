@@ -1,5 +1,5 @@
-import { AstUtils, DocumentState, interruptAndCheck, UriUtils } from 'langium';
-import type { Cancellation, LangiumDocument, LangiumDocuments, ServiceRegistry, URI } from 'langium';
+import { AstUtils, Cancellation, DocumentState, interruptAndCheck, UriUtils } from 'langium';
+import type { LangiumDocument, LangiumDocuments, ServiceRegistry, URI } from 'langium';
 import * as ast from '../generated/ast-partial.js';
 import { DiagnosticSeverity } from 'vscode-languageserver';
 import pLimit from 'p-limit';
@@ -32,6 +32,7 @@ export class XsmpDocumentGenerator {
     protected readonly workspaceManager: XsmpSharedServices['workspace']['WorkspaceManager'];
     protected readonly workspaceLock: XsmpSharedServices['workspace']['WorkspaceLock'];
     protected readonly smpMirrorManager: XsmpSharedServices['SmpMirrorManager'];
+    protected generationQueue: Promise<void> = Promise.resolve();
 
     constructor(services: XsmpSharedServices) {
         this.langiumDocuments = services.workspace.LangiumDocuments;
@@ -49,22 +50,39 @@ export class XsmpDocumentGenerator {
     }
 
     async generate(uri: URI, cancelToken: Cancellation.CancellationToken): Promise<void> {
-        const document = this.langiumDocuments.getDocument(uri);
-        if (!document) {
-            return;
-        }
-
-        if (ast.isProject(document.parseResult.value)) {
-            return await this.generateProject(document.parseResult.value, cancelToken);
-        }
-
-        const project = this.projectManager.getProject(document);
-        if (project && this.isValid(document))
-            return await this.generateProject(project, cancelToken);
-
+        return await this.generateUri(uri, cancelToken);
     }
 
     async generateProject(project: ast.Project, cancelToken: Cancellation.CancellationToken): Promise<void> {
+        return await this.generateUri(AstUtils.getDocument(project).uri, cancelToken);
+    }
+
+    private async generateUri(uri: URI, cancelToken: Cancellation.CancellationToken): Promise<void> {
+        await this.enqueueGeneration(async () => {
+            await this.workspaceManager.ready;
+            await this.workspaceLock.read(async () => {
+                await interruptAndCheck(cancelToken);
+                const document = this.langiumDocuments.getDocument(uri);
+                if (!document) {
+                    return;
+                }
+
+                if (ast.isProject(document.parseResult.value)) {
+                    await this.doGenerateProject(document.parseResult.value, cancelToken);
+                    return;
+                }
+
+                const project = this.projectManager.getProject(document);
+                if (project && this.isValid(document)) {
+                    await this.doGenerateProject(project, cancelToken);
+                }
+            });
+            await interruptAndCheck(cancelToken);
+        });
+    }
+
+    protected async doGenerateProject(project: ast.Project, cancelToken: Cancellation.CancellationToken): Promise<void> {
+        await interruptAndCheck(cancelToken);
         const projectUri = UriUtils.dirname(project.$document?.uri as URI);
         const contributions = this.getActiveContributions(project);
 
@@ -80,57 +98,86 @@ export class XsmpDocumentGenerator {
 
         const taskAcceptor: TaskAcceptor = (task: Task) => { tasks.push(limit(task)); };
 
-        for (const contribution of contributions) {
-            for (const generator of contribution.generators) {
-                documents.forEach(doc => generator.generate(doc.parseResult.value, projectUri, taskAcceptor));
+        let generationFailed = false;
+        let generationError: unknown;
+        try {
+            for (const contribution of contributions) {
+                for (const generator of contribution.generators) {
+                    documents.forEach(doc => generator.generate(doc.parseResult.value, projectUri, taskAcceptor));
+                }
             }
+            await interruptAndCheck(cancelToken);
+        } catch (error) {
+            generationFailed = true;
+            generationError = error;
         }
 
-        await interruptAndCheck(cancelToken);
-
-        if (tasks.length > 0) {
-            await Promise.all(tasks);
+        // Promise.all rejects as soon as one task fails and would release the generation read lock
+        // while the remaining file writes are still running. Always drain accepted tasks first.
+        const taskResults = await Promise.allSettled(tasks);
+        if (generationFailed) {
+            throw generationError;
+        }
+        const rejectedTask = taskResults.find((result): result is PromiseRejectedResult => result.status === 'rejected');
+        if (rejectedTask) {
+            throw rejectedTask.reason;
         }
     }
 
     async generateValidatedProject(project: ast.Project, cancelToken: Cancellation.CancellationToken): Promise<XsmpProjectGenerationReport> {
-        const projectName = this.getProjectDisplayName(project);
-        await this.rebuildWorkspace(cancelToken);
-
-        const errorCount = this.getProjectErrorCount(project);
-        if (errorCount > 0) {
-            return {
-                generatedProjects: [],
-                skippedProjects: [{ projectName, errorCount }],
-            };
-        }
-
-        await this.generateProject(project, cancelToken);
-        return {
-            generatedProjects: [projectName],
-            skippedProjects: [],
-        };
+        return await this.generateValidatedProjectsInternal([project], cancelToken);
     }
 
     async generateValidatedProjects(projects: readonly ast.Project[], cancelToken: Cancellation.CancellationToken): Promise<XsmpProjectGenerationReport> {
-        await this.rebuildWorkspace(cancelToken);
+        return await this.generateValidatedProjectsInternal(projects, cancelToken);
+    }
 
-        const generatedProjects: string[] = [];
-        const skippedProjects: XsmpProjectGenerationFailure[] = [];
+    private async generateValidatedProjectsInternal(projects: readonly ast.Project[], cancelToken: Cancellation.CancellationToken): Promise<XsmpProjectGenerationReport> {
+        return await this.enqueueGeneration(async () => {
+            const requestedProjects = projects.map(project => ({
+                uri: AstUtils.getDocument(project).uri,
+                fallbackName: this.getProjectDisplayName(project),
+            }));
+            await this.rebuildWorkspace(cancelToken);
 
-        for (const project of projects) {
-            const projectName = this.getProjectDisplayName(project);
-            const errorCount = this.getProjectErrorCount(project);
-            if (errorCount > 0) {
-                skippedProjects.push({ projectName, errorCount });
-                continue;
-            }
+            const report = await this.workspaceLock.read(async () => {
+                await interruptAndCheck(cancelToken);
+                const generatedProjects: string[] = [];
+                const skippedProjects: XsmpProjectGenerationFailure[] = [];
 
-            await this.generateProject(project, cancelToken);
-            generatedProjects.push(projectName);
-        }
+                for (const requestedProject of requestedProjects) {
+                    const project = this.getCurrentProject(requestedProject.uri);
+                    if (!project) {
+                        skippedProjects.push({ projectName: requestedProject.fallbackName, errorCount: 1 });
+                        continue;
+                    }
+                    const projectName = this.getProjectDisplayName(project);
+                    const errorCount = this.getProjectErrorCount(project);
+                    if (errorCount > 0) {
+                        skippedProjects.push({ projectName, errorCount });
+                        continue;
+                    }
 
-        return { generatedProjects, skippedProjects };
+                    await this.doGenerateProject(project, cancelToken);
+                    generatedProjects.push(projectName);
+                }
+
+                return { generatedProjects, skippedProjects };
+            });
+            await interruptAndCheck(cancelToken);
+            return report;
+        });
+    }
+
+    protected getCurrentProject(uri: URI): ast.Project | undefined {
+        const document = this.langiumDocuments.getDocument(uri);
+        return document && ast.isProject(document.parseResult.value) ? document.parseResult.value : undefined;
+    }
+
+    protected enqueueGeneration<T>(operation: () => Promise<T>): Promise<T> {
+        const result = this.generationQueue.then(operation);
+        this.generationQueue = result.then(() => undefined, () => undefined);
+        return result;
     }
 
     protected getActiveContributions(project: ast.Project): XsmpRegisteredContribution[] {
@@ -160,10 +207,20 @@ export class XsmpDocumentGenerator {
 
     protected async rebuildWorkspace(cancelToken: Cancellation.CancellationToken): Promise<void> {
         await this.workspaceManager.ready;
-        await this.workspaceLock.write(async (token) => {
-            await this.documentBuilder.build(this.langiumDocuments.all.toArray(), { validation: true }, token);
+        await interruptAndCheck(cancelToken);
+        await this.workspaceLock.write(async () => {
             await interruptAndCheck(cancelToken);
+            // A generation must never continue from a half-built workspace. Langium cancels the
+            // token of the active write whenever a newer write is queued and then swallows the
+            // resulting OperationCancelled. Keep this rebuild atomic; queued editor updates run
+            // before the read lock used for generation is acquired.
+            await this.documentBuilder.build(
+                this.langiumDocuments.all.toArray(),
+                { validation: true },
+                Cancellation.CancellationToken.None,
+            );
         });
+        await interruptAndCheck(cancelToken);
     }
 
     protected getProjectErrorCount(project: ast.Project): number {
