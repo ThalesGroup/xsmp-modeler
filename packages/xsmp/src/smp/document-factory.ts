@@ -1,6 +1,6 @@
 import { Cancellation, DefaultLangiumDocumentFactory, DocumentState, type AstNode, type LangiumDocument, type LangiumDocumentFactory, type Mutable, type URI } from 'langium';
 import type { XsmpSharedServices } from '../xsmp-module.js';
-import { isSmpMirrorDocument } from '../builtins.js';
+import { isBuiltinLibrary, isSmpMirrorDocument } from '../builtins.js';
 import type { SmpMirrorManager } from './mirror-manager.js';
 
 export class XsmpLangiumDocumentFactory extends DefaultLangiumDocumentFactory implements LangiumDocumentFactory {
@@ -25,12 +25,26 @@ export class XsmpLangiumDocumentFactory extends DefaultLangiumDocumentFactory im
         document: Mutable<LangiumDocument<T>>,
         cancellationToken: Cancellation.CancellationToken,
     ): Promise<LangiumDocument<T>> {
+        if (isBuiltinLibrary(document.uri)) {
+            // Built-ins are immutable virtual documents loaded from strings. A cancelled build can
+            // leave one in the Changed state after its editor has closed, so keep using its cached
+            // content instead of asking the Node file system to read the virtual URI as a path.
+            return this.updateFromText(document, document.textDocument.getText(), cancellationToken);
+        }
         if (!isSmpMirrorDocument(document.uri)) {
             return await super.update(document, cancellationToken);
         }
 
         const text = await this.getMirrorContentOrFallback(document.uri);
 
+        return this.updateFromText(document, text, cancellationToken);
+    }
+
+    protected async updateFromText<T extends AstNode = AstNode>(
+        document: Mutable<LangiumDocument<T>>,
+        text: string,
+        cancellationToken: Cancellation.CancellationToken,
+    ): Promise<LangiumDocument<T>> {
         const oldText = document.parseResult.value.$cstNode?.root.fullText;
         const textDocumentGetter = this.createTextDocumentGetter(document.uri, text);
         Object.defineProperty(document, 'textDocument', { get: textDocumentGetter });

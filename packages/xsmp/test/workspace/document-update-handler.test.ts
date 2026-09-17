@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
-import { Cancellation, DocumentState, URI } from 'langium';
+import { Cancellation, DocumentState, OperationCancelled, URI } from 'langium';
 import { NodeFileSystem } from 'langium/node';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
@@ -17,6 +17,38 @@ afterEach(() => {
 });
 
 describe('XSMP document update handler', () => {
+    test('rebuilds an in-memory built-in without reading its virtual URI from disk', async () => {
+        const services = await createBuiltinTestXsmpServices(NodeFileSystem);
+        await services.shared.workspace.WorkspaceManager.initializeWorkspace([]);
+
+        const builtinUri = URI.parse('xsmp:///ecss.smp@ECSS_SMP_2020.xsmpcat');
+        const builtinDocument = services.shared.workspace.LangiumDocuments.getDocument(builtinUri);
+        expect(builtinDocument).toBeDefined();
+        const builtinText = builtinDocument!.textDocument.getText();
+
+        const cancellation = new Cancellation.CancellationTokenSource();
+        cancellation.cancel();
+        await expect(
+            services.shared.workspace.DocumentBuilder.update(
+                [builtinUri],
+                [],
+                cancellation.token,
+            ),
+        ).rejects.toBe(OperationCancelled);
+        expect(builtinDocument!.state).toBe(DocumentState.Changed);
+
+        await expect(
+            services.shared.workspace.DocumentBuilder.update(
+                [],
+                [],
+                Cancellation.CancellationToken.None,
+            ),
+        ).resolves.toBeUndefined();
+
+        expect(builtinDocument!.textDocument.getText()).toBe(builtinText);
+        expect(builtinDocument!.state).toBe(DocumentState.Validated);
+    });
+
     test('rebuilds opened documents to the validated state', async () => {
         const projectDir = createProject(tempDir, 'app', `
 project 'app'
