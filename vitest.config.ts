@@ -13,6 +13,7 @@ const publicEntryPoints = {
     '@xsmp/core/generator': path.join(xsmpSrcRoot, 'generator/index.ts'),
     '@xsmp/core/generator/cpp': path.join(xsmpSrcRoot, 'generator/cpp/index.ts'),
     '@xsmp/core/lsp': path.join(xsmpSrcRoot, 'lsp/index.ts'),
+    '@xsmp/core/project': path.join(xsmpSrcRoot, 'project/index.ts'),
     '@xsmp/core/references': path.join(xsmpSrcRoot, 'references/index.ts'),
     '@xsmp/core/smp': path.join(xsmpSrcRoot, 'smp/index.ts'),
     '@xsmp/core/utils': path.join(xsmpSrcRoot, 'utils/index.ts'),

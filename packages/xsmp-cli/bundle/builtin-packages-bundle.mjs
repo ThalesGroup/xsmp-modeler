@@ -80,7 +80,7 @@ async function getBundledRuntime() {
 }
 
 async function extractBundledAssets() {
-    const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), `xsmpproject-cli-${embeddedAssetsHash}-`));
+    const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), `xsmp-${embeddedAssetsHash}-`));
 
     await Promise.all(
         Object.entries(embeddedTextAssets).map(async ([relativePath, content]) => {

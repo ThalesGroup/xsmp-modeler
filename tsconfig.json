@@ -27,6 +27,7 @@
             "@xsmp/core/generator": ["./packages/xsmp/src/generator/index.ts"],
             "@xsmp/core/generator/cpp": ["./packages/xsmp/src/generator/cpp/index.ts"],
             "@xsmp/core/lsp": ["./packages/xsmp/src/lsp/index.ts"],
+            "@xsmp/core/project": ["./packages/xsmp/src/project/index.ts"],
             "@xsmp/core/references": ["./packages/xsmp/src/references/index.ts"],
             "@xsmp/core/smp": ["./packages/xsmp/src/smp/index.ts"],
             "@xsmp/core/smp/*": ["./packages/xsmp/src/smp/*.ts"],

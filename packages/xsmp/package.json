@@ -49,6 +49,10 @@
             "types": "./lib/lsp/index.d.ts",
             "import": "./lib/lsp/index.js"
         },
+        "./project": {
+            "types": "./lib/project/index.d.ts",
+            "import": "./lib/project/index.js"
+        },
         "./references": {
             "types": "./lib/references/index.d.ts",
             "import": "./lib/references/index.js"

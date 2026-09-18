@@ -2,14 +2,60 @@
 
 XSMP Modeler ships with a project-oriented CLI.
 
-The CLI works at project level, not file level. It loads the target project, scans a workspace root to discover related `xsmp.project` files, resolves dependencies by project name, checks the target project together with its visible dependencies, and can run the generators selected for that project.
+The `validate` and `generate` commands work at project level. They load the target project, scan a workspace root to discover related `xsmp.project` files, resolve dependencies by project name, check the target project together with its visible dependencies, and can run the generators selected for that project.
 
 ## Main commands
 
-The CLI currently provides two commands:
+The CLI provides these commands:
 
+- `new project [name] [directory]`
 - `validate <path>`
 - `generate <path>`
+- `import-smp <path>`
+
+The executable is named `xsmp`. From the npm workspace, run it with
+`npm exec -- xsmp`; GitHub releases distribute the standalone
+`xsmp-<version>.cjs` artifact described below. The `@xsmp/cli` workspace package
+is not currently published to npm.
+
+## Create a project
+
+Run the project wizard in an interactive terminal:
+
+```bash
+npm exec -- xsmp new project
+```
+
+The wizard asks only for values which were not supplied on the command line,
+then shows a summary before creating the project.
+
+For scripts and CI, provide the project name and parent directory explicitly:
+
+```bash
+npm exec -- xsmp new project Mission ./workspace \
+  --profile xsmp-sdk \
+  --tool smp \
+  --tool python \
+  --no-interactive
+```
+
+This creates `./workspace/Mission`. `--profile` accepts one profile and `--tool`
+can be repeated. Both are optional: when omitted in scriptable mode, no profile
+or tool is enabled. In interactive mode, the wizard proposes the available
+contributions and allows selecting none. `--yes` skips prompts and confirmation;
+omitted contributions remain disabled.
+
+Contribution-specific wizard values can be supplied with a repeatable option:
+
+```bash
+--set profile.<id>.<prompt>=value
+--set tool.<id>.<prompt>=value
+```
+
+When input or output is not a terminal, the command never prompts. Defaults for
+contribution-specific settings apply only to explicitly selected contributions;
+a missing required setting without a default is an error. Existing project
+directories are never overwritten.
 
 `<path>` can be:
 
@@ -18,27 +64,35 @@ The CLI currently provides two commands:
 
 ## Run from a GitHub release
 
-Download the CLI artifact `xsmpproject-cli-<version>.cjs` from the
+Download the CLI artifact `xsmp-<version>.cjs` from the
 [GitHub Releases page](https://github.com/ThalesGroup/xsmp-modeler/releases).
 
 The release artifact is a single JavaScript file. Run it with Node.js `22.13.0`
 or newer:
 
 ```bash
-node xsmpproject-cli-<version>.cjs --help
+node xsmp-<version>.cjs --help
 ```
 
 ```bash
-node xsmpproject-cli-<version>.cjs validate path/to/project
+node xsmp-<version>.cjs new project Mission ./workspace \
+  --profile xsmp-sdk \
+  --tool smp \
+  --tool python \
+  --no-interactive
 ```
 
 ```bash
-node xsmpproject-cli-<version>.cjs generate path/to/project
+node xsmp-<version>.cjs validate path/to/project
+```
+
+```bash
+node xsmp-<version>.cjs generate path/to/project
 ```
 
 ## Workspace root discovery
 
-Both commands support:
+The `validate` and `generate` commands support:
 
 ```bash
 --workspace-root <dir>
@@ -74,24 +128,24 @@ The CLI uses these exit codes:
 
 - `0`: success
 - `1`: validation errors on the target project or its visible dependencies
-- `2`: usage error, input error or startup failure
+- `2`: usage, input, operational or startup failure
 
 ## Examples
 
 Validate a project directory:
 
 ```bash
-node xsmpproject-cli-<version>.cjs validate path/to/missionsystem
+node xsmp-<version>.cjs validate path/to/missionsystem
 ```
 
 Validate a project file explicitly:
 
 ```bash
-node xsmpproject-cli-<version>.cjs validate path/to/missionsystem/xsmp.project
+node xsmp-<version>.cjs validate path/to/missionsystem/xsmp.project
 ```
 
 Generate with an explicit workspace root:
 
 ```bash
-node xsmpproject-cli-<version>.cjs generate path/to/missionsystem --workspace-root path/to/workspace
+node xsmp-<version>.cjs generate path/to/missionsystem --workspace-root path/to/workspace
 ```

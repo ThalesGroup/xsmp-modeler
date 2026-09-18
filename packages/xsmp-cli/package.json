@@ -12,7 +12,7 @@
         }
     },
     "bin": {
-        "xsmpproject-cli": "./bin/cli.js"
+        "xsmp": "./bin/cli.js"
     },
     "scripts": {
         "build": "tsc -p tsconfig.src.json",

@@ -1,10 +1,9 @@
 import * as vscode from 'vscode';
 import * as path from 'node:path';
-import * as fs from 'node:fs';
-import * as os from 'node:os';
 import type { LanguageClient } from 'vscode-languageclient/node.js';
 import { GetContributionSummaries, GetContributionWizardPrompts, ScaffoldProject } from '../lsp/language-server.js';
-import { isSameOrContainedPath, toXsmpIdentifier } from '../utils/path-utils.js';
+import { isSameOrContainedPath } from '../utils/path-utils.js';
+import { createXsmpProject, XsmpProjectCreationError } from '../project/project-creator.js';
 import type {
     XsmpContributionWizardPrompt,
     XsmpContributionKind,
@@ -51,15 +50,10 @@ export async function createProjectWizard(client: LanguageClient): Promise<void>
     }
 
     const projectFolderPath = path.join(destinationFolder, projectName);
-    if (fs.existsSync(projectFolderPath)) {
-        vscode.window.showErrorMessage(`Project folder '${projectFolderPath}' already exists.`);
-        return;
-    }
-
     try {
         await createTemplateProject(client, projectName, projectFolderPath, profile?.summary, selectedTools.map(item => item.summary), promptValues);
     } catch (error) {
-        if (isNodeError(error) && error.code === 'EEXIST') {
+        if (error instanceof XsmpProjectCreationError && error.code === 'TARGET_EXISTS') {
             vscode.window.showErrorMessage(`Project folder '${projectFolderPath}' already exists.`);
             return;
         }
@@ -143,26 +137,16 @@ async function createTemplateProject(
     tools: readonly XsmpContributionSummary[],
     promptValues: Readonly<Record<string, string | boolean>>,
 ): Promise<void> {
-    await fs.promises.mkdir(dirPath);
-
-    const smdlPath = path.join(dirPath, 'smdl');
-    await fs.promises.mkdir(smdlPath);
-
-    const catalogueName = toXsmpIdentifier(projectName);
-    await fs.promises.writeFile(path.join(smdlPath, `${projectName}.xsmpcat`), createCatalogueContent(projectName, catalogueName));
-
-    const scaffoldResult = await client.sendRequest(ScaffoldProject, {
+    const scaffoldResult = await createXsmpProject({
         projectName,
         projectDir: dirPath,
-        selectedProfileId: profile?.id,
-        selectedToolIds: tools.map(tool => tool.id),
+        profile,
+        tools,
         promptValues,
+        failOnScaffoldError: false,
+    }, {
+        scaffoldProject: request => client.sendRequest(ScaffoldProject, request),
     });
-
-    await fs.promises.writeFile(
-        path.join(dirPath, 'xsmp.project'),
-        createProjectFileContent(projectName, profile, tools, scaffoldResult.dependencies),
-    );
 
     reportScaffoldFailures(scaffoldResult);
 }
@@ -237,78 +221,6 @@ async function promptForWizardValue(prompt: XsmpContributionWizardPrompt): Promi
     }
 }
 
-function createCatalogueContent(projectName: string, catalogueName: string): string {
-    return `// Copyright (C) \${year} \${user}. All rights reserved.
-//
-// Generation date:  \${date} \${time}
-                
-/**
- * Catalogue ${projectName}
- * 
- * @creator ${os.userInfo().username}
- * @date ${new Date(Date.now()).toISOString()}
- */
-catalogue ${catalogueName}
-
-namespace ${catalogueName}
-{
-    
-} // namespace ${catalogueName}
-
-`;
-}
-
-function createProjectFileContent(
-    projectName: string,
-    profile: XsmpContributionSummary | undefined,
-    tools: readonly XsmpContributionSummary[],
-    dependencies: readonly string[],
-): string {
-    let content = `
-/**
- * XSMP Project configuration for ${projectName}
- */
-project '${projectName}'
-
-// project relative path(s) containing modeling file(s)
-source 'smdl'
-
-`;
-
-    if (profile) {
-        content += `
-// use ${profile.label}
-profile '${profile.id}'
-
-`;
-    }
-
-    for (const tool of tools) {
-        content += `
-// use ${tool.label}
-tool '${tool.id}'
-
-`;
-    }
-
-    for (const dependency of [...new Set(dependencies)].sort((left, right) => left.localeCompare(right))) {
-        content += `
-dependency '${dependency}'
-
-`;
-    }
-
-    content += `
-// If your project needs types from outside sources,
-// you can include them by adding project dependencies.
-// For example: dependency 'otherProject'
-//              dependency 'otherProject2'
-
-`;
-
-    return content;
-}
-
 function reportScaffoldFailures(result: XsmpContributionScaffoldResult): void {
     if (result.failures.length === 0) {
         return;
@@ -339,8 +251,4 @@ async function maybeAddProjectToWorkspace(projectFolderPath: string): Promise<vo
             vscode.workspace.updateWorkspaceFolders(vscode.workspace.workspaceFolders ? vscode.workspace.workspaceFolders.length : 0, null, { uri });
         }
     }
-}
-
-function isNodeError(error: unknown): error is NodeJS.ErrnoException {
-    return error instanceof Error;
 }

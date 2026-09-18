@@ -1,5 +1,5 @@
 import { Cancellation } from 'langium';
-import { Command, CommanderError } from 'commander';
+import { Command, CommanderError, InvalidArgumentError, Option } from 'commander';
 import { getXsmpVersion } from '@xsmp/core';
 import { SmpImportService } from '@xsmp/core/smp';
 import {
@@ -18,6 +18,7 @@ import {
     renderDiagnostics,
     renderSummary,
 } from './cli-util.js';
+import { newProjectCommand, type CliNewProjectOptions } from './new-project.js';
 
 export async function runCli(argv: readonly string[] = process.argv, io: CliIo = createConsoleIo()): Promise<number> {
     let exitCode = 0;
@@ -27,6 +28,8 @@ export async function runCli(argv: readonly string[] = process.argv, io: CliIo =
         exitCode = await generateCommand(inputPath, options, io);
     }, async (inputPath, options) => {
         exitCode = await importSmpCommand(inputPath, options, io);
+    }, async (projectName, directory, options) => {
+        exitCode = await newProjectCommand(projectName, directory, options, io);
     });
 
     try {
@@ -34,7 +37,7 @@ export async function runCli(argv: readonly string[] = process.argv, io: CliIo =
         return exitCode;
     } catch (error) {
         if (error instanceof CommanderError) {
-            return error.exitCode;
+            return error.exitCode === 0 ? 0 : 2;
         }
         if (error instanceof CliError) {
             io.stderr(`${error.message}\n`);
@@ -47,12 +50,23 @@ export async function runCli(argv: readonly string[] = process.argv, io: CliIo =
 
 type CliAction = (inputPath: string, options: CliCommandOptions) => Promise<void>;
 type CliImportAction = (inputPath: string, options: CliImportCommandOptions) => Promise<void>;
+type CliNewProjectAction = (
+    projectName: string | undefined,
+    directory: string | undefined,
+    options: CliNewProjectOptions,
+) => Promise<void>;
 
-function createProgram(io: CliIo, onValidate: CliAction, onGenerate: CliAction, onImportSmp: CliImportAction): Command {
+function createProgram(
+    io: CliIo,
+    onValidate: CliAction,
+    onGenerate: CliAction,
+    onImportSmp: CliImportAction,
+    onNewProject: CliNewProjectAction,
+): Command {
     const program = new Command();
     program
-        .name('xsmpproject-cli')
-        .description('Validate and generate XSMP projects.')
+        .name('xsmp')
+        .description('Create, validate, and generate XSMP projects.')
         .version(process.env.XSMP_CLI_VERSION ?? getXsmpVersion())
         .showHelpAfterError()
         .configureOutput({
@@ -83,7 +97,41 @@ function createProgram(io: CliIo, onValidate: CliAction, onGenerate: CliAction, 
         .description('import SMP XML back into canonical XSMP source')
         .action(onImportSmp);
 
+    const newCommand = program
+        .command('new')
+        .description('create a new XSMP resource');
+
+    newCommand
+        .command('project')
+        .argument('[name]', 'project name')
+        .argument('[directory]', 'parent directory (defaults to the current directory)')
+        .addOption(new Option('--profile <id>', 'profile contribution to enable')
+            .argParser(collectSingleOption))
+        .addOption(new Option('--tool <id>', 'tool contribution to enable (repeatable)')
+            .argParser(collectOption))
+        .option(
+            '--set <key=value>',
+            'set profile.<id>.<prompt>=value or tool.<id>.<prompt>=value (repeatable)',
+            collectOption,
+        )
+        .option('--no-interactive', 'do not prompt for missing values')
+        .option('-y, --yes', 'create without prompting or confirmation')
+        .description('create a new XSMP project')
+        .action((name: string | undefined, directory: string | undefined, options: CliNewProjectOptions) =>
+            onNewProject(name, directory, options));
+
     return program;
+}
+
+function collectOption(value: string, previous: string[] | undefined): string[] {
+    return [...(previous ?? []), value];
+}
+
+function collectSingleOption(value: string, previous: string | undefined): string {
+    if (previous !== undefined) {
+        throw new InvalidArgumentError('may only be specified once');
+    }
+    return value;
 }
 
 async function validateCommand(inputPath: string, options: CliCommandOptions, io: CliIo): Promise<number> {

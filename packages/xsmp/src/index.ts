@@ -9,6 +9,7 @@ export * from './xsmpproject-module.js';
 export * from './xsmpsed-module.js';
 export * from './generated/module.js';
 export * from './contributions/index.js';
+export * from './project/index.js';
 export * from './references/index.js';
 export * from './smp/index.js';
 export * from './utils/index.js';

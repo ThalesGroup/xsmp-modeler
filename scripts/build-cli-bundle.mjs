@@ -10,7 +10,7 @@ const cliPackageJsonPath = path.join(repoRoot, 'packages', 'xsmp-cli', 'package.
 const corePackageJsonPath = path.join(repoRoot, 'packages', 'xsmp', 'package.json');
 const cliVersion = JSON.parse(await fsp.readFile(cliPackageJsonPath, 'utf8')).version;
 const coreVersion = JSON.parse(await fsp.readFile(corePackageJsonPath, 'utf8')).version;
-const artifactPath = path.join(outputDir, `xsmpproject-cli-${cliVersion}.cjs`);
+const artifactPath = path.join(outputDir, `xsmp-${cliVersion}.cjs`);
 
 await fsp.mkdir(outputDir, { recursive: true });
 

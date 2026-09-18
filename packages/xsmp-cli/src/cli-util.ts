@@ -4,6 +4,7 @@ import { DiagnosticSeverity, type Diagnostic } from 'vscode-languageserver';
 import { URI } from 'vscode-uri';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
+import { createInterface } from 'node:readline/promises';
 import * as ast from '@xsmp/core/ast-partial';
 import { createXsmpServices, isSmpMirrorDocument } from '@xsmp/core';
 import { getCliBuiltinContributionPackages, getCliBuiltinDirectory } from './builtin-packages.js';
@@ -20,7 +21,42 @@ const ignoredWorkspaceDirectories = new Set([
 export interface CliIo {
     stdout(text: string): void;
     stderr(text: string): void;
+    /** True only when both input and output support an interactive exchange. */
+    readonly isInteractive?: boolean;
+    prompt?(request: CliPromptRequest): Promise<CliPromptAnswer>;
 }
+
+export interface CliPromptChoice {
+    readonly value: string;
+    readonly label: string;
+    readonly description?: string;
+}
+
+export type CliPromptRequest =
+    | {
+        readonly type: 'input';
+        readonly message: string;
+        readonly defaultValue?: string;
+    }
+    | {
+        readonly type: 'confirm';
+        readonly message: string;
+        readonly defaultValue?: boolean;
+    }
+    | {
+        readonly type: 'select';
+        readonly message: string;
+        readonly choices: readonly CliPromptChoice[];
+        readonly defaultValue?: string;
+    }
+    | {
+        readonly type: 'multiselect';
+        readonly message: string;
+        readonly choices: readonly CliPromptChoice[];
+        readonly defaultValue?: readonly string[];
+    };
+
+export type CliPromptAnswer = string | boolean | readonly string[] | undefined;
 
 export interface CliCommandOptions {
     workspaceRoot?: string;
@@ -68,10 +104,101 @@ export class CliError extends Error {
 }
 
 export function createConsoleIo(): CliIo {
-    return {
+    const io: CliIo = {
         stdout: text => process.stdout.write(text),
         stderr: text => process.stderr.write(text),
+        isInteractive: Boolean(process.stdin.isTTY && process.stdout.isTTY),
     };
+    if (io.isInteractive) {
+        io.prompt = request => promptConsole(request, io);
+    }
+    return io;
+}
+
+async function promptConsole(request: CliPromptRequest, io: CliIo): Promise<CliPromptAnswer> {
+    const readline = createInterface({ input: process.stdin, output: process.stdout });
+    try {
+        switch (request.type) {
+            case 'input': {
+                const suffix = request.defaultValue === undefined ? ': ' : ` [${request.defaultValue}]: `;
+                const answer = await readline.question(`${request.message}${suffix}`);
+                return answer.length > 0 ? answer : request.defaultValue ?? '';
+            }
+            case 'confirm': {
+                const suffix = request.defaultValue === true ? ' [Y/n]: ' : request.defaultValue === false ? ' [y/N]: ' : ' [y/n]: ';
+                for (;;) {
+                    const answer = (await readline.question(`${request.message}${suffix}`)).trim().toLowerCase();
+                    if (!answer && request.defaultValue !== undefined) {
+                        return request.defaultValue;
+                    }
+                    if (answer === 'y' || answer === 'yes') {
+                        return true;
+                    }
+                    if (answer === 'n' || answer === 'no') {
+                        return false;
+                    }
+                    io.stderr('Please answer yes or no.\n');
+                }
+            }
+            case 'select':
+                renderPromptChoices(io, request.choices);
+                for (;;) {
+                    const answer = (await readline.question(formatChoiceQuestion(request.message, request.choices, request.defaultValue))).trim();
+                    const value = answer || request.defaultValue;
+                    const selected = value === undefined ? undefined : resolvePromptChoice(value, request.choices);
+                    if (selected !== undefined) {
+                        return selected;
+                    }
+                    io.stderr('Please enter one of the listed numbers or identifiers.\n');
+                }
+            case 'multiselect':
+                renderPromptChoices(io, request.choices);
+                for (;;) {
+                    const defaultText = request.defaultValue?.join(',');
+                    const suffix = defaultText ? ` [${defaultText}]` : ' [none]';
+                    const answer = (await readline.question(`${request.message}${suffix}: `)).trim();
+                    if (!answer) {
+                        return request.defaultValue ?? [];
+                    }
+                    if (answer.toLowerCase() === 'none') {
+                        return [];
+                    }
+                    const selected = answer.split(',').map(value => resolvePromptChoice(value.trim(), request.choices));
+                    if (selected.every((value): value is string => value !== undefined)) {
+                        return [...new Set(selected)];
+                    }
+                    io.stderr('Please enter comma-separated numbers or identifiers from the list.\n');
+                }
+        }
+    } finally {
+        readline.close();
+    }
+}
+
+function renderPromptChoices(io: CliIo, choices: readonly CliPromptChoice[]): void {
+    choices.forEach((choice, index) => {
+        const description = choice.description ? ` - ${choice.description}` : '';
+        io.stdout(`  ${index + 1}) ${choice.label} (${choice.value})${description}\n`);
+    });
+}
+
+function formatChoiceQuestion(
+    message: string,
+    choices: readonly CliPromptChoice[],
+    defaultValue: string | undefined,
+): string {
+    const defaultIndex = defaultValue === undefined
+        ? undefined
+        : choices.findIndex(choice => choice.value === defaultValue) + 1;
+    return `${message}${defaultIndex && defaultIndex > 0 ? ` [${defaultIndex}]` : ''}: `;
+}
+
+function resolvePromptChoice(value: string, choices: readonly CliPromptChoice[]): string | undefined {
+    const numericIndex = Number(value);
+    if (Number.isInteger(numericIndex) && numericIndex >= 1 && numericIndex <= choices.length) {
+        return choices[numericIndex - 1].value;
+    }
+    return choices.find(choice => choice.value === value)?.value;
 }
 
 export async function createCliServices() {

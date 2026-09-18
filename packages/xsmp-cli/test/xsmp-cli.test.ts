@@ -10,9 +10,13 @@ const smpFixtureRoot = path.resolve(__dirname, '../../xsmp/test/fixtures/smp');
 const repoRoot = path.resolve(__dirname, '../../..');
 const cliPackageJsonPath = path.join(__dirname, '..', 'package.json');
 const corePackageJsonPath = path.resolve(__dirname, '../../xsmp/package.json');
-const cliVersion = JSON.parse(fs.readFileSync(cliPackageJsonPath, 'utf-8')).version as string;
+const cliPackage = JSON.parse(fs.readFileSync(cliPackageJsonPath, 'utf-8')) as {
+    readonly version: string;
+    readonly bin: Readonly<Record<string, string>>;
+};
+const cliVersion = cliPackage.version;
 const coreVersion = JSON.parse(fs.readFileSync(corePackageJsonPath, 'utf-8')).version as string;
-const standaloneBundlePath = path.join(repoRoot, 'out', 'cli-bundle', `xsmpproject-cli-${cliVersion}.cjs`);
+const standaloneBundlePath = path.join(repoRoot, 'out', 'cli-bundle', `xsmp-${cliVersion}.cjs`);
 
 beforeAll(() => {
     const tasMdkBuildResult = runProcess('npm', ['run', 'build:release', '-w', 'xsmp-tas-mdk', '--loglevel=error']);
@@ -34,15 +38,20 @@ afterEach(() => {
 });
 
 describe('XSMP CLI', () => {
+    test('exposes xsmp as its only executable', () => {
+        expect(cliPackage.bin).toEqual({ xsmp: './bin/cli.js' });
+    });
+
     test('executes the packaged bin entrypoint in a subprocess', () => {
         const result = runNodeProcess(path.join(repoRoot, 'packages', 'xsmp-cli', 'bin', 'cli.js'), ['--help']);
 
         expect(result.status).toBe(0);
         expect(result.stderr).toBe('');
-        expect(result.stdout).toContain('Usage: xsmpproject-cli');
+        expect(result.stdout).toContain('Usage: xsmp');
         expect(result.stdout).toContain('validate');
         expect(result.stdout).toContain('generate');
         expect(result.stdout).toContain('import-smp');
+        expect(result.stdout).toContain('new');
     });
 
     test('executes the standalone CLI bundle in a subprocess', () => {
@@ -50,10 +59,40 @@ describe('XSMP CLI', () => {
 
         expect(result.status).toBe(0);
         expect(result.stderr).toBe('');
-        expect(result.stdout).toContain('Usage: xsmpproject-cli');
+        expect(result.stdout).toContain('Usage: xsmp');
         expect(result.stdout).toContain('validate');
         expect(result.stdout).toContain('generate');
         expect(result.stdout).toContain('import-smp');
+        expect(result.stdout).toContain('new');
+    });
+
+    test('creates a project with the standalone CLI bundle', () => {
+        const standaloneDir = path.join(tempDir, 'standalone');
+        const workspaceDir = path.join(tempDir, 'workspace');
+        const isolatedBundlePath = path.join(standaloneDir, 'xsmp.cjs');
+        fs.mkdirSync(standaloneDir);
+        fs.mkdirSync(workspaceDir);
+        fs.copyFileSync(standaloneBundlePath, isolatedBundlePath);
+
+        const result = runNodeProcess(isolatedBundlePath, [
+            'new',
+            'project',
+            'Mission',
+            workspaceDir,
+            '--profile',
+            'xsmp-sdk',
+            '--tool',
+            'smp',
+            '--tool',
+            'python',
+            '--no-interactive',
+        ], { cwd: tempDir });
+
+        expect(result.status).toBe(0);
+        expect(result.stderr).toBe('');
+        expect(fs.existsSync(path.join(workspaceDir, 'Mission', 'xsmp.project'))).toBe(true);
+        expect(fs.existsSync(path.join(workspaceDir, 'Mission', 'CMakeLists.txt'))).toBe(true);
+        expect(fs.existsSync(path.join(workspaceDir, 'Mission', 'pytest.ini'))).toBe(true);
     });
 
     test('generates from an isolated standalone CLI bundle without a package.json nearby', () => {
@@ -61,7 +100,7 @@ describe('XSMP CLI', () => {
         const runnerDir = path.join(tempDir, 'runner');
         fs.mkdirSync(standaloneDir, { recursive: true });
         fs.mkdirSync(runnerDir, { recursive: true });
-        const isolatedBundlePath = path.join(standaloneDir, 'xsmpproject-cli.cjs');
+        const isolatedBundlePath = path.join(standaloneDir, 'xsmp.cjs');
         fs.copyFileSync(standaloneBundlePath, isolatedBundlePath);
         const projectDir = createProject(path.join(tempDir, 'workspace'), 'mission-demo', `
 project "mission-demo" using "ECSS_SMP_2025"
@@ -97,6 +136,7 @@ namespace mission_demo
         expect(result.stdout).toContain('validate');
         expect(result.stdout).toContain('generate');
         expect(result.stdout).toContain('import-smp');
+        expect(result.stdout).toContain('new');
     });
 
     test('validates a project directory successfully', async () => {
@@ -594,7 +634,7 @@ async function runCliWithOutput(args: readonly string[]) {
     const stderr: string[] = [];
 
     const exitCode = await runCli(
-        ['node', 'xsmpproject-cli', ...args],
+        ['node', 'xsmp', ...args],
         {
             stdout: text => stdout.push(text),
             stderr: text => stderr.push(text),
