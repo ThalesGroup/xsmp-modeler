@@ -32,11 +32,7 @@ export class XsmpLanguageServer extends DefaultLanguageServer {
     protected override eagerLoadServices(): void {
         super.eagerLoadServices();
         const sharedServices = this.services as XsmpSharedServices;
-        this.services.lsp.Connection?.workspace.onDidChangeWorkspaceFolders(event => {
-            void sharedServices.workspace.WorkspaceManager.updateWorkspaceFolders(event).catch(error => {
-                console.error('Could not update XSMP workspace folders.', error);
-            });
-        });
+        this.registerWorkspaceFolderChangeHandler();
         this.services.lsp.Connection?.onRequest(GetServerFileContentRequest, async (uri) => {
             await sharedServices.workspace.WorkspaceManager.ready;
             return await sharedServices.workspace.WorkspaceLock.read(() =>
@@ -95,6 +91,19 @@ export class XsmpLanguageServer extends DefaultLanguageServer {
                 inputPath: URI.parse(request.uri).fsPath,
                 outputPath: request.outputUri ? URI.parse(request.outputUri).fsPath : undefined,
                 overwrite: request.force ?? false,
+            });
+        });
+    }
+
+    protected registerWorkspaceFolderChangeHandler(): void {
+        const sharedServices = this.services as XsmpSharedServices;
+        this.onInitialized(() => {
+            // Accessing this event may dynamically register the capability with the client.
+            // Wait for initialization so the client can handle that registration request.
+            this.services.lsp.Connection?.workspace.onDidChangeWorkspaceFolders(event => {
+                void sharedServices.workspace.WorkspaceManager.updateWorkspaceFolders(event).catch(error => {
+                    console.error('Could not update XSMP workspace folders.', error);
+                });
             });
         });
     }
