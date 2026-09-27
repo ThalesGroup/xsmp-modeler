@@ -78,7 +78,7 @@ export async function generateProfileTree(
     context.tempDirs.push(outputDir);
 
     const projectUri = URI.file(outputDir);
-    generator.clean(projectUri);
+    await generator.clean(projectUri);
 
     const tasks: Task[] = [];
     generator.generate(document.parseResult.value, projectUri, task => tasks.push(task));

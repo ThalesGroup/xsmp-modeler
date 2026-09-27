@@ -5,6 +5,7 @@ import { type URI, UriUtils } from 'langium';
 import { escape, fqn, getAccessKind, getRealVisibility, isInput, isOutput, isState, isString8 } from '../../utils/xsmp-utils.js';
 import { CppGenerator, CxxStandard } from './generator.js';
 import type { TaskAcceptor } from '../generator.js';
+import { cleanGeneratedFolders } from '../generated-folder.js';
 import type { XsmpSharedServices } from '../../xsmp-module.js';
 import * as Path from 'node:path';
 import { VisibilityKind } from '../../utils/visibility-kind.js';
@@ -20,10 +21,10 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
     }
 
     override clean(projectUri: URI) {
-        fs.rmSync(UriUtils.joinPath(projectUri, this.includeGenFolder).fsPath, { recursive: true, force: true });
-        if (this.includeGenFolder !== this.sourceGenFolder) {
-            fs.rmSync(UriUtils.joinPath(projectUri, this.sourceGenFolder).fsPath, { recursive: true, force: true });
-        }
+        return cleanGeneratedFolders(
+            UriUtils.joinPath(projectUri, this.includeGenFolder).fsPath,
+            UriUtils.joinPath(projectUri, this.sourceGenFolder).fsPath,
+        );
     }
     name(element: ast.NamedElement | string, gen: boolean): string {
         const genSuffix = 'Gen';

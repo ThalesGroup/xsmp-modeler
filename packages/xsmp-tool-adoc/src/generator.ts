@@ -3,7 +3,7 @@ import * as ast from '@xsmp/core/ast';
 import { type URI, UriUtils, type AstNode, type Reference, AstUtils, isReference } from 'langium';
 import { expandToString as s } from 'langium/generate';
 import type { XsmpSharedServices } from '@xsmp/core';
-import { type TaskAcceptor, type XsmpGenerator } from '@xsmp/core/generator';
+import { cleanGeneratedFolders, type TaskAcceptor, type XsmpGenerator } from '@xsmp/core/generator';
 import type { XsmpInstancePathResolver, XsmpPathService } from '@xsmp/core/references';
 import {
     fqn,
@@ -60,8 +60,8 @@ export class ADocGenerator implements XsmpGenerator {
         }
     }
 
-    clean(projectUri: URI): void {
-        fs.rmSync(UriUtils.joinPath(projectUri, ADocGenerator.defaultDocFolder).fsPath, { recursive: true, force: true });
+    clean(projectUri: URI): Promise<void> {
+        return cleanGeneratedFolders(UriUtils.joinPath(projectUri, ADocGenerator.defaultDocFolder).fsPath);
     }
 
     public async generateCatalogue(catalogue: ast.Catalogue, projectUri: URI): Promise<void> {

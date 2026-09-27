@@ -12,7 +12,7 @@ import * as XsmpUtils from '@xsmp/core/utils';
 
 import { type AstNode, type JSDocParagraph, type Reference, type URI, AstUtils, UriUtils, isReference } from 'langium';
 import * as fs from 'node:fs';
-import { isGeneratedBy, type TaskAcceptor, type XsmpGenerator, getCopyrightNotice } from '@xsmp/core/generator';
+import { cleanGeneratedFolders, isGeneratedBy, type TaskAcceptor, type XsmpGenerator, getCopyrightNotice } from '@xsmp/core/generator';
 import { create } from 'xmlbuilder2';
 import { getStandardBuiltinExportName, getXsmpVersion, isStandardBuiltinLibrary, type XsmpSharedServices } from '@xsmp/core';
 import type { ProjectManager } from '@xsmp/core/workspace';
@@ -45,7 +45,7 @@ export class SmpGenerator implements XsmpGenerator {
         this.projectManager = services.workspace.ProjectManager;
     }
     clean(projectUri: URI) {
-        fs.rmSync(UriUtils.joinPath(projectUri, this.smdlGenFolder).fsPath, { recursive: true, force: true });
+        return cleanGeneratedFolders(UriUtils.joinPath(projectUri, this.smdlGenFolder).fsPath);
     }
     generate(node: AstNode, projectUri: URI, acceptTask: TaskAcceptor) {
         const notice = this.safeXmlComment(getCopyrightNotice(node.$document));

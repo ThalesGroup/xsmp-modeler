@@ -129,7 +129,7 @@ document that belongs to a project where the tool or profile is active.
 import * as fs from 'node:fs';
 import { AstUtils, UriUtils, type AstNode, type URI } from 'langium';
 import * as ast from '@xsmp/core/ast';
-import type { TaskAcceptor, XsmpGenerator } from '@xsmp/core/generator';
+import { cleanGeneratedFolders, type TaskAcceptor, type XsmpGenerator } from '@xsmp/core/generator';
 
 export class DemoGenerator implements XsmpGenerator {
     generate(node: AstNode, projectUri: URI, acceptTask: TaskAcceptor): void {
@@ -138,11 +138,8 @@ export class DemoGenerator implements XsmpGenerator {
         }
     }
 
-    clean(projectUri: URI): void {
-        fs.rmSync(UriUtils.joinPath(projectUri, 'demo-gen').fsPath, {
-            recursive: true,
-            force: true,
-        });
+    clean(projectUri: URI): Promise<void> {
+        return cleanGeneratedFolders(UriUtils.joinPath(projectUri, 'demo-gen').fsPath);
     }
 
     private async generateCatalogue(catalogue: ast.Catalogue, projectUri: URI): Promise<void> {
@@ -161,6 +158,13 @@ export class DemoGenerator implements XsmpGenerator {
 
 Use `acceptTask` for file system writes. This lets XSMP Modeler collect all
 generation tasks and run them after traversal.
+
+`clean` runs before every generation of the project. It may return a promise,
+which XSMP Modeler awaits before calling `generate`. Prefer
+`cleanGeneratedFolders` to removing the output folder: it removes the folder
+content but keeps the folder itself, which still works on Windows when another
+process holds the folder, for instance a terminal opened in it. If `clean`
+fails, XSMP Modeler logs a warning and still generates the project.
 
 ## Add Validation
 
