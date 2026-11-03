@@ -255,7 +255,7 @@ export class XsmpcatValidator {
                 const type = attribute.type.ref as ast.AttributeType,
                     usages = this.docHelper.getUsages(type);
 
-                if (usages?.every(t => !ast.reflection.isSubtype(XsmpUtils.getNodeType(element), t.toString().trim()))) {
+                if (usages?.every(t => !XsmpUtils.isAttributeUsageOf(element, t.toString().trim()))) {
                     accept('warning', `This annotation is disallowed for element of type ${XsmpUtils.getNodeType(element)}.`,
                         { node: attribute, data: diagnosticData(IssueCodes.InvalidAttribute) });
                 }

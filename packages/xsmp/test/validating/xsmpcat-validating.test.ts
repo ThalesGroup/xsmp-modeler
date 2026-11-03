@@ -162,6 +162,57 @@ describe('Validating Xsmpcat', () => {
         expect((projectDocument.diagnostics ?? []).filter(d => d.severity === DiagnosticSeverity.Error)).toHaveLength(0);
     });
 
+    test('applies an attribute to an array or a string through a parent usage', async () => {
+        document = await parse(`
+            catalogue AttributeUsage
+
+            namespace usage
+            {
+                /** @uuid 5f4d3b0e-6c1a-4f0e-9a57-2d1c8e7b6a10 */
+                public primitive Int32
+
+                /** @uuid 7a2e9c44-3b8d-4d21-8f60-1e5b7c9d0a21 */
+                public primitive Bool
+
+                /**
+                 * @uuid 1c9f6e2b-8a47-4c35-b1d2-6f3e0a7d5c32
+                 * @usage ValueType
+                 */
+                public attribute Bool OnValueType = true
+
+                /**
+                 * @uuid 2d0a7f3c-9b58-4d46-a2e3-7a4f1b8e6d43
+                 * @usage Array
+                 */
+                public attribute Bool OnArray = true
+
+                /**
+                 * @uuid 3e1b8a4d-0c69-4e57-b3f4-8b5a2c9f7e54
+                 * @usage String
+                 */
+                public attribute Bool OnString = true
+
+                /** @uuid 4f2c9b5e-1d7a-4f68-a4a5-9c6b3d0a8f65 */
+                @OnValueType
+                @OnArray
+                public array Values = usage.Int32[4]
+
+                /** @uuid 503dac6f-2e8b-4079-b5b6-ad7c4e1b9a76 */
+                @OnValueType
+                @OnString
+                public string Text[8]
+
+                /** @uuid 614ebd70-3f9c-418a-a6c7-be8d5f2cab87 */
+                @OnArray
+                public string Misplaced[8]
+            }
+        `, { documentUri: 'attribute-usage.xsmpcat' });
+
+        expect((document.diagnostics ?? []).map(d => d.message).filter(m => m.includes('disallowed'))).toEqual([
+            'This annotation is disallowed for element of type String.',
+        ]);
+    });
+
     test('allows non-ValueType fields in composite types with a warning', async () => {
         document = await parse(`
             catalogue FieldWarning
