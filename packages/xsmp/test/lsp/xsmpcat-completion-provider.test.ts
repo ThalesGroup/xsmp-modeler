@@ -542,6 +542,25 @@ namespace Attribute
         expect(labels(items)).toContain('Int32');
     });
 
+    test('offers an attribute on an array through a parent usage', async () => {
+        const text = `catalogue demo
+namespace demo
+{
+    public primitive Bool
+    public primitive Int32
+    /** @usage ValueType */
+    public attribute Bool OnValueType = true
+    /** @usage Model */
+    public attribute Bool OnModel = true
+    @
+    public array Values = demo.Int32[4]
+}
+`;
+        const items = await getCompletionItems(text, text.indexOf('@\n') + 1, 'memory:///demo.xsmpcat');
+        expect(labels(items)).toContain('OnValueType');
+        expect(labels(items)).not.toContain('OnModel');
+    });
+
     test('builds reference snippets from visible reference types', async () => {
         const referenceText = `
         catalogue Demo

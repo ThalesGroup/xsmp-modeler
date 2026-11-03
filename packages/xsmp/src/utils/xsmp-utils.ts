@@ -298,6 +298,14 @@ export function getNodeType(node: AstNode): string {
     }
 }
 
+/**
+ * Whether an attribute type declaring this `@usage` applies to the node. A usage names either
+ * an AST type, such as `ValueType`, or the name of `getNodeType`, such as `Array`.
+ */
+export function isAttributeUsageOf(node: AstNode, usage: string): boolean {
+    return ast.reflection.isSubtype(node.$type, usage) || ast.reflection.isSubtype(getNodeType(node), usage);
+}
+
 export function getKeywordForType(type: ast.Type): string | undefined {
     switch (type.$type) {
         case ast.ArrayType.$type: return 'array';

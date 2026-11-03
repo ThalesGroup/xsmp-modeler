@@ -287,8 +287,7 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
         }
 
         const usages = this.docHelper.getUsages(desc.node);
-        const elementType = XsmpUtils.getNodeType(attribute.$container);
-        if (!usages?.find(u => ast.reflection.isSubtype(elementType, u.toString()))) {
+        if (!usages?.find(u => XsmpUtils.isAttributeUsageOf(attribute.$container, u.toString().trim()))) {
             return false;
         }
 
