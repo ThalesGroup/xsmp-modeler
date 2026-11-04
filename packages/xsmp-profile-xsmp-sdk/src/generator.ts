@@ -684,6 +684,9 @@ public:
     }
     protected override initializeField(field: ast.Field, _gen: boolean = false): string | undefined {
         if (this.isCdkField(field)) {
+            const defaultValue = ast.isArrayType(field.type.ref)
+                ? this.directListInitializer(field.default)
+                : this.expression(field.default);
             return s`
                 // Field ${field.name}
                 ${field.name}{
@@ -692,7 +695,7 @@ public:
                     "${field.name}", // Name
                     ${this.description(field)}, // Description
                     this, // Parent
-                    ${this.viewKind(field)}${field.default ? `, // View Kind\n    ${this.expression(field.default)} // Default value` : ' // View Kind'}
+                    ${this.viewKind(field)}${field.default ? `, // View Kind\n    ${defaultValue} // Default value` : ' // View Kind'}
                 }
                 `;
         }

@@ -879,6 +879,9 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
     }
     protected override initializeField(field: ast.Field, _gen: boolean = false): string | undefined {
         if (this.isCdkField(field)) {
+            const defaultValue = ast.isArrayType(field.type.ref)
+                ? this.directListInitializer(field.default)
+                : this.expression(field.default);
             return s`
                 // Field ${field.name}
                 ${field.name}{
@@ -887,7 +890,7 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
                     this, // Parent
                     ${this.viewKind(field)}, // View Kind
                     type_registry, // Type Registry
-                    ${this.uuid(field.type.ref)}${field.default ? `, // Type UUID\n    ${this.expression(field.default)} // Default value` : ' // Type UUID'}
+                    ${this.uuid(field.type.ref)}${field.default ? `, // Type UUID\n    ${defaultValue} // Default value` : ' // Type UUID'}
                 }
                 `;
         }

@@ -1,0 +1,82 @@
+catalogue DataflowDefaults
+
+namespace defaults
+{
+    /** @uuid 70000000-0000-4000-8000-000000000001 */
+    public array Row = Int32[2]
+
+    /** @uuid 70000000-0000-4000-8000-000000000002 */
+    public array Matrix = Row[2]
+
+    /** @uuid 70000000-0000-4000-8000-000000000003 */
+    public array Cube = Matrix[2]
+
+    /** @uuid 70000000-0000-4000-8000-000000000004 */
+    public array Hypercube = Cube[2]
+
+    /** @uuid 70000000-0000-4000-8000-000000000005 */
+    public struct Point
+    {
+        field Int32 x
+        field Int32 y
+    }
+
+    /** @uuid 70000000-0000-4000-8000-000000000006 */
+    public array Points = Point[2]
+
+    /** @uuid 70000000-0000-4000-8000-000000000007 */
+    public struct Packet
+    {
+        field Row samples
+        field Int32 tag
+    }
+
+    /** @uuid 70000000-0000-4000-8000-000000000008 */
+    public array Packets = Packet[2]
+
+    /** @uuid 70000000-0000-4000-8000-000000000009 */
+    public model Probe
+    {
+        input field Int32 inp_scalar = 7
+        output field Int32 out_scalar = 7
+
+        input field Point inp_point = {1, 2}
+        output field Point out_point = {1, 2}
+
+        input field Packet inp_packet = {{1, 2}, 3}
+        output field Packet out_packet = {{1, 2}, 3}
+
+        input field Row inp_row = {1, 2}
+        output field Row out_row = {1, 2}
+
+        input field Matrix inp_matrix = {{1, 2}, {3, 4}}
+        output field Matrix out_matrix = {{1, 2}, {3, 4}}
+
+        input field Cube inp_cube = {{{1, 2}, {3, 4}}, {{5, 6}, {7, 8}}}
+        output field Cube out_cube = {{{1, 2}, {3, 4}}, {{5, 6}, {7, 8}}}
+
+        input field Hypercube inp_hypercube = {{{{1, 2}, {3, 4}}, {{5, 6}, {7, 8}}}, {{{9, 10}, {11, 12}}, {{13, 14}, {15, 16}}}}
+        output field Hypercube out_hypercube = {{{{1, 2}, {3, 4}}, {{5, 6}, {7, 8}}}, {{{9, 10}, {11, 12}}, {{13, 14}, {15, 16}}}}
+
+        input field Points inp_points = {{1, 2}, {3, 4}}
+        output field Points out_points = {{1, 2}, {3, 4}}
+
+        input field Packets inp_packets = {{{1, 2}, 3}, {{4, 5}, 6}}
+        output field Packets out_packets = {{{1, 2}, 3}, {{4, 5}, 6}}
+
+        input field Matrix inp_matrix_partial = {{1}}
+        output field Matrix out_matrix_partial = {{1}}
+
+        input field Points inp_points_partial = {{1}}
+        output field Points out_points_partial = {{1}}
+
+        input field Matrix inp_matrix_empty = {}
+        output field Matrix out_matrix_empty = {}
+
+        input field Matrix inp_matrix_absent
+        output field Matrix out_matrix_absent
+
+        field Matrix sta_matrix = {{1, 2}, {3, 4}}
+        field Points sta_points = {{1, 2}, {3, 4}}
+    }
+}
