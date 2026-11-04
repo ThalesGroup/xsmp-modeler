@@ -11,7 +11,6 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 
 const fixtureRoot = path.resolve(__dirname, 'fixtures', 'profile-generators');
-const fixtureCataloguePath = path.join(fixtureRoot, 'catalogue.xsmpcat');
 const fixtureProjectSource = `project 'profile-generators' using 'ECSS_SMP_2025'\nsource 'src'\n`;
 
 export interface ProfileGeneratorTestContext {
@@ -45,7 +44,9 @@ export async function cleanupProfileGeneratorTestContext(context: ProfileGenerat
 
 export async function parseProfileGeneratorFixture(
     context: ProfileGeneratorTestContext,
+    fixtureName: string = 'catalogue.xsmpcat',
 ): Promise<LangiumDocument<ast.Catalogue>> {
+    const fixtureCataloguePath = path.join(fixtureRoot, fixtureName);
     const workspaceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-profile-generator-fixture-'));
     context.tempDirs.push(workspaceDir);
     fs.mkdirSync(path.join(workspaceDir, 'src'), { recursive: true });
