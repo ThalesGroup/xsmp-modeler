@@ -1,3 +1,4 @@
+import { dependencyOrder } from '../dependency-order.js';
 import * as ast from '../../generated/ast.js';
 import { type AstNode, AstUtils, DocumentCache, type JSDocElement, type JSDocTag, type URI, UriUtils } from 'langium';
 import * as fs from 'node:fs';
@@ -205,32 +206,16 @@ export abstract class CppGenerator implements XsmpGenerator {
         const types: ast.Type[] = AstUtils.streamAllContents(catalogue).filter(ast.isValueType).toArray();
         const computeDeps = (type: ast.Type) => {
             if (ast.isArrayType(type)) return [type.itemType.ref];
-            if (ast.isValueReference(type)) return [type.type.ref];
-            if (ast.isStructure(type)) return this.attrHelper.getAllFields(type).map(field => field.type?.ref as ast.Type | undefined).toArray();
+            if (ast.isStructure(type)) {
+                const dependencies = this.attrHelper.getAllFields(type).map(field => field.type?.ref as ast.Type | undefined).toArray();
+                // AddClassType resolves its base UUID immediately during registration.
+                if (ast.isClass(type)) dependencies.push(type.base?.ref);
+                return dependencies;
+            }
             return [];
         };
 
-        // compute the list of dependencies for each Type
-        const deps = new Map<ast.Type, ast.Type[]>();
-
-        types.forEach(type => {
-            const dependencies = computeDeps(type).filter((dep): dep is ast.Type => dep !== undefined).filter(dep => types.includes(dep));
-            deps.set(type, dependencies);
-        });
-
-        const result: ast.Type[] = [];
-        while (deps.size > 0) {
-            const iterator = deps.entries();
-            for (const [type, typeDeps] of iterator) {
-                // Check if all dependencies are already in result
-                if (typeDeps.every(dep => result.includes(dep))) {
-                    result.push(type);
-                    // Remove the current entry
-                    deps.delete(type);
-                }
-            }
-        }
-        return result;
+        return dependencyOrder(types, computeDeps);
     }
 
     protected constants(type: ast.WithBody): ast.Constant[] {
@@ -238,29 +223,10 @@ export abstract class CppGenerator implements XsmpGenerator {
     }
 
     private sortedConstants(type: ast.WithBody): ast.Constant[] {
-        // collect all constants
-        const constants: ast.Constant[] = type.elements.filter(ast.isConstant);
-
-        // compute the list of dependencies for each constant
-        const deps = new Map<ast.Constant, ast.Constant[]>();
-
-        constants.forEach(constant => {
-            deps.set(constant, AstUtils.streamAst(constant.value).filter(ast.isNamedElementReference).map(ref => ref.value.ref).filter(ast.isConstant).filter(c => constants.includes(c)).toArray());
-        });
-
-        const result: ast.Constant[] = [];
-        while (deps.size > 0) {
-            const iterator = deps.entries();
-            for (const [type, typeDeps] of iterator) {
-                // Check if all dependencies are already in result
-                if (typeDeps.every(dep => result.includes(dep))) {
-                    result.push(type);
-                    // Remove the current entry
-                    deps.delete(type);
-                }
-            }
-        }
-        return result;
+        return dependencyOrder(type.elements.filter(ast.isConstant), constant =>
+            AstUtils.streamAst(constant.value).filter(ast.isNamedElementReference)
+                .map(reference => reference.value.ref).filter(ast.isConstant)
+        );
     }
 
     protected registerType(type: ast.Type): string | undefined {

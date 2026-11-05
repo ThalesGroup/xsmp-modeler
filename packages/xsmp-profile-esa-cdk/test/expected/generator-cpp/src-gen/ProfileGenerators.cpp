@@ -64,14 +64,14 @@ extern "C"
         ::demo::support::_Register_Ratio(typeRegistry);
         // register String Label
         ::demo::support::_Register_Label(typeRegistry);
-        // register Array CounterArray
-        ::demo::support::_Register_CounterArray(typeRegistry);
-        // register Structure Payload
-        ::demo::support::Payload::_Register(typeRegistry);
         // register Class DeviceBase
         ::demo::support::DeviceBase::_Register(typeRegistry);
         // register Exception DeviceError
         ::demo::support::DeviceError::_Register(typeRegistry);
+        // register Array CounterArray
+        ::demo::support::_Register_CounterArray(typeRegistry);
+        // register Structure Payload
+        ::demo::support::Payload::_Register(typeRegistry);
         // Register Service MonitorService
         simulator->AddService( new ::demo::support::MonitorService(
             "MonitorService", // Name
