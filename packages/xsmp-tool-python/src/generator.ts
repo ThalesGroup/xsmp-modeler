@@ -9,6 +9,13 @@ import type { TaskAcceptor, XsmpGenerator } from '@xsmp/core/generator';
 import { getXsmpVersion, type XsmpSharedServices } from '@xsmp/core';
 import { type DocumentationHelper } from '@xsmp/core/utils';
 
+const pythonKeywords = new Set([
+    'False', 'None', 'True', 'and', 'as', 'assert', 'async', 'await', 'break',
+    'class', 'continue', 'def', 'del', 'elif', 'else', 'except', 'finally',
+    'for', 'from', 'global', 'if', 'import', 'in', 'is', 'lambda', 'nonlocal',
+    'not', 'or', 'pass', 'raise', 'return', 'try', 'while', 'with', 'yield',
+]);
+
 export class PythonGenerator implements XsmpGenerator {
     protected readonly docHelper: DocumentationHelper;
     constructor(services: XsmpSharedServices) {
@@ -64,12 +71,17 @@ export class PythonGenerator implements XsmpGenerator {
             throw new Error(`Error generating file ${path}.`, { cause: error });
         }
     }
+    protected identifier(node: ast.NamedElement): string {
+        // Valid XSMP names start with a letter, so this prefix cannot collide
+        // with another catalogue, namespace or component name.
+        return pythonKeywords.has(node.name) ? `_${node.name}` : node.name;
+    }
     fqn(node: ast.NamedElement, separator: string = '/'): string {
-        let name = node.name;
+        let name = this.identifier(node);
         let parent = node.$container;
 
         while (parent) {
-            name = `${(parent as ast.NamedElement).name}${separator}${name}`;
+            name = `${this.identifier(parent as ast.NamedElement)}${separator}${name}`;
             parent = parent.$container;
         }
         return name;
@@ -77,14 +89,15 @@ export class PythonGenerator implements XsmpGenerator {
 
     public async generateCatalogue(catalogue: ast.Catalogue, projectUri: URI, notice: string | undefined): Promise<void> {
 
-        const path = UriUtils.joinPath(projectUri, catalogue.name, this.INIT_PY_FILE).fsPath;
+        const name = this.identifier(catalogue);
+        const path = UriUtils.joinPath(projectUri, name, this.INIT_PY_FILE).fsPath;
         await this.generateFile(path, s`
             ${notice}
 
-            ${this.fileBanner(`${catalogue.name}/${this.INIT_PY_FILE}`)}
+            ${this.fileBanner(`${name}/${this.INIT_PY_FILE}`)}
             # This file is auto-generated. Do not edit otherwise your changes will be lost.
 
-            ${catalogue.elements.map(ns => `from . import ${ns.name}`).join('\n')}
+            ${catalogue.elements.map(ns => `from . import ${this.identifier(ns)}`).join('\n')}
 
             `);
     }
@@ -107,12 +120,12 @@ export class PythonGenerator implements XsmpGenerator {
             ${this.fileBanner(`${qualifiedName}/${this.INIT_PY_FILE}`)}
             # This file is auto-generated. Do not edit otherwise your changes will be lost.
             
-            ${namespaces.length > 0 ? namespace.elements.filter(ast.isNamespace).map(ns => `from . import ${ns.name}`).join('\n') : undefined}
+            ${namespaces.length > 0 ? namespaces.map(ns => `from . import ${this.identifier(ns)}`).join('\n') : undefined}
             ${components.length > 0 ? s`
                 import ecss_smp
 
                 ${components.map(type => s`
-                class ${type.name}:
+                class ${this.identifier(type)}:
                     uuid: ecss_smp.Smp.Uuid = ecss_smp.Smp.Uuid("${this.docHelper.getUuid(type)?.toString().trim()}")
                 `).join('\n')}
 

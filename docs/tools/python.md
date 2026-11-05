@@ -40,3 +40,10 @@ tool 'python'
 ## Expected result
 
 With `python` enabled, XSMP Modeler can generate Python-oriented outputs and prepare the project for Python-based testing workflows around the active profile and tools.
+
+Catalogue, namespace and component names that are Python keywords receive a leading
+underscore in Python. For example, namespace `from` becomes `_from` and model `None`
+becomes `_None`. This cannot collide with another valid XSMP name, which must start
+with a letter. Use explicit imports for these names, since Python excludes names
+beginning with an underscore from `import *`. The catalogue names and component
+UUIDs remain unchanged.
