@@ -1,69 +1,84 @@
-import { spawn, spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
+import * as path from 'node:path';
+
 const clangFormatCommand = process.platform.startsWith('win') ? 'clang-format.exe' : 'clang-format';
-const isClangFormatAvailable = computeIsClangFormatAvailable();
 
-/**
- * Check if clang-format is executable.
- *
- * @return True if clang-format is found and executable, otherwise false.
- */
-function computeIsClangFormatAvailable(): boolean {
-    const result = spawnSync(clangFormatCommand, ['--version'], {
-        stdio: 'ignore',
-        shell: false
-    });
-
-    return !result.error && result.status === 0;
+interface FormattedFile {
+    readonly source: string;
+    readonly configuration: string;
+    readonly version: string;
+    readonly formatted: string;
 }
 
-/**
- * Formats a file using a specific configuration asynchronously.
- *
- * @param path The path of the file to format.
- * @param content The content to be formatted.
- * @return A promise that resolves with the formatted content or the original content in case of an error.
- */
-export async function format(path: string, content: string): Promise<string> {
-    if (!isClangFormatAvailable) {
-        return content;
+/** Reuse formatting only when clang-format reports the same effective configuration and version. */
+export class ClangFormatter {
+    private previous = new Map<string, FormattedFile>();
+    private current = new Map<string, FormattedFile>();
+    private configurations = new Map<string, Promise<string | undefined>>();
+    private version: Promise<string | undefined> | undefined;
+
+    beginGeneration(): void {
+        // Retain only the preceding generation, so deleted/renamed paths cannot accumulate.
+        this.previous = this.current;
+        this.current = new Map();
+        this.configurations.clear();
+        this.version = undefined;
     }
 
-    return new Promise((resolve) => {
-        const process = spawn(clangFormatCommand, [`-assume-filename=${path}`], { shell: false });
+    async format(file: string, source: string): Promise<string> {
+        const version = await (this.version ??= run(['--version']));
+        if (version === undefined) {
+            return source;
+        }
+        // Directory controls style-file lookup; extension controls clang-format's language.
+        // Let clang-format resolve parent inheritance and all supported configuration options.
+        const configurationKey = path.join(path.dirname(file), path.extname(file));
+        let configuration = this.configurations.get(configurationKey);
+        if (!configuration) {
+            configuration = run(['--dump-config', `--assume-filename=${file}`]);
+            this.configurations.set(configurationKey, configuration);
+        }
+        const effectiveConfiguration = await configuration;
+        if (effectiveConfiguration === undefined) {
+            // Configuration discovery is only a cache optimization. Keep formatting normally
+            // when it fails, without retaining a result whose configuration is unknown.
+            return await run([`--assume-filename=${file}`], source) ?? source;
+        }
+        const cached = this.current.get(file) ?? this.previous.get(file);
+        if (cached?.source === source && cached.configuration === effectiveConfiguration && cached.version === version) {
+            this.current.set(file, cached);
+            return cached.formatted;
+        }
+        const formatted = await run([`--assume-filename=${file}`], source);
+        if (formatted === undefined) {
+            return source;
+        }
+        this.current.set(file, { source, configuration: effectiveConfiguration, version, formatted });
+        return formatted;
+    }
+}
 
-        let formattedContent = '';
-        let errorContent = '';
-
-        // Capture stdout
-        process.stdout.on('data', (data) => {
-            formattedContent += data.toString();
-        });
-
-        // Capture stderr
-        process.stderr.on('data', (data) => {
-            errorContent += data.toString();
-        });
-
-        // Handle process completion
-        process.once('close', (code) => {
-            if (code === 0) {
-                resolve(formattedContent);
+async function run(arguments_: string[], source?: string): Promise<string | undefined> {
+    return new Promise(resolve => {
+        const child = spawn(clangFormatCommand, arguments_, { shell: false });
+        let output = '';
+        let errors = '';
+        let failed = false;
+        child.stdout.setEncoding('utf8').on('data', data => { output += data; });
+        child.stderr.setEncoding('utf8').on('data', data => { errors += data; });
+        child.once('error', () => { failed = true; });
+        // A formatter that exits before consuming stdin can close its pipe early.
+        child.stdin.on('error', () => { failed = true; });
+        child.once('close', code => {
+            if (code === 0 && !failed) {
+                resolve(output);
             } else {
-                console.warn(`clang-format exited with code ${code}, returning original content.`);
-                if (errorContent.length > 0) {
-                    console.error(`Error during formatting of ${path}: ${errorContent}`);
+                if (errors) {
+                    console.warn(`clang-format failed: ${errors.trim()}`);
                 }
-                resolve(content);
+                resolve(undefined);
             }
         });
-
-        // Handle process errors
-        process.once('error', (error) => {
-            console.error(`Error during formatting of ${path}: ${error.message}`);
-            resolve(content); // Return original content on error
-        });
-
-        // Send input to the process
-        process.stdin.end(content);
+        child.stdin.end(source);
     });
 }

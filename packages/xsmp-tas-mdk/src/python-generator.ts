@@ -1,15 +1,15 @@
 import * as ast from '@xsmp/core/ast';
 import { type AstNode, type URI, UriUtils } from 'langium';
 import * as fs from 'node:fs';
-import type { TaskAcceptor, XsmpGenerator } from '@xsmp/core/generator';
+import { GeneratedFiles, type TaskAcceptor, type XsmpGenerator } from '@xsmp/core/generator';
 import { fqn } from '@xsmp/core/utils';
 import * as CopyrightNoticeProvider from '@xsmp/core/generator';
 import { expandToString as s } from 'langium/generate';
-import * as Path from 'node:path';
 import type { XsmpSharedServices } from '@xsmp/core';
 import { type DocumentationHelper } from '@xsmp/core/utils';
 
 export class TasMdkPythonGenerator implements XsmpGenerator {
+    protected generatedFiles = new GeneratedFiles();
 
     protected helpersFolder = 'helpers';
     protected readonly docHelper: DocumentationHelper;
@@ -18,8 +18,12 @@ export class TasMdkPythonGenerator implements XsmpGenerator {
         this.docHelper = services.DocumentationHelper;
     }
 
+    prepareGeneration(_projectUri: URI): GeneratedFiles {
+        return this.generatedFiles = new GeneratedFiles();
+    }
+
     clean(_projectUri: URI) {
-        // ignore
+        this.generatedFiles = new GeneratedFiles();
     }
 
     generate(node: AstNode, projectUri: URI, acceptTask: TaskAcceptor) {
@@ -186,9 +190,7 @@ export class TasMdkPythonGenerator implements XsmpGenerator {
 
     protected async generateFile(path: string, content: string) {
         try {
-            await fs.promises.mkdir(Path.dirname(path), { recursive: true });
-            await fs.promises.writeFile(path, content);
-
+            await this.generatedFiles.write(path, content);
         } catch (error) {
             throw new Error(`Error generating file ${path}.`, { cause: error });
         }

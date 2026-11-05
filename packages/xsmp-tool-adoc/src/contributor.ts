@@ -1,7 +1,6 @@
 import { ADocGenerator } from './generator.js';
 import { scaffoldAdocProject } from './scaffold.js';
 import type { XsmpContributionRegistrationApi } from '@xsmp/core/contributions';
-import type { XsmpGenerator } from '@xsmp/core/generator';
 
 export function registerContribution(api: XsmpContributionRegistrationApi): void {
     api.setWizardMetadata({
@@ -9,12 +8,5 @@ export function registerContribution(api: XsmpContributionRegistrationApi): void
         description: 'Generate AsciiDoc documentation outputs for the project.',
     });
     api.setScaffolder(scaffoldAdocProject);
-    api.addGenerator(services => toXsmpGenerator(new ADocGenerator(services)));
-}
-
-function toXsmpGenerator(generator: XsmpGenerator): XsmpGenerator {
-    return {
-        generate: generator.generate.bind(generator),
-        clean: generator.clean.bind(generator),
-    };
+    api.addGenerator(services => new ADocGenerator(services));
 }

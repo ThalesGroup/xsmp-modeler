@@ -10,6 +10,7 @@ import type { ProjectManager } from './project-manager.js';
 import type { XsmpContributionRegistry } from '../contributions/xsmp-contribution-registry.js';
 import type { XsmpRegisteredContribution } from '../contributions/xsmp-extension-types.js';
 import { isSameOrContainedPath, normalizePath } from '../utils/path-utils.js';
+import { checkGeneratedFolders, cleanStaleGeneratedFiles, type GeneratedFiles } from '../generator/generated-files.js';
 
 const limit = pLimit(8);
 
@@ -85,11 +86,20 @@ export class XsmpDocumentGenerator {
         await interruptAndCheck(cancelToken);
         const projectUri = UriUtils.dirname(project.$document?.uri as URI);
         const contributions = this.getActiveContributions(project);
+        const generators = contributions.flatMap(contribution => contribution.generators);
+        const outputs: GeneratedFiles[] = [];
+        // A legacy extension may write into another generator's folder without declaring its
+        // outputs. Keep the original cleanup order until every active generator participates.
+        const incremental = generators.every(generator => generator.prepareGeneration !== undefined);
 
         // clean up previous generated files. A clean that fails (e.g. a file locked by another process
         // on Windows) must not prevent generating the project: at worst, stale files remain.
         for (const contribution of contributions) {
             for (const generator of contribution.generators) {
+                if (incremental) {
+                    outputs.push(generator.prepareGeneration!(projectUri));
+                    continue;
+                }
                 try {
                     await generator.clean(projectUri);
                 } catch (error) {
@@ -98,9 +108,13 @@ export class XsmpDocumentGenerator {
             }
         }
 
+        await checkGeneratedFolders(outputs);
+        await interruptAndCheck(cancelToken);
+
         // generate files
 
-        const documents = this.langiumDocuments.all.filter(doc => this.isValid(doc) && project === this.projectManager.getProject(doc)).toArray();
+        const projectDocuments = this.langiumDocuments.all.filter(doc => project === this.projectManager.getProject(doc)).toArray();
+        const documents = projectDocuments.filter(doc => this.isValid(doc));
         const tasks: Array<Promise<void>> = [];
 
         const taskAcceptor: TaskAcceptor = (task: Task) => { tasks.push(limit(task)); };
@@ -128,6 +142,15 @@ export class XsmpDocumentGenerator {
         const rejectedTask = taskResults.find((result): result is PromiseRejectedResult => result.status === 'rejected');
         if (rejectedTask) {
             throw rejectedTask.reason;
+        }
+        await interruptAndCheck(cancelToken);
+        // Invalid documents were skipped, so their previous outputs are not obsolete.
+        if (documents.length === projectDocuments.length) {
+            try {
+                await cleanStaleGeneratedFiles(outputs);
+            } catch (error) {
+                console.warn(`Could not remove stale generated files for project '${this.getProjectDisplayName(project)}'.`, error);
+            }
         }
     }
 

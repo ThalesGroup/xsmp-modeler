@@ -1,9 +1,8 @@
-import * as fs from 'node:fs';
 import * as ast from '@xsmp/core/ast';
 import { type URI, UriUtils, type AstNode, type Reference, AstUtils, isReference } from 'langium';
 import { expandToString as s } from 'langium/generate';
 import type { XsmpSharedServices } from '@xsmp/core';
-import { cleanGeneratedFolders, type TaskAcceptor, type XsmpGenerator } from '@xsmp/core/generator';
+import { cleanGeneratedFolders, GeneratedFiles, type TaskAcceptor, type XsmpGenerator } from '@xsmp/core/generator';
 import type { XsmpInstancePathResolver, XsmpPathService } from '@xsmp/core/references';
 import {
     fqn,
@@ -26,6 +25,7 @@ type AssemblyStatement = ast.FieldValue | ast.GlobalEventHandler | ast.Invocatio
  * Generates documentation from XSMP catalogue, configuration, assembly, link-base and schedule models.
  */
 export class ADocGenerator implements XsmpGenerator {
+    protected generatedFiles = new GeneratedFiles();
     protected readonly docHelper: DocumentationHelper;
     protected readonly attrHelper: AttributeHelper;
     protected readonly pathService: XsmpPathService;
@@ -60,7 +60,12 @@ export class ADocGenerator implements XsmpGenerator {
         }
     }
 
+    prepareGeneration(projectUri: URI): GeneratedFiles {
+        return this.generatedFiles = new GeneratedFiles([UriUtils.joinPath(projectUri, ADocGenerator.defaultDocFolder).fsPath]);
+    }
+
     clean(projectUri: URI): Promise<void> {
+        this.generatedFiles = new GeneratedFiles();
         return cleanGeneratedFolders(UriUtils.joinPath(projectUri, ADocGenerator.defaultDocFolder).fsPath);
     }
 
@@ -86,9 +91,8 @@ export class ADocGenerator implements XsmpGenerator {
 
     private async writeGeneratedDocument(document: ast.Document, projectUri: URI, content: string): Promise<void> {
         const outputDir = UriUtils.joinPath(projectUri, ADocGenerator.defaultDocFolder);
-        await fs.promises.mkdir(outputDir.fsPath, { recursive: true });
         const outputFile = UriUtils.joinPath(outputDir, this.getOutputFileName(document));
-        await fs.promises.writeFile(outputFile.fsPath, content);
+        await this.generatedFiles.write(outputFile.fsPath, content);
     }
 
     private getOutputFileName(document: ast.Document): string {

@@ -6,6 +6,7 @@ import { fqn, getAccessKind, getRealVisibility, isInput, isOutput, isState, isSt
 import { CppGenerator, CxxStandard } from './generator.js';
 import type { TaskAcceptor } from '../generator.js';
 import { cleanGeneratedFolders } from '../generated-folder.js';
+import { GeneratedFiles } from '../generated-files.js';
 import type { XsmpSharedServices } from '../../xsmp-module.js';
 import * as Path from 'node:path';
 import { VisibilityKind } from '../../utils/visibility-kind.js';
@@ -21,10 +22,19 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
     }
 
     override clean(projectUri: URI) {
+        super.clean(projectUri);
         return cleanGeneratedFolders(
             UriUtils.joinPath(projectUri, this.includeGenFolder).fsPath,
             UriUtils.joinPath(projectUri, this.sourceGenFolder).fsPath,
         );
+    }
+
+    override prepareGeneration(projectUri: URI): GeneratedFiles {
+        super.prepareGeneration(projectUri);
+        return this.generatedFiles = new GeneratedFiles([
+            UriUtils.joinPath(projectUri, this.includeGenFolder).fsPath,
+            UriUtils.joinPath(projectUri, this.sourceGenFolder).fsPath,
+        ]);
     }
     name(element: ast.NamedElement | string, gen: boolean): string {
         const genSuffix = 'Gen';

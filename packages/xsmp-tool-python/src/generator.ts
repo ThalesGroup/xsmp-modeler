@@ -3,9 +3,7 @@ import { expandToString as s } from 'langium/generate';
 import { isGeneratedBy } from '@xsmp/core/generator';
 import * as CopyrightNoticeProvider from '@xsmp/core/generator';
 import { type AstNode, type URI, UriUtils } from 'langium';
-import * as fs from 'node:fs';
-import * as Path from 'node:path';
-import type { TaskAcceptor, XsmpGenerator } from '@xsmp/core/generator';
+import { GeneratedFiles, type TaskAcceptor, type XsmpGenerator } from '@xsmp/core/generator';
 import { getXsmpVersion, type XsmpSharedServices } from '@xsmp/core';
 import { type DocumentationHelper } from '@xsmp/core/utils';
 
@@ -17,6 +15,7 @@ const pythonKeywords = new Set([
 ]);
 
 export class PythonGenerator implements XsmpGenerator {
+    protected generatedFiles = new GeneratedFiles();
     protected readonly docHelper: DocumentationHelper;
     constructor(services: XsmpSharedServices) {
         this.docHelper = services.DocumentationHelper;
@@ -36,8 +35,12 @@ export class PythonGenerator implements XsmpGenerator {
     protected readonly pythonFolder = 'python';
     protected readonly INIT_PY_FILE = '__init__.py';
 
+    prepareGeneration(_projectUri: URI): GeneratedFiles {
+        return this.generatedFiles = new GeneratedFiles();
+    }
+
     clean(_projectUri: URI) {
-        // ignore
+        this.generatedFiles = new GeneratedFiles();
     }
 
     protected generatedBy() {
@@ -56,17 +59,7 @@ export class PythonGenerator implements XsmpGenerator {
 
     protected async generateFile(path: string, content: string) {
         try {
-            await fs.promises.mkdir(Path.dirname(path), { recursive: true });
-
-            try {
-                // check if existing file is different
-                if (await fs.promises.readFile(path, { encoding: 'utf8' }) !== content) {
-                    await fs.promises.writeFile(path, content);
-                }
-            }
-            catch {
-                await fs.promises.writeFile(path, content, { encoding: 'utf8' });
-            }
+            await this.generatedFiles.write(path, content);
         } catch (error) {
             throw new Error(`Error generating file ${path}.`, { cause: error });
         }

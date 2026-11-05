@@ -1,12 +1,12 @@
 import * as ast from '../../generated/ast.js';
 import { type AstNode, AstUtils, DocumentCache, type JSDocElement, type JSDocTag, type URI, UriUtils } from 'langium';
-import * as fs from 'node:fs';
 import { isClangFormatEnabled, isGeneratedBy, type TaskAcceptor, type XsmpGenerator } from '../generator.js';
 import { escape, fqn, getAccessKind, getNodeType, getPTK, isAbstractType, isInput, isOutput, isState } from '../../utils/xsmp-utils.js';
 import * as CopyrightNoticeProvider from '../copyright-notice-provider.js';
 import { expandToString as s } from 'langium/generate';
+import { ClangFormatter } from './clang-format.js';
 import * as Path from 'node:path';
-import { format as ClangFormat } from './clang-format.js';
+import { GeneratedFiles } from '../generated-files.js';
 import type { XsmpSharedServices } from '../../xsmp-module.js';
 import type { XsmpTypeProvider } from '../../references/type-provider.js';
 import * as Solver from '../../utils/solver.js';
@@ -65,6 +65,8 @@ export abstract class CppGenerator implements XsmpGenerator {
     protected readonly cache: DocumentCache<AstNode, Map<string, unknown>>;
     protected readonly docHelper: DocumentationHelper;
     protected readonly attrHelper: AttributeHelper;
+    protected generatedFiles = new GeneratedFiles();
+    protected readonly formatter = new ClangFormatter();
 
     constructor(services: XsmpSharedServices, cxxStandard: CxxStandard) {
         this.cxxStandard = cxxStandard;
@@ -88,7 +90,13 @@ export abstract class CppGenerator implements XsmpGenerator {
     }
 
     clean(_projectUri: URI) {
-        // ignore
+        this.generatedFiles = new GeneratedFiles();
+        this.formatter.beginGeneration();
+    }
+
+    prepareGeneration(_projectUri: URI): GeneratedFiles {
+        this.formatter.beginGeneration();
+        return this.generatedFiles = new GeneratedFiles();
     }
 
     generate(node: AstNode, projectUri: URI, acceptTask: TaskAcceptor) {
@@ -508,23 +516,13 @@ export abstract class CppGenerator implements XsmpGenerator {
         if (!isClangFormatEnabled()) {
             return content;
         }
-        return await ClangFormat(path, content);
+        return await this.formatter.format(path, content);
     }
 
     protected async generateFile(path: string, content: string) {
         try {
-            await fs.promises.mkdir(Path.dirname(path), { recursive: true });
-
             const formatted = await this.format(path, content);
-            try {
-                // check if existing file is different
-                if (await fs.promises.readFile(path, { encoding: 'utf8' }) !== formatted) {
-                    await fs.promises.writeFile(path, formatted);
-                }
-            }
-            catch {
-                await fs.promises.writeFile(path, formatted, { encoding: 'utf8' });
-            }
+            await this.generatedFiles.write(path, formatted);
         } catch (error) {
             throw new Error(`Error generating file ${path}.`, { cause: error });
         }
