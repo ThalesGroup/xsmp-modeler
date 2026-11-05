@@ -2,7 +2,6 @@ import { AstUtils, type AstNode, type ValidationAcceptor, type ValidationChecks 
 import * as ast from '../generated/ast-partial.js';
 import type { XsmpsedServices } from '../xsmpsed-module.js';
 import {
-    checkNonNegativeBigInt,
     isAbsolutePath,
     checkValidDateTime,
     checkValidDuration,
@@ -219,7 +218,12 @@ export class XsmpsedValidator extends XsmpcfgValidator {
             });
         }
         checkValidDuration(accept, event, event.cycleTime, 'cycleTime', 'CycleTime');
-        checkNonNegativeBigInt(accept, event, event.repeatCount, 'repeatCount', 'RepeatCount');
+        if (event.repeatCount !== undefined && event.repeatCount < BigInt(-1)) {
+            accept('error', 'RepeatCount shall be -1 for infinity or a non-negative number.', {
+                node: event,
+                property: ast.Event.repeatCount,
+            });
+        }
     }
 
     private activityUsesRelativePath(activity: ast.Activity): boolean {
