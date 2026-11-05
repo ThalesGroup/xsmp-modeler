@@ -2,7 +2,7 @@ import { AstUtils, type ValidationAcceptor, type ValidationChecks } from 'langiu
 import * as ast from '../generated/ast-partial.js';
 import type { XsmpasbServices } from '../xsmpasb-module.js';
 import { checkNoParentTraversal, checkRelativePath, hasParentTraversal, isAbsolutePath, isValidExpandedPathIdentifier } from './instance-validator-utils.js';
-import { checkName, checkUniqueDocumentName } from './name-validator-utils.js';
+import { checkName, checkUniqueDocumentName, cppReservedNames } from './name-validator-utils.js';
 import type { XsmpInstancePathResolver } from '../references/xsmp-instance-path-resolver.js';
 import type { TemplateBindings } from '../references/identifier-pattern-service.js';
 import { PTK } from '../utils/primitive-type-kind.js';
@@ -69,7 +69,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
 
     checkModelInstance(model: ast.ModelInstance, accept: ValidationAcceptor): void {
         if (!this.identifierPatternService.hasTemplate(model.name)) {
-            checkName(accept, model, model.name, ast.ModelInstance.name);
+            checkName(accept, model, model.name, ast.ModelInstance.name, { allowCppKeywords: false });
         }
         this.checkTemplatedInstanceName(model.name, model, accept);
         this.checkModelInstanceImplementation(model, accept);
@@ -99,14 +99,35 @@ export class XsmpasbValidator extends XsmpcfgValidator {
 
     checkAssemblyInstance(instance: ast.AssemblyInstance, accept: ValidationAcceptor): void {
         if (!this.identifierPatternService.hasTemplate(instance.name)) {
-            checkName(accept, instance, instance.name, ast.AssemblyInstance.name);
+            checkName(accept, instance, instance.name, ast.AssemblyInstance.name, { allowCppKeywords: false });
         }
         this.checkTemplatedInstanceName(instance.name, instance, accept);
+        this.checkInstantiatedChildNames(instance, accept);
         if (this.isRecursiveAssemblyInstance(instance)) {
             accept('error', 'Recursive Assembly instantiation is not allowed.', {
                 node: instance,
                 property: ast.AssemblyInstance.assembly,
             });
+        }
+    }
+
+    private checkInstantiatedChildNames(instance: ast.AssemblyInstance, accept: ValidationAcceptor): void {
+        const assembly = instance.assembly?.ref;
+        if (!ast.isAssembly(assembly) || !assembly.model || instance.arguments.length === 0) {
+            return;
+        }
+        const bindings = this.createTemplateBindings(assembly.parameters, instance.arguments);
+        for (const child of AstUtils.streamAllContents(assembly.model)) {
+            if ((!ast.isModelInstance(child) && !ast.isAssemblyInstance(child)) || !this.identifierPatternService.hasTemplate(child.name)) {
+                continue;
+            }
+            const concreteName = this.identifierPatternService.substitute(child.name, bindings);
+            if (concreteName !== undefined && cppReservedNames.has(concreteName)) {
+                accept('error', `The expanded child instance name '${concreteName}' shall not be an ISO/ANSI C++ keyword.`, {
+                    node: instance,
+                    property: ast.AssemblyInstance.arguments,
+                });
+            }
         }
     }
 
@@ -930,6 +951,12 @@ export class XsmpasbValidator extends XsmpcfgValidator {
             accept('error', `The expanded name '${concreteName}' is not valid for SMP Level 2.`, {
                 node,
                 property: ast.NamedElement.name
+            });
+        }
+        if (concreteName !== undefined && cppReservedNames.has(concreteName)) {
+            accept('error', `The expanded name '${concreteName}' shall not be an ISO/ANSI C++ keyword.`, {
+                node,
+                property: ast.NamedElement.name,
             });
         }
     }

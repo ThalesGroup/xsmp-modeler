@@ -115,6 +115,75 @@ afterEach(async () => {
 });
 
 describe('Validating Xsmpasb', () => {
+    test('rejects C++ keywords as model and assembly instance names', async () => {
+        const document = await parseInProject(`assembly Demo
+class: demo.Root
+{
+    child += template: Inner
+}
+`, [['inner.xsmpasb', 'assembly Inner Root: demo.Child {}']]);
+
+        expect(getMessages(document)).toEqual([
+            'A name shall not be an ISO/ANSI C++ keyword.',
+            'A name shall not be an ISO/ANSI C++ keyword.',
+        ]);
+    });
+
+    test('rejects C++ keywords in expanded model instance names', async () => {
+        const document = await parseInProject(`assembly <Name = "class"> Demo
+Root: demo.Root
+{
+    child += {Name}: demo.Child
+}
+`);
+
+        expect(getMessages(document)).toEqual([
+            "The expanded name 'class' shall not be an ISO/ANSI C++ keyword.",
+        ]);
+    });
+
+    test('rejects C++ keywords in expanded assembly instance names', async () => {
+        const document = await parseInProject(`assembly <Name = "template"> Demo
+Root: demo.Root
+{
+    child += {Name}: Inner
+}
+`, [['inner.xsmpasb', 'assembly Inner Root: demo.Child {}']]);
+
+        expect(getMessages(document)).toEqual([
+            "The expanded name 'template' shall not be an ISO/ANSI C++ keyword.",
+        ]);
+    });
+
+    test('allows keyword fragments in expanded names and keywords in document names', async () => {
+        const document = await parseInProject(`assembly <Side = "Left"> class
+Root: demo.Root
+{
+    child += class_{Side}: demo.Child
+}
+`);
+
+        expect(getMessages(document)).toEqual([]);
+    });
+
+    test.each(['class', 'ValidChild'])('validates child instance names with supplied template value %s', async name => {
+        const document = await parseInProject(`assembly Demo
+Root: demo.System
+{
+    bus += Bus: Inner<Name = "${name}">
+}
+`, [['inner.xsmpasb', `assembly <Name = "Child"> Inner
+Root: demo.Root
+{
+    child += {Name}: demo.Child
+}
+`]]);
+
+        expect(getMessages(document)).toEqual(name === 'class'
+            ? ["The expanded child instance name 'class' shall not be an ISO/ANSI C++ keyword."]
+            : []);
+    });
+
     test('validates typed assembly configuration and link paths and honors unsafe', async () => {
         const document = await parseInProject(`assembly Demo
 
