@@ -37,6 +37,9 @@ type ClassifierSnippetSpec = KeywordSnippetSpec & {
     supports: (classifier: ClassifierCompletionScope) => boolean;
 };
 
+// Avoid allocating multi-page aggregate literals for completion suggestions.
+const maxDefaultValueLength = 4_096;
+
 export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
     private readonly floatRegex = /^(Smp\.)?Float(32|64)$/;
     private readonly intRegex = /^(Smp\.)?U?Int(8|16|32|64)$/;
@@ -1022,21 +1025,49 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
         }
     }
 
-    protected getXsmpcatDefaultValueForType(type: ast.Type | undefined): string {
-        if (!type) {
+    protected getXsmpcatDefaultValueForType(type: ast.Type | undefined, activeTypes: Set<ast.Type> = new Set()): string {
+        if (!type || activeTypes.has(type)) {
             return '';
         }
+        activeTypes.add(type);
+        try {
+            return this.computeXsmpcatDefaultValue(type, activeTypes);
+        } finally {
+            activeTypes.delete(type);
+        }
+    }
 
+    private computeXsmpcatDefaultValue(type: ast.Type, activeTypes: Set<ast.Type>): string {
         if (ast.isArrayType(type)) {
             const value = Solver.getValueAs(type.size, PTK.Int64)?.integralValue(PTK.Int64)?.getValue();
-            return value
-                ? `{${new Array(Number(value)).fill(this.getXsmpcatDefaultValueForType(type.itemType?.ref)).join(', ')}}`
-                : '{}';
+            if (value === undefined || value < BigInt(0) || value > BigInt(maxDefaultValueLength)) {
+                return '';
+            }
+            if (value === BigInt(0)) {
+                return '{}';
+            }
+            const itemValue = this.getXsmpcatDefaultValueForType(type.itemType?.ref, activeTypes);
+            if (!itemValue || Number(value) * (itemValue.length + 2) > maxDefaultValueLength) {
+                return '';
+            }
+            return `{${new Array(Number(value)).fill(itemValue).join(', ')}}`;
         }
         if (ast.isStructure(type)) {
-            return `{${this.attrHelper.getAllFields(type).map(field => {
-                return `.${field.name} = ${this.getXsmpcatDefaultValueForType(field.type?.ref)}`;
-            }).join(', ')}}`;
+            const fields: string[] = [];
+            let length = 2;
+            for (const field of this.attrHelper.getAllFields(type)) {
+                const value = this.getXsmpcatDefaultValueForType(field.type?.ref, activeTypes);
+                if (!value) {
+                    return '';
+                }
+                const entry = `.${field.name} = ${value}`;
+                length += entry.length + (fields.length > 0 ? 2 : 0);
+                if (length > maxDefaultValueLength) {
+                    return '';
+                }
+                fields.push(entry);
+            }
+            return `{${fields.join(', ')}}`;
         }
         if (ast.isEnumeration(type)) {
             return type.literal.length > 0 ? XsmpUtils.fqn(type.literal[0]) : '0';
