@@ -17,7 +17,6 @@ import { type AttributeHelper } from '../utils/attribute-helper.js';
 import type { ProjectManager } from '../workspace/project-manager.js';
 import type { XsmpIndexManager } from '../workspace/index-manager.js';
 import { checkName, checkUniqueDocumentName } from './name-validator-utils.js';
-import { getIntegerRegistrationBoundsIssue } from '../utils/integer-bounds.js';
 
 /**
  * Register custom validation checks.
@@ -664,14 +663,17 @@ export class XsmpcatValidator {
             if (min !== undefined && max !== undefined && min > max) {
                 accept('error', 'Minimum shall be less or equal than Maximum.', { node: integer, property: ast.Integer.minimum });
             }
+            if (kind === PTK.UInt64 && (integer.maximum === undefined || (typeof max === 'bigint' && max > 0x7FFFFFFFFFFFFFFFn))) {
+                accept('warning', 'The UInt64 upper bound exceeds Int64_MAX (9223372036854775807), the limit supported by SMP type registration.', {
+                    node: integer,
+                    property: integer.maximum ? ast.Integer.maximum : ast.Integer.name,
+                });
+            }
         }
         else {
             accept('error', 'Expecting an Integral Type.', { node: integer, property: ast.Integer.primitiveType });
         }
-        const issue = getIntegerRegistrationBoundsIssue(integer);
-        if (issue) {
-            accept('error', issue, { node: integer, property: integer.maximum ? ast.Integer.maximum : ast.Integer.name });
-        }
+
     }
     checkFloat(float: ast.Float, accept: ValidationAcceptor): void {
         this.checkModifier(float, [ast.isVisibilityModifiers], accept);
