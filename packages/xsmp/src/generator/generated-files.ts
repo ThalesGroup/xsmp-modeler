@@ -108,7 +108,6 @@ async function cleanFolder(
     }
 }
 
-
 async function isRetainedFile(file: string, candidates: readonly string[] | undefined): Promise<boolean> {
     if (!candidates) {
         return false;
