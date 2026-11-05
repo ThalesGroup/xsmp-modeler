@@ -9,7 +9,6 @@ import { cleanGeneratedFolders } from '../generated-folder.js';
 import type { XsmpSharedServices } from '../../xsmp-module.js';
 import * as Path from 'node:path';
 import { VisibilityKind } from '../../utils/visibility-kind.js';
-import { getIntegerRegistrationBoundsIssue } from '../../utils/integer-bounds.js';
 
 export abstract class GapPatternCppGenerator extends CppGenerator {
 
@@ -507,8 +506,6 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
     }
 
     async generateIntegerSourceGen(type: ast.Integer, _gen: boolean): Promise<string | undefined> {
-        const issue = getIntegerRegistrationBoundsIssue(type);
-        if (issue) throw new Error(`Cannot generate integer ${fqn(type)}: ${issue}`);
         return s`
         void _Register_${type.name}(::Smp::Publication::ITypeRegistry* registry) {
             registry->AddIntegerType(
