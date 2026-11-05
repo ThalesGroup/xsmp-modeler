@@ -387,6 +387,9 @@ export function getValue<T>(expression: ast.Expression | undefined, accept?: Val
             case ast.BooleanLiteral.$type: return new BoolValue((expression as ast.BooleanLiteral).isTrue);
             case ast.StringLiteral.$type: return new StringValue((expression as ast.StringLiteral).value.join(''));
             case ast.CharacterLiteral.$type: return new CharValue((expression as ast.CharacterLiteral).value ?? '');
+            case ast.KeywordExpression.$type:
+                accept?.('error', 'The nullptr literal requires a pointer type.', { node: expression });
+                return undefined;
             case ast.UnaryOperation.$type: return unaryOperation(expression as ast.UnaryOperation, accept);
             case ast.BinaryOperation.$type: return binaryOperation(expression as ast.BinaryOperation, accept);
             case ast.ParenthesizedExpression.$type: return getValue((expression as ast.ParenthesizedExpression).expr, accept);

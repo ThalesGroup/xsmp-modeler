@@ -17,6 +17,7 @@ import { type AttributeHelper } from '../utils/attribute-helper.js';
 import type { ProjectManager } from '../workspace/project-manager.js';
 import type { XsmpIndexManager } from '../workspace/index-manager.js';
 import { checkName, checkUniqueDocumentName } from './name-validator-utils.js';
+import { getParameterDefaultIssue } from './parameter-validation.js';
 
 /**
  * Register custom validation checks.
@@ -1213,7 +1214,14 @@ export class XsmpcatValidator {
 
     }
     checkParameter(parameter: ast.Parameter, accept: ValidationAcceptor): void {
-        if (this.checkTypeReference(accept, parameter, parameter.type?.ref, ast.Parameter.type)) { this.checkExpression(parameter.type.ref, parameter.default, accept); } // ByPointer is validated separately below.
+        if (this.checkTypeReference(accept, parameter, parameter.type?.ref, ast.Parameter.type)) {
+            const issue = getParameterDefaultIssue(parameter, this.attrHelper);
+            if (issue) {
+                accept('error', issue, { node: parameter, property: ast.Parameter.default });
+            } else if (!this.attrHelper.isByPointer(parameter) && !ast.isValueReference(parameter.type.ref)) {
+                this.checkExpression(parameter.type.ref, parameter.default, accept);
+            }
+        }
 
         const isByPointer = this.attrHelper.attribute(parameter, 'Attributes.ByPointer');
         if (this.attrHelper.isAttributeTrue(isByPointer) && this.attrHelper.isAttributeTrue(this.attrHelper.attribute(parameter, 'Attributes.ByReference'))) {
