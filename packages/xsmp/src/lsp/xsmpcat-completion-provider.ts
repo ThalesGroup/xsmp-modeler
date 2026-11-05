@@ -578,17 +578,17 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
         property: string,
         fallbackType: string,
         options?: {
-            suffix?: string;
+            typeSuffix?: string;
             name?: string;
             defaultValue?: string;
         },
     ): string {
         const typeName = this.createChoicePlaceholder(1, this.getCrossReferenceNames(context, type, property), fallbackType);
         const name = this.createPlaceholder(2, options?.name ?? 'name');
-        const suffix = options?.suffix ?? '';
+        const typeSuffix = options?.typeSuffix ?? '';
         const defaultValue = options?.defaultValue;
         const valuePart = defaultValue === undefined ? '' : ` = ${this.createPlaceholder(3, defaultValue)}`;
-        return `${keyword} ${typeName} ${name}${suffix}${valuePart}`;
+        return `${keyword} ${typeName}${typeSuffix} ${name}${valuePart}`;
     }
 
     protected buildArrayDefinitionSnippet(context: CompletionContext): string {
@@ -620,11 +620,11 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
     }
 
     protected buildContainerDefinitionSnippet(context: CompletionContext): string {
-        return this.buildTypedDefinitionSnippet(context, 'container', ast.Container, ast.Container.type, 'Component', { suffix: '*' });
+        return this.buildTypedDefinitionSnippet(context, 'container', ast.Container, ast.Container.type, 'Component', { typeSuffix: '*' });
     }
 
     protected buildReferenceDefinitionSnippet(context: CompletionContext): string {
-        return this.buildTypedDefinitionSnippet(context, 'reference', ast.Reference, ast.Reference.interface, 'Interface', { suffix: '*' });
+        return this.buildTypedDefinitionSnippet(context, 'reference', ast.Reference, ast.Reference.interface, 'Interface', { typeSuffix: '*' });
     }
 
     protected buildEventSinkDefinitionSnippet(context: CompletionContext): string {
