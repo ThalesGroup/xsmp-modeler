@@ -1,3 +1,4 @@
+import { VisibilityCache } from '../workspace/visibility-cache.js';
 import {
     AstUtils, MultiMap, type ValidationAcceptor, type ValidationChecks, WorkspaceCache, diagnosticData,
     type AstNode, type Properties,
@@ -87,8 +88,8 @@ interface FieldIssues {
 export class XsmpcatValidator {
     protected readonly indexManager: XsmpIndexManager;
     protected readonly globalCache: WorkspaceCache<string, MultiMap<string, AstNodeDescription>>;
-    protected readonly visibleCache: WorkspaceCache<ReadonlySet<string> | undefined, MultiMap<string, AstNodeDescription>>;
-    protected readonly catalogueCycleCache: WorkspaceCache<ReadonlySet<string> | undefined, Map<string, AstNodeDescription[]>>;
+    protected readonly visibleCache: VisibilityCache<MultiMap<string, AstNodeDescription>>;
+    protected readonly catalogueCycleCache: VisibilityCache<Map<string, AstNodeDescription[]>>;
     protected readonly fieldIssuesCache: WorkspaceCache<ast.Type, FieldIssues>;
     protected readonly docHelper: DocumentationHelper;
     protected readonly attrHelper: AttributeHelper;
@@ -97,8 +98,8 @@ export class XsmpcatValidator {
     constructor(services: XsmpcatServices) {
         this.indexManager = services.shared.workspace.IndexManager as XsmpIndexManager;
         this.globalCache = new WorkspaceCache<string, MultiMap<string, AstNodeDescription>>(services.shared);
-        this.visibleCache = new WorkspaceCache<ReadonlySet<string> | undefined, MultiMap<string, AstNodeDescription>>(services.shared);
-        this.catalogueCycleCache = new WorkspaceCache<ReadonlySet<string> | undefined, Map<string, AstNodeDescription[]>>(services.shared);
+        this.visibleCache = new VisibilityCache<MultiMap<string, AstNodeDescription>>();
+        this.catalogueCycleCache = new VisibilityCache<Map<string, AstNodeDescription[]>>();
         this.fieldIssuesCache = new WorkspaceCache<ast.Type, FieldIssues>(services.shared);
         this.docHelper = services.shared.DocumentationHelper;
         this.attrHelper = services.shared.AttributeHelper;
@@ -138,15 +139,7 @@ export class XsmpcatValidator {
     }
 
     private computeVisibleCatalogueUris(document: LangiumDocument): Set<string> {
-        const visibleUris = this.projectManager.getVisibleUris(document);
-        if (visibleUris) {
-            return new Set(visibleUris);
-        }
-        return new Set(
-            this.indexManager.allElements(ast.Catalogue.$type)
-                .map(description => description.documentUri.toString())
-                .toArray()
-        );
+        return new Set(this.projectManager.getVisibleUris(document));
     }
 
     private computeCatalogueCycles(document: LangiumDocument): Map<string, AstNodeDescription[]> {

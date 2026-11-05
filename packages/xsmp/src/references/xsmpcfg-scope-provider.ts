@@ -1,3 +1,4 @@
+import { VisibilityCache } from '../workspace/visibility-cache.js';
 import type {
     AstNodeDescriptionProvider,
     AstReflection,
@@ -8,7 +9,7 @@ import type {
     ScopeOptions,
     ScopeProvider
 } from 'langium';
-import { AstUtils, EMPTY_SCOPE, MapScope, StreamScope, WorkspaceCache, stream } from 'langium';
+import { AstUtils, EMPTY_SCOPE, MapScope, StreamScope, stream } from 'langium';
 import * as ast from '../generated/ast-partial.js';
 import type { ProjectManager } from '../workspace/project-manager.js';
 import type { IdentifierPatternService, TemplateBindings } from './identifier-pattern-service.js';
@@ -17,7 +18,7 @@ import type { XsmpcfgServices } from '../xsmpcfg-module.js';
 
 export class XsmpcfgScopeProvider implements ScopeProvider {
     protected readonly descriptions: AstNodeDescriptionProvider;
-    protected readonly globalScopeCache: WorkspaceCache<ReadonlySet<string> | undefined, Map<string, Scope>>;
+    protected readonly globalScopeCache: VisibilityCache<Map<string, Scope>>;
     protected readonly indexManager: IndexManager;
     protected readonly pathResolver: XsmpcfgPathResolver;
     protected readonly projectManager: ProjectManager;
@@ -26,7 +27,7 @@ export class XsmpcfgScopeProvider implements ScopeProvider {
 
     constructor(services: XsmpcfgServices) {
         this.descriptions = services.workspace.AstNodeDescriptionProvider;
-        this.globalScopeCache = new WorkspaceCache<ReadonlySet<string> | undefined, Map<string, Scope>>(services.shared);
+        this.globalScopeCache = new VisibilityCache<Map<string, Scope>>();
         this.indexManager = services.shared.workspace.IndexManager;
         this.pathResolver = services.shared.CfgPathResolver;
         this.projectManager = services.shared.workspace.ProjectManager;
