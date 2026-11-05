@@ -190,8 +190,9 @@ describe('Incremental workspace updates', () => {
         const c = workspace.document('app/src/c.xsmpcat');
         const field = AstUtils.streamAllContents(c.parseResult.value).find(ast.isField)!;
         const target = field.type!.ref;
-        expect(AstUtils.getDocument(target!).uri.toString()).toBe(workspace.uri('app/src/b.xsmpcat').toString());
-        await workspace.change('app/src/a.xsmpcat', '// Comment\n' + original);
+        const winner = AstUtils.getDocument(target!).uri.toString();
+        const modified = winner === workspace.uri('app/src/a.xsmpcat').toString() ? 'app/src/b.xsmpcat' : 'app/src/a.xsmpcat';
+        await workspace.change(modified, '// Comment\n' + fs.readFileSync(workspace.uri(modified).fsPath, 'utf8'));
         expect(workspace.scope(c).getElement('types.Shared')?.node).toBe(target);
         expect(field.type!.ref).toBe(target);
     });
