@@ -30,6 +30,33 @@ async function parseCase(body: string, profile = 'xsmp-sdk') {
     return { context, document, diagnostics: document.diagnostics ?? [] };
 }
 
+test.each(['', 'xsmp-sdk'])('reports invocation warnings exactly once with profile "%s"', async profile => {
+    const { context, document, diagnostics } = await parseCase(`
+        /** @uuid 85000000-0000-4000-8000-000000000008 */ public model Probe {
+            @Constructor def void make(in Int32 value)
+            @Constructor def void create(in Float64 value)
+            def @ByPointer Int32 pointer()
+            def Int32 calculate(in Int32 value)
+            def Int32 calculate(in Float64 value)
+            def Int32 normal(in Int32 value)
+        }
+        /** @uuid 85000000-0000-4000-8000-000000000009 */ public class OrdinaryClass {
+            def @ByPointer Int32 pointer()
+            def Int32 calculate(in Int32 value)
+            def Int32 calculate(in Float64 value)
+        }
+    `, profile);
+    try {
+        expect(diagnostics.filter(d => d.severity === 1)).toEqual([]);
+        const warnings = diagnostics.filter(d => d.message.includes('not published for dynamic invocation'));
+        expect(warnings).toHaveLength(3);
+        expect(warnings.every(d => d.severity === 2)).toBe(true);
+        expect(warnings.map(d => document.textDocument.getText(d.range)).sort()).toEqual(['calculate', 'calculate', 'pointer']);
+        expect(warnings.filter(d => d.message.includes('pointer return values'))).toHaveLength(1);
+        expect(warnings.filter(d => d.message.includes('overloaded operation names'))).toHaveLength(2);
+    } finally { await cleanupProfileGeneratorTestContext(context); }
+});
+
 test('preserves C++ APIs and diagnoses signatures that cannot be dynamically invoked', async () => {
     const { context, document, diagnostics } = await parseCase(`
         /** @uuid 85000000-0000-4000-8000-000000000001 */ public model Probe {
