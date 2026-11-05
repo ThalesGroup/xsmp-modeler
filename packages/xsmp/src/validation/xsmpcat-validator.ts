@@ -12,12 +12,12 @@ import { isBuiltinLibrary } from '../builtins.js';
 import { isFloatingType, PTK } from '../utils/primitive-type-kind.js';
 import { DiagnosticTag, Location } from 'vscode-languageserver';
 import { VisibilityKind } from '../utils/visibility-kind.js';
+import { getParameterDefaultIssue } from './parameter-validation.js';
 import { type DocumentationHelper } from '../utils/documentation-helper.js';
 import { type AttributeHelper } from '../utils/attribute-helper.js';
 import type { ProjectManager } from '../workspace/project-manager.js';
 import type { XsmpIndexManager } from '../workspace/index-manager.js';
 import { checkName, checkUniqueDocumentName } from './name-validator-utils.js';
-import { getParameterDefaultIssue } from './parameter-validation.js';
 
 /**
  * Register custom validation checks.
