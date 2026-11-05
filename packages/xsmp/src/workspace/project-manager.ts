@@ -1,4 +1,4 @@
-import { AstUtils, DocumentState, UriUtils, WorkspaceCache } from 'langium';
+import { AstUtils, DocumentState, UriUtils, SimpleCache, stream } from 'langium';
 import type { LangiumDocument, LangiumDocuments, LangiumSharedCoreServices, Stream, URI } from 'langium';
 import * as ast from '../generated/ast-partial.js';
 import { isBuiltinLibrary } from '../builtins.js';
@@ -10,9 +10,10 @@ import type { XsmpSharedServices } from '../xsmp-module.js';
 export const SmpStandards: string[] = ['ECSS_SMP_2020', 'ECSS_SMP_2025'];
 
 export class ProjectManager {
-    protected readonly projectCache: WorkspaceCache<URI, ast.Project | undefined>;
-    protected readonly dependenciesCache: WorkspaceCache<URI, Set<ast.Project>>;
-    protected readonly visibleUrisCache: WorkspaceCache<URI, Set<string>>;
+    protected readonly projectsCache: SimpleCache<string, ast.Project[]>;
+    protected readonly projectCache: SimpleCache<URI, ast.Project | undefined>;
+    protected readonly dependenciesCache: SimpleCache<URI, Set<ast.Project>>;
+    protected readonly visibleUrisCache: Map<ast.Project | URI, Set<string>>;
     protected readonly documents: LangiumDocuments;
     protected readonly services: LangiumSharedCoreServices;
     protected readonly contributionRegistry: XsmpContributionRegistry;
@@ -22,13 +23,35 @@ export class ProjectManager {
         this.documents = services.workspace.LangiumDocuments;
         this.services = services;
         this.contributionRegistry = services.ContributionRegistry;
-        this.projectCache = new WorkspaceCache<URI, ast.Project | undefined>(services);
-        this.dependenciesCache = new WorkspaceCache<URI, Set<ast.Project>>(services);
-        this.visibleUrisCache = new WorkspaceCache<URI, Set<string>>(services);
+        this.projectsCache = new SimpleCache<string, ast.Project[]>();
+        this.projectCache = new SimpleCache<URI, ast.Project | undefined>();
+        this.dependenciesCache = new SimpleCache<URI, Set<ast.Project>>();
+        this.visibleUrisCache = new Map<ast.Project | URI, Set<string>>();
+    }
+
+    /** Preserve ownership/dependencies on internal edits, but replace contexts holding old AST descriptions. */
+    invalidate(changed: ReadonlySet<string>, structural: boolean): void {
+        if (structural) {
+            this.projectsCache.clear();
+            this.projectCache.clear();
+            this.dependenciesCache.clear();
+            this.visibleUrisCache.clear();
+        } else {
+            for (const [key, visible] of this.visibleUrisCache) {
+                for (const uri of changed) {
+                    if (visible.has(uri)) {
+                        this.visibleUrisCache.delete(key);
+                        break;
+                    }
+                }
+            }
+        }
     }
 
     getProjects(): Stream<ast.Project> {
-        return this.documents.all.map(doc => doc.parseResult.value).filter(ast.isProject);
+        return stream(this.projectsCache.get('projects', () =>
+            this.documents.all.map(doc => doc.parseResult.value).filter(ast.isProject).toArray()
+        ));
     }
     getProjectByName(name: string): ast.Project | undefined {
         return this.getProjects().find(p => p.name === name);
@@ -41,7 +64,8 @@ export class ProjectManager {
     protected doGetProject(document: LangiumDocument): ast.Project | undefined {
         let bestProject: ast.Project | undefined;
         let bestProjectDirectoryLength = -1;
-        for (const doc of this.documents.all) {
+        for (const candidate of this.getProjects()) {
+            const doc = AstUtils.getDocument(candidate);
             const project = this.getProjectForDocument(doc, document);
             if (!project) {
                 continue;
@@ -103,19 +127,19 @@ export class ProjectManager {
         });
     }
 
-    getVisibleUris(document: LangiumDocument): Set<string> | undefined {
-
+    /** Shared until a visible document changes; callers must not mutate the set. */
+    getVisibleUris(document: LangiumDocument): Set<string> {
         const project = this.getProject(document);
-        if (!project) {
-            return this.visibleUrisCache.get(document.uri, () => {
-                if (isBuiltinLibrary(document.uri)) {
-                    return this.computeBuiltinVisibleUris(document);
-                }
-                return this.computeStandaloneVisibleUris(document);
-            });
+        // Use the project node so its standalone xsmp.project document cannot share this key.
+        const key = project ?? document.uri;
+        let visible = this.visibleUrisCache.get(key);
+        if (!visible) {
+            visible = project ? this.computeVisibleUris(project)
+                : isBuiltinLibrary(document.uri) ? this.computeBuiltinVisibleUris(document)
+                    : this.computeStandaloneVisibleUris(document);
+            this.visibleUrisCache.set(key, visible);
         }
-
-        return this.visibleUrisCache.get(document.uri, () => this.computeVisibleUris(project));
+        return visible;
     }
 
     protected computeBuiltinVisibleUris(document: LangiumDocument): Set<string> {

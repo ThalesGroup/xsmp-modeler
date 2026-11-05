@@ -145,7 +145,9 @@ profile '${usedProfileId}'
             parseOptions: { documentUri: 'memory:///mission/xsmp.project' },
         });
         const dependencyLabels = labels(items).filter(label => label.startsWith("dependency '"));
-        expect(dependencyLabels).toEqual(["dependency 'foundation'", "dependency 'shared'"]);
+        // Adding mission resolves foundation's existing dependency; suggesting foundation
+        // back to mission would now create a cycle.
+        expect(dependencyLabels).toEqual(["dependency 'shared'"]);
         expect(labels(items)).not.toContain("dependency 'mission'");
         expect(labels(items)).toContain(`tool '${remainingToolId}'`);
         expect(labels(items)).not.toContain(`tool '${usedToolId}'`);

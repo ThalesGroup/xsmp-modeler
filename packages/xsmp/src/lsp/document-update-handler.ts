@@ -114,9 +114,6 @@ export class XsmpDocumentUpdateHandler extends DefaultDocumentUpdateHandler {
                 continue;
             }
             const visibleUris = this.projectManager.getVisibleUris(document);
-            if (!visibleUris) {
-                continue;
-            }
             if (hasIntersection(visibleUris, trackedMirrorUriStrings)) {
                 affectedDocuments.set(document.uri.toString(), document);
             }

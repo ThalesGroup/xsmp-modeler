@@ -1,3 +1,4 @@
+import { VisibilityCache } from '../workspace/visibility-cache.js';
 import type {
     AstNodeDescriptionProvider,
     AstReflection,
@@ -6,10 +7,9 @@ import type {
     ReferenceInfo,
     Scope,
     ScopeOptions,
-    ScopeProvider,
-    URI
+    ScopeProvider
 } from 'langium';
-import { AstUtils, EMPTY_SCOPE, MapScope, StreamScope, WorkspaceCache, stream } from 'langium';
+import { AstUtils, EMPTY_SCOPE, MapScope, StreamScope, stream } from 'langium';
 import * as ast from '../generated/ast-partial.js';
 import type { XsmpInstancePathResolver } from './xsmp-instance-path-resolver.js';
 import type { ProjectManager } from '../workspace/project-manager.js';
@@ -17,7 +17,7 @@ import type { XsmplnkServices } from '../xsmplnk-module.js';
 
 export class XsmplnkScopeProvider implements ScopeProvider {
     protected readonly descriptions: AstNodeDescriptionProvider;
-    protected readonly globalScopeCache: WorkspaceCache<URI, Map<string, Scope>>;
+    protected readonly globalScopeCache: VisibilityCache<Map<string, Scope>>;
     protected readonly indexManager: IndexManager;
     protected readonly pathResolver: XsmpInstancePathResolver;
     protected readonly projectManager: ProjectManager;
@@ -25,7 +25,7 @@ export class XsmplnkScopeProvider implements ScopeProvider {
 
     constructor(services: XsmplnkServices) {
         this.descriptions = services.workspace.AstNodeDescriptionProvider;
-        this.globalScopeCache = new WorkspaceCache<URI, Map<string, Scope>>(services.shared);
+        this.globalScopeCache = new VisibilityCache<Map<string, Scope>>();
         this.indexManager = services.shared.workspace.IndexManager;
         this.pathResolver = services.shared.InstancePathResolver;
         this.projectManager = services.shared.workspace.ProjectManager;
@@ -63,10 +63,11 @@ export class XsmplnkScopeProvider implements ScopeProvider {
     }
 
     protected getGlobalScope(document: LangiumDocument, referenceType: string): Scope {
-        const globalScopes = this.globalScopeCache.get(document.uri, () => new Map<string, Scope>());
+        const visibleUris = this.projectManager.getVisibleUris(document);
+        const globalScopes = this.globalScopeCache.get(visibleUris, () => new Map<string, Scope>());
         let scope = globalScopes.get(referenceType);
         if (!scope) {
-            scope = new MapScope(this.indexManager.allElements(referenceType, this.projectManager.getVisibleUris(document)));
+            scope = new MapScope(this.indexManager.allElements(referenceType, visibleUris));
             globalScopes.set(referenceType, scope);
         }
         return scope;

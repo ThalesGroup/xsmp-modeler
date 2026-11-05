@@ -1,3 +1,4 @@
+import { VisibilityCache } from '../workspace/visibility-cache.js';
 
 import type {
     AstNode,
@@ -9,10 +10,9 @@ import type {
     ReferenceInfo,
     Scope,
     ScopeOptions,
-    ScopeProvider,
-    URI
+    ScopeProvider
 } from 'langium';
-import { AstUtils, DocumentCache, EMPTY_SCOPE, StreamScope, WorkspaceCache, stream } from 'langium';
+import { AstUtils, DocumentCache, EMPTY_SCOPE, StreamScope, stream } from 'langium';
 import * as ast from '../generated/ast-partial.js';
 import type { IdentifierPatternService, TemplateBindings } from './identifier-pattern-service.js';
 import type { XsmpInstancePathResolver } from './xsmp-instance-path-resolver.js';
@@ -23,7 +23,7 @@ import { XsmpGlobalScope, XsmpMapScope } from './xsmp-global-scope.js';
 export class XsmpasbScopeProvider implements ScopeProvider {
     protected readonly reflection: AstReflection;
     protected readonly indexManager: IndexManager;
-    protected readonly globalScopeCache: WorkspaceCache<URI, Map<string, Scope>>;
+    protected readonly globalScopeCache: VisibilityCache<Map<string, Scope>>;
     protected readonly precomputedCache: DocumentCache<AstNode, Map<string, AstNodeDescription>>;
     protected readonly descriptions: AstNodeDescriptionProvider;
     protected readonly pathResolver: XsmpInstancePathResolver;
@@ -33,7 +33,7 @@ export class XsmpasbScopeProvider implements ScopeProvider {
     constructor(services: XsmpServices) {
         this.reflection = services.shared.AstReflection;
         this.indexManager = services.shared.workspace.IndexManager;
-        this.globalScopeCache = new WorkspaceCache<URI, Map<string, Scope>>(services.shared);
+        this.globalScopeCache = new VisibilityCache<Map<string, Scope>>();
         this.precomputedCache = new DocumentCache<AstNode, Map<string, AstNodeDescription>>(services.shared);
         this.descriptions = services.workspace.AstNodeDescriptionProvider;
         this.pathResolver = services.shared.InstancePathResolver;
@@ -88,12 +88,13 @@ export class XsmpasbScopeProvider implements ScopeProvider {
      * Create a global scope filtered for the given referenceType and on visibles projects URIs
      */
     protected getGlobalScope(document: LangiumDocument, type:string): Scope {
-        const globalScopes = this.globalScopeCache.get(document.uri, () => new Map<string, Scope>());
+        const visibleUris = this.projectManager.getVisibleUris(document);
+        const globalScopes = this.globalScopeCache.get(visibleUris, () => new Map<string, Scope>());
         const existingScope = globalScopes.get(type);
         if (existingScope) {
             return existingScope;
         }
-        const scope = new XsmpGlobalScope(this.indexManager.allElements(type, this.projectManager.getVisibleUris(document)));
+        const scope = new XsmpGlobalScope(this.indexManager.allElements(type, visibleUris));
         globalScopes.set(type, scope);
         return scope;
     }
