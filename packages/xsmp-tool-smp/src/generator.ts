@@ -10,9 +10,8 @@ import type * as Assembly from '@xsmp/core/smp/assembly';
 import type * as Schedule from '@xsmp/core/smp/schedule';
 import * as XsmpUtils from '@xsmp/core/utils';
 
-import { type AstNode, type JSDocParagraph, type Reference, type URI, AstUtils, UriUtils, isReference } from 'langium';
-import * as fs from 'node:fs';
-import { cleanGeneratedFolders, isGeneratedBy, type TaskAcceptor, type XsmpGenerator, getCopyrightNotice } from '@xsmp/core/generator';
+import { type AstNode, type JSDocParagraph, type Reference, AstUtils, UriUtils, isReference } from 'langium';
+import { isGeneratedBy, type GeneratedFiles, type GenerationContext, type GenerationPreparationContext, type XsmpGenerator, getCopyrightNotice } from '@xsmp/core/generator';
 import { create } from 'xmlbuilder2';
 import { getStandardBuiltinExportName, getXsmpVersion, isStandardBuiltinLibrary, type XsmpSharedServices } from '@xsmp/core';
 import type { ProjectManager } from '@xsmp/core/workspace';
@@ -35,6 +34,7 @@ export class SmpGenerator implements XsmpGenerator {
     protected readonly instancePathResolver: XsmpInstancePathResolver;
     protected readonly projectManager: ProjectManager;
     protected readonly smdlGenFolder = 'smdl-gen';
+    readonly id: string = 'smp';
 
     constructor(services: XsmpSharedServices) {
         this.pathService = services.PathService;
@@ -44,27 +44,30 @@ export class SmpGenerator implements XsmpGenerator {
         this.attrHelper = services.AttributeHelper;
         this.projectManager = services.workspace.ProjectManager;
     }
-    clean(projectUri: URI) {
-        return cleanGeneratedFolders(UriUtils.joinPath(projectUri, this.smdlGenFolder).fsPath);
+    prepare(context: GenerationPreparationContext): GeneratedFiles {
+        return context.createFiles({
+            smp: { directory: this.smdlGenFolder, writeMode: 'if-changed', cleanup: 'directory' },
+        });
     }
-    generate(node: AstNode, projectUri: URI, acceptTask: TaskAcceptor) {
+
+    generate(node: AstNode, { files, acceptTask }: GenerationContext) {
         const notice = this.safeXmlComment(getCopyrightNotice(node.$document));
         switch (node.$type) {
             case ast.Catalogue.$type:
-                acceptTask(() => this.generateCatalogue(node as ast.Catalogue, projectUri, notice));
-                acceptTask(() => this.generatePackage(node as ast.Catalogue, projectUri, notice));
+                acceptTask(() => this.generateCatalogue(node as ast.Catalogue, files, notice));
+                acceptTask(() => this.generatePackage(node as ast.Catalogue, files, notice));
                 break;
             case ast.Configuration.$type:
-                acceptTask(() => this.generateConfiguration(node as ast.Configuration, projectUri, notice));
+                acceptTask(() => this.generateConfiguration(node as ast.Configuration, files, notice));
                 break;
             case ast.LinkBase.$type:
-                acceptTask(() => this.generateLinkBase(node as ast.LinkBase, projectUri, notice));
+                acceptTask(() => this.generateLinkBase(node as ast.LinkBase, files, notice));
                 break;
             case ast.Assembly.$type:
-                acceptTask(() => this.generateAssembly(node as ast.Assembly, projectUri, notice));
+                acceptTask(() => this.generateAssembly(node as ast.Assembly, files, notice));
                 break;
             case ast.Schedule.$type:
-                acceptTask(() => this.generateSchedule(node as ast.Schedule, projectUri, notice));
+                acceptTask(() => this.generateSchedule(node as ast.Schedule, files, notice));
                 break;
         }
 
@@ -702,10 +705,9 @@ export class SmpGenerator implements XsmpGenerator {
         return safeComment;
     }
 
-    async generateConfiguration(configuration: ast.Configuration, projectUri: URI, notice: string | undefined): Promise<void> {
-        const outputDir = await this.createOutputDir(projectUri);
-        const smpcfgFile = UriUtils.joinPath(outputDir, UriUtils.basename(configuration.$document?.uri as URI).replace(/\.xsmpcfg$/, '.smpcfg'));
-        await fs.promises.writeFile(smpcfgFile.fsPath, await this.doGenerateConfiguration(configuration, notice));
+    async generateConfiguration(configuration: ast.Configuration, files: GeneratedFiles, notice: string | undefined): Promise<void> {
+        const fileName = UriUtils.basename(AstUtils.getDocument(configuration).uri).replace(/\.xsmpcfg$/, '.smpcfg');
+        await files.write('smp', fileName, () => this.doGenerateConfiguration(configuration, notice));
 
     }
     async doGenerateConfiguration(configuration: ast.Configuration, notice: string | undefined): Promise<string> {
@@ -1118,10 +1120,9 @@ export class SmpGenerator implements XsmpGenerator {
         };
     }
 
-    async generateLinkBase(linkBase: ast.LinkBase, projectUri: URI, notice: string | undefined): Promise<void> {
-        const outputDir = await this.createOutputDir(projectUri);
-        const smplnkFile = UriUtils.joinPath(outputDir, UriUtils.basename(linkBase.$document?.uri as URI).replace(/\.xsmplnk$/, '.smplnk'));
-        await fs.promises.writeFile(smplnkFile.fsPath, await this.doGenerateLinkBase(linkBase, notice));
+    async generateLinkBase(linkBase: ast.LinkBase, files: GeneratedFiles, notice: string | undefined): Promise<void> {
+        const fileName = UriUtils.basename(AstUtils.getDocument(linkBase).uri).replace(/\.xsmplnk$/, '.smplnk');
+        await files.write('smp', fileName, () => this.doGenerateLinkBase(linkBase, notice));
     }
     async doGenerateLinkBase(linkBase: ast.LinkBase, notice: string | undefined): Promise<string> {
         const obj = {
@@ -1177,10 +1178,9 @@ export class SmpGenerator implements XsmpGenerator {
         }
     }
 
-    async generateAssembly(assembly: ast.Assembly, projectUri: URI, notice: string | undefined): Promise<void> {
-        const outputDir = await this.createOutputDir(projectUri);
-        const smpasbFile = UriUtils.joinPath(outputDir, UriUtils.basename(assembly.$document?.uri as URI).replace(/\.xsmpasb$/, '.smpasb'));
-        await fs.promises.writeFile(smpasbFile.fsPath, await this.doGenerateAssembly(assembly, notice));
+    async generateAssembly(assembly: ast.Assembly, files: GeneratedFiles, notice: string | undefined): Promise<void> {
+        const fileName = UriUtils.basename(AstUtils.getDocument(assembly).uri).replace(/\.xsmpasb$/, '.smpasb');
+        await files.write('smp', fileName, () => this.doGenerateAssembly(assembly, notice));
     }
     async doGenerateAssembly(assembly: ast.Assembly, notice: string | undefined): Promise<string> {
         const obj = {
@@ -1346,10 +1346,9 @@ export class SmpGenerator implements XsmpGenerator {
         };
     }
 
-    async generateSchedule(schedule: ast.Schedule, projectUri: URI, notice: string | undefined): Promise<void> {
-        const outputDir = await this.createOutputDir(projectUri);
-        const smpsedFile = UriUtils.joinPath(outputDir, UriUtils.basename(schedule.$document?.uri as URI).replace(/\.xsmpsed$/, '.smpsed'));
-        await fs.promises.writeFile(smpsedFile.fsPath, await this.doGenerateSchedule(schedule, notice));
+    async generateSchedule(schedule: ast.Schedule, files: GeneratedFiles, notice: string | undefined): Promise<void> {
+        const fileName = UriUtils.basename(AstUtils.getDocument(schedule).uri).replace(/\.xsmpsed$/, '.smpsed');
+        await files.write('smp', fileName, () => this.doGenerateSchedule(schedule, notice));
     }
     async doGenerateSchedule(schedule: ast.Schedule, notice: string | undefined): Promise<string> {
         const obj = {
@@ -1550,25 +1549,16 @@ export class SmpGenerator implements XsmpGenerator {
         return doc.end({ prettyPrint: true });
     }
 
-    private async createOutputDir(projectUri: URI): Promise<URI> {
-        const outputDir = UriUtils.joinPath(projectUri, this.smdlGenFolder);
+    public async generateCatalogue(catalogue: ast.Catalogue, files: GeneratedFiles, notice: string | undefined): Promise<void> {
 
-        await fs.promises.mkdir(outputDir.fsPath, { recursive: true });
-        return outputDir;
-    }
-
-    public async generateCatalogue(catalogue: ast.Catalogue, projectUri: URI, notice: string | undefined): Promise<void> {
-
-        const outputDir = await this.createOutputDir(projectUri);
-        const smpcatFile = UriUtils.joinPath(outputDir, UriUtils.basename(catalogue.$document?.uri as URI).replace(/\.xsmpcat$/, '.smpcat'));
-        await fs.promises.writeFile(smpcatFile.fsPath, await this.doGenerateCatalogue(catalogue, notice));
+        const fileName = UriUtils.basename(AstUtils.getDocument(catalogue).uri).replace(/\.xsmpcat$/, '.smpcat');
+        await files.write('smp', fileName, () => this.doGenerateCatalogue(catalogue, notice));
 
     }
 
-    public async generatePackage(catalogue: ast.Catalogue, projectUri: URI, notice: string | undefined): Promise<void> {
-        const outputDir = await this.createOutputDir(projectUri);
-        const smppkgFile = UriUtils.joinPath(outputDir, UriUtils.basename(catalogue.$document?.uri as URI).replace(/\.xsmpcat$/, '.smppkg'));
-        await fs.promises.writeFile(smppkgFile.fsPath, await this.doGeneratePackage(catalogue, notice));
+    public async generatePackage(catalogue: ast.Catalogue, files: GeneratedFiles, notice: string | undefined): Promise<void> {
+        const fileName = UriUtils.basename(AstUtils.getDocument(catalogue).uri).replace(/\.xsmpcat$/, '.smppkg');
+        await files.write('smp', fileName, () => this.doGeneratePackage(catalogue, notice));
 
     }
 }

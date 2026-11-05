@@ -3,7 +3,7 @@ import { EmptyFileSystem, URI, type LangiumDocument } from 'langium';
 import { clearDocuments, parseHelper } from 'langium/test';
 import { createXsmpServices } from '@xsmp/core';
 import type * as ast from '@xsmp/core/ast';
-import type { Task } from '@xsmp/core/generator';
+import { generateDocuments } from '../../xsmp/test/generation-test-utils.js';
 import { PythonGenerator } from '@xsmp/tool-python';
 import { execFileSync, spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
@@ -64,14 +64,8 @@ async function generate(source: string | string[]): Promise<string> {
         expect(document.parseResult.parserErrors).toEqual([]);
         expect(document.diagnostics?.filter(diagnostic => diagnostic.severity === 1)).toEqual([]);
     }
-    const tasks: Task[] = [];
     const generator = new PythonGenerator(services.shared);
-    for (const catalogue of catalogues) {
-        generator.generate(catalogue.parseResult.value, URI.file(directory), task => tasks.push(task));
-    }
-    for (const task of tasks) {
-        await task();
-    }
+    await generateDocuments(generator, catalogues.map(catalogue => catalogue.parseResult.value), URI.file(directory));
     return path.join(directory, 'python');
 }
 
@@ -89,9 +83,9 @@ namespace demo {
     test('escapes Python keywords consistently without collisions with existing names', async () => {
         const root = await generate(keywordSource);
         const catalogue = fs.readFileSync(path.join(root, '_None', '__init__.py'), 'utf8');
-        expect(catalogue).toContain('from . import _from\nfrom . import from_\nfrom . import from__');
+        expect(catalogue).toContain(['from . import _from', 'from . import from_', 'from . import from__'].join(os.EOL));
         const namespace = fs.readFileSync(path.join(root, '_None', '_from', '__init__.py'), 'utf8');
-        expect(namespace).toContain('from . import _async\nfrom . import async_');
+        expect(namespace).toContain(['from . import _async', 'from . import async_'].join(os.EOL));
         const components = fs.readFileSync(path.join(root, '_None', '_from', '_async', '__init__.py'), 'utf8');
         expect(components).toContain('class _None:');
         expect(components).toContain('class None_:');
@@ -104,6 +98,18 @@ namespace demo {
         const root = await generate([keywordSource, 'catalogue None_ namespace peer {}']);
         expect(fs.readFileSync(path.join(root, '_None', '__init__.py'), 'utf8')).toContain('from . import _from');
         expect(fs.readFileSync(path.join(root, 'None_', '__init__.py'), 'utf8')).toContain('from . import peer');
+    });
+
+    test('removes obsolete tracked modules after restart while preserving unknown Python files', async () => {
+        const root = await generate('catalogue Example namespace demo {}');
+        const userFile = path.join(root, 'Example', 'user_test.py');
+        fs.writeFileSync(userFile, '# user test\n');
+
+        await generateDocuments(new PythonGenerator(services.shared), [], URI.file(path.dirname(root)));
+
+        expect(fs.existsSync(path.join(root, 'Example', '__init__.py'))).toBe(false);
+        expect(fs.existsSync(path.join(root, 'Example', 'demo', '__init__.py'))).toBe(false);
+        expect(fs.readFileSync(userFile, 'utf8')).toBe('# user test\n');
     });
 
     test.skipIf(!hasPython)('imports generated packages and preserves distinct component UUIDs', async () => {

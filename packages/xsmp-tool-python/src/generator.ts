@@ -2,10 +2,8 @@ import * as ast from '@xsmp/core/ast';
 import { expandToString as s } from 'langium/generate';
 import { isGeneratedBy } from '@xsmp/core/generator';
 import * as CopyrightNoticeProvider from '@xsmp/core/generator';
-import { type AstNode, type URI, UriUtils } from 'langium';
-import * as fs from 'node:fs';
-import * as Path from 'node:path';
-import type { TaskAcceptor, XsmpGenerator } from '@xsmp/core/generator';
+import { type AstNode } from 'langium';
+import type { GeneratedFiles, GenerationContext, GenerationPreparationContext, TaskAcceptor, XsmpGenerator } from '@xsmp/core/generator';
 import { getXsmpVersion, type XsmpSharedServices } from '@xsmp/core';
 import { type DocumentationHelper } from '@xsmp/core/utils';
 
@@ -17,27 +15,29 @@ const pythonKeywords = new Set([
 ]);
 
 export class PythonGenerator implements XsmpGenerator {
+    readonly id: string = 'python';
     protected readonly docHelper: DocumentationHelper;
     constructor(services: XsmpSharedServices) {
         this.docHelper = services.DocumentationHelper;
     }
 
-    generate(node: AstNode, projectUri: URI, acceptTask: TaskAcceptor) {
+    generate(node: AstNode, { files, acceptTask }: GenerationContext) {
         if (ast.isCatalogue(node)) {
 
             const notice = CopyrightNoticeProvider.getCopyrightNotice(node.$document, '# ');
-            projectUri = UriUtils.joinPath(projectUri, this.pythonFolder);
-            acceptTask(() => this.generateCatalogue(node, projectUri, notice));
+            acceptTask(() => this.generateCatalogue(node, files, notice));
 
-            node.elements.forEach(namespace => this.generateNamespace(namespace, projectUri, notice, acceptTask));
+            node.elements.forEach(namespace => this.generateNamespace(namespace, files, notice, acceptTask));
         }
     }
 
     protected readonly pythonFolder = 'python';
     protected readonly INIT_PY_FILE = '__init__.py';
 
-    clean(_projectUri: URI) {
-        // ignore
+    prepare(context: GenerationPreparationContext): GeneratedFiles {
+        return context.createFiles({
+            python: { directory: this.pythonFolder, writeMode: 'if-changed', cleanup: 'tracked' },
+        });
     }
 
     protected generatedBy() {
@@ -54,23 +54,6 @@ export class PythonGenerator implements XsmpGenerator {
         return lines.join('\n');
     }
 
-    protected async generateFile(path: string, content: string) {
-        try {
-            await fs.promises.mkdir(Path.dirname(path), { recursive: true });
-
-            try {
-                // check if existing file is different
-                if (await fs.promises.readFile(path, { encoding: 'utf8' }) !== content) {
-                    await fs.promises.writeFile(path, content);
-                }
-            }
-            catch {
-                await fs.promises.writeFile(path, content, { encoding: 'utf8' });
-            }
-        } catch (error) {
-            throw new Error(`Error generating file ${path}.`, { cause: error });
-        }
-    }
     protected identifier(node: ast.NamedElement): string {
         // Valid XSMP names start with a letter, so this prefix cannot collide
         // with another catalogue, namespace or component name.
@@ -87,11 +70,10 @@ export class PythonGenerator implements XsmpGenerator {
         return name;
     }
 
-    public async generateCatalogue(catalogue: ast.Catalogue, projectUri: URI, notice: string | undefined): Promise<void> {
+    public async generateCatalogue(catalogue: ast.Catalogue, files: GeneratedFiles, notice: string | undefined): Promise<void> {
 
         const name = this.identifier(catalogue);
-        const path = UriUtils.joinPath(projectUri, name, this.INIT_PY_FILE).fsPath;
-        await this.generateFile(path, s`
+        await files.write('python', `${name}/${this.INIT_PY_FILE}`, () => s`
             ${notice}
 
             ${this.fileBanner(`${name}/${this.INIT_PY_FILE}`)}
@@ -101,20 +83,19 @@ export class PythonGenerator implements XsmpGenerator {
 
             `);
     }
-    private generateNamespace(namespace: ast.Namespace, projectUri: URI, notice: string | undefined, acceptTask: TaskAcceptor) {
+    private generateNamespace(namespace: ast.Namespace, files: GeneratedFiles, notice: string | undefined, acceptTask: TaskAcceptor) {
 
-        acceptTask(() => this.doGenerateNamespace(namespace, projectUri, notice));
+        acceptTask(() => this.doGenerateNamespace(namespace, files, notice));
         for (const element of namespace.elements) {
             if (ast.isNamespace(element))
-                this.generateNamespace(element, projectUri, notice, acceptTask);
+                this.generateNamespace(element, files, notice, acceptTask);
         }
     }
-    private async doGenerateNamespace(namespace: ast.Namespace, projectUri: URI, notice: string | undefined): Promise<void> {
+    private async doGenerateNamespace(namespace: ast.Namespace, files: GeneratedFiles, notice: string | undefined): Promise<void> {
         const qualifiedName = this.fqn(namespace, '/');
-        const path = UriUtils.joinPath(projectUri, qualifiedName, this.INIT_PY_FILE).fsPath;
         const components = namespace.elements.filter(ast.isComponent);
         const namespaces = namespace.elements.filter(ast.isNamespace);
-        await this.generateFile(path, s`
+        await files.write('python', `${qualifiedName}/${this.INIT_PY_FILE}`, () => s`
             ${notice}
 
             ${this.fileBanner(`${qualifiedName}/${this.INIT_PY_FILE}`)}

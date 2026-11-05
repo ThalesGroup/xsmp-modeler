@@ -1,13 +1,13 @@
 import { dependencyOrder } from '../dependency-order.js';
 import * as ast from '../../generated/ast.js';
-import { type AstNode, AstUtils, DocumentCache, type JSDocElement, type JSDocTag, type URI, UriUtils } from 'langium';
-import * as fs from 'node:fs';
-import { isClangFormatEnabled, isGeneratedBy, type TaskAcceptor, type XsmpGenerator } from '../generator.js';
+import { type AstNode, AstUtils, DocumentCache, type JSDocElement, type JSDocTag } from 'langium';
+import { isClangFormatEnabled, isGeneratedBy, type GenerationContext, type GenerationPreparationContext, type XsmpGenerator } from '../generator.js';
 import { escape, fqn, getAccessKind, getNodeType, getPTK, isAbstractType, isInput, isOutput, isState } from '../../utils/xsmp-utils.js';
 import * as CopyrightNoticeProvider from '../copyright-notice-provider.js';
 import { expandToString as s } from 'langium/generate';
+import { ClangFormatter } from './clang-format.js';
 import * as Path from 'node:path';
-import { format as ClangFormat } from './clang-format.js';
+import type { GeneratedFiles } from '../generated-files.js';
 import type { XsmpSharedServices } from '../../xsmp-module.js';
 import type { XsmpTypeProvider } from '../../references/type-provider.js';
 import * as Solver from '../../utils/solver.js';
@@ -56,6 +56,7 @@ export const smpVersionDetection = `#if defined(__has_include)
 export const smpVersion2025 = '202503L';
 
 export abstract class CppGenerator implements XsmpGenerator {
+    readonly id: string = 'cpp';
     protected static readonly defaultIncludeFolder = 'src';
     protected static readonly defaultSourceFolder = 'src';
     protected includeFolder = CppGenerator.defaultIncludeFolder;
@@ -88,28 +89,27 @@ export abstract class CppGenerator implements XsmpGenerator {
         return value;
     }
 
-    clean(_projectUri: URI) {
-        // ignore
+    prepare(context: GenerationPreparationContext): GeneratedFiles {
+        const formatter = isClangFormatEnabled() ? new ClangFormatter() : undefined;
+        return context.createFiles({
+            generatedInclude: { directory: this.includeFolder, writeMode: 'if-changed', formatter },
+            generatedSource: { directory: this.sourceFolder, writeMode: 'if-changed', formatter },
+        });
     }
 
-    generate(node: AstNode, projectUri: URI, acceptTask: TaskAcceptor) {
+    generate(node: AstNode, context: GenerationContext) {
         if (ast.isCatalogue(node)) {
             const notice = CopyrightNoticeProvider.getCopyrightNotice(node.$document, '// ');
-            node.elements.forEach(n => this.generateNamespace(n, projectUri, notice, acceptTask));
-            this.generatePackage(node, projectUri, notice, acceptTask);
+            node.elements.forEach(n => this.generateNamespace(n, context, notice));
+            this.generatePackage(node, context, notice);
         }
     }
 
-    public generatePackage(catalogue: ast.Catalogue, projectUri: URI, notice: string | undefined, acceptTask: TaskAcceptor) {
+    public generatePackage(catalogue: ast.Catalogue, { files, acceptTask }: GenerationContext, notice: string | undefined) {
         const name = this.catalogueFileName(catalogue);
-        const includePath = UriUtils.joinPath(projectUri, this.includeFolder, name + '.h').fsPath;
-        acceptTask(() => this.generatePackageHeader(includePath, catalogue, notice));
-
-        const sourcePath = UriUtils.joinPath(projectUri, this.sourceFolder, name + '.cpp').fsPath;
-        acceptTask(() => this.generatePackageSource(sourcePath, catalogue, notice));
-
-        const sourceDynPath = UriUtils.joinPath(projectUri, this.sourceFolder, name + '.pkg.cpp').fsPath;
-        acceptTask(() => this.generateDynamicPackageSource(sourceDynPath, catalogue, notice));
+        acceptTask(() => files.write('generatedInclude', name + '.h', () => this.generatePackageHeader(name + '.h', catalogue, notice)));
+        acceptTask(() => files.write('generatedSource', name + '.cpp', () => this.generatePackageSource(name + '.cpp', catalogue, notice)));
+        acceptTask(() => files.write('generatedSource', name + '.pkg.cpp', () => this.generateDynamicPackageSource(name + '.pkg.cpp', catalogue, notice)));
     }
 
     protected catalogueFileName(catalogue: ast.Catalogue): string {
@@ -147,7 +147,7 @@ export abstract class CppGenerator implements XsmpGenerator {
 
     async generatePackageHeader(path: string, catalogue: ast.Catalogue, notice: string | undefined) {
         const guard = catalogue.name.toUpperCase() + '_H_';
-        await this.generateFile(path, s`
+        return s`
             ${notice}
             ${this.fileBanner(Path.basename(path), '// ---------------------------------------------------------------------------')}
             /// @file ${Path.basename(path)}
@@ -193,7 +193,7 @@ export abstract class CppGenerator implements XsmpGenerator {
             }
 
             #endif // ${guard}
-            `);
+            `;
     }
 
     /**
@@ -248,7 +248,7 @@ export abstract class CppGenerator implements XsmpGenerator {
         const components = AstUtils.streamAllContents(catalogue).filter(ast.isComponent).filter(component => !isAbstractType(component)).toArray();
         const requiresFactory = components.some(ast.isModel);
         const exportedTypes = this.exportedTypes(catalogue);
-        await this.generateFile(path, s`
+        return s`
             ${notice}
             ${this.fileBanner(Path.basename(path), '// -----------------------------------------------------------------------------')}
             /// @file ${Path.basename(path)}
@@ -343,11 +343,11 @@ export abstract class CppGenerator implements XsmpGenerator {
             #endif
             }
             
-            `);
+            `;
     }
 
     async generateDynamicPackageSource(path: string, catalogue: ast.Catalogue, notice: string | undefined) {
-        await this.generateFile(path, s`
+        return s`
             ${notice}
             ${this.fileBanner(Path.basename(path), '// -----------------------------------------------------------------------------')}
             /// @file ${Path.basename(path)}
@@ -420,7 +420,7 @@ export abstract class CppGenerator implements XsmpGenerator {
             }
             #endif
             
-            `);
+            `;
     }
     /**
      * Return the list of all direct dependent packages
@@ -458,43 +458,19 @@ export abstract class CppGenerator implements XsmpGenerator {
             .toSorted((a, b) => a.name.localeCompare(b.name));
     }
 
-    private generateNamespace(namespace: ast.Namespace, projectUri: URI, notice: string | undefined, acceptTask: TaskAcceptor) {
+    private generateNamespace(namespace: ast.Namespace, context: GenerationContext, notice: string | undefined) {
         for (const element of namespace.elements) {
             if (ast.isNamespace(element))
-                this.generateNamespace(element, projectUri, notice, acceptTask);
+                this.generateNamespace(element, context, notice);
             else
-                this.generateType(element, projectUri, notice, acceptTask);
+                this.generateType(element, context, notice);
         }
     }
 
-    protected generateType(_type: ast.Type, _projectUri: URI, _notice: string | undefined, _acceptTask: TaskAcceptor) {
+    protected generateType(_type: ast.Type, _context: GenerationContext, _notice: string | undefined) {
         // Implemented by subclasses.
     }
-    protected async format(path: string, content: string): Promise<string> {
-        if (!isClangFormatEnabled()) {
-            return content;
-        }
-        return await ClangFormat(path, content);
-    }
 
-    protected async generateFile(path: string, content: string) {
-        try {
-            await fs.promises.mkdir(Path.dirname(path), { recursive: true });
-
-            const formatted = await this.format(path, content);
-            try {
-                // check if existing file is different
-                if (await fs.promises.readFile(path, { encoding: 'utf8' }) !== formatted) {
-                    await fs.promises.writeFile(path, formatted);
-                }
-            }
-            catch {
-                await fs.promises.writeFile(path, formatted, { encoding: 'utf8' });
-            }
-        } catch (error) {
-            throw new Error(`Error generating file ${path}.`, { cause: error });
-        }
-    }
     protected comment(element: ast.NamedElement): string {
         const comment = this.docHelper.getJSDoc(element);
         if (!comment)

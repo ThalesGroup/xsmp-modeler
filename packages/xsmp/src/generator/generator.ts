@@ -1,4 +1,5 @@
-import type { AstNode, MaybePromise, URI } from 'langium';
+import type { AstNode, Cancellation, URI } from 'langium';
+import type { GeneratedFiles, OutputDefinition } from './generated-files.js';
 
 export type Task = () => Promise<void>;
 export type TaskAcceptor = (task: Task) => void;
@@ -20,7 +21,24 @@ export function setClangFormat(value: boolean): void {
 export function isClangFormatEnabled(): boolean {
      return enableClangFormatting;
 }
+export interface GenerationPreparationContext {
+     readonly projectUri: URI;
+     readonly cancelToken: Cancellation.CancellationToken;
+     /** Declare named outputs once, before generation starts. */
+     createFiles(outputs: Readonly<Record<string, OutputDefinition>>): GeneratedFiles;
+}
+
+export interface GenerationContext {
+     readonly projectUri: URI;
+     readonly cancelToken: Cancellation.CancellationToken;
+     readonly files: GeneratedFiles;
+     readonly acceptTask: TaskAcceptor;
+}
+
 export interface XsmpGenerator {
-     generate: (node: AstNode, projectUri: URI, acceptTask: TaskAcceptor) => void
-     clean: (projectUri: URI) => MaybePromise<void>
+     /** Stable identifier within the contribution, used to track owned outputs. */
+     readonly id: string;
+     prepare(context: GenerationPreparationContext): GeneratedFiles;
+     /** Called for each valid project document after all outputs have been prepared. */
+     generate(node: AstNode, context: GenerationContext): void;
 }

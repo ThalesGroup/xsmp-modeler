@@ -1,11 +1,11 @@
 import * as ast from '../../generated/ast.js';
 import * as fs from 'node:fs';
 import { expandToString as s } from 'langium/generate';
-import { type URI, UriUtils } from 'langium';
 import { fqn, getAccessKind, getRealVisibility, isInput, isOutput, isState, isString8 } from '../../utils/xsmp-utils.js';
 import { CppGenerator, CxxStandard } from './generator.js';
-import type { TaskAcceptor } from '../generator.js';
-import { cleanGeneratedFolders } from '../generated-folder.js';
+import { isClangFormatEnabled, type GenerationContext, type GenerationPreparationContext } from '../generator.js';
+import { ClangFormatter } from './clang-format.js';
+import type { GeneratedFiles } from '../generated-files.js';
 import type { XsmpSharedServices } from '../../xsmp-module.js';
 import * as Path from 'node:path';
 import { VisibilityKind } from '../../utils/visibility-kind.js';
@@ -20,11 +20,14 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
         super(services, cxxStandard);
     }
 
-    override clean(projectUri: URI) {
-        return cleanGeneratedFolders(
-            UriUtils.joinPath(projectUri, this.includeGenFolder).fsPath,
-            UriUtils.joinPath(projectUri, this.sourceGenFolder).fsPath,
-        );
+    override prepare(context: GenerationPreparationContext): GeneratedFiles {
+        const formatter = isClangFormatEnabled() ? new ClangFormatter() : undefined;
+        return context.createFiles({
+            generatedInclude: { directory: this.includeGenFolder, writeMode: 'if-changed', cleanup: 'directory', formatter },
+            generatedSource: { directory: this.sourceGenFolder, writeMode: 'if-changed', cleanup: 'directory', formatter },
+            userInclude: { directory: this.includeFolder, writeMode: 'if-missing', formatter },
+            userSource: { directory: this.sourceFolder, writeMode: 'if-missing', formatter },
+        });
     }
     name(element: ast.NamedElement | string, gen: boolean): string {
         const genSuffix = 'Gen';
@@ -36,48 +39,51 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
         return ast.isReferenceType(type);
     }
 
-    public override generatePackage(catalogue: ast.Catalogue, projectUri: URI, notice: string | undefined, acceptTask: TaskAcceptor): void {
-        const name = this.catalogueFileName(catalogue);
-        const includePath = UriUtils.joinPath(projectUri, this.includeGenFolder, name + '.h').fsPath;
-        acceptTask(() => this.generatePackageHeader(includePath, catalogue, notice));
-
-        const sourcePath = UriUtils.joinPath(projectUri, this.sourceGenFolder, name + '.cpp').fsPath;
-        acceptTask(() => this.generatePackageSource(sourcePath, catalogue, notice));
-
-        const sourceDynPath = UriUtils.joinPath(projectUri, this.sourceGenFolder, name + '.pkg.cpp').fsPath;
-        acceptTask(() => this.generateDynamicPackageSource(sourceDynPath, catalogue, notice));
-    }
-
-    protected override generateType(type: ast.Type, projectUri: URI, notice: string | undefined, acceptTask: TaskAcceptor) {
-
+    protected override generateType(type: ast.Type, { files, acceptTask }: GenerationContext, notice: string | undefined) {
         const qualifiedName = fqn(type, '/');
+        const header = qualifiedName + '.h';
+        const source = qualifiedName + '.cpp';
 
-        // include path of user code
-        const includePath = UriUtils.joinPath(projectUri, this.includeFolder, qualifiedName + '.h').fsPath;
-
-        // if the file already exist in include directories or the type requires the generation gap
-        // pattern, use the generation gap pattern
-        const includePathExist = fs.existsSync(includePath);
+        // A user header also requests the generation-gap pattern for value types.
+        const includePathExist = fs.existsSync(files.resolvePath('userInclude', header));
         const useGenerationGapPattern = includePathExist || this.useGenerationGapPattern(type);
-
-        // generate header in include directory
-        if (useGenerationGapPattern && !includePathExist) {
-            acceptTask(() => this.generateHeader(includePath, type, notice));
+        if (useGenerationGapPattern) {
+            acceptTask(() => this.generateOptionalFile(files, 'userInclude', header, () => this.generateHeader(header, type, notice), true));
         }
-
-        // generate source in src directory if file does not exist
-        const sourcePath = UriUtils.joinPath(projectUri, this.sourceFolder, qualifiedName + '.cpp').fsPath;
-        if (!fs.existsSync(sourcePath)) {
-            acceptTask(() => this.generateSource(sourcePath, type, notice));
-        }
+        acceptTask(() => this.generateOptionalFile(files, 'userSource', source, () => this.generateSource(source, type, notice), true));
 
         const qualifiedNameGen = this.name(qualifiedName, useGenerationGapPattern);
+        const generatedHeader = qualifiedNameGen + '.h';
+        const generatedSource = qualifiedNameGen + '.cpp';
+        acceptTask(() => this.generateOptionalFile(files, 'generatedInclude', generatedHeader, () => this.generateHeaderGen(generatedHeader, type, useGenerationGapPattern, notice)));
+        acceptTask(() => this.generateOptionalFile(files, 'generatedSource', generatedSource, () => this.generateSourceGen(generatedSource, type, useGenerationGapPattern, notice)));
+    }
 
-        const includeGenPath = UriUtils.joinPath(projectUri, this.includeGenFolder, qualifiedNameGen + '.h').fsPath;
-        acceptTask(() => this.generateHeaderGen(includeGenPath, type, useGenerationGapPattern, notice));
-
-        const sourceGenPath = UriUtils.joinPath(projectUri, this.sourceGenFolder, qualifiedNameGen + '.cpp').fsPath;
-        acceptTask(() => this.generateSourceGen(sourceGenPath, type, useGenerationGapPattern, notice));
+    private async generateOptionalFile(
+        files: GeneratedFiles,
+        output: string,
+        path: string,
+        render: () => Promise<string | undefined>,
+        userFile = false,
+    ): Promise<void> {
+        // Some types have no source file at all. Preserve this distinction without passing
+        // undefined to the writer, and avoid rendering existing generation-gap user files.
+        if (userFile && fs.existsSync(files.resolvePath(output, path))) {
+            // Register existing outputs too. The fallback runs only if the file disappears
+            // before the writer checks it; a missing optional body must not create an empty file.
+            await files.write(output, path, async () => {
+                const content = await render();
+                if (content === undefined) {
+                    throw new Error(`Optional user file disappeared during generation: ${files.resolvePath(output, path)}`);
+                }
+                return content;
+            });
+            return;
+        }
+        const content = await render();
+        if (content !== undefined) {
+            await files.write(output, path, content);
+        }
     }
 
     public async generateHeader(path: string, type: ast.Type, notice: string | undefined) {
@@ -123,7 +129,7 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
         }
         if (body?.length) {
             const guard = this.guard(type);
-            await this.generateFile(path, s`
+            return s`
                 ${notice}
                 ${this.fileBanner(Path.basename(path), '// -----------------------------------------------------------------------------')}
                 /// @file ${fqn(type, '/')}.h
@@ -137,8 +143,9 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
                 ${this.namespace(type, body)}
 
                 #endif // ${guard}
-                `);
+                `;
         }
+        return undefined;
     }
 
     public async generateSource(path: string, type: ast.Type, notice: string | undefined) {
@@ -183,7 +190,7 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
                 break;
         }
         if (body?.length) {
-            await this.generateFile(path, s`
+            return s`
                 ${notice}
                 ${this.fileBanner(Path.basename(path), '// -----------------------------------------------------------------------------')}
                 /// @file ${fqn(type, '/')}.cpp
@@ -191,8 +198,9 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
                 #include <${fqn(type, '/')}.h>
 
                 ${this.namespace(type, body)}
-                `);
+                `;
         }
+        return undefined;
     }
     public async generateHeaderGen(path: string, type: ast.Type, gen: boolean, notice: string | undefined) {
         let body: string | undefined;
@@ -237,7 +245,7 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
         }
         if (body?.length) {
             const guard = this.name(fqn(type, '_'), gen).toUpperCase() + '_H_';
-            await this.generateFile(path, s`
+            return s`
                 ${notice}
                 ${this.fileBanner(Path.basename(path), '// -----------------------------------------------------------------------------')}
                 /// @file ${this.name(fqn(type, '/'), gen)}.h
@@ -255,8 +263,9 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
 
                 #endif // ${guard}
 
-                `);
+                `;
         }
+        return undefined;
     }
 
     public async generateSourceGen(path: string, type: ast.Type, gen: boolean, notice: string | undefined) {
@@ -301,7 +310,7 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
                 break;
         }
         if (body?.length) {
-            await this.generateFile(path, s`
+            return s`
                 ${notice}
                 ${this.fileBanner(Path.basename(path), '// -----------------------------------------------------------------------------')}
                 /// @file ${this.name(fqn(type, '/'), gen)}.cpp
@@ -310,8 +319,9 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
                 ${this.includes([...this.sourceIncludes(type), type])} 
 
                 ${this.sourcePrologue(type)}${this.namespace(type, body)}
-                `);
+                `;
         }
+        return undefined;
     }
     async generateTypeHeader(type: ast.Type): Promise<string | undefined> {
         return s`

@@ -1,3 +1,4 @@
+import { generateDocuments } from '../../xsmp/test/generation-test-utils.js';
 import { afterEach, beforeAll, describe, expect, test } from "vitest";
 import { EmptyFileSystem, type LangiumDocument, URI } from "langium";
 import { expandToString as s } from "langium/generate";
@@ -92,8 +93,7 @@ describe('SMP generator tests', () => {
       const expectedCatalogue = await generator.doGenerateCatalogue(document!.parseResult.value, undefined);
       const expectedPackage = await generator.doGeneratePackage(document!.parseResult.value, undefined);
 
-      await generator.generateCatalogue(document!.parseResult.value, projectUri, undefined);
-      await generator.generatePackage(document!.parseResult.value, projectUri, undefined);
+      await generateDocuments(generator, [document!.parseResult.value], projectUri);
 
       const cataloguePath = path.join(tmpDir, 'smdl-gen', 'write-test.smpcat');
       const packagePath = path.join(tmpDir, 'smdl-gen', 'write-test.smppkg');
@@ -105,6 +105,26 @@ describe('SMP generator tests', () => {
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
+  });
+
+  test('reports colliding source basenames and preserves stale files when generation fails', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-smp-collision-'));
+    tempDirs.push(tmpDir);
+    const first = await parse('catalogue First namespace first {}', {
+      documentUri: URI.file(path.join(tmpDir, 'a/common.xsmpcat')).toString(),
+    });
+    const second = await parse('catalogue Second namespace second {}', {
+      documentUri: URI.file(path.join(tmpDir, 'b/common.xsmpcat')).toString(),
+    });
+    documents.push(first, second);
+    fs.mkdirSync(path.join(tmpDir, 'smdl-gen'));
+    const stale = path.join(tmpDir, 'smdl-gen', 'previous.smpcat');
+    fs.writeFileSync(stale, 'previous output');
+
+    await expect(generateDocuments(new SmpGenerator(services.shared), [
+      first.parseResult.value, second.parseResult.value,
+    ], URI.file(tmpDir))).rejects.toThrow(/Duplicate generated file/);
+    expect(fs.readFileSync(stale, 'utf8')).toBe('previous output');
   });
 
   test('serializes Reference using Interface in 2020 and Type in 2025', async () => {

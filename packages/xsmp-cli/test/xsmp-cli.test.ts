@@ -399,7 +399,7 @@ namespace mission_demo
         const result = await runCliWithOutput(['generate', projectDir]);
 
         expect(result.exitCode).toBe(2);
-        expect(result.stderr).toContain('Error generating file');
+        expect(result.stderr).toContain('Output is not a regular file');
         expect(result.stderr).toContain(path.join('python', 'mission_demo', '__init__.py'));
     });
 

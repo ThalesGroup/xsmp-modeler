@@ -4,6 +4,10 @@ import { describe, expect, test, vi } from 'vitest';
 import type { XsmpRegisteredContribution } from '../../src/contributions/xsmp-extension-types.js';
 import type * as ast from '../../src/generated/ast-partial.js';
 import type { XsmpGenerator } from '../../src/generator/generator.js';
+import type { GeneratedFiles } from '../../src/generator/generated-files.js';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { XsmpDocumentGenerator } from '../../src/workspace/document-generator.js';
 import type { XsmpSharedServices } from '../../src/xsmp-module.js';
 
@@ -156,8 +160,9 @@ describe('XsmpDocumentGenerator concurrency', () => {
         const taskError = new Error('generation task failed');
         const currentProject = documentedProject('task-drain');
         const fileGenerator: XsmpGenerator = {
-            clean: () => undefined,
-            generate: (_node, _projectUri, acceptTask) => {
+            id: 'test',
+            prepare: context => context.createFiles({}),
+            generate: (_node, { acceptTask }) => {
                 acceptTask(async () => {
                     await slowTaskStarted.promise;
                     events.push('task:failure');
@@ -296,88 +301,170 @@ describe('XsmpDocumentGenerator concurrency', () => {
     });
 });
 
-describe('XsmpDocumentGenerator clean', () => {
-    test('generates every contribution when one of them cannot clean its previous outputs', async () => {
+describe('XsmpDocumentGenerator output lifecycle', () => {
+    test('rejects task submissions after document traversal has finished', async () => {
+        const project = documentedProject('late-task');
+        const lateTask = vi.fn(async () => undefined);
+        const fileGenerator: XsmpGenerator = {
+            id: 'test',
+            prepare: context => context.createFiles({}),
+            generate: (_node, { acceptTask }) => {
+                acceptTask(async () => { acceptTask(lateTask); });
+            },
+        };
+        await expect(createTaskGenerator(new DefaultWorkspaceLock(), project, fileGenerator)
+            .generateProject(project, Cancellation.CancellationToken.None)).rejects.toThrow('task collection has finished');
+        expect(lateTask).not.toHaveBeenCalled();
+    });
+
+    test('prepares every contribution and retains their shared outputs until all tasks finish', async () => {
+        const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-shared-generation-'));
+        const stale = path.join(directory, 'previous.cpp');
+        const firstFile = path.join(directory, 'first.cpp');
+        const secondFile = path.join(directory, 'second.cpp');
+        fs.writeFileSync(stale, 'previous');
+        const project = documentedProject('shared', path.dirname(directory));
+        const slowTaskStarted = deferred();
+        const releaseSlowTask = deferred();
         const events: string[] = [];
-        const cleanError = Object.assign(new Error("EBUSY: resource busy or locked, rmdir 'adoc-gen'"), { code: 'EBUSY' });
-        const currentProject = documentedProject('locked-outputs');
-        const lockedGenerator: XsmpGenerator = {
-            clean: () => {
-                events.push('locked:clean');
-                throw cleanError;
+        let firstOutput: GeneratedFiles;
+        let secondOutput: GeneratedFiles;
+        let firstRun = true;
+        const first: XsmpGenerator = {
+            id: 'test',
+            prepare: context => {
+                events.push('first:prepare');
+                return firstOutput = context.createFiles({ generated: { directory: path.basename(directory), writeMode: 'if-changed', cleanup: 'directory' } });
             },
-            generate: (_node, _projectUri, acceptTask) => {
-                acceptTask(async () => {
-                    events.push('locked:task');
+            generate: (_node, { acceptTask: accept }) => {
+                events.push('first:generate');
+                if (firstRun) accept(() => firstOutput.write('generated', 'first.cpp', 'first'));
+            },
+        };
+        const second: XsmpGenerator = {
+            id: 'test',
+            prepare: context => {
+                events.push('second:prepare');
+                return secondOutput = context.createFiles({ generated: { directory: path.basename(directory), writeMode: 'if-changed', cleanup: 'directory' } });
+            },
+            generate: (_node, { acceptTask: accept }) => {
+                events.push('second:generate');
+                accept(async () => {
+                    slowTaskStarted.resolve();
+                    await releaseSlowTask.promise;
+                    await secondOutput.write('generated', 'second.cpp', 'second');
                 });
             },
         };
-        const otherGenerator: XsmpGenerator = {
-            clean: () => {
-                events.push('other:clean');
-            },
-            generate: (_node, _projectUri, acceptTask) => {
-                acceptTask(async () => {
-                    events.push('other:task');
-                });
-            },
-        };
-        const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-
+        const generator = createTaskGenerator(new DefaultWorkspaceLock(), project, first, second);
+        const generation = generator.generateProject(project, Cancellation.CancellationToken.None);
         try {
-            const generator = createTaskGenerator(new DefaultWorkspaceLock(), currentProject, lockedGenerator, otherGenerator);
-            await generator.generateProject(currentProject, Cancellation.CancellationToken.None);
+            await Promise.race([slowTaskStarted.promise, generation]);
+            expect(events).toEqual(['first:prepare', 'second:prepare', 'first:generate', 'second:generate']);
+            expect(fs.readFileSync(stale, 'utf8')).toBe('previous');
+            releaseSlowTask.resolve();
+            await generation;
+            expect(fs.readdirSync(directory)).toEqual(['first.cpp', 'second.cpp']);
+            expect(fs.readFileSync(firstFile, 'utf8')).toBe('first');
+            expect(fs.readFileSync(secondFile, 'utf8')).toBe('second');
 
-            expect(events).toEqual(['locked:clean', 'other:clean', 'locked:task', 'other:task']);
-            expect(warn).toHaveBeenCalledWith(
-                "Could not clean the files previously generated by tool 'tool-1' for project 'locked-outputs'.",
-                cleanError,
-            );
+            // A fresh manifest is used for each run, so an omitted output becomes stale.
+            firstRun = false;
+            events.length = 0;
+            await generator.generateProject(project, Cancellation.CancellationToken.None);
+            expect(events).toEqual(['first:prepare', 'second:prepare', 'first:generate', 'second:generate']);
+            expect(fs.readdirSync(directory)).toEqual(['second.cpp']);
         } finally {
-            warn.mockRestore();
+            releaseSlowTask.resolve();
+            await generation;
+            fs.rmSync(directory, { recursive: true, force: true });
         }
     });
 
-    test('waits for asynchronous cleans, even failing ones, before generating', async () => {
-        const events: string[] = [];
-        const cleanError = new Error('asynchronous clean failed');
-        const currentProject = documentedProject('async-clean');
-        const failingGenerator: XsmpGenerator = {
-            clean: async () => {
-                await nextTurn();
-                events.push('failing:clean');
-                throw cleanError;
-            },
-            generate: (_node, _projectUri, acceptTask) => {
-                acceptTask(async () => {
-                    events.push('failing:task');
-                });
-            },
+    test.each(['failure', 'cancellation'])('preserves stale outputs after %s and cleans them after recovery', async outcome => {
+        const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-generation-recovery-'));
+        const stale = path.join(directory, 'previous.cpp');
+        fs.writeFileSync(stale, 'previous');
+        const cancellation = new Cancellation.CancellationTokenSource();
+        const taskError = new Error('generation failed');
+        const currentProject = documentedProject('recovery', path.dirname(directory));
+        let output: GeneratedFiles;
+        let fail = true;
+        const fileGenerator: XsmpGenerator = {
+            id: 'test',
+            prepare: context => output = context.createFiles({ generated: { directory: path.basename(directory), writeMode: 'if-changed', cleanup: 'directory' } }),
+            generate: (_node, { acceptTask }) => acceptTask(async () => {
+                await output.write('generated', 'current.cpp', 'current');
+                if (fail && outcome === 'failure') {
+                    throw taskError;
+                }
+                if (fail) {
+                    cancellation.cancel();
+                }
+            }),
         };
-        const slowGenerator: XsmpGenerator = {
-            clean: async () => {
-                await nextTurn();
-                events.push('slow:clean');
-            },
-            generate: (_node, _projectUri, acceptTask) => {
-                acceptTask(async () => {
-                    events.push('slow:task');
-                });
-            },
-        };
-        const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-
         try {
-            const generator = createTaskGenerator(new DefaultWorkspaceLock(), currentProject, failingGenerator, slowGenerator);
+            const generator = createTaskGenerator(new DefaultWorkspaceLock(), currentProject, fileGenerator);
+            await expect(generator.generateProject(currentProject, cancellation.token))
+                .rejects.toBe(outcome === 'failure' ? taskError : OperationCancelled);
+            expect(fs.readFileSync(stale, 'utf8')).toBe('previous');
+            expect(fs.readFileSync(path.join(directory, 'current.cpp'), 'utf8')).toBe('current');
+            fail = false;
             await generator.generateProject(currentProject, Cancellation.CancellationToken.None);
-
-            expect(events).toEqual(['failing:clean', 'slow:clean', 'failing:task', 'slow:task']);
-            expect(warn).toHaveBeenCalledWith(
-                "Could not clean the files previously generated by tool 'tool-1' for project 'async-clean'.",
-                cleanError,
-            );
+            expect(fs.existsSync(stale)).toBe(false);
         } finally {
-            warn.mockRestore();
+            fs.rmSync(directory, { recursive: true, force: true });
+        }
+    });
+
+    test('keeps generated files and reports a locked stale file after every contribution finishes', async () => {
+        const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-locked-generation-'));
+        const stale = path.join(directory, 'previous.cpp');
+        fs.writeFileSync(stale, 'previous');
+        const removalError = Object.assign(new Error('EBUSY: file locked'), { code: 'EBUSY' });
+        const project = documentedProject('locked-outputs', path.dirname(directory));
+        let outputs: GeneratedFiles;
+        const fileGenerator: XsmpGenerator = {
+            id: 'test',
+            prepare: context => outputs = context.createFiles({ generated: { directory: path.basename(directory), writeMode: 'if-changed', cleanup: 'directory' } }),
+            generate: (_node, { acceptTask }) => {
+                acceptTask(() => outputs.write('generated', 'current.cpp', 'current'));
+            },
+        };
+        const rm = vi.spyOn(fs.promises, 'rm').mockRejectedValue(removalError);
+        try {
+            await expect(createTaskGenerator(new DefaultWorkspaceLock(), project, fileGenerator)
+                .generateProject(project, Cancellation.CancellationToken.None)).rejects.toBe(removalError);
+            expect(fs.readFileSync(path.join(directory, 'current.cpp'), 'utf8')).toBe('current');
+            expect(fs.readFileSync(stale, 'utf8')).toBe('previous');
+            expect(rm).toHaveBeenCalledWith(URI.file(stale).fsPath, { force: true });
+        } finally {
+            rm.mockRestore();
+            fs.rmSync(directory, { recursive: true, force: true });
+        }
+    });
+
+    test('does not generate or remove outputs when a contribution cannot prepare', async () => {
+        const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-prepare-failure-'));
+        const stale = path.join(directory, 'previous.cpp');
+        fs.writeFileSync(stale, 'previous');
+        const failure = new Error('Cannot prepare generation');
+        const project = documentedProject('prepare-failure', path.dirname(directory));
+        const generate = vi.fn();
+        try {
+            await expect(createTaskGenerator(new DefaultWorkspaceLock(), project, {
+                id: 'test',
+                prepare: context => context.createFiles({ generated: { directory: path.basename(directory), writeMode: 'if-changed', cleanup: 'directory' } }),
+                generate,
+            }, {
+                id: 'test',
+                prepare: () => { throw failure; },
+                generate,
+            }).generateProject(project, Cancellation.CancellationToken.None)).rejects.toBe(failure);
+            expect(generate).not.toHaveBeenCalled();
+            expect(fs.readFileSync(stale, 'utf8')).toBe('previous');
+        } finally {
+            fs.rmSync(directory, { recursive: true, force: true });
         }
     });
 });
@@ -460,10 +547,10 @@ function project(name: string): ast.Project {
     };
 }
 
-function documentedProject(name: string): ast.Project {
+function documentedProject(name: string, directory = '/workspace'): ast.Project {
     const result = project(name);
     result.$document = {
-        uri: URI.file(`/workspace/${name}.xsmpproject`),
+        uri: URI.file(path.join(directory, `${name}.xsmpproject`)),
         state: DocumentState.Validated,
         parseResult: {
             value: result,

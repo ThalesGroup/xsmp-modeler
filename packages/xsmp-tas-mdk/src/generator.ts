@@ -41,7 +41,7 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
 
     override async generatePackageHeader(path: string, catalogue: ast.Catalogue, notice: string | undefined) {
         const guard = catalogue.name.toUpperCase() + '_H_';
-        await this.generateFile(path, s`
+        return s`
             ${notice}
             ${this.fileBanner(Path.basename(path), '// ---------------------------------------------------------------------------')}
             /// @file ${Path.basename(path)}
@@ -77,7 +77,7 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
             }
 
             #endif // ${guard}
-            `);
+            `;
     }
 
     override async generatePackageSource(path: string, catalogue: ast.Catalogue, notice: string | undefined) {
@@ -85,7 +85,7 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
         const components = AstUtils.streamAllContents(catalogue).filter(ast.isComponent).filter(component => !isAbstractType(component)).toArray();
         const requiresFactory = components.some(ast.isModel);
         const exportedTypes = this.exportedTypes(catalogue);
-        await this.generateFile(path, s`
+        return s`
             ${notice}
             ${this.fileBanner(Path.basename(path), '// -----------------------------------------------------------------------------')}
             /// @file ${Path.basename(path)}
@@ -178,11 +178,11 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
                 #endif
             }
             
-            `);
+            `;
     }
 
     override async generateDynamicPackageSource(path: string, catalogue: ast.Catalogue, notice: string | undefined) {
-        await this.generateFile(path, s`
+        return s`
             ${notice}
             ${this.fileBanner(Path.basename(path), '// -----------------------------------------------------------------------------')}
             /// @file ${Path.basename(path)}
@@ -248,7 +248,7 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
                 }
             }
 
-            `);
+            `;
     }
 
     override sourceIncludesComponent(type: ast.Component): Include[] {

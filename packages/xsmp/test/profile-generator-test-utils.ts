@@ -4,11 +4,12 @@ import type { Diagnostic } from 'vscode-languageserver';
 import { DiagnosticSeverity } from 'vscode-languageserver';
 import { expect } from 'vitest';
 import * as ast from '@xsmp/core/ast';
-import type { Task, XsmpGenerator } from '@xsmp/core/generator';
+import { type XsmpGenerator } from '@xsmp/core/generator';
 import { createBuiltinTestXsmpServices, rebuildTestDocuments } from './test-services.js';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { generateDocuments } from './generation-test-utils.js';
 
 const fixtureRoot = path.resolve(__dirname, 'fixtures', 'profile-generators');
 const fixtureProjectSource = `project 'profile-generators' using 'ECSS_SMP_2025'\nsource 'src'\n`;
@@ -79,14 +80,7 @@ export async function generateProfileTree(
     context.tempDirs.push(outputDir);
 
     const projectUri = URI.file(outputDir);
-    await generator.clean(projectUri);
-
-    const tasks: Task[] = [];
-    generator.generate(document.parseResult.value, projectUri, task => tasks.push(task));
-    for (const task of tasks) {
-        await task();
-    }
-
+    await generateDocuments(generator, [document.parseResult.value], projectUri);
     return outputDir;
 }
 
@@ -104,7 +98,8 @@ export function assertGeneratedTree(actualRoot: string, expectedRoot: string): v
     for (const relativePath of expectedFiles) {
         const actualContent = fs.readFileSync(path.join(actualRoot, relativePath), 'utf-8');
         const expectedContent = fs.readFileSync(path.join(expectedRoot, relativePath), 'utf-8');
-        expect(actualContent).toBe(expectedContent);
+        // Langium templates use native line endings; writer tests verify exact bytes.
+        expect(actualContent.replaceAll('\r\n', '\n')).toBe(expectedContent.replaceAll('\r\n', '\n'));
     }
 }
 
@@ -124,6 +119,7 @@ function listRelativeFiles(root: string): string[] {
 
 function walk(root: string, current: string, entries: string[]): void {
     for (const dirent of fs.readdirSync(current, { withFileTypes: true })) {
+        if (current === root && dirent.name === '.xsmp') continue;
         const absolutePath = path.join(current, dirent.name);
         if (dirent.isDirectory()) {
             walk(root, absolutePath, entries);
@@ -137,6 +133,7 @@ function syncExpectedTree(actualRoot: string, expectedRoot: string): void {
     fs.rmSync(expectedRoot, { recursive: true, force: true });
     fs.mkdirSync(expectedRoot, { recursive: true });
     for (const dirent of fs.readdirSync(actualRoot, { withFileTypes: true })) {
+        if (dirent.name === '.xsmp') continue;
         fs.cpSync(path.join(actualRoot, dirent.name), path.join(expectedRoot, dirent.name), { recursive: true });
     }
 }

@@ -1,7 +1,6 @@
 import { XsmpSdkGenerator } from './generator.js';
 import { scaffoldXsmpSdkProject } from './scaffold.js';
 import type { XsmpContributionRegistrationApi } from '@xsmp/core/contributions';
-import type { XsmpGenerator } from '@xsmp/core/generator';
 
 export function registerContribution(api: XsmpContributionRegistrationApi): void {
     api.setWizardMetadata({
@@ -10,12 +9,5 @@ export function registerContribution(api: XsmpContributionRegistrationApi): void
         defaultSelected: true,
     });
     api.setScaffolder(scaffoldXsmpSdkProject);
-    api.addGenerator(services => toXsmpGenerator(new XsmpSdkGenerator(services)));
-}
-
-function toXsmpGenerator(generator: XsmpGenerator): XsmpGenerator {
-    return {
-        generate: generator.generate.bind(generator),
-        clean: generator.clean.bind(generator),
-    };
+    api.addGenerator(services => new XsmpSdkGenerator(services));
 }

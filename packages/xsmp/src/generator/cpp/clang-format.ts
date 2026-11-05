@@ -1,69 +1,62 @@
-import { spawn, spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import * as path from 'node:path';
+import type { FileFormatter, PreparedFileFormatter } from '../generated-files.js';
+
 const clangFormatCommand = process.platform.startsWith('win') ? 'clang-format.exe' : 'clang-format';
-const isClangFormatAvailable = computeIsClangFormatAvailable();
 
-/**
- * Check if clang-format is executable.
- *
- * @return True if clang-format is found and executable, otherwise false.
- */
-function computeIsClangFormatAvailable(): boolean {
-    const result = spawnSync(clangFormatCommand, ['--version'], {
-        stdio: 'ignore',
-        shell: false
-    });
+/** One generation's formatter configuration. Output hashes belong to the shared writer. */
+export class ClangFormatter implements FileFormatter {
+    private readonly configurations = new Map<string, Promise<string | undefined>>();
+    private version: Promise<string | undefined> | undefined;
 
-    return !result.error && result.status === 0;
+    async prepare(file: string): Promise<PreparedFileFormatter> {
+        const version = await (this.version ??= run(['--version']));
+        if (version === undefined) {
+            return { format: async () => undefined };
+        }
+        // Directory controls style lookup; extension controls clang-format's language.
+        // Resolve the effective style once per directory/language in this generation.
+        const key = path.join(path.dirname(file), path.extname(file));
+        let configuration = this.configurations.get(key);
+        if (!configuration) {
+            configuration = run(['--dump-config', `--assume-filename=${file}`]).then(value =>
+                value === undefined ? undefined : createHash('sha256').update(value).digest('hex'));
+            if (this.configurations.size < 4096) {
+                this.configurations.set(key, configuration);
+            }
+        }
+        const configurationHash = await configuration;
+        return {
+            cacheKey: configurationHash === undefined ? undefined : `clang-format:${version}:${configurationHash}`,
+            // As with source models, formatter configuration must remain stable during a pass.
+            // Unknown configuration still permits formatting, but never cache reuse.
+            format: source => run([`--assume-filename=${file}`], source),
+        };
+    }
 }
 
-/**
- * Formats a file using a specific configuration asynchronously.
- *
- * @param path The path of the file to format.
- * @param content The content to be formatted.
- * @return A promise that resolves with the formatted content or the original content in case of an error.
- */
-export async function format(path: string, content: string): Promise<string> {
-    if (!isClangFormatAvailable) {
-        return content;
-    }
-
-    return new Promise((resolve) => {
-        const process = spawn(clangFormatCommand, [`-assume-filename=${path}`], { shell: false });
-
-        let formattedContent = '';
-        let errorContent = '';
-
-        // Capture stdout
-        process.stdout.on('data', (data) => {
-            formattedContent += data.toString();
-        });
-
-        // Capture stderr
-        process.stderr.on('data', (data) => {
-            errorContent += data.toString();
-        });
-
-        // Handle process completion
-        process.once('close', (code) => {
-            if (code === 0) {
-                resolve(formattedContent);
+async function run(arguments_: string[], source?: string): Promise<string | undefined> {
+    return new Promise(resolve => {
+        const child = spawn(clangFormatCommand, arguments_, { shell: false });
+        let output = '';
+        let errors = '';
+        let failed = false;
+        child.stdout.setEncoding('utf8').on('data', data => { output += data; });
+        child.stderr.setEncoding('utf8').on('data', data => { errors += data; });
+        child.once('error', error => { failed = true; errors ||= error.message; });
+        // A formatter that exits before consuming stdin can close its pipe early.
+        child.stdin.on('error', () => { failed = true; });
+        child.once('close', code => {
+            if (code === 0 && !failed) {
+                resolve(output);
             } else {
-                console.warn(`clang-format exited with code ${code}, returning original content.`);
-                if (errorContent.length > 0) {
-                    console.error(`Error during formatting of ${path}: ${errorContent}`);
+                if (errors) {
+                    console.warn(`clang-format failed: ${errors.trim()}`);
                 }
-                resolve(content);
+                resolve(undefined);
             }
         });
-
-        // Handle process errors
-        process.once('error', (error) => {
-            console.error(`Error during formatting of ${path}: ${error.message}`);
-            resolve(content); // Return original content on error
-        });
-
-        // Send input to the process
-        process.stdin.end(content);
+        child.stdin.end(source);
     });
 }
