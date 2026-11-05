@@ -570,6 +570,9 @@ public:
     }
 
     private requestParameterArgument(param: ast.Parameter): string {
+        if (this.isOptionalPointerParameter(param)) {
+            return `has_${param.name} ? &p_${param.name} : nullptr`;
+        }
         const argument = isString8(param.type.ref)
             ? `static_cast<${this.fqn(param.type.ref)}>(p_${param.name})`
             : `p_${param.name}`;
@@ -580,6 +583,19 @@ public:
     }
 
     initParameter(param: ast.Parameter): string {
+        if (this.isOptionalPointerParameter(param)) {
+            const keepString = isString8(param.type.ref) && param.direction !== 'out';
+            const read = `::Xsmp::Request::get<${keepString ? '::Smp::AnySimple' : this.fqn(param.type.ref)}>(component, request, "${param.name}", ${ast.isSimpleType(param.type.ref) ? this.primitiveTypeKind(param.type.ref) : this.uuid(param.type.ref)})`;
+            return s`
+                const bool has_${param.name} = request->GetParameterIndex("${param.name}") >= 0;
+                ${this.fqn(param.type.ref)} p_${param.name}{};
+                ${keepString ? `::Smp::AnySimple storage_${param.name};` : undefined}
+                ${param.direction !== 'out' ? `if (has_${param.name}) {
+                    ${keepString ? `storage_${param.name} = ${read};
+                    p_${param.name} = static_cast<${this.fqn(param.type.ref)}>(storage_${param.name});` : `p_${param.name} = ${read};`}
+                }` : undefined}
+                `;
+        }
         switch (param.direction ?? 'in') {
             case 'out':
                 // only declare the parameter
@@ -602,11 +618,10 @@ public:
     setParameter(param: ast.Parameter): string | undefined {
         switch (param.direction ?? 'in') {
             case 'out':
-            case 'inout':
-                if (ast.isSimpleType(param.type.ref)) {
-                    return `::Xsmp::Request::set(component, request, "${param.name}", ${this.primitiveTypeKind(param.type.ref)}, p_${param.name});`;
-                }
-                return `::Xsmp::Request::set(component, request, "${param.name}", ${this.uuid(param.type.ref)}, p_${param.name});`;
+            case 'inout': {
+                const setter = `::Xsmp::Request::set(component, request, "${param.name}", ${ast.isSimpleType(param.type.ref) ? this.primitiveTypeKind(param.type.ref) : this.uuid(param.type.ref)}, p_${param.name});`;
+                return this.isOptionalPointerParameter(param) ? `if (has_${param.name}) { ${setter} }` : setter;
+            }
             case 'in':
                 // do nothing
                 return undefined;

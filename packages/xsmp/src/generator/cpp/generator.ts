@@ -17,6 +17,7 @@ import { type DocumentationHelper } from '../../utils/documentation-helper.js';
 import { type AttributeHelper } from '../../utils/attribute-helper.js';
 import { ViewKind } from '../../utils/view_kind.js';
 import { isStandardBuiltinLibrary } from '../../builtins.js';
+import { getCppParameterDefaultIssue, isCppNullPointerDefault } from './parameter-validation.js';
 
 export enum CxxStandard { CXX_STD_11 = 0, CXX_STD_14 = 1, CXX_STD_17 = 2 }
 
@@ -1561,8 +1562,16 @@ export abstract class CppGenerator implements XsmpGenerator {
         return type.elements.filter(ast.isPublicable).map(element => this.publishMember(element)).filter(text => text !== undefined).join('\n');
     }
     protected declareParameter(param: ast.Parameter): string {
-        return `${this.type(param)} ${param.name}${param.default ? ' = ' + this.expression(param.default) : ''}`;
+        const issue = getCppParameterDefaultIssue(param, this.attrHelper);
+        if (issue) throw new Error(`Cannot generate parameter ${param.name}: ${issue}`);
+        const value = param.default && this.attrHelper.isByPointer(param) && isCppNullPointerDefault(param.default)
+            ? 'nullptr' : this.expression(param.default);
+        return `${this.type(param)} ${param.name}${param.default ? ' = ' + value : ''}`;
     }
+    protected isOptionalPointerParameter(param: ast.Parameter): boolean {
+        return this.attrHelper.isByPointer(param) && param.default !== undefined && isCppNullPointerDefault(param.default);
+    }
+
     protected defineParameter(param: ast.Parameter): string {
         return `${this.type(param)} ${param.name}`;
     }
