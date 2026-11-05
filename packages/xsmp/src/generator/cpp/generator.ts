@@ -13,11 +13,11 @@ import * as Solver from '../../utils/solver.js';
 import { PTK } from '../../utils/primitive-type-kind.js';
 import { getXsmpVersion } from '../../version.js';
 import { OperatorKind } from '../../utils/operator-kind.js';
+import { getParameterDefaultIssue, isNullPointerDefault } from '../../validation/parameter-validation.js';
 import { type DocumentationHelper } from '../../utils/documentation-helper.js';
 import { type AttributeHelper } from '../../utils/attribute-helper.js';
 import { ViewKind } from '../../utils/view_kind.js';
 import { isStandardBuiltinLibrary } from '../../builtins.js';
-import { getParameterDefaultIssue, isNullPointerDefault } from '../../validation/parameter-validation.js';
 
 export enum CxxStandard { CXX_STD_11 = 0, CXX_STD_14 = 1, CXX_STD_17 = 2 }
 
