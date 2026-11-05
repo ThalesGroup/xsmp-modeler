@@ -1,9 +1,12 @@
 import { expect, test } from 'vitest';
-import { URI } from 'langium';
+import { EmptyFileSystem, URI } from 'langium';
+import { clearDocuments, parseHelper } from 'langium/test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { XsmpSdkGenerator } from '@xsmp/profile-xsmp-sdk';
+import { createXsmpServices } from '@xsmp/core';
+import type { Catalogue } from '@xsmp/core/ast';
 import { createProfileGeneratorTestContext, cleanupProfileGeneratorTestContext, generateProfileTree } from '../profile-generator-test-utils.js';
 import { rebuildTestDocuments } from '../test-services.js';
 
@@ -26,7 +29,7 @@ async function parseCase(body: string, profile = 'xsmp-sdk') {
     return { context, document, diagnostics: document.diagnostics ?? [] };
 }
 
-test.each(['xsmp-sdk', 'esa-cdk', 'tas-mdk'])('%s diagnoses UInt64 ranges the SMP registration API cannot represent', async profile => {
+test.each(['', 'xsmp-sdk', 'esa-cdk', 'tas-mdk'])('profile "%s" diagnoses unsupported UInt64 ranges exactly once', async profile => {
     const { context, document, diagnostics } = await parseCase(`
         /** @uuid 84000000-0000-4000-8000-000000000001 */ public integer Full extends UInt64
         /** @uuid 84000000-0000-4000-8000-000000000002 */ public integer High extends UInt64 in 0 ... 18446744073709551615UL
@@ -52,10 +55,18 @@ test('preserves explicit representable UInt64 bounds and direct primitive fields
     } finally { await cleanupProfileGeneratorTestContext(context); }
 });
 
-test('allows an unbounded UInt64 alias for projects without C++ generation', async () => {
-    const { context, diagnostics } = await parseCase(`
-        /** @uuid 84000000-0000-4000-8000-000000000006 */ public integer Full extends UInt64
-    `, '');
-    try { expect(diagnostics.filter(d => d.severity === 1)).toEqual([]); }
-    finally { await cleanupProfileGeneratorTestContext(context); }
+test('diagnoses unbounded UInt64 aliases with the core validator and no registered contributions', async () => {
+    const services = createXsmpServices(EmptyFileSystem);
+    await services.shared.workspace.WorkspaceManager.initializeWorkspace([]);
+    const document = await parseHelper<Catalogue>(services.xsmpcat)(`catalogue NoContributions
+namespace checks {
+    /** @uuid 84000000-0000-4000-8000-000000000006 */ public integer Full extends UInt64
+}`, { documentUri: 'file:///integer-common-validation.xsmpcat' });
+    try {
+        await services.shared.workspace.DocumentBuilder.build([document], { validation: true });
+        expect(document.parseResult.parserErrors).toEqual([]);
+        const errors = (document.diagnostics ?? []).filter(d => d.severity === 1);
+        expect(errors).toHaveLength(1);
+        expect(errors[0].message).toContain('signed Int64 bounds');
+    } finally { await clearDocuments(services.shared, [document]); }
 });
