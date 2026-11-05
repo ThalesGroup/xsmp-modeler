@@ -1,70 +1,75 @@
-import { type AstNode, type JSDocComment, type JSDocParagraph, type JSDocTag, isAstNodeWithComment, isJSDoc, parseJSDoc, WorkspaceCache } from 'langium';
+import { type AstNode, type JSDocComment, type JSDocParagraph, type JSDocTag, isAstNodeWithComment, isJSDoc, parseJSDoc } from 'langium';
 import * as ast from '../generated/ast-partial.js';
 import { type XsmpSharedServices } from '../xsmp-module.js';
 import { findDocumentationNode } from './xsmp-utils.js';
 
 export class DocumentationHelper {
-    protected readonly cache: WorkspaceCache<AstNode, JSDocComment | undefined>;
-    constructor(services: XsmpSharedServices) {
-        this.cache = new WorkspaceCache(services);
-    }
+    // Documentation depends only on this AST node's syntax. Reparsed nodes get a new key.
+    protected readonly cache = new WeakMap<AstNode, JSDocComment | undefined>();
+    constructor(_services: XsmpSharedServices) {}
+
     getJSDoc(element: AstNode): JSDocComment | undefined {
-        return this.cache.get(element, () => {
-            switch (element.$type) {
-                case ast.BuiltInFunction.$type:
-                case ast.BuiltInConstant.$type: {
-                    const builtin = element as ast.BuiltInConstant;
-                    switch (builtin.name) {
-                        case 'PI': return parseJSDoc('/** The double value that is closer than any other to pi, the ratio of the circumference of a circle to its diameter. */');
-                        case 'E': return parseJSDoc('/** The double value that is closer than any other to e, the base of the natural logarithms. */');
-                        case 'cos': return parseJSDoc('/** Returns the trigonometric cosine of an angle. */');
-                        case 'sin': return parseJSDoc('/** Returns the trigonometric sine of an angle. */');
-                        case 'tan': return parseJSDoc('/** Returns the trigonometric tangent of an angle. */');
-                        case 'acos': return parseJSDoc('/** Returns the arc cosine of a value; the returned angle is in the range 0.0 through pi. */');
-                        case 'asin': return parseJSDoc('/** Returns the arc sine of a value; the returned angle is in the range -pi/2 through pi/2. */');
-                        case 'atan': return parseJSDoc('/** Returns the arc tangent of a value; the returned angle is in the range -pi/2 through pi/2. */');
-                        case 'cosh': return parseJSDoc('/** Returns the hyperbolic cosine of a double value. The hyperbolic cosine of x is defined to be (ex + e-x)/2 where e is Euler\'s number. */');
-                        case 'sinh': return parseJSDoc('/** Returns the hyperbolic sine of a double value. The hyperbolic sine of x is defined to be (ex - e-x)/2 where e is Euler\'s number. */');
-                        case 'tanh': return parseJSDoc('/** Returns the hyperbolic tangent of a double value. The hyperbolic tangent of x is defined to be (ex - e-x)/ (ex + e-x), in other words, sinh(x)/cosh(x). Note that the absolute value of the exact tanh is always less than 1. */');
-                        case 'exp': return parseJSDoc('/** Returns Euler\'s number e raised to the power of a double value. */');
-                        case 'log': return parseJSDoc('/** Returns the natural logarithm (base e) of a double value. */');
-                        case 'log10': return parseJSDoc('/** Returns the base 10 logarithm of a double value. */');
-                        case 'expm1': return parseJSDoc('/** Returns ex -1. Note that for values of x near 0, the exact sum of expm1(x) + 1 is much closer to the true result of ex than exp(x). */');
-                        case 'log1p': return parseJSDoc('/** Returns the natural logarithm of the sum of the argument and 1. Note that for small values x, the result of log1p(x) is much closer to the true result of ln(1 + x) than the floating-point evaluation of log(1.0+x). */');
-                        case 'sqrt': return parseJSDoc('/** Returns the correctly rounded positive square root of a double value. */');
-                        case 'ceil': return parseJSDoc('/** Returns the smallest (closest to negative infinity) double value that is greater than or equal to the argument and is equal to a mathematical integer. */');
-                        case 'floor': return parseJSDoc('/** Returns the largest (closest to positive infinity) double value that is less than or equal to the argument and is equal to a mathematical integer. */');
-                        case 'abs': return parseJSDoc('/** Returns the absolute value of a double value. If the argument is not negative, the argument is returned. If the argument is negative, the negation of the argument is returned. */');
-                        case 'cosf': return parseJSDoc('/** Returns the trigonometric cosine of an angle. */');
-                        case 'sinf': return parseJSDoc('/** Returns the trigonometric sine of an angle. */');
-                        case 'tanf': return parseJSDoc('/** Returns the trigonometric tangent of an angle. */');
-                        case 'acosf': return parseJSDoc('/** Returns the arc cosine of a value; the returned angle is in the range 0.0 through pi. */');
-                        case 'asinf': return parseJSDoc('/** Returns the arc sine of a value; the returned angle is in the range -pi/2 through pi/2. */');
-                        case 'atanf': return parseJSDoc('/** Returns the arc tangent of a value; the returned angle is in the range -pi/2 through pi/2. */');
-                        case 'coshf': return parseJSDoc('/** Returns the hyperbolic cosine of a float value. The hyperbolic cosine of x is defined to be (ex + e-x)/2 where e is Euler\'s number. */');
-                        case 'sinhf': return parseJSDoc('/** Returns the hyperbolic sine of a float value. The hyperbolic sine of x is defined to be (ex - e-x)/2 where e is Euler\'s number. */');
-                        case 'tanhf': return parseJSDoc('/** Returns the hyperbolic tangent of a float value. The hyperbolic tangent of x is defined to be (ex - e-x)/ (ex + e-x), in other words, sinh(x)/cosh(x). Note that the absolute value of the exact tanh is always less than 1. */');
-                        case 'expf': return parseJSDoc('/** Returns Euler\'s number e raised to the power of a float value. */');
-                        case 'logf': return parseJSDoc('/** Returns the natural logarithm (base e) of a float value. */');
-                        case 'log10f': return parseJSDoc('/** Returns the base 10 logarithm of a float value. */');
-                        case 'expm1f': return parseJSDoc('/** Returns ex -1. Note that for values of x near 0, the exact sum of expm1(x) + 1 is much closer to the true result of ex than exp(x). */');
-                        case 'log1pf': return parseJSDoc('/** Returns the natural logarithm of the sum of the argument and 1. Note that for small values x, the result of log1p(x) is much closer to the true result of ln(1 + x) than the floating-point evaluation of log(1.0+x). */');
-                        case 'sqrtf': return parseJSDoc('/** Returns the correctly rounded positive square root of a float value. */');
-                        case 'ceilf': return parseJSDoc('/** Returns the smallest (closest to negative infinity) float value that is greater than or equal to the argument and is equal to a mathematical integer. */');
-                        case 'floorf': return parseJSDoc('/** Returns the largest (closest to positive infinity) float value that is less than or equal to the argument and is equal to a mathematical integer. */');
-                        case 'absf': return parseJSDoc('/** Returns the absolute value of a float value. If the argument is not negative, the argument is returned. If the argument is negative, the negation of the argument is returned. */');
-                    }
+        if (!this.cache.has(element)) {
+            this.cache.set(element, this.parseDocumentation(element));
+        }
+        return this.cache.get(element);
+    }
+
+    protected parseDocumentation(element: AstNode): JSDocComment | undefined {
+        switch (element.$type) {
+            case ast.BuiltInFunction.$type:
+            case ast.BuiltInConstant.$type: {
+                const builtin = element as ast.BuiltInConstant;
+                switch (builtin.name) {
+                    case 'PI': return parseJSDoc('/** The double value that is closer than any other to pi, the ratio of the circumference of a circle to its diameter. */');
+                    case 'E': return parseJSDoc('/** The double value that is closer than any other to e, the base of the natural logarithms. */');
+                    case 'cos': return parseJSDoc('/** Returns the trigonometric cosine of an angle. */');
+                    case 'sin': return parseJSDoc('/** Returns the trigonometric sine of an angle. */');
+                    case 'tan': return parseJSDoc('/** Returns the trigonometric tangent of an angle. */');
+                    case 'acos': return parseJSDoc('/** Returns the arc cosine of a value; the returned angle is in the range 0.0 through pi. */');
+                    case 'asin': return parseJSDoc('/** Returns the arc sine of a value; the returned angle is in the range -pi/2 through pi/2. */');
+                    case 'atan': return parseJSDoc('/** Returns the arc tangent of a value; the returned angle is in the range -pi/2 through pi/2. */');
+                    case 'cosh': return parseJSDoc('/** Returns the hyperbolic cosine of a double value. The hyperbolic cosine of x is defined to be (ex + e-x)/2 where e is Euler\'s number. */');
+                    case 'sinh': return parseJSDoc('/** Returns the hyperbolic sine of a double value. The hyperbolic sine of x is defined to be (ex - e-x)/2 where e is Euler\'s number. */');
+                    case 'tanh': return parseJSDoc('/** Returns the hyperbolic tangent of a double value. The hyperbolic tangent of x is defined to be (ex - e-x)/ (ex + e-x), in other words, sinh(x)/cosh(x). Note that the absolute value of the exact tanh is always less than 1. */');
+                    case 'exp': return parseJSDoc('/** Returns Euler\'s number e raised to the power of a double value. */');
+                    case 'log': return parseJSDoc('/** Returns the natural logarithm (base e) of a double value. */');
+                    case 'log10': return parseJSDoc('/** Returns the base 10 logarithm of a double value. */');
+                    case 'expm1': return parseJSDoc('/** Returns ex -1. Note that for values of x near 0, the exact sum of expm1(x) + 1 is much closer to the true result of ex than exp(x). */');
+                    case 'log1p': return parseJSDoc('/** Returns the natural logarithm of the sum of the argument and 1. Note that for small values x, the result of log1p(x) is much closer to the true result of ln(1 + x) than the floating-point evaluation of log(1.0+x). */');
+                    case 'sqrt': return parseJSDoc('/** Returns the correctly rounded positive square root of a double value. */');
+                    case 'ceil': return parseJSDoc('/** Returns the smallest (closest to negative infinity) double value that is greater than or equal to the argument and is equal to a mathematical integer. */');
+                    case 'floor': return parseJSDoc('/** Returns the largest (closest to positive infinity) double value that is less than or equal to the argument and is equal to a mathematical integer. */');
+                    case 'abs': return parseJSDoc('/** Returns the absolute value of a double value. If the argument is not negative, the argument is returned. If the argument is negative, the negation of the argument is returned. */');
+                    case 'cosf': return parseJSDoc('/** Returns the trigonometric cosine of an angle. */');
+                    case 'sinf': return parseJSDoc('/** Returns the trigonometric sine of an angle. */');
+                    case 'tanf': return parseJSDoc('/** Returns the trigonometric tangent of an angle. */');
+                    case 'acosf': return parseJSDoc('/** Returns the arc cosine of a value; the returned angle is in the range 0.0 through pi. */');
+                    case 'asinf': return parseJSDoc('/** Returns the arc sine of a value; the returned angle is in the range -pi/2 through pi/2. */');
+                    case 'atanf': return parseJSDoc('/** Returns the arc tangent of a value; the returned angle is in the range -pi/2 through pi/2. */');
+                    case 'coshf': return parseJSDoc('/** Returns the hyperbolic cosine of a float value. The hyperbolic cosine of x is defined to be (ex + e-x)/2 where e is Euler\'s number. */');
+                    case 'sinhf': return parseJSDoc('/** Returns the hyperbolic sine of a float value. The hyperbolic sine of x is defined to be (ex - e-x)/2 where e is Euler\'s number. */');
+                    case 'tanhf': return parseJSDoc('/** Returns the hyperbolic tangent of a float value. The hyperbolic tangent of x is defined to be (ex - e-x)/ (ex + e-x), in other words, sinh(x)/cosh(x). Note that the absolute value of the exact tanh is always less than 1. */');
+                    case 'expf': return parseJSDoc('/** Returns Euler\'s number e raised to the power of a float value. */');
+                    case 'logf': return parseJSDoc('/** Returns the natural logarithm (base e) of a float value. */');
+                    case 'log10f': return parseJSDoc('/** Returns the base 10 logarithm of a float value. */');
+                    case 'expm1f': return parseJSDoc('/** Returns ex -1. Note that for values of x near 0, the exact sum of expm1(x) + 1 is much closer to the true result of ex than exp(x). */');
+                    case 'log1pf': return parseJSDoc('/** Returns the natural logarithm of the sum of the argument and 1. Note that for small values x, the result of log1p(x) is much closer to the true result of ln(1 + x) than the floating-point evaluation of log(1.0+x). */');
+                    case 'sqrtf': return parseJSDoc('/** Returns the correctly rounded positive square root of a float value. */');
+                    case 'ceilf': return parseJSDoc('/** Returns the smallest (closest to negative infinity) float value that is greater than or equal to the argument and is equal to a mathematical integer. */');
+                    case 'floorf': return parseJSDoc('/** Returns the largest (closest to positive infinity) float value that is less than or equal to the argument and is equal to a mathematical integer. */');
+                    case 'absf': return parseJSDoc('/** Returns the absolute value of a float value. If the argument is not negative, the argument is returned. If the argument is negative, the negation of the argument is returned. */');
                 }
             }
-            const comment = findDocumentationNode(element.$cstNode);
-            if (comment && isJSDoc(comment)) {
-                return parseJSDoc(comment);
-            }
-            if (isAstNodeWithComment(element) && element.$comment) {
-                return parseJSDoc(element.$comment);
-            }
-            return undefined;
-        });
+        }
+        const comment = findDocumentationNode(element.$cstNode);
+        if (comment && isJSDoc(comment)) {
+            return parseJSDoc(comment);
+        }
+        if (isAstNodeWithComment(element) && element.$comment) {
+            return parseJSDoc(element.$comment);
+        }
+        return undefined;
     }
 
     private getTag(element: AstNode, tagName: string): JSDocParagraph | undefined {
