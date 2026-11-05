@@ -1,6 +1,7 @@
+import { VisibilityCache } from '../workspace/visibility-cache.js';
 import type { AstNode, AstNodeDescription, AstNodeDescriptionProvider, AstReflection, IndexManager, ReferenceInfo, Scope, ScopeOptions, ScopeProvider, Stream } from 'langium';
 import * as ast from '../generated/ast-partial.js';
-import { AstUtils, EMPTY_SCOPE, MapScope, StreamScope, WorkspaceCache, stream } from 'langium';
+import { AstUtils, EMPTY_SCOPE, MapScope, StreamScope, stream } from 'langium';
 import type { IdentifierPatternService, TemplateBindings } from './identifier-pattern-service.js';
 import type { XsmpInstancePathResolver } from './xsmp-instance-path-resolver.js';
 import type { ProjectManager } from '../workspace/project-manager.js';
@@ -9,7 +10,7 @@ import type { XsmpServices } from '../xsmp-module.js';
 export class XsmpsedScopeProvider implements ScopeProvider {
     protected readonly reflection: AstReflection;
     protected readonly indexManager: IndexManager;
-    protected readonly globalScopeCache: WorkspaceCache<ReadonlySet<string> | undefined, Map<string, Scope>>;
+    protected readonly globalScopeCache: VisibilityCache<Map<string, Scope>>;
     protected readonly projectManager: ProjectManager;
     protected readonly descriptions: AstNodeDescriptionProvider;
     protected readonly pathResolver: XsmpInstancePathResolver;
@@ -18,7 +19,7 @@ export class XsmpsedScopeProvider implements ScopeProvider {
     constructor(services: XsmpServices) {
         this.reflection = services.shared.AstReflection;
         this.indexManager = services.shared.workspace.IndexManager;
-        this.globalScopeCache = new WorkspaceCache<ReadonlySet<string> | undefined, Map<string, Scope>>(services.shared);
+        this.globalScopeCache = new VisibilityCache<Map<string, Scope>>();
         this.projectManager = services.shared.workspace.ProjectManager;
         this.descriptions = services.workspace.AstNodeDescriptionProvider;
         this.pathResolver = services.shared.InstancePathResolver;
