@@ -7,7 +7,6 @@ import * as ast from '../generated/ast-partial.js';
 import type { XsmpcatServices } from '../xsmpcat-module.js';
 import * as XsmpUtils from '../utils/xsmp-utils.js';
 import * as Solver from '../utils/solver.js';
-import { getOperationInvocationIssue } from '../utils/operation-invocation.js';
 import * as IssueCodes from './xsmpcat-issue-codes.js';
 import { isBuiltinLibrary } from '../builtins.js';
 import { isFloatingType, PTK } from '../utils/primitive-type-kind.js';
@@ -1204,13 +1203,6 @@ export class XsmpcatValidator {
             if (this.attrHelper.isAttributeTrue(isConst)) { accept('warning', 'Const attribute is ignored for a Constructor.', { node: isConst!, data: diagnosticData(IssueCodes.InvalidAttribute) }); }
 
             if (operation.returnParameter) { accept('error', 'A Constructors shall not have any return parameters.', { node: operation, property: ast.Operation.returnParameter }); }
-        }
-
-        if (ast.isComponent(operation.$container) && !this.attrHelper.isConstructor(operation)) {
-            const issue = getOperationInvocationIssue(operation, this.attrHelper);
-            if (issue) {
-                accept('warning', `The C++ operation remains available, but is not published for dynamic invocation: ${issue}.`, { node: operation, property: ast.Operation.name });
-            }
         }
 
         const parameterNames = new Set<string>();

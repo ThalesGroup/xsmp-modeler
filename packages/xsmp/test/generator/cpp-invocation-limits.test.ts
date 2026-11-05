@@ -30,8 +30,8 @@ async function parseCase(body: string, profile = 'xsmp-sdk') {
     return { context, document, diagnostics: document.diagnostics ?? [] };
 }
 
-test.each(['', 'xsmp-sdk'])('reports invocation warnings exactly once with profile "%s"', async profile => {
-    const { context, document, diagnostics } = await parseCase(`
+test.each(['', 'xsmp-sdk'])('does not emit invocation diagnostics with profile "%s"', async profile => {
+    const { context, diagnostics } = await parseCase(`
         /** @uuid 85000000-0000-4000-8000-000000000008 */ public model Probe {
             @Constructor def void make(in Int32 value)
             @Constructor def void create(in Float64 value)
@@ -47,17 +47,11 @@ test.each(['', 'xsmp-sdk'])('reports invocation warnings exactly once with profi
         }
     `, profile);
     try {
-        expect(diagnostics.filter(d => d.severity === 1)).toEqual([]);
-        const warnings = diagnostics.filter(d => d.message.includes('not published for dynamic invocation'));
-        expect(warnings).toHaveLength(3);
-        expect(warnings.every(d => d.severity === 2)).toBe(true);
-        expect(warnings.map(d => document.textDocument.getText(d.range)).sort()).toEqual(['calculate', 'calculate', 'pointer']);
-        expect(warnings.filter(d => d.message.includes('pointer return values'))).toHaveLength(1);
-        expect(warnings.filter(d => d.message.includes('overloaded operation names'))).toHaveLength(2);
+        expect(diagnostics).toEqual([]);
     } finally { await cleanupProfileGeneratorTestContext(context); }
 });
 
-test('preserves C++ APIs and diagnoses signatures that cannot be dynamically invoked', async () => {
+test('preserves C++ APIs and explains omitted dynamic invocations in generated code', async () => {
     const { context, document, diagnostics } = await parseCase(`
         /** @uuid 85000000-0000-4000-8000-000000000001 */ public model Probe {
             @Constructor def void make(in Int32 value)
@@ -69,8 +63,7 @@ test('preserves C++ APIs and diagnoses signatures that cannot be dynamically inv
         }
     `);
     try {
-        expect(diagnostics.filter(d => d.severity === 1)).toEqual([]);
-        expect(diagnostics.filter(d => d.message.includes('not published for dynamic invocation'))).toHaveLength(3);
+        expect(diagnostics).toEqual([]);
         const output = await generateProfileTree(context, new XsmpSdkGenerator(context.services.shared), document, 'invocation-limits-');
         const source = fs.readFileSync(path.join(output, 'src-gen/checks/ProbeGen.cpp'), 'utf8');
         const header = fs.readFileSync(path.join(output, 'src-gen/checks/ProbeGen.h'), 'utf8');
@@ -94,8 +87,7 @@ test('detects inherited overloads without treating matching overrides as overloa
         /** @uuid 85000000-0000-4000-8000-000000000004 */ public model Override extends Base { def Int32 calculate(in Int32 value) }
     `);
     try {
-        expect(diagnostics.filter(d => d.severity === 1)).toEqual([]);
-        expect(diagnostics.filter(d => d.message.includes('overloaded operation names'))).toHaveLength(1);
+        expect(diagnostics).toEqual([]);
         const output = await generateProfileTree(context, new XsmpSdkGenerator(context.services.shared), document, 'inherited-invocation-');
         const base = fs.readFileSync(path.join(output, 'src-gen/checks/BaseGen.cpp'), 'utf8');
         const derived = fs.readFileSync(path.join(output, 'src-gen/checks/OverloadGen.cpp'), 'utf8');
