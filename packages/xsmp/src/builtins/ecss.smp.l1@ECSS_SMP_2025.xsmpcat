@@ -3728,7 +3728,7 @@ namespace Smp
     /**
      * @uuid 00000000-0000-0000-2020-204368617238
      */
-    primitive Char8
+    public primitive Char8
 
     /**
      * This is the base interface for all SMP components.
