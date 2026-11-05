@@ -626,8 +626,8 @@ export abstract class CppGenerator implements XsmpGenerator {
             case ast.BinaryOperation.$type: return `${this.expression((expr as ast.BinaryOperation).leftOperand)} ${(expr as ast.BinaryOperation).feature} ${this.expression((expr as ast.BinaryOperation).rightOperand)}`;
             case ast.ParenthesizedExpression.$type: return `(${this.expression((expr as ast.ParenthesizedExpression).expr)})`;
             case ast.BooleanLiteral.$type: return (expr as ast.BooleanLiteral).isTrue ? 'true' : 'false';
-            case ast.BuiltInConstant.$type: return `M_${(expr as ast.BuiltInConstant).name}`;
-            case ast.BuiltInFunction.$type: return `std::${(expr as ast.BuiltInFunction).name}(${this.expression((expr as ast.BuiltInFunction).argument)})`;
+            case ast.BuiltInConstant.$type:
+            case ast.BuiltInFunction.$type: return `(${this.evaluatedFloatingExpression(expr)})`;
             case ast.IntegerLiteral.$type: {
                 const type = this.typeProvider.getType(expr);
                 if (ast.isEnumeration(type)) {
@@ -662,6 +662,17 @@ export abstract class CppGenerator implements XsmpGenerator {
             }
         }
         return `${expr.$cstNode?.text}`;
+    }
+    private evaluatedFloatingExpression(expression: ast.Expression): string {
+        const value = Solver.getValue(expression);
+        const number = value?.getValue();
+        if (typeof number !== 'number') throw new Error('Cannot evaluate a C++ built-in expression.');
+        const type = value!.primitiveTypeKind() === PTK.Float32 ? 'float' : 'double';
+        if (Number.isNaN(number)) return `std::numeric_limits<${type}>::quiet_NaN()`;
+        if (!Number.isFinite(number)) return `${number < 0 ? '-' : ''}std::numeric_limits<${type}>::infinity()`;
+        const text = Object.is(number, -0) ? '-0.0' : number.toString();
+        const literal = /[.eE]/.test(text) ? text : `${text}.0`;
+        return `${literal}${type === 'float' ? 'f' : ''}`;
     }
     protected stringTypeIsConstexpr(): boolean { return false; }
 
@@ -1101,7 +1112,7 @@ export abstract class CppGenerator implements XsmpGenerator {
                     break;
                 case ast.BuiltInConstant.$type:
                 case ast.BuiltInFunction.$type:
-                    includes.push('cmath');
+                    includes.push('limits');
                     break;
             }
         }

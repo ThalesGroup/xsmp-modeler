@@ -1,0 +1,14 @@
+catalogue ConstantExpressions
+namespace constants {
+    /** @uuid 82000000-0000-4000-8000-000000000001 */
+    public struct MathValues {
+        constant Float64 cosine = $cos($PI)
+        constant Float32 squareRoot = $sqrtf(4.0f)
+        constant Float64 positiveInfinity = $exp(1000.0)
+        constant Float64 notANumber = $sqrt(-1.0)
+        constant Float64 negatedCosine = -$cos($PI)
+        constant Float32 negatedCosineFloat = -$cosf(3.0f)
+        constant Float64 negatedInfinity = -$log(0.0)
+        constant Float64 large = $exp(50.0)
+    }
+}
