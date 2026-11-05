@@ -551,7 +551,7 @@ export abstract class CppGenerator implements XsmpGenerator {
         if (result.length === 0) {
             return '';
         }
-        return '///' + result + '\n';
+        return '///' + this.protectTrigraphs(result) + '\n';
     }
 
     protected fqn(reference: ast.NamedElement | undefined, defaultFqn?: string): string {

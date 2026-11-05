@@ -17,6 +17,9 @@ test.each([['xsmp-sdk', XsmpSdkGenerator], ['esa-cdk', EsaCdkGenerator], ['tas-m
         expect(header).toContain(Generator === XsmpSdkGenerator
             ? '"??= ??/ ??\' ??( ??) ??! ??< ??> ??-"'
             : '"?\\?= ?\\?/ ?\\?\' ?\\?( ?\\?) ?\\?! ?\\?< ?\\?> ?\\?-"');
+        expect(header).toContain(Generator === XsmpSdkGenerator
+            ? '/// Ends with a backslash trigraph ??/\n'
+            : '/// Ends with a backslash trigraph ?\\?/\n');
         expect(header).toContain('"backslash \\\\ and quoted \\"question?\\""');
     } finally {
         setClangFormat(true);

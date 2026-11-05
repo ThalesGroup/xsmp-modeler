@@ -5,6 +5,7 @@ namespace trigraphs {
      */
     public struct Text {
         constant String8 all = "??= ??/ ??' ??( ??) ??! ??< ??> ??-"
+        /** Ends with a backslash trigraph ??/ */
         constant String8 normal = "backslash \\ and quoted \"question?\""
     }
 }
