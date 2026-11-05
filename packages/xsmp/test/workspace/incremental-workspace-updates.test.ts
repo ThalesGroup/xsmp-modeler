@@ -106,7 +106,8 @@ describe('Incremental workspace updates', () => {
         const fresh = await createWorkspace({ ...files, 'app/src/user.xsmpcat': source });
         const builtinErrors = (workspace: Awaited<ReturnType<typeof createWorkspace>>) =>
             workspace.services.shared.workspace.LangiumDocuments.all.filter(document => document.uri.scheme === 'xsmp')
-                .map(document => [document.uri.toString(), errors(document)]).toArray();
+                .map(document => [document.uri.toString(), errors(document).sort()] as const).toArray()
+                .sort(([left], [right]) => left.localeCompare(right));
         expect(errors(incremental.document('app/src/user.xsmpcat'))).toContain('Duplicated Document name.');
         expect(builtinErrors(incremental)).toEqual(builtinErrors(fresh));
     });
