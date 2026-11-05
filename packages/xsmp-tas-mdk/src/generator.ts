@@ -539,6 +539,7 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
         return s`
             ${this.comment(type)}class ${type.name}: public ${type.name}Gen {
             public:
+                ${type.elements.some(element => ast.isOperation(element) && this.attrHelper.isConstructor(element)) ? `using ${type.name}Gen::${type.name}Gen;` : undefined}
                 /// Constructor setting name, description and parent.
                 /// @param name Name of new model instance.
                 /// @param description Description of new model instance.
@@ -665,7 +666,7 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
 			    [[maybe_unused]] _Type* bluePrint,
 			    [[maybe_unused]] typename ::TasMdk::Request::Handler<_Type>::CollectionType& handlers)
 			{
-                ${type.elements.filter(ast.isOperation).map(operation => this.generateRqHandlerOperation(operation, gen)).join('\n')}
+                ${type.elements.filter(ast.isOperation).filter(operation => this.isInvokable(operation)).map(operation => this.generateRqHandlerOperation(operation, gen)).join('\n')}
                 ${type.elements.filter(ast.isProperty).map(property => this.generateRqHandlerProperty(property, gen)).join('\n')}
 			}
             `;

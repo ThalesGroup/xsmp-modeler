@@ -971,8 +971,11 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
         return undefined;
     }
     protected override declareOperation(op: ast.Operation): string | undefined {
-        if (this.attrHelper.isConstructor(op)) // constructor declared in gen folder
-            return `using ${op.$container.name}::${op.$container.name};`;
+        if (this.attrHelper.isConstructor(op)) { // components already inherit their constructors in the class header
+            if (ast.isComponent(op.$container)) return undefined;
+            const firstConstructor = op.$container.elements.find(element => ast.isOperation(element) && this.attrHelper.isConstructor(element));
+            return op === firstConstructor ? `using ${this.name(op.$container, true)}::${this.name(op.$container, true)};` : undefined;
+        }
         if (this.attrHelper.isVirtual(op) && !this.attrHelper.isAbstract(op)) // override virtual methods
             return `${this.comment(op)}${this.type(op.returnParameter)} ${this.operationName(op)}(${op.parameter.map(param => this.declareParameter(param)).join(', ')})${this.attrHelper.isConst(op) ? ' const' : ''} override;`;
         return undefined;

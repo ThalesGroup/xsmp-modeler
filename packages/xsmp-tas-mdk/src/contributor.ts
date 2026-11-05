@@ -1,3 +1,4 @@
+import { registerCppInvocationValidationChecks } from '@xsmp/core/generator/cpp';
 import { TasMdkGenerator } from './generator.js';
 import { TasMdkPythonGenerator } from './python-generator.js';
 import { scaffoldTasMdkProject } from './scaffold.js';
@@ -6,6 +7,7 @@ import type { XsmpContributionRegistrationApi } from '@xsmp/core/contributions';
 import type { XsmpGenerator } from '@xsmp/core/generator';
 
 export function registerContribution(api: XsmpContributionRegistrationApi): void {
+    api.addValidation('xsmpcat', registerCppInvocationValidationChecks);
     api.setWizardMetadata({
         label: 'TAS MDK',
         description: 'Prepare a project targeting the TAS MDK environment.',
