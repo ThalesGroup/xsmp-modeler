@@ -1,5 +1,5 @@
 
-import type { AstNode, AstNodeDescription, AstReflection, IndexManager, LangiumDocument, Reference, ReferenceInfo, Scope, ScopeProvider, URI } from 'langium';
+import type { AstNode, AstNodeDescription, AstReflection, IndexManager, LangiumDocument, Reference, ReferenceInfo, Scope, ScopeProvider } from 'langium';
 import * as ast from '../generated/ast-partial.js';
 import { AstUtils, DocumentCache, EMPTY_SCOPE, WorkspaceCache } from 'langium';
 import type { XsmpTypeProvider } from './type-provider.js';
@@ -11,7 +11,7 @@ export class XsmpcatScopeProvider implements ScopeProvider {
     protected readonly reflection: AstReflection;
     protected readonly indexManager: IndexManager;
     protected readonly typeProvider: XsmpTypeProvider;
-    protected readonly globalScopeCache: WorkspaceCache<URI, Map<string, Scope>>;
+    protected readonly globalScopeCache: WorkspaceCache<ReadonlySet<string> | undefined, Map<string, Scope>>;
     protected readonly contexts: Set<ReferenceInfo['reference']> = new Set<ReferenceInfo['reference']>();
     protected readonly precomputedCache: DocumentCache<AstNode, AstNodeDescription[]>;
     protected readonly projectManager: ProjectManager;
@@ -20,7 +20,7 @@ export class XsmpcatScopeProvider implements ScopeProvider {
         this.reflection = services.shared.AstReflection;
         this.indexManager = services.shared.workspace.IndexManager;
         this.typeProvider = services.shared.TypeProvider;
-        this.globalScopeCache = new WorkspaceCache<URI, Map<string, Scope>>(services.shared);
+        this.globalScopeCache = new WorkspaceCache<ReadonlySet<string> | undefined, Map<string, Scope>>(services.shared);
         this.precomputedCache = new DocumentCache<AstNode, AstNodeDescription[]>(services.shared);
         this.projectManager = services.shared.workspace.ProjectManager;
     }
@@ -125,10 +125,11 @@ export class XsmpcatScopeProvider implements ScopeProvider {
      * Create a global scope filtered for the given referenceType and on visibles projects URIs
      */
     protected getGlobalScope(document: LangiumDocument, referenceType: string): Scope {
-        const globalScopes = this.globalScopeCache.get(document.uri, () => new Map<string, Scope>());
+        const visibleUris = this.projectManager.getVisibleUris(document);
+        const globalScopes = this.globalScopeCache.get(visibleUris, () => new Map<string, Scope>());
         let scope = globalScopes.get(referenceType);
         if (!scope) {
-            scope = new XsmpGlobalScope(this.indexManager.allElements(referenceType, this.projectManager.getVisibleUris(document)));
+            scope = new XsmpGlobalScope(this.indexManager.allElements(referenceType, visibleUris));
             globalScopes.set(referenceType, scope);
         }
         return scope;

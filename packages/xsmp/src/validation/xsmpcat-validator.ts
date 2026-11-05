@@ -1,6 +1,6 @@
 import {
     AstUtils, MultiMap, type ValidationAcceptor, type ValidationChecks, WorkspaceCache, diagnosticData,
-    type AstNode, type Properties, type URI,
+    type AstNode, type Properties,
     type AstNodeDescription, type LangiumDocument
 } from 'langium';
 import * as ast from '../generated/ast-partial.js';
@@ -87,8 +87,8 @@ interface FieldIssues {
 export class XsmpcatValidator {
     protected readonly indexManager: XsmpIndexManager;
     protected readonly globalCache: WorkspaceCache<string, MultiMap<string, AstNodeDescription>>;
-    protected readonly visibleCache: WorkspaceCache<URI, MultiMap<string, AstNodeDescription>>;
-    protected readonly catalogueCycleCache: WorkspaceCache<URI, Map<string, AstNodeDescription[]>>;
+    protected readonly visibleCache: WorkspaceCache<ReadonlySet<string> | undefined, MultiMap<string, AstNodeDescription>>;
+    protected readonly catalogueCycleCache: WorkspaceCache<ReadonlySet<string> | undefined, Map<string, AstNodeDescription[]>>;
     protected readonly fieldIssuesCache: WorkspaceCache<ast.Type, FieldIssues>;
     protected readonly docHelper: DocumentationHelper;
     protected readonly attrHelper: AttributeHelper;
@@ -97,8 +97,8 @@ export class XsmpcatValidator {
     constructor(services: XsmpcatServices) {
         this.indexManager = services.shared.workspace.IndexManager as XsmpIndexManager;
         this.globalCache = new WorkspaceCache<string, MultiMap<string, AstNodeDescription>>(services.shared);
-        this.visibleCache = new WorkspaceCache<URI, MultiMap<string, AstNodeDescription>>(services.shared);
-        this.catalogueCycleCache = new WorkspaceCache<URI, Map<string, AstNodeDescription[]>>(services.shared);
+        this.visibleCache = new WorkspaceCache<ReadonlySet<string> | undefined, MultiMap<string, AstNodeDescription>>(services.shared);
+        this.catalogueCycleCache = new WorkspaceCache<ReadonlySet<string> | undefined, Map<string, AstNodeDescription[]>>(services.shared);
         this.fieldIssuesCache = new WorkspaceCache<ast.Type, FieldIssues>(services.shared);
         this.docHelper = services.shared.DocumentationHelper;
         this.attrHelper = services.shared.AttributeHelper;
@@ -237,7 +237,8 @@ export class XsmpcatValidator {
     }
     private getDuplicatedName(element: ast.Type | ast.Namespace): readonly AstNodeDescription[] {
         const document = AstUtils.getDocument(element);
-        return this.visibleCache.get(document.uri, () => this.computeVisibleNames(document)).get(XsmpUtils.fqn(element));
+        const visibleUris = this.projectManager.getVisibleUris(document);
+        return this.visibleCache.get(visibleUris, () => this.computeVisibleNames(document)).get(XsmpUtils.fqn(element));
     }
 
     checkNamedElement(element: ast.NamedElement, accept: ValidationAcceptor): void {
@@ -1070,8 +1071,9 @@ export class XsmpcatValidator {
             accept('warning', 'This Catalogue is not contained in a project.', { node: catalogue, keyword: 'catalogue' });
         }
         if (catalogue.$document && !isBuiltinLibrary(catalogue.$document.uri)) {
+            const visibleUris = this.projectManager.getVisibleUris(catalogue.$document);
             const cycleParticipants = this.catalogueCycleCache
-                .get(catalogue.$document.uri, () => this.computeCatalogueCycles(catalogue.$document!))
+                .get(visibleUris, () => this.computeCatalogueCycles(catalogue.$document!))
                 .get(catalogue.$document.uri.toString());
             if (cycleParticipants && cycleParticipants.length > 0) {
                 accept('error', 'Catalogues shall not have circular dependencies.', {
