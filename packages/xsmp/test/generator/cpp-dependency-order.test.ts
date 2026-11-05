@@ -7,13 +7,8 @@ import { XsmpSdkGenerator } from '@xsmp/profile-xsmp-sdk';
 import { dependencyOrder } from '../../src/generator/dependency-order.js';
 
 class InspectGenerator extends XsmpSdkGenerator {
-    generatedSource = '';
     types(catalogue: ast.Catalogue): ast.Type[] { return this.exportedTypes(catalogue); }
     members(body: ast.WithBody): ast.Constant[] { return this.constants(body); }
-    protected override generateFile(_path: string, content: string): Promise<void> {
-        this.generatedSource = content;
-        return Promise.resolve();
-    }
 }
 
 let services: ReturnType<typeof createXsmpServices>;
@@ -56,10 +51,10 @@ test('orders package arrays, fields and base classes while excluding non-registe
     expect(order).not.toContain('ValueRef');
     expect(order).toHaveLength(6);
     expect(generator.types(model).map(type => type.name)).toEqual(order);
-    await generator.generatePackageSource('Ordering.cpp', model, undefined);
-    const parentRegistration = generator.generatedSource.indexOf('::demo::Parent::_Register(typeRegistry)');
+    const generatedSource = await generator.generatePackageSource('Ordering.cpp', model, undefined);
+    const parentRegistration = generatedSource.indexOf('::demo::Parent::_Register(typeRegistry)');
     expect(parentRegistration).toBeGreaterThanOrEqual(0);
-    expect(generator.generatedSource.indexOf('::demo::Child::_Register(typeRegistry)')).toBeGreaterThan(parentRegistration);
+    expect(generatedSource.indexOf('::demo::Child::_Register(typeRegistry)')).toBeGreaterThan(parentRegistration);
 });
 
 test('orders local constant initializers and ignores constants declared outside the member group', async () => {

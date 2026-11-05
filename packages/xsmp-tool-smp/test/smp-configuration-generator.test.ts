@@ -1,3 +1,4 @@
+import { generateDocuments } from '../../xsmp/test/generation-test-utils.js';
 import { afterEach, beforeAll, describe, expect, test } from 'vitest';
 import { EmptyFileSystem, type LangiumDocument, URI } from 'langium';
 import { expandToString as s } from 'langium/generate';
@@ -97,7 +98,7 @@ describe('SMP configuration generator tests', () => {
             const projectUri = URI.file(tmpDir);
             const expected = await generator.doGenerateConfiguration(document.parseResult.value, undefined);
 
-            await generator.generateConfiguration(document.parseResult.value, projectUri, undefined);
+            await generateDocuments(generator, [document.parseResult.value], projectUri);
 
             const configurationPath = path.join(tmpDir, 'smdl-gen', 'write-test.smpcfg');
             expect(fs.existsSync(configurationPath)).toBe(true);

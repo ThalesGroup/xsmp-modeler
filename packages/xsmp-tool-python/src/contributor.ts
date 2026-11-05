@@ -1,7 +1,6 @@
 import { PythonGenerator } from './generator.js';
 import { scaffoldPythonProject } from './scaffold.js';
 import type { XsmpContributionRegistrationApi } from '@xsmp/core/contributions';
-import type { XsmpGenerator } from '@xsmp/core/generator';
 
 export function registerContribution(api: XsmpContributionRegistrationApi): void {
     api.setWizardMetadata({
@@ -9,12 +8,5 @@ export function registerContribution(api: XsmpContributionRegistrationApi): void
         description: 'Generate Python bindings and test scaffolding for projects using the xsmp-sdk profile.',
     });
     api.setScaffolder(scaffoldPythonProject);
-    api.addGenerator(services => toXsmpGenerator(new PythonGenerator(services)));
-}
-
-function toXsmpGenerator(generator: XsmpGenerator): XsmpGenerator {
-    return {
-        generate: generator.generate.bind(generator),
-        clean: generator.clean.bind(generator),
-    };
+    api.addGenerator(services => new PythonGenerator(services));
 }

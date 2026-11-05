@@ -1,15 +1,15 @@
 import * as ast from '@xsmp/core/ast';
-import { type AstNode, type URI, UriUtils } from 'langium';
-import * as fs from 'node:fs';
-import type { TaskAcceptor, XsmpGenerator } from '@xsmp/core/generator';
+import { type AstNode } from 'langium';
+import type { GeneratedFiles, GenerationContext, GenerationPreparationContext, XsmpGenerator } from '@xsmp/core/generator';
 import { fqn } from '@xsmp/core/utils';
 import * as CopyrightNoticeProvider from '@xsmp/core/generator';
 import { expandToString as s } from 'langium/generate';
-import * as Path from 'node:path';
 import type { XsmpSharedServices } from '@xsmp/core';
 import { type DocumentationHelper } from '@xsmp/core/utils';
 
 export class TasMdkPythonGenerator implements XsmpGenerator {
+    readonly id: string = 'python';
+    private readonly initializers = new WeakMap<GeneratedFiles, Set<string>>();
 
     protected helpersFolder = 'helpers';
     protected readonly docHelper: DocumentationHelper;
@@ -18,76 +18,89 @@ export class TasMdkPythonGenerator implements XsmpGenerator {
         this.docHelper = services.DocumentationHelper;
     }
 
-    clean(_projectUri: URI) {
-        // ignore
+    prepare(context: GenerationPreparationContext): GeneratedFiles {
+        const files = context.createFiles({
+            generated: { directory: this.helpersFolder, writeMode: 'if-changed', cleanup: 'tracked' },
+            user: { directory: this.helpersFolder, writeMode: 'if-missing' },
+        });
+        this.initializers.set(files, new Set());
+        return files;
     }
 
-    generate(node: AstNode, projectUri: URI, acceptTask: TaskAcceptor) {
+    generate(node: AstNode, context: GenerationContext) {
         if (ast.isCatalogue(node)) {
             const notice = CopyrightNoticeProvider.getCopyrightNotice(node.$document, '# ');
-
-            const helperInit = UriUtils.joinPath(projectUri, this.helpersFolder, '__init__.py').fsPath;
-            if (!fs.existsSync(helperInit)) {
-                acceptTask(() => this.generateFile(helperInit, s`${notice}`));
+            for (const directory of ['', 'builder/', 'test_utils/']) {
+                this.generateInitializer(`${directory}__init__.py`, context, () => s`${notice}`);
             }
-
-            const builderInit = UriUtils.joinPath(projectUri, this.helpersFolder, 'builder', '__init__.py').fsPath;
-            if (!fs.existsSync(builderInit)) {
-                acceptTask(() => this.generateFile(builderInit, s`${notice}`));
-            }
-
-            const testInit = UriUtils.joinPath(projectUri, this.helpersFolder, 'test_utils', '__init__.py').fsPath;
-            if (!fs.existsSync(testInit)) {
-                acceptTask(() => this.generateFile(testInit, s`${notice}`));
-            }
-
-            node.elements.forEach(ns => this.generateNamespace(ns, projectUri, notice, node.name, acceptTask));
+            node.elements.forEach(ns => this.generateNamespace(ns, context, notice, node.name));
         }
     }
 
-    public generateNamespace(ns: ast.Namespace, projectUri: URI, notice: string | undefined, libName: string, acceptTask: TaskAcceptor) {
+    private generateInitializer(path: string, { files, acceptTask }: GenerationContext, content: () => string): void {
+        const scheduled = this.initializers.get(files)!;
+        // Namespace packages can be shared by several catalogues in the same project.
+        if (!scheduled.has(path)) {
+            scheduled.add(path);
+            acceptTask(() => files.write('user', path, content));
+        }
+    }
+
+    public generateNamespace(ns: ast.Namespace, context: GenerationContext, notice: string | undefined, libName: string) {
         const qualifiedName = fqn(ns, '/');
-
-        const builderInit = UriUtils.joinPath(projectUri, this.helpersFolder, 'builder', qualifiedName, '__init__.py').fsPath;
-        if (!fs.existsSync(builderInit)) {
-            acceptTask(() => this.generateFile(builderInit, s`${notice}`));
-        }
-
-        const testInit = UriUtils.joinPath(projectUri, this.helpersFolder, 'test_utils', qualifiedName, '__init__.py').fsPath;
-        if (!fs.existsSync(testInit)) {
-            acceptTask(() => this.generateFile(testInit, s`${notice}`));
-        }
+        this.generateInitializer(`builder/${qualifiedName}/__init__.py`, context, () => s`${notice}`);
+        this.generateInitializer(`test_utils/${qualifiedName}/__init__.py`, context, () => s`${notice}`);
 
         for (const elem of ns.elements) {
             switch (elem.$type) {
                 case ast.Namespace.$type:
-                    this.generateNamespace(elem, projectUri, notice, libName, acceptTask);
+                    this.generateNamespace(elem, context, notice, libName);
                     break;
                 case ast.Service.$type:
                 case ast.Model.$type:
-                    this.generateComponent(elem as ast.Component, projectUri, notice, libName, acceptTask);
+                    this.generateComponent(elem as ast.Component, context, notice, libName);
                     break;
             }
         }
     }
 
-    public generateComponent(type: ast.Component, projectUri: URI, notice: string | undefined, libName: string, acceptTask: TaskAcceptor) {
+    public generateComponent(type: ast.Component, context: GenerationContext, notice: string | undefined, libName: string) {
+        const { files, acceptTask } = context;
         const qualifiedName = fqn(type, '/');
 
-        acceptTask(() => this.generateFile(UriUtils.joinPath(projectUri, this.helpersFolder, 'builder', qualifiedName, 'generated_info.py').fsPath,
-            s`
+        acceptTask(() => files.write('generated', `builder/${qualifiedName}/generated_info.py`, () => s`
                 ${notice}
-                
+
                 # Import user-defined methods for model integration
                 from .user_code import configureInstance, extendInstance
-                
+
                 # Model specific data
                 MODEL_UUID = "${this.docHelper.getUuid(type)}"
                 MODEL_LIB_NAME = "lib${libName.toLowerCase()}.so"
 
 
             `));
+        acceptTask(() => files.write('generated', `builder/${qualifiedName}/generated_icd.py`, () => this.generateIcd(type, notice)));
+        acceptTask(() => files.write('user', `builder/${qualifiedName}/user_code.py`, () => s`
+                    ${notice}
 
+                    def configureInstance(jsim, instance_data):
+                        pass
+
+                    def extendInstance(jsim, instance_data):
+                        pass
+
+                `));
+        this.generateInitializer(`builder/${qualifiedName}/__init__.py`, context, () => s`${notice}`);
+        acceptTask(() => files.write('user', `test_utils/${qualifiedName}/wrapper.py`, () => this.generateWrapper(type, notice, libName)));
+        this.generateInitializer(`test_utils/${qualifiedName}/__init__.py`, context, () => s`
+                    ${notice}
+                    from .wrapper import ${type.name}Wrapper
+
+                `);
+    }
+
+    private generateIcd(type: ast.Component, notice: string | undefined): string {
         const imp_lst: Array<string | undefined> = [];
         for (const c of type.interface) {
             const name = fqn(c.ref);
@@ -107,39 +120,19 @@ export class TasMdkPythonGenerator implements XsmpGenerator {
         for (const c of type.elements.filter(ast.isEventSource)) {
             eso_lst.push(c.name);
         }
-
-        acceptTask(() => this.generateFile(UriUtils.joinPath(projectUri, this.helpersFolder, 'builder', qualifiedName, 'generated_icd.py').fsPath,
-            s`
+        return s`
                 ${notice}
-                
+
                 # Model specific data
                 IMPLEMENTATIONS = ${JSON.stringify(imp_lst)}
                 REFERENCES = ${JSON.stringify(ref_lst)}
                 EVENTSINKS = ${JSON.stringify(esi_lst)}
                 EVENTSOURCES = ${JSON.stringify(eso_lst)}
 
-            `));
+            `;
+    }
 
-        const userCode = UriUtils.joinPath(projectUri, this.helpersFolder, 'builder', qualifiedName, 'user_code.py').fsPath;
-        if (!fs.existsSync(userCode)) {
-            acceptTask(() => this.generateFile(userCode,
-                s`
-                    ${notice}
-                    
-                    def configureInstance(jsim, instance_data):
-                        pass
-                    
-                    def extendInstance(jsim, instance_data):
-                        pass
-
-                `));
-        }
-
-        const builderInit = UriUtils.joinPath(projectUri, this.helpersFolder, 'builder', qualifiedName, '__init__.py').fsPath;
-        if (!fs.existsSync(builderInit)) {
-            acceptTask(() => this.generateFile(builderInit, s`${notice}`));
-        }
-
+    private generateWrapper(type: ast.Component, notice: string | undefined, libName: string): string {
         let base_wrapper_name = 'Model';
         let base_wrapper_path = 'TasMdk.Model';
         let base_wrapper_root = 'TasMdk__CommonModels';
@@ -158,40 +151,15 @@ export class TasMdkPythonGenerator implements XsmpGenerator {
             }
         }
         const builder_module = this.splitByLastDot(fqn(type));
-
-        const wrapperCode = UriUtils.joinPath(projectUri, this.helpersFolder, 'test_utils', qualifiedName, 'wrapper.py').fsPath;
-        if (!fs.existsSync(wrapperCode)) {
-            acceptTask(() => this.generateFile(wrapperCode,
-                s`
+        return s`
                     ${notice}
                     from ${base_wrapper_root}.test_utils.${base_wrapper_path} import ${base_wrapper_name}Wrapper
                     from ${libName}.builder.${builder_module[0]} import ${builder_module[1]}
-                    
+
                     class ${type.name}Wrapper( ${base_wrapper_name}Wrapper ):
                         builder = ${type.name}
 
-                `));
-        }
-
-        const testInit = UriUtils.joinPath(projectUri, this.helpersFolder, 'test_utils', qualifiedName, '__init__.py').fsPath;
-        if (!fs.existsSync(testInit)) {
-            acceptTask(() => this.generateFile(testInit,
-                s`
-                    ${notice}
-                    from .wrapper import ${type.name}Wrapper
-
-                `));
-        }
-    }
-
-    protected async generateFile(path: string, content: string) {
-        try {
-            await fs.promises.mkdir(Path.dirname(path), { recursive: true });
-            await fs.promises.writeFile(path, content);
-
-        } catch (error) {
-            throw new Error(`Error generating file ${path}.`, { cause: error });
-        }
+                `;
     }
 
     protected splitByLastDot(str: string) {

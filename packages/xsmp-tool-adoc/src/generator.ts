@@ -1,9 +1,8 @@
-import * as fs from 'node:fs';
 import * as ast from '@xsmp/core/ast';
-import { type URI, UriUtils, type AstNode, type Reference, AstUtils, isReference } from 'langium';
+import { type AstNode, type Reference, AstUtils, isReference } from 'langium';
 import { expandToString as s } from 'langium/generate';
 import type { XsmpSharedServices } from '@xsmp/core';
-import { cleanGeneratedFolders, type TaskAcceptor, type XsmpGenerator } from '@xsmp/core/generator';
+import type { GeneratedContent, GeneratedFiles, GenerationContext, GenerationPreparationContext, XsmpGenerator } from '@xsmp/core/generator';
 import type { XsmpInstancePathResolver, XsmpPathService } from '@xsmp/core/references';
 import {
     fqn,
@@ -26,6 +25,7 @@ type AssemblyStatement = ast.FieldValue | ast.GlobalEventHandler | ast.Invocatio
  * Generates documentation from XSMP catalogue, configuration, assembly, link-base and schedule models.
  */
 export class ADocGenerator implements XsmpGenerator {
+    readonly id: string = 'adoc';
     protected readonly docHelper: DocumentationHelper;
     protected readonly attrHelper: AttributeHelper;
     protected readonly pathService: XsmpPathService;
@@ -40,55 +40,54 @@ export class ADocGenerator implements XsmpGenerator {
 
     static readonly defaultDocFolder = 'adoc-gen';
 
-    generate(node: AstNode, projectUri: URI, acceptTask: TaskAcceptor): void {
+    generate(node: AstNode, { files, acceptTask }: GenerationContext): void {
         switch (node.$type) {
             case ast.Catalogue.$type:
-                acceptTask(() => this.generateCatalogue(node as ast.Catalogue, projectUri));
+                acceptTask(() => this.generateCatalogue(node as ast.Catalogue, files));
                 break;
             case ast.Configuration.$type:
-                acceptTask(() => this.generateConfiguration(node as ast.Configuration, projectUri));
+                acceptTask(() => this.generateConfiguration(node as ast.Configuration, files));
                 break;
             case ast.Assembly.$type:
-                acceptTask(() => this.generateAssembly(node as ast.Assembly, projectUri));
+                acceptTask(() => this.generateAssembly(node as ast.Assembly, files));
                 break;
             case ast.LinkBase.$type:
-                acceptTask(() => this.generateLinkBase(node as ast.LinkBase, projectUri));
+                acceptTask(() => this.generateLinkBase(node as ast.LinkBase, files));
                 break;
             case ast.Schedule.$type:
-                acceptTask(() => this.generateSchedule(node as ast.Schedule, projectUri));
+                acceptTask(() => this.generateSchedule(node as ast.Schedule, files));
                 break;
         }
     }
 
-    clean(projectUri: URI): Promise<void> {
-        return cleanGeneratedFolders(UriUtils.joinPath(projectUri, ADocGenerator.defaultDocFolder).fsPath);
+    prepare(context: GenerationPreparationContext): GeneratedFiles {
+        return context.createFiles({
+            documentation: { directory: ADocGenerator.defaultDocFolder, writeMode: 'if-changed', cleanup: 'directory' },
+        });
     }
 
-    public async generateCatalogue(catalogue: ast.Catalogue, projectUri: URI): Promise<void> {
-        await this.writeGeneratedDocument(catalogue, projectUri, await this.doGenerateCatalogue(catalogue));
+    public async generateCatalogue(catalogue: ast.Catalogue, files: GeneratedFiles): Promise<void> {
+        await this.writeGeneratedDocument(catalogue, files, () => this.doGenerateCatalogue(catalogue));
     }
 
-    public async generateConfiguration(configuration: ast.Configuration, projectUri: URI): Promise<void> {
-        await this.writeGeneratedDocument(configuration, projectUri, await this.doGenerateConfiguration(configuration));
+    public async generateConfiguration(configuration: ast.Configuration, files: GeneratedFiles): Promise<void> {
+        await this.writeGeneratedDocument(configuration, files, () => this.doGenerateConfiguration(configuration));
     }
 
-    public async generateAssembly(assembly: ast.Assembly, projectUri: URI): Promise<void> {
-        await this.writeGeneratedDocument(assembly, projectUri, await this.doGenerateAssembly(assembly));
+    public async generateAssembly(assembly: ast.Assembly, files: GeneratedFiles): Promise<void> {
+        await this.writeGeneratedDocument(assembly, files, () => this.doGenerateAssembly(assembly));
     }
 
-    public async generateLinkBase(linkBase: ast.LinkBase, projectUri: URI): Promise<void> {
-        await this.writeGeneratedDocument(linkBase, projectUri, await this.doGenerateLinkBase(linkBase));
+    public async generateLinkBase(linkBase: ast.LinkBase, files: GeneratedFiles): Promise<void> {
+        await this.writeGeneratedDocument(linkBase, files, () => this.doGenerateLinkBase(linkBase));
     }
 
-    public async generateSchedule(schedule: ast.Schedule, projectUri: URI): Promise<void> {
-        await this.writeGeneratedDocument(schedule, projectUri, await this.doGenerateSchedule(schedule));
+    public async generateSchedule(schedule: ast.Schedule, files: GeneratedFiles): Promise<void> {
+        await this.writeGeneratedDocument(schedule, files, () => this.doGenerateSchedule(schedule));
     }
 
-    private async writeGeneratedDocument(document: ast.Document, projectUri: URI, content: string): Promise<void> {
-        const outputDir = UriUtils.joinPath(projectUri, ADocGenerator.defaultDocFolder);
-        await fs.promises.mkdir(outputDir.fsPath, { recursive: true });
-        const outputFile = UriUtils.joinPath(outputDir, this.getOutputFileName(document));
-        await fs.promises.writeFile(outputFile.fsPath, content);
+    private async writeGeneratedDocument(document: ast.Document, files: GeneratedFiles, content: GeneratedContent): Promise<void> {
+        await files.write('documentation', this.getOutputFileName(document), content);
     }
 
     private getOutputFileName(document: ast.Document): string {

@@ -60,7 +60,7 @@ The extension manifest exposes the XSMP contribution through `contributes.xsmp`:
       {
         "descriptor": "./lib/demo.xsmptool",
         "handler": "./lib/contributor.js",
-        "apiVersion": "^1.0.0"
+        "apiVersion": "^2.0.0"
       }
     ]
   },
@@ -122,49 +122,139 @@ whether the contribution is a `tool` or a `profile`.
 
 ## Add a Generator
 
-Generators implement `XsmpGenerator`. XSMP Modeler calls `generate` for each
-document that belongs to a project where the tool or profile is active.
+Generators implement `XsmpGenerator`. Each generator has a stable `id`, unique
+within its contribution. For each project generation, XSMP Modeler calls
+`prepare` once on every active generator, validates all output definitions, then
+calls `generate` for each valid project document.
 
 ```ts
-import * as fs from 'node:fs';
-import { AstUtils, UriUtils, type AstNode, type URI } from 'langium';
+import { type AstNode } from 'langium';
 import * as ast from '@xsmp/core/ast';
-import { cleanGeneratedFolders, type TaskAcceptor, type XsmpGenerator } from '@xsmp/core/generator';
+import type {
+    GeneratedFiles, GenerationContext, GenerationPreparationContext, XsmpGenerator,
+} from '@xsmp/core/generator';
 
 export class DemoGenerator implements XsmpGenerator {
-    generate(node: AstNode, projectUri: URI, acceptTask: TaskAcceptor): void {
+    readonly id = 'summary';
+
+    prepare(context: GenerationPreparationContext): GeneratedFiles {
+        return context.createFiles({
+            generated: {
+                directory: 'demo-gen',
+                writeMode: 'if-changed',
+                cleanup: 'directory',
+            },
+            user: {
+                directory: 'src',
+                writeMode: 'if-missing',
+            },
+        });
+    }
+
+    generate(node: AstNode, { files, acceptTask }: GenerationContext): void {
         if (ast.isCatalogue(node)) {
-            acceptTask(() => this.generateCatalogue(node, projectUri));
+            acceptTask(() => files.write(
+                'generated', `${node.name}-summary.md`, `# ${node.name}\n`,
+            ));
+            acceptTask(() => files.write(
+                'user', `${node.name}-notes.md`, () => this.initialNotes(node),
+            ));
         }
     }
 
-    clean(projectUri: URI): Promise<void> {
-        return cleanGeneratedFolders(UriUtils.joinPath(projectUri, 'demo-gen').fsPath);
-    }
-
-    private async generateCatalogue(catalogue: ast.Catalogue, projectUri: URI): Promise<void> {
-        const outputDir = UriUtils.joinPath(projectUri, 'demo-gen');
-        await fs.promises.mkdir(outputDir.fsPath, { recursive: true });
-
-        const sourceName = UriUtils.basename(AstUtils.getDocument(catalogue).uri)
-            .replace(/\.[^.]+$/, '');
-        await fs.promises.writeFile(
-            UriUtils.joinPath(outputDir, `${sourceName}-summary.md`).fsPath,
-            `# ${catalogue.name}\n`,
-        );
+    private initialNotes(catalogue: ast.Catalogue): string {
+        return `# Notes for ${catalogue.name}\n`;
     }
 }
 ```
 
-Use `acceptTask` for file system writes. This lets XSMP Modeler collect all
-generation tasks and run them after traversal.
+The preparation context provides `projectUri`, `cancelToken` and `createFiles`.
+The execution context provides the same project and cancellation token, the
+prepared `files`, and `acceptTask`. Capture that context in tasks rather than
+storing the current session in a field on the generator. Submit asynchronous
+work through `acceptTask`; XSMP Modeler limits concurrency and drains all
+accepted tasks before closing the session. Tasks cannot submit more work after
+traversal has finished.
 
-`clean` runs before every generation of the project. It may return a promise,
-which XSMP Modeler awaits before calling `generate`. Prefer
-`cleanGeneratedFolders` to removing the output folder: it removes the folder
-content but keeps the folder itself, which still works on Windows when another
-process holds the folder, for instance a terminal opened in it. If `clean`
-fails, XSMP Modeler logs a warning and still generates the project.
+`files.write(outputName, relativePath, content)` accepts either a string or a
+function returning `string | Promise<string>`. In `if-missing` mode, an existing
+file skips the function and formatter entirely. When creation is needed, an
+exclusive write preserves any file that appeared during rendering. In
+`if-changed` mode, the content is produced and the file is written only when its
+bytes differ. The function is called at most once per write; its errors fail
+generation. Content functions should only produce content, since they can be
+skipped. Pass a function for asynchronous rendering, not an already started
+promise.
+
+Paths are relative to the named output directory, itself relative to the
+project. `files.resolvePath(outputName, relativePath)` resolves an input path
+without disk access, for example to inspect an existing generation-gap header.
+Output names separate the generator's rendering from a profile's directory
+configuration. Conflicting writes to the same normalized destination are errors,
+including writes from different generators or output names. Shared files such
+as Python package initializers must be scheduled once per session.
+
+Each output independently specifies its cleanup policy:
+
+| `cleanup` | Behavior after complete successful generation |
+| --- | --- |
+| `none` (default) | Preserve obsolete files. Required for `if-missing`. |
+| `tracked` | Remove obsolete files recorded as owned by this generator/output; preserve unknown files in the same directory. |
+| `directory` | Synchronize a directory reserved for generated files, removing every unexpected file, including manual additions. |
+
+Use `if-changed` with `directory` for `src-gen`, `include-gen`, `adoc-gen` and
+`smdl-gen`. Use `if-changed` with `tracked` for generated Python modules in mixed
+folders. Use `if-missing` for generation-gap files and Python user stubs. Mixed
+outputs can share a directory; a directory purged in its entirety cannot contain
+protected user outputs. Cleanup preserves the union of outputs from all active
+generators. An unchanged file remains an expected output even when no write
+occurs. Failure, cancellation or skipped invalid documents prevents cleanup.
+Files already written are not rolled back.
+Output directories differing only in case cannot use incompatible cleanup
+policies, so the same configuration stays safe on case-insensitive volumes.
+Declared output roots are kept in place, including nested roots. Empty
+subdirectories locked by another process on Windows are left for a later
+generation to prune. Failure to remove an obsolete file is still reported.
+
+Selective cleanup uses the project's `.xsmp/generated-files.json` inventory,
+which records generator/output ownership and paths, not file contents. Keep this
+local metadata across sessions to remove obsolete generated modules after a
+restart; exclude `.xsmp/` from version control. Missing or corrupt inventory
+preserves unknown files. Changing an output directory, removing a generator or
+changing ownership does not implicitly authorize deletion in the old location.
+
+Outputs may specify an optional `formatter`. The common writer caches only
+SHA-256 hashes of raw and formatted bytes, the output path, and the formatter's
+identity. It skips formatting only when the new raw hash, formatter identity and
+actual disk hash match the preceding result. It always checks current disk
+bytes, so an external edit or deletion is repaired at the next generation.
+The bounded metadata cache is shared across project generations; eviction or a
+restart only requires recomputation. It retains no generated text, ASTs or
+content functions. Python, ADoc and SMP currently use direct byte comparison
+without a formatter. Opening a workspace with startup generation disabled does
+not write or delete outputs.
+Model inputs, formatter configuration and tool version must remain stable during
+a generation; changes are re-evaluated on the next pass.
+
+### Migrating Existing Generators
+
+The extension API is `2.0.0`. After migrating, set `apiVersion` to `^2.0.0`
+in the contribution manifest; extensions requiring API 1 are not loaded.
+
+Add a stable generator `id`. Replace `clean` with
+`prepare(context): GeneratedFiles`, returning `context.createFiles` with named
+output definitions. Change `generate(node, projectUri, acceptTask)` to
+`generate(node, context)`, and replace direct writes with
+`context.files.write(outputName, relativePath, content)`. Use lazy content for
+files generated only when missing. Remove generator-side deletion and formatting
+caches: the common writer owns disk comparison, optional formatting, ownership
+and cleanup. Keep rendering caches tied to their model documents as before.
+
+C++ subclasses now return text from `generatePackageHeader`,
+`generatePackageSource`, `generateDynamicPackageSource`, `generateHeader`,
+`generateSource`, `generateHeaderGen` and `generateSourceGen`. These methods no
+longer write files. Remove overrides of the former `generateFile` and `format`
+methods; output writing and formatting belong to the common writer.
 
 ## Add Validation
 
@@ -255,7 +345,7 @@ manifest `builtins` list:
       {
         "descriptor": "./lib/demo-profile.xsmpprofile",
         "handler": "./lib/contributor.js",
-        "apiVersion": "^1.0.0",
+        "apiVersion": "^2.0.0",
         "builtins": [
           "./lib/builtins"
         ]

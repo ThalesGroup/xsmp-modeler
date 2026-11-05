@@ -1,3 +1,4 @@
+import { generateDocuments } from '../../xsmp/test/generation-test-utils.js';
 import { afterEach, beforeAll, describe, expect, test } from 'vitest';
 import { EmptyFileSystem, type AstNode, type LangiumDocument, URI } from 'langium';
 import { clearDocuments, parseHelper } from 'langium/test';
@@ -57,8 +58,7 @@ namespace ns
       try {
         const { document, projectUri } = await parseInProject(parseCatalogue, source, 'xsd-demo.xsmpcat', standard, tmpDir);
 
-        await generator.generateCatalogue(document.parseResult.value, projectUri, undefined);
-        await generator.generatePackage(document.parseResult.value, projectUri, undefined);
+        await generateDocuments(generator, [document.parseResult.value], projectUri);
 
         assertXmlConformsToXsd(path.join(tmpDir, 'smdl-gen', 'xsd-demo.smpcat'), 'catalogue', standard);
         assertXmlConformsToXsd(path.join(tmpDir, 'smdl-gen', 'xsd-demo.smppkg'), 'package', standard);
@@ -81,7 +81,7 @@ include Other at child
       try {
         const { document, projectUri } = await parseInProject(parseConfiguration, source, 'xsd-demo.xsmpcfg', standard, tmpDir);
 
-        await generator.generateConfiguration(document.parseResult.value, projectUri, undefined);
+        await generateDocuments(generator, [document.parseResult.value], projectUri);
         assertXmlConformsToXsd(path.join(tmpDir, 'smdl-gen', 'xsd-demo.smpcfg'), 'configuration', standard);
       } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -103,7 +103,7 @@ include Other at child
 
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-smp-xsd-linkbase-'));
     try {
-      await generator.generateLinkBase(document.parseResult.value, URI.file(tmpDir), undefined);
+      await generateDocuments(generator, [document.parseResult.value], URI.file(tmpDir));
       assertXmlConformsToXsd(path.join(tmpDir, 'smdl-gen', 'xsd-demo.smplnk'), 'linkbase');
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -129,7 +129,7 @@ Root: pkg.Comp
 
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-smp-xsd-assembly-'));
     try {
-      await generator.generateAssembly(document.parseResult.value, URI.file(tmpDir), undefined);
+      await generateDocuments(generator, [document.parseResult.value], URI.file(tmpDir));
       assertXmlConformsToXsd(path.join(tmpDir, 'smdl-gen', 'xsd-demo.smpasb'), 'assembly');
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -160,7 +160,7 @@ event Main on "BootCompleted" until "ShutdownRequested" using mission delay "PT5
 
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-smp-xsd-schedule-'));
     try {
-      await generator.generateSchedule(document.parseResult.value, URI.file(tmpDir), undefined);
+      await generateDocuments(generator, [document.parseResult.value], URI.file(tmpDir));
       assertXmlConformsToXsd(path.join(tmpDir, 'smdl-gen', 'xsd-demo.smpsed'), 'schedule');
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });

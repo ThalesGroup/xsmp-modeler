@@ -1,3 +1,4 @@
+import { generateDocuments } from '../../xsmp/test/generation-test-utils.js';
 import { afterEach, beforeAll, describe, expect, test } from 'vitest';
 import { type AstNode, Cancellation, EmptyFileSystem, type LangiumDocument, URI } from 'langium';
 import { NodeFileSystem } from 'langium/node';
@@ -390,11 +391,13 @@ describe('ADoc generator tests', () => {
         tempDirs.push(outputDir);
         const projectUri = URI.file(outputDir);
 
-        await generator.generateCatalogue((fixture['demo.xsmpcat'] as LangiumDocument<ast.Catalogue>).parseResult.value, projectUri);
-        await generator.generateConfiguration((fixture['config-doc.xsmpcfg'] as LangiumDocument<ast.Configuration>).parseResult.value, projectUri);
-        await generator.generateAssembly((fixture['assembly-doc.xsmpasb'] as LangiumDocument<ast.Assembly>).parseResult.value, projectUri);
-        await generator.generateLinkBase((fixture['links-doc.xsmplnk'] as LangiumDocument<ast.LinkBase>).parseResult.value, projectUri);
-        await generator.generateSchedule((fixture['schedule-doc.xsmpsed'] as LangiumDocument<ast.Schedule>).parseResult.value, projectUri);
+        await generateDocuments(generator, [
+            fixture['demo.xsmpcat'].parseResult.value,
+            fixture['config-doc.xsmpcfg'].parseResult.value,
+            fixture['assembly-doc.xsmpasb'].parseResult.value,
+            fixture['links-doc.xsmplnk'].parseResult.value,
+            fixture['schedule-doc.xsmpsed'].parseResult.value,
+        ], projectUri);
 
         expect(fs.existsSync(path.join(outputDir, 'adoc-gen', 'Demo-gen.adoc'))).toBe(true);
         expect(fs.existsSync(path.join(outputDir, 'adoc-gen', 'DemoConfig-gen.adoc'))).toBe(true);

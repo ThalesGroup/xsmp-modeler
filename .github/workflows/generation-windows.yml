@@ -1,0 +1,38 @@
+name: Windows generation
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  generation:
+    name: Windows generation and cleanup
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: Preserve fixture line endings
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22.13.0'
+      - run: npm ci
+      - run: npm run build:workspace
+      - name: Test generation and cleanup on Windows
+        run: >-
+          node node_modules/vitest/vitest.mjs run --maxWorkers=2
+          packages/xsmp/test/generator/generated-files.test.ts
+          packages/xsmp/test/generator/windows-cleanup.test.ts
+          packages/xsmp/test/generator/builtin-generators-lifecycle.test.ts
+          packages/xsmp/test/generator/incremental-generation.test.ts
+          packages/xsmp/test/generator/cpp-generation-lifecycle.test.ts
+          packages/xsmp/test/workspace/document-generator.test.ts
+          packages/xsmp-tool-python/test/python-generator.test.ts
+          packages/xsmp-tas-mdk/test/tas-mdk-generators.test.ts

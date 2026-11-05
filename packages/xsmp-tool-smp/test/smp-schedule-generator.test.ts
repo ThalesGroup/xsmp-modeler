@@ -1,3 +1,4 @@
+import { generateDocuments } from '../../xsmp/test/generation-test-utils.js';
 import { afterEach, beforeAll, describe, expect, test } from "vitest";
 import { EmptyFileSystem, type LangiumDocument, URI } from "langium";
 import { expandToString as s } from "langium/generate";
@@ -83,7 +84,7 @@ describe('SMP schedule generator tests', () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-smp-schedule-'));
     try {
       const projectUri = URI.file(tmpDir);
-      await generator.generateSchedule(document!.parseResult.value, projectUri, undefined);
+      await generateDocuments(generator, [document!.parseResult.value], projectUri);
 
       const schedulePath = path.join(tmpDir, 'smdl-gen', 'write-test.smpsed');
       expect(fs.existsSync(schedulePath)).toBe(true);

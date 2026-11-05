@@ -60,6 +60,24 @@ In VS Code, you can either rely on automatic generation on save when `xsmp.gener
 
 Generation uses the active profile and tools of the target project.
 
+Each generation compares its outputs with the files on disk. Unchanged files
+keep their timestamps; missing files are recreated and manually edited generated
+files are restored from the model. Unexpected files are removed only inside
+folders wholly owned by a generator, such as `src-gen` or `include-gen`, after
+successful generation. Keep handwritten code in generation-gap source folders
+or other user-owned folders, not in generated folders.
+
+In mixed Python/helper folders, only previously generated files recorded in
+`.xsmp/generated-files.json` are removed when obsolete. User files created only
+once are preserved and their content is not rendered again while they exist.
+Keep the `.xsmp/` metadata directory out of version control. Without a usable
+inventory, unknown files in mixed folders are preserved.
+
+This also applies to the first generation after opening a workspace, whether or
+not `xsmp.generateAllOnStartup` is enabled. Editing a generated C++ file does not
+trigger generation: the next generation triggered by an XSMP save or an explicit
+command updates it.
+
 ## 7. Keep project boundaries clear
 
 When a project depends on another project:

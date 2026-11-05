@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as url from 'node:url';
 
-export const xsmpExtensionApiVersion = '1.0.0';
+export const xsmpExtensionApiVersion = '2.0.0';
 
 interface PackageInfo {
     version: string;
