@@ -14,7 +14,7 @@ export class XsmpcatScopeProvider implements ScopeProvider {
     protected readonly typeProvider: XsmpTypeProvider;
     protected readonly globalScopeCache: VisibilityCache<Map<string, Scope>>;
     protected readonly contexts: Set<ReferenceInfo['reference']> = new Set<ReferenceInfo['reference']>();
-    protected readonly precomputedCache: DocumentCache<AstNode, AstNodeDescription[]>;
+    protected readonly precomputedCache: DocumentCache<AstNode, Map<string, Map<string, AstNodeDescription>>>;
     protected readonly projectManager: ProjectManager;
 
     constructor(services: XsmpServices) {
@@ -22,7 +22,7 @@ export class XsmpcatScopeProvider implements ScopeProvider {
         this.indexManager = services.shared.workspace.IndexManager;
         this.typeProvider = services.shared.TypeProvider;
         this.globalScopeCache = new VisibilityCache<Map<string, Scope>>();
-        this.precomputedCache = new DocumentCache<AstNode, AstNodeDescription[]>(services.shared);
+        this.precomputedCache = new DocumentCache(services.shared);
         this.projectManager = services.shared.workspace.ProjectManager;
     }
 
@@ -137,20 +137,16 @@ export class XsmpcatScopeProvider implements ScopeProvider {
     }
 
     protected getPrecomputedScope(node: AstNode, document: LangiumDocument, referenceType: string): Map<string, AstNodeDescription> {
-        const descriptions = this.precomputedCache.get(document.uri, node, () => {
-            const precomputed: AstNodeDescription[] = [];
-            if (document.localSymbols?.has(node)) {
-                for (const element of document.localSymbols.getStream(node)) {
-                    precomputed.push(element);
+        const scopes = this.precomputedCache.get(document.uri, node, () => new Map());
+        let precomputed = scopes.get(referenceType);
+        if (!precomputed) {
+            precomputed = new Map<string, AstNodeDescription>();
+            for (const element of document.localSymbols?.getStream(node) ?? []) {
+                if (this.reflection.isSubtype(element.type, referenceType)) {
+                    precomputed.set(element.name, element);
                 }
             }
-            return precomputed;
-        });
-        const precomputed = new Map<string, AstNodeDescription>();
-        for (const element of descriptions) {
-            if (this.reflection.isSubtype(element.type, referenceType)) {
-                precomputed.set(element.name, element);
-            }
+            scopes.set(referenceType, precomputed);
         }
         return precomputed;
     }
