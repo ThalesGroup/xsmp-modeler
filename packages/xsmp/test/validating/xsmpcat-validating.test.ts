@@ -162,6 +162,25 @@ describe('Validating Xsmpcat', () => {
         expect((projectDocument.diagnostics ?? []).filter(d => d.severity === DiagnosticSeverity.Error)).toHaveLength(0);
     });
 
+    test.each(['ECSS_SMP_2020', 'ECSS_SMP_2025'] as const)('exposes Char8 to user catalogues in %s', async standard => {
+        const catalogueDocument = await parseCatalogueInProject(`
+            catalogue CharacterFields
+            namespace demo
+            {
+                /** @uuid 12844b7c-22f4-4423-ab32-14236cb88423 */
+                public model Characters
+                {
+                    field Smp.Char8 character = 'a'
+                    field Smp.Bool enabled = true
+                    field Smp.Int8 count = 1
+                }
+            }
+        `, standard);
+
+        expect(catalogueDocument.parseResult.parserErrors).toHaveLength(0);
+        expect(catalogueDocument.diagnostics).toEqual([]);
+    });
+
     test('applies an attribute to an array or a string through a parent usage', async () => {
         document = await parse(`
             catalogue AttributeUsage
