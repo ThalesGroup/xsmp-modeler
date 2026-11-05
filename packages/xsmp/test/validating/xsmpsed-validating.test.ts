@@ -112,6 +112,21 @@ afterEach(async () => {
 });
 
 describe('Validating Xsmpsed', () => {
+    test.each([-2, -1, 0, 1])('validates repeat count %i for every event kind', async repeatCount => {
+        const document = await parseInProject(`schedule <Root = "root"> Demo
+task Main {}
+event Main mission "PT0S" cycle "PT1S" repeat ${repeatCount}
+event Main simulation "PT0S" cycle "PT1S" repeat ${repeatCount}
+event Main epoch "2024-01-01T00:00:00Z" cycle "PT1S" repeat ${repeatCount}
+event Main zulu "2024-01-01T00:00:00Z" cycle "PT1S" repeat ${repeatCount}
+event Main on "Ready" cycle "PT1S" repeat ${repeatCount}
+`);
+
+        expect(getMessages(document)).toEqual(repeatCount < -1
+            ? Array(5).fill('RepeatCount shall be -1 for infinity or a non-negative number.')
+            : []);
+    });
+
     test('validates typed schedule paths, execute compatibility and honors unsafe', async () => {
         const document = await parseInProject(`schedule Demo
 
