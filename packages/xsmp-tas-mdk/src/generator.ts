@@ -764,7 +764,7 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
 
     protected generateRqHandlerOperation(op: ast.Operation, _gen: boolean): string {
         const r = op.returnParameter;
-        const invokation = `component.${this.operationName(op)}(${op.parameter.map(param => `${this.attrHelper.isByPointer(param) ? '&' : ''}p_${param.name}`).join(', ')})`;
+        const invokation = `component.${this.operationName(op)}(${op.parameter.map(param => this.isOptionalPointerParameter(param) ? `has_${param.name} ? &p_${param.name} : nullptr` : `${this.attrHelper.isByPointer(param) ? '&' : ''}p_${param.name}`).join(', ')})`;
         return s`
             if (handlers.find("${op.name}") == handlers.end()) {
                 handlers["${op.name}"] = [](_Type & component, [[maybe_unused]] ::Smp::IRequest* request) {
@@ -787,6 +787,19 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
     }*/
 
     initParameter(param: ast.Parameter): string {
+        if (this.isOptionalPointerParameter(param)) {
+            const read = param.direction !== 'out';
+            return s`
+                ${read ? 'bool' : 'const bool'} has_${param.name} = request->GetParameterIndex("${param.name}") >= 0;
+                ${this.fqn(param.type.ref)} p_${param.name}{};
+                ${read ? `::Smp::AnySimple storage_${param.name};
+                if (has_${param.name}) {
+                    ::TasMdk::Request::initParameter(storage_${param.name}, request, "${param.name}", ${this.primitiveTypeKind(param.type.ref)}, true);
+                    has_${param.name} = storage_${param.name}.GetType() != ::Smp::PrimitiveTypeKind::PTK_None;
+                    if (has_${param.name}) { p_${param.name} = static_cast<${this.fqn(param.type.ref)}>(storage_${param.name}); }
+                }` : undefined}
+                `;
+        }
         switch (param.direction ?? 'in') {
             case 'out':
                 // only declare the parameter
@@ -804,11 +817,10 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
     setParameter(param: ast.Parameter): string | undefined {
         switch (param.direction ?? 'in') {
             case 'out':
-            case 'inout':
-                if (ast.isStringType(param.type.ref)) {
-                    return `::TasMdk::Request::setParameter(request, "${param.name}", {${this.primitiveTypeKind(param.type.ref)}, p_${param.name}.data()});`;
-                }
-                return `::TasMdk::Request::setParameter(request, "${param.name}", {${this.primitiveTypeKind(param.type.ref)}, p_${param.name}});`;
+            case 'inout': {
+                const setter = `::TasMdk::Request::setParameter(request, "${param.name}", {${this.primitiveTypeKind(param.type.ref)}, p_${param.name}${ast.isStringType(param.type.ref) ? '.data()' : ''}});`;
+                return this.isOptionalPointerParameter(param) ? `if (has_${param.name}) { ${setter} }` : setter;
+            }
             case 'in':
                 // do nothing
                 return undefined;

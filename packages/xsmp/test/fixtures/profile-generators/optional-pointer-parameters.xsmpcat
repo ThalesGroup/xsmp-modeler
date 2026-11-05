@@ -1,0 +1,16 @@
+catalogue OptionalPointerParameters
+namespace optional {
+    /** @uuid 86000000-0000-4000-8000-000000000001 */
+    public model Probe {
+        /** Optional input. */
+        def void ope_input(@ByPointer in Int32 value = nullptr)
+        /** The request owns the String8 until the handler returns. */
+        def void ope_string(@ByPointer in String8 value = nullptr)
+        /** Optional output. */
+        def void ope_output(out Int32 value = (nullptr))
+        /** Optional input/output. */
+        def void ope_inout(inout Int32 value = 0)
+        /** The parameter names must not collide with generated presence flags. */
+        def void ope_names(@ByPointer in Int32 value = 0, @ByPointer in Int32 value_present = 0)
+    }
+}

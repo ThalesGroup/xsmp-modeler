@@ -1,9 +1,11 @@
+import { registerCppParameterValidationChecks } from '@xsmp/core/generator/cpp';
 import { EsaCdkGenerator } from './generator.js';
 import { scaffoldEsaCdkProject } from './scaffold.js';
 import type { XsmpContributionRegistrationApi } from '@xsmp/core/contributions';
 import type { XsmpGenerator } from '@xsmp/core/generator';
 
 export function registerContribution(api: XsmpContributionRegistrationApi): void {
+    api.addValidation('xsmpcat', registerCppParameterValidationChecks);
     api.setWizardMetadata({
         label: 'ESA CDK',
         description: 'Prepare a project targeting the ESA SMP CDK environment.',
