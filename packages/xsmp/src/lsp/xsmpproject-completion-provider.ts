@@ -103,7 +103,7 @@ export class XsmpprojectCompletionProvider extends XsmpCompletionProviderBase {
             }
             return;
         }
-        super.completionFor(context, next, acceptor);
+        return super.completionFor(context, next, acceptor);
     }
 
     protected override createKeywordSnippets(context: CompletionContext, keyword: GrammarAST.Keyword, acceptor: CompletionAcceptor): void {
