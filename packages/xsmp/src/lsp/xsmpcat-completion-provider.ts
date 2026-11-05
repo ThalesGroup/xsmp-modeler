@@ -1,7 +1,7 @@
-import { type AstNode, type AstNodeDescription, type LangiumDocument, type ReferenceInfo, type Stream, AstUtils, GrammarAST, type MaybePromise } from 'langium';
+import { type AstNode, type AstNodeDescription, type ReferenceInfo, type Stream, AstUtils, GrammarAST, interruptAndCheck } from 'langium';
 import type { CompletionAcceptor, CompletionContext, NextFeature } from 'langium/lsp';
 import { randomUUID } from 'node:crypto';
-import { type CancellationToken, type CompletionItem, type CompletionParams, InsertTextFormat, TextEdit } from 'vscode-languageserver';
+import { type CompletionItem, InsertTextFormat, TextEdit } from 'vscode-languageserver';
 import * as ast from '../generated/ast-partial.js';
 import * as Solver from '../utils/solver.js';
 import { PTK } from '../utils/primitive-type-kind.js';
@@ -261,22 +261,10 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
     );
     protected readonly structureLevelLabels = new Set(this.structureMemberSnippetSpecs.map(spec => spec.label));
     protected readonly enumerationLevelLabels = new Set([this.enumerationLiteralSnippetSpec.label]);
-    protected completionSnippetUuids = new Map<string, string>();
     protected override readonly snippetOnlyKeywords = new Set(this.keywordSnippetSpecs.map(spec => spec.keyword));
 
     constructor(services: XsmpcatServices) {
         super(services);
-    }
-
-    override async getCompletion(document: LangiumDocument, params: CompletionParams, cancelToken?: CancellationToken) {
-        this.completionSnippetUuids = new Map();
-        try {
-            const completion = await super.getCompletion(document, params, cancelToken);
-            completion.items = this.prioritizeValueCompletions(document, params, completion.items);
-            return completion;
-        } finally {
-            this.completionSnippetUuids.clear();
-        }
     }
 
     protected isReferenceProperty(refInfo: ReferenceInfo, type: string | { readonly $type: string }, property: string): boolean {
@@ -430,8 +418,8 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
         };
     }
 
-    protected override completionForCrossReference(context: CompletionContext, next: NextFeature<GrammarAST.CrossReference>, acceptor: CompletionAcceptor): MaybePromise<void> {
-        super.completionForCrossReference(context, next, acceptor);
+    protected override async completionForCrossReference(context: CompletionContext, next: NextFeature<GrammarAST.CrossReference>, acceptor: CompletionAcceptor): Promise<void> {
+        await super.completionForCrossReference(context, next, acceptor);
 
         const assignment = AstUtils.getContainerOfType(next.feature, GrammarAST.isAssignment);
         let { node } = context;
@@ -454,37 +442,35 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
 
         const type = this.typeProvider.getType(node as ast.Expression);
         if (type) {
-            this.addValueCompletionsForType(type, context, acceptor);
+            await this.addValueCompletionsForType(type, context, acceptor);
         }
     }
 
-    protected addTypedValueCompletions(context: CompletionContext, acceptor: CompletionAcceptor): void {
+    protected async addTypedValueCompletions(context: CompletionContext, acceptor: CompletionAcceptor): Promise<void> {
         const type = this.getValueCompletionTargetType(context);
         if (type) {
-            this.addValueCompletionsForType(type, context, acceptor);
+            await this.addValueCompletionsForType(type, context, acceptor);
         }
     }
 
-    protected addValueCompletionsForType(type: ast.Type, context: CompletionContext, acceptor: CompletionAcceptor): void {
+    protected async addValueCompletionsForType(type: ast.Type, context: CompletionContext, acceptor: CompletionAcceptor): Promise<void> {
         for (const item of this.getXsmpcatValueCompletions(type)) {
             acceptor(context, item);
         }
         if (this.isNullptrCompatibleType(type)) {
             acceptor(context, this.createValueItem('nullptr', 'nullptr', 'Null pointer / null reference expression.'));
         }
-        for (const item of this.getConstantValueCompletions(type, context)) {
-            acceptor(context, item);
-        }
-    }
-
-    protected getConstantValueCompletions(type: ast.Type, context: CompletionContext): ValueCompletionItem[] {
         const valueContext = this.getValueCompletionReferenceContext(context);
         if (!valueContext) {
-            return [];
+            return;
         }
-        return this.getConstantValueDescriptions(type, valueContext)
-            .map(desc => this.createReferenceCompletionItemFor(valueContext.refInfo, context, desc) as ValueCompletionItem)
-            .toArray();
+        const prefix = context.textDocument.getText().slice(context.tokenOffset, context.offset);
+        for (const description of this.getConstantValueDescriptions(type, valueContext)) {
+            await interruptAndCheck(this.getCompletionRequest(context).cancelToken);
+            if (this.fuzzyMatcher.match(prefix, description.name)) {
+                acceptor(context, this.createReferenceCompletionItemFor(valueContext.refInfo, context, description));
+            }
+        }
     }
 
     protected getConstantValueCompletionLabels(type: ast.Type, context: CompletionContext): Set<string> {
@@ -559,7 +545,7 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
 
     protected addStatementSnippetSpec(context: CompletionContext, acceptor: CompletionAcceptor, spec: StatementSnippetSpec): void {
         const item = spec.typeScoped
-            ? this.createTypeSnippetItem(spec.label, spec.buildInsertText(context), spec.detail)
+            ? this.createTypeSnippetItem(context, spec.label, spec.buildInsertText(context), spec.detail)
             : this.createSnippetItem(spec.label, spec.buildInsertText(context), spec.detail);
         acceptor(context, item);
     }
@@ -689,20 +675,24 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
             return;
         }
         const item = spec.typeScoped
-            ? this.createTypeKeywordSnippet(keyword, spec.buildInsertText(context), spec.detail, spec.label)
+            ? this.createTypeKeywordSnippet(context, keyword, spec.buildInsertText(context), spec.detail, spec.label)
             : this.createKeywordSnippet(keyword, spec.buildInsertText(context), spec.detail, spec.label);
         acceptor(context, item);
     }
 
-    protected override addStandaloneCompletions(context: CompletionContext, acceptor: CompletionAcceptor): void {
+    protected override async addStandaloneCompletions(context: CompletionContext, acceptor: CompletionAcceptor): Promise<void> {
         if (this.isAfterEquals(context)) {
-            this.addTypedValueCompletions(context, acceptor);
+            await this.addTypedValueCompletions(context, acceptor);
             return;
         }
         this.addStatementSnippets(context, acceptor);
     }
 
     protected override filterCompletionItems(context: CompletionContext, items: CompletionItem[]): CompletionItem[] {
+        return this.prioritizeValueCompletions(context, this.filterStatementCompletionItems(context, items));
+    }
+
+    protected filterStatementCompletionItems(context: CompletionContext, items: CompletionItem[]): CompletionItem[] {
         const filtered = super.filterCompletionItems(context, items);
         if (!this.isAtStatementPrefix(context) || !this.isOutsideRecoveredBlock(context)) {
             return filtered;
@@ -813,11 +803,9 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
     }
 
     protected prioritizeValueCompletions(
-        document: LangiumDocument,
-        params: CompletionParams,
+        context: CompletionContext,
         items: CompletionItem[],
     ): CompletionItem[] {
-        const context = this.createFallbackStandaloneContext(document, params);
         if (!this.isAfterEquals(context)) {
             return items;
         }
@@ -943,19 +931,20 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
         this.addStatementSnippetSpecs(context, acceptor, this.typeDefinitionSnippetSpecs);
     }
 
-    protected createTypeKeywordSnippet(keyword: GrammarAST.Keyword, insertText: string, detail: string, label = keyword.value) {
-        return this.createKeywordSnippet(keyword, `${this.createUuidComment(keyword.value)}\n${insertText}`, detail, label);
+    protected createTypeKeywordSnippet(context: CompletionContext, keyword: GrammarAST.Keyword, insertText: string, detail: string, label = keyword.value) {
+        return this.createKeywordSnippet(keyword, `${this.createUuidComment(context, keyword.value)}\n${insertText}`, detail, label);
     }
 
-    protected createTypeSnippetItem(label: string, insertText: string, detail: string) {
-        return this.createSnippetItem(label, `${this.createUuidComment(label)}\n${insertText}`, detail);
+    protected createTypeSnippetItem(context: CompletionContext, label: string, insertText: string, detail: string) {
+        return this.createSnippetItem(label, `${this.createUuidComment(context, label)}\n${insertText}`, detail);
     }
 
-    protected createUuidComment(key: string): string {
-        let uuid = this.completionSnippetUuids.get(key);
+    protected createUuidComment(context: CompletionContext, key: string): string {
+        const uuids = this.getCompletionRequest(context).snippetUuids;
+        let uuid = uuids.get(key);
         if (!uuid) {
             uuid = randomUUID();
-            this.completionSnippetUuids.set(key, uuid);
+            uuids.set(key, uuid);
         }
         return `/** @uuid ${uuid} */`;
     }
@@ -986,7 +975,7 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
         insertText: string,
         detail: string,
     ) {
-        const item = this.createReferenceCompletionItem(nodeDescription);
+        const item = this.getReferenceCompletionItem(context, nodeDescription);
         return {
             ...item,
             textEdit: TextEdit.replace({

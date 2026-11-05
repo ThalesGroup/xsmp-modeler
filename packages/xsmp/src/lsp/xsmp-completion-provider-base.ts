@@ -1,4 +1,4 @@
-import { AstUtils, GrammarAST, type AstNode, type AstNodeDescription, type LangiumDocument, type MaybePromise, type ReferenceInfo } from 'langium';
+import { AstUtils, Cancellation, GrammarAST, interruptAndCheck, isOperationCancelled, type AstNode, type AstNodeDescription, type LangiumDocument, type MaybePromise, type ReferenceInfo } from 'langium';
 import { DefaultCompletionProvider, type CompletionAcceptor, type CompletionContext, type CompletionValueItem, type NextFeature } from 'langium/lsp';
 import {
     CompletionItemKind,
@@ -37,6 +37,12 @@ type ContextualValueSpec = {
     detail: string;
     documentation?: MarkupContent | string;
 };
+type CompletionRequest = {
+    cancelToken: CancellationToken;
+    referenceItems: Map<AstNode | AstNodeDescription, Map<string, CompletionValueItem>>;
+    snippetUuids: Map<string, string>;
+};
+type XsmpCompletionContext = CompletionContext & { request: CompletionRequest };
 
 export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
     protected readonly typeProvider: XsmpTypeProvider;
@@ -60,51 +66,53 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
     }
 
     override async getCompletion(document: LangiumDocument, params: CompletionParams, cancelToken?: CancellationToken) {
-        const completion = await super.getCompletion(document, params, cancelToken);
-        const items = completion?.items ?? [];
-        const context = items.length === 0
-            ? this.createFallbackStandaloneContext(document, params)
-            : this.createStandaloneContext(document, params);
-        if (context) {
-            const acceptor: CompletionAcceptor = (completionContext, value) => {
-                const completionItem = this.fillCompletionItem(completionContext, value);
-                if (completionItem) {
-                    items.push(completionItem);
+        const request: CompletionRequest = {
+            cancelToken: cancelToken ?? Cancellation.CancellationToken.None,
+            referenceItems: new Map(),
+            snippetUuids: new Map(),
+        };
+        await interruptAndCheck(request.cancelToken);
+        const items: CompletionItem[] = [];
+        const acceptor: CompletionAcceptor = (context, value) => {
+            const item = this.fillCompletionItem(context, value);
+            if (item) {
+                items.push(item);
+            }
+        };
+        const completedFeatures = new Set<NextFeature>();
+        let context: XsmpCompletionContext | undefined;
+        // Build the parser contexts once. Each yielded context can require parsing the prefix.
+        for (const nextContext of this.buildContexts(document, params.position)) {
+            context = Object.assign(nextContext, { request });
+            await interruptAndCheck(request.cancelToken);
+            await this.addStandaloneCompletions(context, acceptor);
+            const features = new Set<GrammarAST.AbstractElement | string>();
+            for (const next of context.features) {
+                const feature = GrammarAST.isKeyword(next.feature) ? next.feature.value : next.feature;
+                if (features.has(feature)) {
+                    continue;
                 }
-            };
-            if (items.length === 0) {
-                this.addFallbackStandaloneCompletions(context, acceptor);
-            } else {
-                this.addStandaloneCompletions(context, acceptor);
+                features.add(feature);
+                if (!completedFeatures.has(next)) {
+                    await this.completionFor(context, next, acceptor);
+                    await interruptAndCheck(request.cancelToken);
+                }
+            }
+            context.features.forEach(next => completedFeatures.add(next));
+            if (!this.continueCompletion(items)) {
+                break;
             }
         }
-        const filterContext = this.createFallbackStandaloneContext(document, params);
-        return CompletionList.create(this.filterCompletionItems(filterContext, this.deduplicateItems(items)), true);
-    }
-
-    protected createStandaloneContext(document: LangiumDocument, params: CompletionParams): CompletionContext | undefined {
-        const offset = document.textDocument.offsetAt(params.position);
-        if ([...this.buildContexts(document, params.position)].length > 0) {
-            return undefined;
+        const filterContext = context ?? Object.assign(this.createFallbackStandaloneContext(document, params), { request });
+        if (items.length === 0) {
+            await this.addFallbackStandaloneCompletions(filterContext, acceptor);
         }
-        return {
-            document,
-            textDocument: document.textDocument,
-            features: [],
-            offset,
-            position: params.position,
-            tokenOffset: offset,
-            tokenEndOffset: offset,
-            node: document.parseResult.value,
-        };
+        await interruptAndCheck(request.cancelToken);
+        return CompletionList.create(this.filterCompletionItems(filterContext, this.deduplicateItems(items)), true);
     }
 
     protected createFallbackStandaloneContext(document: LangiumDocument, params: CompletionParams): CompletionContext {
         const offset = document.textDocument.offsetAt(params.position);
-        const context = [...this.buildContexts(document, params.position)].at(-1);
-        if (context) {
-            return context;
-        }
         return {
             document,
             textDocument: document.textDocument,
@@ -153,16 +161,31 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
         return undefined;
     }
 
-    protected override completionFor(context: CompletionContext, next: NextFeature, acceptor: CompletionAcceptor): MaybePromise<void> {
-        super.completionFor(context, next, acceptor);
-        this.addContextualCompletions(context, next, acceptor);
+    protected getCompletionRequest(context: CompletionContext): CompletionRequest {
+        return (context as XsmpCompletionContext).request;
+    }
+
+    protected getReferenceCompletionItem(context: CompletionContext, description: AstNodeDescription): CompletionValueItem {
+        const items = this.getCompletionRequest(context).referenceItems;
+        const node = description.node ?? description;
+        let names = items.get(node);
+        if (!names) {
+            names = new Map();
+            items.set(node, names);
+        }
+        let item = names.get(description.name);
+        if (!item) {
+            item = this.createReferenceCompletionItem(description);
+            names.set(description.name, item);
+        }
+        return item;
     }
 
     protected override continueCompletion(_items: CompletionItem[]): boolean {
         return true;
     }
 
-    protected override completionForCrossReference(context: CompletionContext, next: NextFeature<GrammarAST.CrossReference>, acceptor: CompletionAcceptor): MaybePromise<void> {
+    protected override async completionForCrossReference(context: CompletionContext, next: NextFeature<GrammarAST.CrossReference>, acceptor: CompletionAcceptor): Promise<void> {
         const assignment = AstUtils.getContainerOfType(next.feature, GrammarAST.isAssignment);
         let { node } = context;
         if (assignment && node) {
@@ -183,10 +206,17 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
                 property: assignment.feature,
             };
             try {
+                const prefix = context.textDocument.getText().slice(context.tokenOffset, context.offset);
                 for (const candidate of this.getReferenceCandidates(refInfo, context)) {
-                    acceptor(context, this.createReferenceCompletionItemFor(refInfo, context, candidate));
+                    await interruptAndCheck(this.getCompletionRequest(context).cancelToken);
+                    if (this.fuzzyMatcher.match(prefix, candidate.name)) {
+                        acceptor(context, this.createReferenceCompletionItemFor(refInfo, context, candidate));
+                    }
                 }
             } catch (err) {
+                if (isOperationCancelled(err)) {
+                    throw err;
+                }
                 console.error(err);
             }
         }
@@ -194,7 +224,7 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
 
     protected createReferenceCompletionItemFor(refInfo: ReferenceInfo, context: CompletionContext, nodeDescription: AstNodeDescription): CompletionValueItem {
         const item = this.createEnrichedReferenceCompletionItem(refInfo, context, nodeDescription);
-        return item ?? this.createReferenceCompletionItem(nodeDescription);
+        return item ?? this.getReferenceCompletionItem(context, nodeDescription);
     }
 
     protected createEnrichedReferenceCompletionItem(
@@ -235,16 +265,12 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
         // implemented by subclasses
     }
 
-    protected addContextualCompletions(context: CompletionContext, _next: NextFeature, acceptor: CompletionAcceptor): void {
-        this.addStandaloneCompletions(context, acceptor);
-    }
-
-    protected addStandaloneCompletions(_context: CompletionContext, _acceptor: CompletionAcceptor): void {
+    protected addStandaloneCompletions(_context: CompletionContext, _acceptor: CompletionAcceptor): MaybePromise<void> {
         // implemented by subclasses
     }
 
-    protected addFallbackStandaloneCompletions(context: CompletionContext, acceptor: CompletionAcceptor): void {
-        this.addStandaloneCompletions(context, acceptor);
+    protected addFallbackStandaloneCompletions(context: CompletionContext, acceptor: CompletionAcceptor): MaybePromise<void> {
+        return this.addStandaloneCompletions(context, acceptor);
     }
 
     protected filterCompletionItems(_context: CompletionContext, items: CompletionItem[]): CompletionItem[] {
