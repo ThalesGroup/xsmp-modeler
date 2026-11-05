@@ -1,11 +1,9 @@
-import { registerCppIntegerValidationChecks } from '@xsmp/core/generator/cpp';
 import { XsmpSdkGenerator } from './generator.js';
 import { scaffoldXsmpSdkProject } from './scaffold.js';
 import type { XsmpContributionRegistrationApi } from '@xsmp/core/contributions';
 import type { XsmpGenerator } from '@xsmp/core/generator';
 
 export function registerContribution(api: XsmpContributionRegistrationApi): void {
-    api.addValidation('xsmpcat', registerCppIntegerValidationChecks);
     api.setWizardMetadata({
         label: 'XSMP SDK',
         description: 'Recommended profile for projects using the XSMP SDK build and test workflow.',

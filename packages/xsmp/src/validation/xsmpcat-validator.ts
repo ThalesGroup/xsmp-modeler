@@ -17,6 +17,7 @@ import { type AttributeHelper } from '../utils/attribute-helper.js';
 import type { ProjectManager } from '../workspace/project-manager.js';
 import type { XsmpIndexManager } from '../workspace/index-manager.js';
 import { checkName, checkUniqueDocumentName } from './name-validator-utils.js';
+import { getIntegerRegistrationBoundsIssue } from '../utils/integer-bounds.js';
 
 /**
  * Register custom validation checks.
@@ -667,7 +668,10 @@ export class XsmpcatValidator {
         else {
             accept('error', 'Expecting an Integral Type.', { node: integer, property: ast.Integer.primitiveType });
         }
-
+        const issue = getIntegerRegistrationBoundsIssue(integer);
+        if (issue) {
+            accept('error', issue, { node: integer, property: integer.maximum ? ast.Integer.maximum : ast.Integer.name });
+        }
     }
     checkFloat(float: ast.Float, accept: ValidationAcceptor): void {
         this.checkModifier(float, [ast.isVisibilityModifiers], accept);
