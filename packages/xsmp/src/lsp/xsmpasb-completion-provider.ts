@@ -34,8 +34,8 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
         }
     }
 
-    protected override addStandaloneCompletions(context: CompletionContext, acceptor: CompletionAcceptor): void {
-        this.addStatementSnippets(context, acceptor);
+    protected override async addStandaloneCompletions(context: CompletionContext, acceptor: CompletionAcceptor): Promise<void> {
+        await this.addStatementSnippets(context, acceptor);
         this.addModelStructureCompletions(context, acceptor);
         this.addInstanceTypeCompletions(context, acceptor);
         this.addConfigurableFieldCompletions(context, acceptor);
@@ -44,12 +44,12 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
         this.addTypedValueCompletions(context, acceptor);
     }
 
-    protected override addFallbackStandaloneCompletions(context: CompletionContext, acceptor: CompletionAcceptor): void {
+    protected override async addFallbackStandaloneCompletions(context: CompletionContext, acceptor: CompletionAcceptor): Promise<void> {
         if (this.isModelImplementationTypePosition(context) || this.isSubInstanceTypePosition(context)) {
             this.addInstanceTypeCompletions(context, acceptor);
             return;
         }
-        this.addStandaloneCompletions(context, acceptor);
+        await this.addStandaloneCompletions(context, acceptor);
     }
 
     protected override filterCompletionItems(context: CompletionContext, items: CompletionItem[]): CompletionItem[] {
@@ -155,7 +155,7 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
         return undefined;
     }
 
-    protected addStatementSnippets(context: CompletionContext, acceptor: CompletionAcceptor): void {
+    protected async addStatementSnippets(context: CompletionContext, acceptor: CompletionAcceptor): Promise<void> {
         if (!this.isAtStatementPrefix(context)) {
             return;
         }
@@ -194,7 +194,7 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
                 `${this.createPlaceholder(1, 'container')} += ${this.createPlaceholder(2, 'Child')}: ${this.createChoicePlaceholder(3, assemblies, 'Assembly')}${assemblyUsageSnippet}`,
                 'Sub Assembly Instance'
             ));
-            this.addLinkStatementSnippets(context, acceptor);
+            await this.addLinkStatementSnippets(context, acceptor, this.getRelativeComponentContexts(this.getCurrentComponent(context)));
             return;
         }
 
@@ -329,8 +329,6 @@ export class XsmpasbCompletionProvider extends XsmpCompletionProviderBase {
             }
         }
 
-        this.addContextualEventLinkCompletions(context, acceptor, component);
-        this.addContextualFieldLinkCompletions(context, acceptor, component);
         this.addContextualInterfaceLinkCompletions(context, acceptor, component);
     }
 

@@ -32,8 +32,8 @@ export class XsmpsedCompletionProvider extends XsmpCompletionProviderBase {
         }
     }
 
-    protected override addStandaloneCompletions(context: CompletionContext, acceptor: CompletionAcceptor): void {
-        this.addStatementSnippets(context, acceptor);
+    protected override async addStandaloneCompletions(context: CompletionContext, acceptor: CompletionAcceptor): Promise<void> {
+        await this.addStatementSnippets(context, acceptor);
         this.addTaskStatementCompletions(context, acceptor);
         this.addActivityReferenceCompletions(context, acceptor);
         this.addTypedValueCompletions(context, acceptor);
@@ -100,7 +100,7 @@ export class XsmpsedCompletionProvider extends XsmpCompletionProviderBase {
         return undefined;
     }
 
-    protected addStatementSnippets(context: CompletionContext, acceptor: CompletionAcceptor): void {
+    protected async addStatementSnippets(context: CompletionContext, acceptor: CompletionAcceptor): Promise<void> {
         if (!this.isAtStatementPrefix(context)) {
             return;
         }
@@ -113,9 +113,12 @@ export class XsmpsedCompletionProvider extends XsmpCompletionProviderBase {
         }
 
         if (task) {
+            const components = this.getRelativeComponentContexts(this.instancePathResolver.getEffectiveTaskExecutionContext(task));
+            const output = await this.createEndpointChoice(context, 1, components, 'outputField', 'output');
+            const input = await this.createEndpointChoice(context, 2, components, 'inputField', 'input');
             acceptor(context, this.createSnippetItem('Operation Call', 'call ${1:operation}($0)', 'Operation Call'));
             acceptor(context, this.createSnippetItem('Property Value', 'property ${1:path} = ${2:value}', 'Property Value'));
-            acceptor(context, this.createSnippetItem('Field Transfer', 'transfer ${1:output} -> ${2:input}', 'Field Transfer'));
+            acceptor(context, this.createSnippetItem('Field Transfer', `transfer ${output} -> ${input}`, 'Field Transfer'));
             acceptor(context, this.createSnippetItem('Entry Point Trigger', 'trig ${1:path}', 'Entry Point Trigger'));
             acceptor(context, this.createSnippetItem('Execute Task', 'execute ${1:Task} at ${2:path}', 'Execute Task'));
             acceptor(context, this.createSnippetItem('Emit Global Event', 'emit "${1:GlobalEvent}"', 'Emit Global Event'));
@@ -164,25 +167,6 @@ export class XsmpsedCompletionProvider extends XsmpCompletionProviderBase {
                 insertText: `trig ${this.createTriggerText(name)}`,
                 detail: `Trigger entry point ${name}.`,
             }));
-
-            const outputFields = this.instancePathResolver.getComponentMembersByKind(localComponent, ['outputField']);
-            const inputFields = this.instancePathResolver.getComponentMembersByKind(localComponent, ['inputField']);
-            for (const outputField of outputFields) {
-                if (!ast.isField(outputField) || !outputField.name) {
-                    continue;
-                }
-                for (const inputField of inputFields) {
-                    if (!ast.isField(inputField) || !inputField.name) {
-                        continue;
-                    }
-                    acceptor(context, this.createContextualValueItem(
-                        context,
-                        `transfer ${outputField.name} -> ${inputField.name}`,
-                        `transfer ${outputField.name} -> ${inputField.name}`,
-                        `Transfer from output ${outputField.name} to input ${inputField.name}.`
-                    ));
-                }
-            }
         }
 
         const schedule = AstUtils.getContainerOfType(task, ast.isSchedule);

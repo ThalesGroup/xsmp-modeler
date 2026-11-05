@@ -476,7 +476,7 @@ Root: demo.@@
         expect(labels(nestedItems)).toContain('Component Link Base');
         expect(labels(nestedItems)).not.toContain('Root Component Link Base');
         expect(labels(nestedItems)).toContain('Child');
-        expect(labels(nestedItems)).toContain('field link outValue -> Child.inValue');
+        expect(labels(nestedItems)).toContain('Field Link');
 
         const afterNestedCursor = extractCursor(`link Demo for DemoAsm
 /
@@ -494,7 +494,7 @@ Root: demo.@@
         });
         const afterNestedItems = await getCompletionItems(services.xsmplnk.lsp.CompletionProvider!, afterNestedDocument, afterNestedCursor.cursor);
         expect(labels(afterNestedItems)).toContain('Component Link Base');
-        expect(labels(afterNestedItems)).toContain('field link outValue -> Child.inValue');
+        expect(labels(afterNestedItems)).toContain('Field Link');
         expect(labels(afterNestedItems)).not.toContain('Root Component Link Base');
 
         const referenceText = `link Demo for DemoAsm
@@ -537,7 +537,7 @@ Root: demo.Root
         const nestedItems = await getCompletionItems(services.xsmplnk.lsp.CompletionProvider!, nestedDocument, nestedCursor.cursor);
         expect(labels(nestedItems)).toContain('Leaf');
         expect(labels(nestedItems)).not.toContain('Child');
-        expect(labels(nestedItems)).toContain('field link outValue -> Leaf.inValue');
+        expect(labels(nestedItems)).toContain('Field Link');
     });
 
     test('xsmpsed offers schedule snippets, typed values and execute-task snippets', async () => {
@@ -616,7 +616,7 @@ task Worker on demo.Child
         expect(labels(taskStatementItems)).toContain('call apply');
         expect(labels(taskStatementItems)).toContain('property mode');
         expect(labels(taskStatementItems)).toContain('trig step');
-        expect(labels(taskStatementItems)).toContain('transfer outValue -> inValue');
+        expect(labels(taskStatementItems)).toContain('Field Transfer');
         expect(labels(taskStatementItems)).toContain('execute Worker');
         expect(labels(taskStatementItems)).not.toContain('Task');
         expect(labels(taskStatementItems)).not.toContain('Event Epoch');

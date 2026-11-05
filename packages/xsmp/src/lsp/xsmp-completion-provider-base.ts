@@ -779,90 +779,34 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
         }
     }
 
-    protected addLinkStatementSnippets(context: CompletionContext, acceptor: CompletionAcceptor): void {
-        acceptor(context, this.createSnippetItem('Event Link', 'event link ${1:owner} -> ${2:client}', 'Event Link'));
-        acceptor(context, this.createSnippetItem('Field Link', 'field link ${1:owner} -> ${2:client}', 'Field Link'));
+    protected async addLinkStatementSnippets(context: CompletionContext, acceptor: CompletionAcceptor, components: readonly RelativeComponentContext[] = []): Promise<void> {
+        const eventOwner = await this.createEndpointChoice(context, 1, components, 'eventSource', 'owner');
+        const eventClient = await this.createEndpointChoice(context, 2, components, 'eventSink', 'client');
+        const fieldOwner = await this.createEndpointChoice(context, 1, components, 'outputField', 'owner');
+        const fieldClient = await this.createEndpointChoice(context, 2, components, 'inputField', 'client');
+        acceptor(context, this.createSnippetItem('Event Link', `event link ${eventOwner} -> ${eventClient}`, 'Event Link'));
+        acceptor(context, this.createSnippetItem('Field Link', `field link ${fieldOwner} -> ${fieldClient}`, 'Field Link'));
         acceptor(context, this.createSnippetItem('Interface Link', 'interface link ${1:sourcePath} -> ${2:client}${3::${4:backReference}}', 'Interface Link'));
     }
 
-    protected addContextualFieldLinkCompletions(
+    protected async createEndpointChoice(
         context: CompletionContext,
-        acceptor: CompletionAcceptor,
-        component: ast.Component | undefined,
-    ): void {
-        this.addContextualFieldLinkCompletionsForContexts(context, acceptor, this.getRelativeComponentContexts(component));
-    }
-
-    protected addContextualFieldLinkCompletionsForContexts(
-        context: CompletionContext,
-        acceptor: CompletionAcceptor,
-        componentContexts: readonly RelativeComponentContext[],
-    ): void {
-        for (const ownerContext of componentContexts) {
-            const outputs = this.instancePathResolver.getComponentMembersByKind(ownerContext.component, ['outputField']);
-            for (const output of outputs) {
-                if (!ast.isField(output) || !output.name) {
-                    continue;
-                }
-                const ownerPath = this.qualifyRelativeMemberPath(ownerContext.path, output.name);
-                for (const clientContext of componentContexts) {
-                    const inputs = this.instancePathResolver.getComponentMembersByKind(clientContext.component, ['inputField']);
-                    for (const input of inputs) {
-                        if (!ast.isField(input) || !input.name) {
-                            continue;
-                        }
-                        const clientPath = this.qualifyRelativeMemberPath(clientContext.path, input.name);
-                        const text = `field link ${ownerPath} -> ${clientPath}`;
-                        acceptor(context, this.createContextualValueItem(
-                            context,
-                            text,
-                            text,
-                            'Field Link'
-                        ));
-                    }
+        index: number,
+        components: readonly RelativeComponentContext[],
+        kind: 'inputField' | 'outputField' | 'eventSource' | 'eventSink',
+        fallback: string,
+    ): Promise<string> {
+        const choices: string[] = [];
+        const cancelToken = this.getCompletionRequest(context).cancelToken;
+        for (const component of components) {
+            for (const member of this.instancePathResolver.getComponentMembersByKind(component.component, [kind])) {
+                await interruptAndCheck(cancelToken);
+                if (member.name) {
+                    choices.push(this.qualifyRelativeMemberPath(component.path, member.name));
                 }
             }
         }
-    }
-
-    protected addContextualEventLinkCompletions(
-        context: CompletionContext,
-        acceptor: CompletionAcceptor,
-        component: ast.Component | undefined,
-    ): void {
-        this.addContextualEventLinkCompletionsForContexts(context, acceptor, this.getRelativeComponentContexts(component));
-    }
-
-    protected addContextualEventLinkCompletionsForContexts(
-        context: CompletionContext,
-        acceptor: CompletionAcceptor,
-        componentContexts: readonly RelativeComponentContext[],
-    ): void {
-        for (const ownerContext of componentContexts) {
-            const sources = this.instancePathResolver.getComponentMembersByKind(ownerContext.component, ['eventSource']);
-            for (const source of sources) {
-                if (!ast.isEventSource(source) || !source.name) {
-                    continue;
-                }
-                const ownerPath = this.qualifyRelativeMemberPath(ownerContext.path, source.name);
-                for (const clientContext of componentContexts) {
-                    const sinks = this.instancePathResolver.getComponentMembersByKind(clientContext.component, ['eventSink']);
-                    for (const sink of sinks) {
-                        if (!ast.isEventSink(sink) || !sink.name) {
-                            continue;
-                        }
-                        const clientPath = this.qualifyRelativeMemberPath(clientContext.path, sink.name);
-                        const text = `event link ${ownerPath} -> ${clientPath}`;
-                        acceptor(context, this.createContextualValueItem(
-                            context,
-                            text,
-                            text,
-                            'Event Link'
-                        ));
-                    }
-                }
-            }
-        }
+        return this.createChoicePlaceholder(index, choices, fallback);
     }
 
     protected addContextualInterfaceLinkCompletions(

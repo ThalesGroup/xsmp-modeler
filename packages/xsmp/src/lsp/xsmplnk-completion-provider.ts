@@ -23,7 +23,7 @@ export class XsmplnkCompletionProvider extends XsmpCompletionProviderBase {
         }
     }
 
-    protected override addStandaloneCompletions(context: CompletionContext, acceptor: CompletionAcceptor): void {
+    protected override async addStandaloneCompletions(context: CompletionContext, acceptor: CompletionAcceptor): Promise<void> {
         const linkBase = this.getRecoveryContainerOfType(context, ast.isLinkBase);
         const componentLinkBase = this.getRecoveryBlockContainerOfType(context, ast.isComponentLinkBase);
 
@@ -35,7 +35,6 @@ export class XsmplnkCompletionProvider extends XsmpCompletionProviderBase {
                 `${this.createPlaceholder(1, 'path')}\n{\n\t$0\n}`,
                 'Nested Component Link Base'
             ));
-            this.addLinkStatementSnippets(context, acceptor);
         } else if (this.isAtStatementPrefix(context) && linkBase) {
             acceptor(context, this.createSnippetItem(
                 'Root Component Link Base',
@@ -45,7 +44,7 @@ export class XsmplnkCompletionProvider extends XsmpCompletionProviderBase {
         }
 
         this.addInterfaceReferenceCompletions(context, acceptor);
-        this.addComponentLinkBaseCompletions(context, acceptor);
+        await this.addComponentLinkBaseCompletions(context, acceptor);
     }
 
     protected override createEnrichedReferenceCompletionItem(
@@ -63,7 +62,7 @@ export class XsmplnkCompletionProvider extends XsmpCompletionProviderBase {
         return undefined;
     }
 
-    protected addComponentLinkBaseCompletions(context: CompletionContext, acceptor: CompletionAcceptor): void {
+    protected async addComponentLinkBaseCompletions(context: CompletionContext, acceptor: CompletionAcceptor): Promise<void> {
         if (!this.isAtStatementPrefix(context)) {
             return;
         }
@@ -75,6 +74,9 @@ export class XsmplnkCompletionProvider extends XsmpCompletionProviderBase {
             ? assemblyContext?.component ?? this.instancePathResolver.getEffectiveComponentLinkBaseComponent(componentLinkBase)
             : undefined;
         if (!component) {
+            if (componentLinkBase) {
+                await this.addLinkStatementSnippets(context, acceptor);
+            }
             return;
         }
 
@@ -93,8 +95,7 @@ export class XsmplnkCompletionProvider extends XsmpCompletionProviderBase {
         const relativeContexts = assemblyContext
             ? this.getAssemblyRelativeComponentContexts(assemblyContext)
             : this.getRelativeComponentContexts(component);
-        this.addContextualEventLinkCompletionsForContexts(context, acceptor, relativeContexts);
-        this.addContextualFieldLinkCompletionsForContexts(context, acceptor, relativeContexts);
+        await this.addLinkStatementSnippets(context, acceptor, relativeContexts);
         this.addContextualInterfaceLinkCompletionsForContexts(context, acceptor, relativeContexts);
     }
 
