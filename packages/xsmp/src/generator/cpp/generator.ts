@@ -578,7 +578,7 @@ export abstract class CppGenerator implements XsmpGenerator {
     }
 
     protected description(element: ast.NamedElement | ast.ReturnParameter): string {
-        return `"${escape(this.docHelper.getDescription(element))}"`;
+        return `"${this.escapeString(this.docHelper.getDescription(element))}"`;
     }
 
     protected viewKind(element: ast.Property | ast.Field | ast.Operation | ast.EntryPoint, defaultViewKind: string = '::Smp::ViewKind::VK_All'): string {
@@ -652,7 +652,7 @@ export abstract class CppGenerator implements XsmpGenerator {
                         break;
                     }
                 }
-                return (expr as ast.StringLiteral).$cstNode?.text as string;
+                return this.protectTrigraphs((expr as ast.StringLiteral).$cstNode?.text ?? '');
             }
             case ast.CharacterLiteral.$type: return (expr as ast.CharacterLiteral).$cstNode?.text as string;
             case ast.KeywordExpression.$type: return (expr as ast.KeywordExpression).name;
@@ -662,6 +662,12 @@ export abstract class CppGenerator implements XsmpGenerator {
             }
         }
         return `${expr.$cstNode?.text}`;
+    }
+    protected protectTrigraphs(text: string): string {
+        return this.cxxStandard < CxxStandard.CXX_STD_17 ? text.replace(/\?\?(?=[=/'()!<>-])/g, '?\\?') : text;
+    }
+    protected escapeString(text: string | undefined): string {
+        return this.protectTrigraphs(escape(text));
     }
     protected stringTypeIsConstexpr(): boolean { return false; }
 

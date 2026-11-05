@@ -2,7 +2,7 @@ import * as ast from '../../generated/ast.js';
 import * as fs from 'node:fs';
 import { expandToString as s } from 'langium/generate';
 import { type URI, UriUtils } from 'langium';
-import { escape, fqn, getAccessKind, getRealVisibility, isInput, isOutput, isState, isString8 } from '../../utils/xsmp-utils.js';
+import { fqn, getAccessKind, getRealVisibility, isInput, isOutput, isState, isString8 } from '../../utils/xsmp-utils.js';
 import { CppGenerator, CxxStandard } from './generator.js';
 import type { TaskAcceptor } from '../generator.js';
 import { cleanGeneratedFolders } from '../generated-folder.js';
@@ -514,7 +514,7 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
                 ${this.uuid(type)}, // UUID
                 ${type.minimum ? this.expression(type.minimum) : `std::numeric_limits<${this.fqn(type.primitiveType?.ref, '::Smp::Int32')}>::min()`}, // Minimum
                 ${type.maximum ? this.expression(type.maximum) : `std::numeric_limits<${this.fqn(type.primitiveType?.ref, '::Smp::Int32')}>::max()`}, // Maximum
-                "${escape(this.docHelper.getUnit(type))}", // Unit
+                "${this.escapeString(this.docHelper.getUnit(type))}", // Unit
                 ${this.primitiveTypeKind(type)} // Primitive Type Kind
             );
         }
@@ -549,7 +549,7 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
             ${type.maximum ? this.expression(type.maximum) : `std::numeric_limits<${this.fqn(type.primitiveType?.ref, '::Smp::Float64')}>::max()`}, // Maximum
             ${minInclusive}, // Minimum ${minInclusive ? 'inclusive' : 'exclusive'}
             ${maxInclusive}, // Maximum ${maxInclusive ? 'inclusive' : 'exclusive'}
-            "${escape(this.docHelper.getUnit(type))}", // Unit
+            "${this.escapeString(this.docHelper.getUnit(type))}", // Unit
             ${this.primitiveTypeKind(type)} // Primitive Type Kind
         );  
     }
