@@ -17,6 +17,7 @@ import { type DocumentationHelper } from '../../utils/documentation-helper.js';
 import { type AttributeHelper } from '../../utils/attribute-helper.js';
 import { ViewKind } from '../../utils/view_kind.js';
 import { isStandardBuiltinLibrary } from '../../builtins.js';
+import { getCppOperationInvocationIssue } from './invocation-validation.js';
 
 export enum CxxStandard { CXX_STD_11 = 0, CXX_STD_14 = 1, CXX_STD_17 = 2 }
 
@@ -1394,6 +1395,8 @@ export abstract class CppGenerator implements XsmpGenerator {
         if (ast.isProperty(element)) {
             return ast.isSimpleType(element.type.ref) ? undefined : 'its type is not a SimpleType';
         }
+        const operationIssue = getCppOperationInvocationIssue(element, this.attrHelper);
+        if (operationIssue) return operationIssue;
         if (element.returnParameter && !ast.isSimpleType(element.returnParameter.type.ref)) {
             return 'its return type is not a SimpleType';
         }
