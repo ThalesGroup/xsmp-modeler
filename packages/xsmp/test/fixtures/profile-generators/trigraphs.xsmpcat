@@ -1,0 +1,10 @@
+catalogue Trigraphs
+namespace trigraphs {
+    /** Text ??= with all nine trigraphs.
+     * @uuid 82000000-0000-4000-8000-000000000002
+     */
+    public struct Text {
+        constant String8 all = "??= ??/ ??' ??( ??) ??! ??< ??> ??-"
+        constant String8 normal = "backslash \\ and quoted \"question?\""
+    }
+}
