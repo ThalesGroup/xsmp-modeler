@@ -160,6 +160,7 @@ export interface XsmpAddedSharedServices {
     readonly SmpMirrorManager: SmpMirrorManager,
     readonly SmpWorkspaceIndex: SmpWorkspaceIndex,
     readonly workspace: {
+        DocumentBuilder: XsmpDocumentBuilder,
         ProjectManager: ProjectManager,
         WorkspaceManager: XsmpWorkspaceManager,
     },

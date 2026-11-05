@@ -1,4 +1,4 @@
-import { type Cancellation, type LangiumDocument, type ValidationOptions, DefaultDocumentBuilder, ValidationCategory } from 'langium';
+import { type Cancellation, type LangiumDocument, type ValidationOptions, DefaultDocumentBuilder, Disposable, DocumentState, ValidationCategory } from 'langium';
 import type { XsmpSharedServices } from '../xsmp-module.js';
 import type { ProjectManager } from './project-manager.js';
 import * as ast from '../generated/ast-partial.js';
@@ -6,12 +6,28 @@ import type { XsmpContributionRegistry } from '../contributions/xsmp-contributio
 
 export class XsmpDocumentBuilder extends DefaultDocumentBuilder {
 
+    private readonly invalidationListeners = new Set<(document: LangiumDocument) => void>();
     protected readonly projectManager: () => ProjectManager;
     protected readonly contributionRegistry: () => XsmpContributionRegistry;
     constructor(services: XsmpSharedServices) {
         super(services);
         this.projectManager = () => services.workspace.ProjectManager;
         this.contributionRegistry = () => services.ContributionRegistry;
+    }
+
+    /** Invalidate semantic caches before a changed or dependent document is relinked. */
+    onInvalidateDocument(listener: (document: LangiumDocument) => void): Disposable {
+        this.invalidationListeners.add(listener);
+        return Disposable.create(() => this.invalidationListeners.delete(listener));
+    }
+
+    override resetToState(document: LangiumDocument, state: DocumentState): void {
+        if (state <= DocumentState.ComputedScopes) {
+            for (const listener of this.invalidationListeners) {
+                listener(document);
+            }
+        }
+        super.resetToState(document, state);
     }
 
     protected override async validate(document: LangiumDocument, cancelToken: Cancellation.CancellationToken): Promise<void> {

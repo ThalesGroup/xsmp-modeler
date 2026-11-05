@@ -1,4 +1,4 @@
-import { AstUtils, DocumentState, UriUtils, WorkspaceCache } from 'langium';
+import { AstUtils, DocumentState, UriUtils, WorkspaceCache, stream } from 'langium';
 import type { LangiumDocument, LangiumDocuments, LangiumSharedCoreServices, Stream, URI } from 'langium';
 import * as ast from '../generated/ast-partial.js';
 import { isBuiltinLibrary } from '../builtins.js';
@@ -10,9 +10,10 @@ import type { XsmpSharedServices } from '../xsmp-module.js';
 export const SmpStandards: string[] = ['ECSS_SMP_2020', 'ECSS_SMP_2025'];
 
 export class ProjectManager {
+    protected readonly projectsCache: WorkspaceCache<string, ast.Project[]>;
     protected readonly projectCache: WorkspaceCache<URI, ast.Project | undefined>;
     protected readonly dependenciesCache: WorkspaceCache<URI, Set<ast.Project>>;
-    protected readonly visibleUrisCache: WorkspaceCache<URI, Set<string>>;
+    protected readonly visibleUrisCache: WorkspaceCache<ast.Project | URI, Set<string>>;
     protected readonly documents: LangiumDocuments;
     protected readonly services: LangiumSharedCoreServices;
     protected readonly contributionRegistry: XsmpContributionRegistry;
@@ -22,13 +23,16 @@ export class ProjectManager {
         this.documents = services.workspace.LangiumDocuments;
         this.services = services;
         this.contributionRegistry = services.ContributionRegistry;
+        this.projectsCache = new WorkspaceCache<string, ast.Project[]>(services);
         this.projectCache = new WorkspaceCache<URI, ast.Project | undefined>(services);
         this.dependenciesCache = new WorkspaceCache<URI, Set<ast.Project>>(services);
-        this.visibleUrisCache = new WorkspaceCache<URI, Set<string>>(services);
+        this.visibleUrisCache = new WorkspaceCache<ast.Project | URI, Set<string>>(services);
     }
 
     getProjects(): Stream<ast.Project> {
-        return this.documents.all.map(doc => doc.parseResult.value).filter(ast.isProject);
+        return stream(this.projectsCache.get('projects', () =>
+            this.documents.all.map(doc => doc.parseResult.value).filter(ast.isProject).toArray()
+        ));
     }
     getProjectByName(name: string): ast.Project | undefined {
         return this.getProjects().find(p => p.name === name);
@@ -41,7 +45,8 @@ export class ProjectManager {
     protected doGetProject(document: LangiumDocument): ast.Project | undefined {
         let bestProject: ast.Project | undefined;
         let bestProjectDirectoryLength = -1;
-        for (const doc of this.documents.all) {
+        for (const candidate of this.getProjects()) {
+            const doc = AstUtils.getDocument(candidate);
             const project = this.getProjectForDocument(doc, document);
             if (!project) {
                 continue;
@@ -103,6 +108,7 @@ export class ProjectManager {
         });
     }
 
+    /** Shared within a project until the next workspace update; callers must not mutate the set. */
     getVisibleUris(document: LangiumDocument): Set<string> | undefined {
 
         const project = this.getProject(document);
@@ -115,7 +121,8 @@ export class ProjectManager {
             });
         }
 
-        return this.visibleUrisCache.get(document.uri, () => this.computeVisibleUris(project));
+        // Use the project node so its standalone xsmp.project document cannot share this key.
+        return this.visibleUrisCache.get(project, () => this.computeVisibleUris(project));
     }
 
     protected computeBuiltinVisibleUris(document: LangiumDocument): Set<string> {

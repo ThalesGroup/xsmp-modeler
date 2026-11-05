@@ -31,10 +31,13 @@ export class AttributeHelper {
     protected readonly cache: DocumentCache<AstNode, Map<string, unknown>>;
     constructor(services: XsmpSharedServices) {
         this.cache = new DocumentCache(services);
+        this.cache.onDispose(services.workspace.DocumentBuilder.onInvalidateDocument(document => {
+            this.cache.clear(document.uri);
+        }));
     }
     /**
      * Memoize a value per node and discriminator. Entries are keyed by the AST node and
-     * evicted with their document; the discriminator is the per-node string sub-key.
+     * evicted when their document changes or is relinked; the discriminator is the per-node string sub-key.
      */
     protected cached<T>(node: AstNode, key: string, provider: () => T): T {
         const perNode = this.cache.get(AstUtils.getDocument(node).uri, node, () => new Map<string, unknown>());
