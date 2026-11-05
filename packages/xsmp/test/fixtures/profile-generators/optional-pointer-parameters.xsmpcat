@@ -9,8 +9,8 @@ namespace optional {
         /** Optional output. */
         def void ope_output(out Int32 value = (nullptr))
         /** Optional input/output. */
-        def void ope_inout(inout Int32 value = 0)
+        def void ope_inout(inout Int32 value = nullptr)
         /** The parameter names must not collide with generated presence flags. */
-        def void ope_names(@ByPointer in Int32 value = 0, @ByPointer in Int32 value_present = 0)
+        def void ope_names(@ByPointer in Int32 value = nullptr, @ByPointer in Int32 value_present = nullptr)
     }
 }
