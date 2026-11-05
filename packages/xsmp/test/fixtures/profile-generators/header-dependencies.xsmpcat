@@ -1,0 +1,19 @@
+catalogue HeaderDependencies
+namespace dependencies {
+    /** @uuid 82000000-0000-4000-8000-000000000003 */
+    public class A {
+        def void byValue(in B other)
+        def void byReference(@ByReference in B other)
+        def void byPointer(@ByPointer in B other)
+    }
+    /** @uuid 82000000-0000-4000-8000-000000000004 */
+    public class B {
+        def void byValue(in A other)
+        def void byReference(@ByReference in A other)
+        def void byPointer(@ByPointer in A other)
+    }
+    /** @uuid 82000000-0000-4000-8000-000000000005 */
+    public struct Value { field Int32 number }
+    /** @uuid 82000000-0000-4000-8000-000000000006 */
+    public class Defaults { def void consume(in Value item = {1}) }
+}

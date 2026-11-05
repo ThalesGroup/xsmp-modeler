@@ -846,10 +846,6 @@ export abstract class CppGenerator implements XsmpGenerator {
                 includeDeclarations.delete(this.typeInclude(exclude));
             }
         }
-        for (const type of forwardedTypes) {
-            if (includeDeclarations.has(this.typeInclude(type)))
-                forwardedTypes.delete(type);
-        }
 
         if (includeDeclarations.size === 0 && forwardedTypes.size === 0) {
             return undefined;
@@ -861,7 +857,7 @@ export abstract class CppGenerator implements XsmpGenerator {
                 // --------------------------- Forward Declarations ---------------------------
                 // ----------------------------------------------------------------------------
                 
-                ${Array.from(forwardedTypes).map(type => this.namespace(type, `class ${type.name};`, false)).join('\n')}
+                ${Array.from(forwardedTypes).map(type => this.namespace(type, `${ast.isStructure(type) && !ast.isClass(type) ? 'struct' : 'class'} ${type.name};`, false)).join('\n')}
 
                 `: undefined}
             ${sortedIncludes.length > 0 ? s`
@@ -940,8 +936,11 @@ export abstract class CppGenerator implements XsmpGenerator {
     headerIncludesParameter(element: ast.Parameter | ast.ReturnParameter | undefined): Include[] {
         if (!element)
             return [];
-        return [this.attrHelper.isByPointer(element) && this.isForwardable(element.type.ref) ? ForwardedType.create(element.type.ref) : element.type.ref,
-        ...ast.isParameter(element) ? this.expressionIncludes(element.default) : []];
+        const type = element.type.ref;
+        const includes: Include[] = this.isForwardable(type)
+            ? [ForwardedType.create(type), ...this.attrHelper.isByPointer(element) ? [] : [type]]
+            : [type];
+        return [...includes, ...ast.isParameter(element) ? this.expressionIncludes(element.default) : []];
     }
 
     headerIncludesOperation(element: ast.Operation): Include[] {
