@@ -3,6 +3,7 @@ export * from './documentation-helper.js';
 export * from './attribute-helper.js';
 export * from './xsmp-utils.js';
 export * from './duration.js';
+export * from './date-time.js';
 export * from './operator-kind.js';
 export * from './primitive-type-kind.js';
 export * from './solver.js';

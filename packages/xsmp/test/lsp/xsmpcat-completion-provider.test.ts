@@ -13,6 +13,15 @@ beforeAll(async () => {
 });
 
 describe('Xsmpcat completion provider', () => {
+    test('suggests the SMP epoch as the DateTime default', async () => {
+        const cursor = extractCursor(`catalogue Dates
+namespace Smp { public primitive DateTime }
+namespace demo { public model M { field Smp.DateTime value =@@ } }
+`);
+        const items = await getCompletionItems(cursor.text, cursor.cursor, 'memory:///datetime-default.xsmpcat');
+        expect(labels(items)[0]).toBe('"2000-01-01T12:00:00Z"');
+    });
+
     test('registers = and @ as completion trigger characters', () => {
         expect(services.xsmpcat.lsp.CompletionProvider?.completionOptions?.triggerCharacters).toEqual(
             expect.arrayContaining(['=', '@']),

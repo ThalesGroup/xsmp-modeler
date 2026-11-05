@@ -288,7 +288,7 @@
       </Field>
       <Field Id="ns.AModel.aDateTime" Name="aDateTime">
         <Type xlink:title="DateTime" xlink:href="http://www.ecss.nl/smp/2019/Smdl#Smp.DateTime"/>
-        <Default xsi:type="Types:DateTimeValue" Value="1970-01-01T00:00:00.000000042Z"/>
+        <Default xsi:type="Types:DateTimeValue" Value="2000-01-01T12:00:00.000000042Z"/>
       </Field>
       <Field Id="ns.AModel.aDateTimeStr" Name="aDateTimeStr">
         <Type xlink:title="DateTime" xlink:href="http://www.ecss.nl/smp/2019/Smdl#Smp.DateTime"/>
@@ -497,9 +497,9 @@
       <Field Id="ns.AModel.arrayOf3DateTime" Name="arrayOf3DateTime">
         <Type xlink:title="ArrayOf3DateTime" xlink:href="#ns.ArrayOf3DateTime"/>
         <Default xsi:type="Types:DateTimeArrayValue">
-          <ItemValue Value="1970-01-01T00:00:00.000000000Z"/>
-          <ItemValue Value="1970-01-01T00:00:00.000000001Z"/>
-          <ItemValue Value="1970-01-01T00:00:00.000000002Z"/>
+          <ItemValue Value="2000-01-01T12:00:00.000000000Z"/>
+          <ItemValue Value="2000-01-01T12:00:00.000000001Z"/>
+          <ItemValue Value="2000-01-01T12:00:00.000000002Z"/>
         </Default>
       </Field>
       <Field Id="ns.AModel.arrayOf3AnEnum" Name="arrayOf3AnEnum">

@@ -316,9 +316,7 @@ export class SmpGenerator implements XsmpGenerator {
     }
     private toDateTime(expression: ast.Expression): string {
         const dateTime = Solver.getValue(expression)?.integralValue(PTK.DateTime)?.getValue() ?? BigInt(0);
-        const str = new Date(Number(dateTime / BigInt(1_000_000_000)) * 1_000).toISOString();
-        const ns = dateTime % BigInt(1_000_000_000);
-        return str.replace('.000', '.' + ns.toString().padStart(9, '0'));
+        return XsmpUtils.serializeDateTime(dateTime);
     }
     private toDuration(expression: ast.Expression): string {
         const duration = Solver.getValue(expression)?.integralValue(PTK.Duration)?.getValue() ?? BigInt(0);

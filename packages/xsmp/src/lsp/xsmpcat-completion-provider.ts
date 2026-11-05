@@ -1066,7 +1066,7 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
             case PTK.String8:
                 return '""';
             case PTK.DateTime:
-                return '"1970-01-01T00:00:00Z"';
+                return '"2000-01-01T12:00:00Z"';
             case PTK.Duration:
                 return '"PT0S"';
             default:
