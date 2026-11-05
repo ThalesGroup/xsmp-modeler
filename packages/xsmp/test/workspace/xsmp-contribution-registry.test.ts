@@ -31,13 +31,15 @@ catalogue ext
 
 namespace ext
 {
-    struct ExternalType
+    /** @uuid 83bfc784-de6b-4a92-a383-b26f24f495f3 */
+    public struct ExternalType
     {
     }
 }
 `);
         fs.writeFileSync(path.join(extensionRoot, 'handler.mjs'), `
 import fs from 'node:fs';
+import { GeneratedFiles } from ${JSON.stringify(URI.file(path.resolve(__dirname, '../../lib/generator/generated-files.js')).toString())};
 
 export function registerContribution(api) {
     api.addValidation('xsmpcat', (services, category) => {
@@ -49,8 +51,9 @@ export function registerContribution(api) {
         services.validation.ValidationRegistry.register({ Catalogue: validator.checkCatalogue }, validator, category);
     });
     api.addGenerator(() => ({
-        clean(projectUri) {
-            fs.appendFileSync(${JSON.stringify(logPath)}, \`clean:\${projectUri.toString()}\\n\`);
+        prepareGeneration(projectUri) {
+            fs.appendFileSync(${JSON.stringify(logPath)}, \`prepare:\${projectUri.toString()}\\n\`);
+            return new GeneratedFiles();
         },
         generate(node, projectUri) {
             fs.appendFileSync(${JSON.stringify(logPath)}, \`generate:\${node.$type}:\${projectUri.toString()}\\n\`);
@@ -68,7 +71,8 @@ catalogue dep
 
 namespace dep
 {
-    struct UsesExternal
+    /** @uuid cba9b196-1ce8-436d-8f05-7d5c1372395f */
+    public struct UsesExternal
     {
         field ext.ExternalType external
     }
@@ -112,7 +116,7 @@ namespace isolated
             extensionRoot,
             descriptorPath: path.join(extensionRoot, 'fake-tool.xsmptool'),
             handlerPath: path.join(extensionRoot, 'handler.mjs'),
-            apiVersion: '^1.0.0',
+            apiVersion: '^2.0.0',
             aliases: ['fake-tool-alias'],
             deprecatedAliases: ['fake-tool-legacy'],
             builtins: [builtinsDir],
@@ -146,12 +150,14 @@ namespace isolated
         expect(diagnosticMessages(appDocument).some(message => message.includes('Could not resolve reference'))).toBe(true);
         expect(diagnosticMessages(isolatedDocument).some(message => message.includes('Could not resolve reference'))).toBe(true);
 
+        expect(depDocument.diagnostics?.filter(diagnostic => diagnostic.severity === 1)).toEqual([]);
         const depProject = services.shared.workspace.ProjectManager.getProject(depDocument);
         expect(depProject).toBeDefined();
         await services.shared.DocumentGenerator.generateProject(depProject!, Cancellation.CancellationToken.None);
 
         const log = fs.readFileSync(logPath, 'utf-8');
-        expect(log).toContain('clean:file://');
+        expect(log).toContain('prepare:file://');
+        expect(log).toContain('generate:Catalogue:file://');
     });
 
     test('isolates third-party contribution failures and exposes scaffold metadata for valid ones', async () => {
@@ -203,7 +209,7 @@ export function registerContribution() {
                 extensionRoot: badExtensionRoot,
                 descriptorPath: path.join(badExtensionRoot, 'bad-tool.xsmptool'),
                 handlerPath: path.join(badExtensionRoot, 'handler.mjs'),
-                apiVersion: '^1.0.0',
+                apiVersion: '^2.0.0',
                 aliases: [],
                 deprecatedAliases: [],
                 builtins: [],
@@ -213,7 +219,7 @@ export function registerContribution() {
                 extensionRoot: goodExtensionRoot,
                 descriptorPath: path.join(goodExtensionRoot, 'good-tool.xsmptool'),
                 handlerPath: path.join(goodExtensionRoot, 'handler.mjs'),
-                apiVersion: '^1.0.0',
+                apiVersion: '^2.0.0',
                 aliases: [],
                 deprecatedAliases: [],
                 builtins: [],
@@ -298,7 +304,7 @@ namespace ext
             {
                 descriptor: 'external-tool.xsmptool',
                 handler: 'handler.mjs',
-                apiVersion: '^1.0.0',
+                apiVersion: '^2.0.0',
                 aliases: ['external-tool-alias'],
                 deprecatedAliases: ['external-tool-legacy'],
                 builtins: ['builtins'],
@@ -330,6 +336,29 @@ namespace ext
         );
     });
 
+    test('skips API 1 extensions before loading their old generator handlers', async () => {
+        const extensionRoot = path.join(tempDir, 'old-extension');
+        fs.mkdirSync(extensionRoot, { recursive: true });
+        fs.writeFileSync(path.join(extensionRoot, 'old-tool.xsmptool'), 'tool "old-tool"\n');
+        const loadedMarker = path.join(tempDir, 'old-handler-loaded');
+        fs.writeFileSync(path.join(extensionRoot, 'handler.mjs'), `
+import fs from 'node:fs';
+fs.writeFileSync(${JSON.stringify(loadedMarker)}, 'loaded');
+export function registerContribution(api) {
+    api.addGenerator(() => ({ clean() {}, generate() {} }));
+}
+`);
+        const services = createXsmpServices(NodeFileSystem);
+        const report = await services.shared.ContributionRegistry.registerExtensionManifestEntries([{
+            ...contributionEntry(extensionRoot, 'old-tool.xsmptool', 'test.old'),
+            apiVersion: '^1.0.0',
+        }]);
+        expect(report.registered).toEqual([]);
+        expect(report.failures).toEqual([]);
+        expect(fs.existsSync(loadedMarker)).toBe(false);
+        expect(services.shared.ContributionRegistry.getCanonicalNames('tool')).not.toContain('old-tool');
+    });
+
     test('rejects external contribution paths outside the extension root', async () => {
         const extensionRoot = path.join(tempDir, 'extension');
         const outsideRoot = path.join(tempDir, 'outside');
@@ -343,7 +372,7 @@ namespace ext
             {
                 descriptor: '../outside/external-tool.xsmptool',
                 handler: 'handler.mjs',
-                apiVersion: '^1.0.0',
+                apiVersion: '^2.0.0',
             },
         ])).toThrow('not contained within extension root');
 
@@ -356,7 +385,7 @@ namespace ext
                 extensionRoot,
                 descriptorPath: path.join(outsideRoot, 'external-tool.xsmptool'),
                 handlerPath: path.join(extensionRoot, 'handler.mjs'),
-                apiVersion: '^1.0.0',
+                apiVersion: '^2.0.0',
                 aliases: [],
                 deprecatedAliases: [],
                 builtins: [],
@@ -434,7 +463,7 @@ function contributionEntry(extensionRoot: string, descriptor: string, extensionI
         extensionRoot,
         descriptorPath: path.join(extensionRoot, descriptor),
         handlerPath: path.join(extensionRoot, 'handler.mjs'),
-        apiVersion: '^1.0.0',
+        apiVersion: '^2.0.0',
         aliases: [],
         deprecatedAliases: [],
         builtins: [],

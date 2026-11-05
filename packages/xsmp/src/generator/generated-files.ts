@@ -31,7 +31,7 @@ export async function writeFileIfChanged(file: string, content: string): Promise
     await fs.promises.writeFile(file, content, 'utf8');
 }
 
-/** The old full cleanup removed symlinks; incremental writes must not follow them instead. */
+/** Refuse symlinks before writing into folders owned by the generators. */
 export async function checkGeneratedFolders(outputs: readonly GeneratedFiles[]): Promise<void> {
     const visit = async (folder: string): Promise<void> => {
         let stats;
@@ -62,7 +62,7 @@ export async function checkGeneratedFolders(outputs: readonly GeneratedFiles[]):
 }
 
 /** Call only after all generators and their accepted tasks have succeeded. */
-export async function cleanStaleGeneratedFiles(outputs: readonly GeneratedFiles[]): Promise<void> {
+export async function removeStaleGeneratedFiles(outputs: readonly GeneratedFiles[]): Promise<void> {
     const retained = new Set(outputs.flatMap(output => [...output.files].map(file => path.resolve(file))));
     const caseVariants = new Map<string, string[]>();
     for (const file of retained) {
@@ -73,11 +73,11 @@ export async function cleanStaleGeneratedFiles(outputs: readonly GeneratedFiles[
     }
     const folders = new Set(outputs.flatMap(output => [...output.folders]));
     for (const folder of folders) {
-        await cleanFolder(folder, retained, caseVariants, true);
+        await removeStaleFilesInFolder(folder, retained, caseVariants, true);
     }
 }
 
-async function cleanFolder(
+async function removeStaleFilesInFolder(
     folder: string,
     retained: ReadonlySet<string>,
     caseVariants: ReadonlyMap<string, readonly string[]>,
@@ -98,7 +98,7 @@ async function cleanFolder(
     for (const entry of entries) {
         const file = path.join(folder, entry.name);
         if (entry.isDirectory()) {
-            await cleanFolder(file, retained, caseVariants);
+            await removeStaleFilesInFolder(file, retained, caseVariants);
         } else if (!retained.has(file) && !await isRetainedFile(file, caseVariants.get(file.toLowerCase()))) {
             await fs.promises.rm(file, { force: true });
         }

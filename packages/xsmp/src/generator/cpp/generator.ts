@@ -89,11 +89,6 @@ export abstract class CppGenerator implements XsmpGenerator {
         return value;
     }
 
-    clean(_projectUri: URI) {
-        this.generatedFiles = new GeneratedFiles();
-        this.formatter.beginGeneration();
-    }
-
     prepareGeneration(_projectUri: URI): GeneratedFiles {
         this.formatter.beginGeneration();
         return this.generatedFiles = new GeneratedFiles();

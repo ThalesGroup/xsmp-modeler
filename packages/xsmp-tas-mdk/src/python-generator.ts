@@ -22,10 +22,6 @@ export class TasMdkPythonGenerator implements XsmpGenerator {
         return this.generatedFiles = new GeneratedFiles();
     }
 
-    clean(_projectUri: URI) {
-        this.generatedFiles = new GeneratedFiles();
-    }
-
     generate(node: AstNode, projectUri: URI, acceptTask: TaskAcceptor) {
         if (ast.isCatalogue(node)) {
             const notice = CopyrightNoticeProvider.getCopyrightNotice(node.$document, '# ');

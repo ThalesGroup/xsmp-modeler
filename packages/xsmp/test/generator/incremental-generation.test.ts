@@ -4,7 +4,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import * as ast from '@xsmp/core/ast';
-import { GeneratedFiles, checkGeneratedFolders, cleanStaleGeneratedFiles, setClangFormat, setGeneratedBy } from '@xsmp/core/generator';
+import { GeneratedFiles, checkGeneratedFolders, removeStaleGeneratedFiles, setClangFormat, setGeneratedBy } from '@xsmp/core/generator';
 import { createProfileGeneratorTestContext, cleanupProfileGeneratorTestContext, type ProfileGeneratorTestContext } from '../profile-generator-test-utils.js';
 import { rebuildTestDocuments } from '../test-services.js';
 
@@ -113,7 +113,7 @@ test('retains the union of outputs when generators share an output folder', asyn
     await first.write(path.join(folder, 'a.cpp'), 'a');
     await second.write(path.join(folder, 'nested', 'b.cpp'), 'b');
     fs.writeFileSync(path.join(folder, 'stale.cpp'), 'stale');
-    await cleanStaleGeneratedFiles([first, second]);
+    await removeStaleGeneratedFiles([first, second]);
     expect(fs.readdirSync(folder)).toEqual(['a.cpp', 'nested']);
     expect(fs.readFileSync(path.join(folder, 'nested', 'b.cpp'), 'utf8')).toBe('b');
 });
@@ -126,7 +126,7 @@ test('does not traverse symbolic links in generated folders', async () => {
     fs.symlinkSync(outside, folder, process.platform === 'win32' ? 'junction' : 'dir');
     const outputs = [new GeneratedFiles([folder])];
     await expect(checkGeneratedFolders(outputs)).rejects.toThrow('not a directory');
-    await expect(cleanStaleGeneratedFiles(outputs)).rejects.toThrow('not a directory');
+    await expect(removeStaleGeneratedFiles(outputs)).rejects.toThrow('not a directory');
     expect(fs.readFileSync(path.join(outside, 'keep.cpp'), 'utf8')).toBe('outside');
 });
 
@@ -135,7 +135,7 @@ test('retains outputs written with relative or non-normalized paths', async () =
     const outputs = new GeneratedFiles([directory]);
     const relative = path.relative(process.cwd(), path.join(directory, 'value.cpp'));
     await outputs.write(`${path.dirname(relative)}${path.sep}.${path.sep}${path.basename(relative)}`, 'generated');
-    await cleanStaleGeneratedFiles([outputs]);
+    await removeStaleGeneratedFiles([outputs]);
     expect(fs.readFileSync(path.join(directory, 'value.cpp'), 'utf8')).toBe('generated');
 });
 
@@ -151,12 +151,12 @@ test('recognizes the same file reached with different casing without retaining d
     }
     const outputs = new GeneratedFiles([directory]);
     await outputs.write(requested, 'generated');
-    await cleanStaleGeneratedFiles([outputs]);
+    await removeStaleGeneratedFiles([outputs]);
     expect(fs.readFileSync(original, 'utf8')).toBe('generated');
     if (caseSensitive) {
         fs.unlinkSync(original);
         fs.writeFileSync(original, 'distinct stale file');
-        await cleanStaleGeneratedFiles([outputs]);
+        await removeStaleGeneratedFiles([outputs]);
         expect(fs.existsSync(original)).toBe(false);
         expect(fs.readFileSync(requested, 'utf8')).toBe('generated');
     }

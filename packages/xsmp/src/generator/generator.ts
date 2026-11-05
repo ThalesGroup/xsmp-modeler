@@ -1,4 +1,4 @@
-import type { AstNode, MaybePromise, URI } from 'langium';
+import type { AstNode, URI } from 'langium';
 import type { GeneratedFiles } from './generated-files.js';
 
 export type Task = () => Promise<void>;
@@ -22,8 +22,8 @@ export function isClangFormatEnabled(): boolean {
      return enableClangFormatting;
 }
 export interface XsmpGenerator {
+     /** Start one project generation. All tasks must write through this manifest. */
+     prepareGeneration: (projectUri: URI) => GeneratedFiles
+     /** Called for each valid project document after every generator has been prepared. */
      generate: (node: AstNode, projectUri: URI, acceptTask: TaskAcceptor) => void
-     clean: (projectUri: URI) => MaybePromise<void>
-     /** Opt into preserving current outputs and removing stale files after successful generation. */
-     prepareGeneration?: (projectUri: URI) => GeneratedFiles
 }

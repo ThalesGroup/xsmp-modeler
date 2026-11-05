@@ -4,7 +4,7 @@ import type { Diagnostic } from 'vscode-languageserver';
 import { DiagnosticSeverity } from 'vscode-languageserver';
 import { expect } from 'vitest';
 import * as ast from '@xsmp/core/ast';
-import type { Task, XsmpGenerator } from '@xsmp/core/generator';
+import { checkGeneratedFolders, removeStaleGeneratedFiles, type Task, type XsmpGenerator } from '@xsmp/core/generator';
 import { createBuiltinTestXsmpServices, rebuildTestDocuments } from './test-services.js';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
@@ -79,7 +79,8 @@ export async function generateProfileTree(
     context.tempDirs.push(outputDir);
 
     const projectUri = URI.file(outputDir);
-    await generator.clean(projectUri);
+    const outputs = [generator.prepareGeneration(projectUri)];
+    await checkGeneratedFolders(outputs);
 
     const tasks: Task[] = [];
     generator.generate(document.parseResult.value, projectUri, task => tasks.push(task));
@@ -87,6 +88,7 @@ export async function generateProfileTree(
         await task();
     }
 
+    await removeStaleGeneratedFiles(outputs);
     return outputDir;
 }
 

@@ -60,7 +60,7 @@ The extension manifest exposes the XSMP contribution through `contributes.xsmp`:
       {
         "descriptor": "./lib/demo.xsmptool",
         "handler": "./lib/contributor.js",
-        "apiVersion": "^1.0.0"
+        "apiVersion": "^2.0.0"
       }
     ]
   },
@@ -122,33 +122,35 @@ whether the contribution is a `tool` or a `profile`.
 
 ## Add a Generator
 
-Generators implement `XsmpGenerator`. XSMP Modeler calls `generate` for each
-document that belongs to a project where the tool or profile is active.
+Generators implement `XsmpGenerator`. For each project, XSMP Modeler calls
+`prepareGeneration` once on every active generator, then calls `generate` for
+each valid project document.
 
 ```ts
-import * as fs from 'node:fs';
 import { AstUtils, UriUtils, type AstNode, type URI } from 'langium';
 import * as ast from '@xsmp/core/ast';
-import { cleanGeneratedFolders, type TaskAcceptor, type XsmpGenerator } from '@xsmp/core/generator';
+import { GeneratedFiles, type TaskAcceptor, type XsmpGenerator } from '@xsmp/core/generator';
 
 export class DemoGenerator implements XsmpGenerator {
+    private outputs = new GeneratedFiles();
+
+    prepareGeneration(projectUri: URI): GeneratedFiles {
+        return this.outputs = new GeneratedFiles([
+            UriUtils.joinPath(projectUri, 'demo-gen').fsPath,
+        ]);
+    }
+
     generate(node: AstNode, projectUri: URI, acceptTask: TaskAcceptor): void {
         if (ast.isCatalogue(node)) {
             acceptTask(() => this.generateCatalogue(node, projectUri));
         }
     }
 
-    clean(projectUri: URI): Promise<void> {
-        return cleanGeneratedFolders(UriUtils.joinPath(projectUri, 'demo-gen').fsPath);
-    }
-
     private async generateCatalogue(catalogue: ast.Catalogue, projectUri: URI): Promise<void> {
         const outputDir = UriUtils.joinPath(projectUri, 'demo-gen');
-        await fs.promises.mkdir(outputDir.fsPath, { recursive: true });
-
         const sourceName = UriUtils.basename(AstUtils.getDocument(catalogue).uri)
             .replace(/\.[^.]+$/, '');
-        await fs.promises.writeFile(
+        await this.outputs.write(
             UriUtils.joinPath(outputDir, `${sourceName}-summary.md`).fsPath,
             `# ${catalogue.name}\n`,
         );
@@ -156,15 +158,35 @@ export class DemoGenerator implements XsmpGenerator {
 }
 ```
 
-Use `acceptTask` for file system writes. This lets XSMP Modeler collect all
-generation tasks and run them after traversal.
+Create a fresh `GeneratedFiles` in `prepareGeneration` and use that same object
+for all the project's writes. Its `write` method records the output path,
+creates parent directories, and preserves the file when its contents are unchanged.
+Submit asynchronous work through `acceptTask`: tasks may start during traversal,
+and XSMP Modeler waits for all accepted tasks before starting another generation.
 
-`clean` runs before every generation of the project. It may return a promise,
-which XSMP Modeler awaits before calling `generate`. Prefer
-`cleanGeneratedFolders` to removing the output folder: it removes the folder
-content but keeps the folder itself, which still works on Windows when another
-process holds the folder, for instance a terminal opened in it. If `clean`
-fails, XSMP Modeler logs a warning and still generates the project.
+Declare only wholly generated folders in `GeneratedFiles`. Stale-output removal
+starts only after all generators and tasks succeed: XSMP Modeler removes files
+in those folders that no active generator produced. It keeps the root folders,
+so a terminal opened in one does not prevent generation on Windows. Failure or
+cancellation before this stage, or skipped invalid documents, preserves stale
+files. A failure to remove stale files is reported as a warning after generation.
+
+Files in mixed folders can also be written through `GeneratedFiles`, but their
+folders must not be declared for removal. In particular, exclude generation-gap
+source folders and folders containing user-written Python modules. Pass no
+folders to `new GeneratedFiles()` if none is wholly generated.
+
+### Migrating Existing Generators
+
+The extension API is now `2.0.0`. After migrating, set `apiVersion` to `^2.0.0`
+in the contribution manifest; extensions requiring API 1 are not loaded.
+
+`prepareGeneration` is required; the previous `clean` method and
+`cleanGeneratedFolders` helper have been removed. Move per-generation state
+initialization from `clean` to `prepareGeneration`, return a `GeneratedFiles`
+with the formerly cleaned folders, and replace generated-file writes with
+`GeneratedFiles.write`. Remove any deletion before generation: stale-output
+removal now belongs to XSMP Modeler and uses all generators' output paths.
 
 ## Add Validation
 
@@ -255,7 +277,7 @@ manifest `builtins` list:
       {
         "descriptor": "./lib/demo-profile.xsmpprofile",
         "handler": "./lib/contributor.js",
-        "apiVersion": "^1.0.0",
+        "apiVersion": "^2.0.0",
         "builtins": [
           "./lib/builtins"
         ]

@@ -39,10 +39,6 @@ export class PythonGenerator implements XsmpGenerator {
         return this.generatedFiles = new GeneratedFiles();
     }
 
-    clean(_projectUri: URI) {
-        this.generatedFiles = new GeneratedFiles();
-    }
-
     protected generatedBy() {
         return `PythonGenerator-${getXsmpVersion()}`;
     }

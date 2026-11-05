@@ -37,7 +37,7 @@
             {
                 "descriptor": "./lib/tas-mdk.xsmpprofile",
                 "handler": "./lib/contributor.js",
-                "apiVersion": "^1.0.0",
+                "apiVersion": "^2.0.0",
                 "deprecatedAliases": [
                     "org.eclipse.xsmp.profile.tas-mdk"
                 ]
