@@ -95,6 +95,22 @@ describe('Incremental workspace updates', () => {
         expect(names(fresh)).toEqual(['foundation', 'mission']);
     });
 
+    test('keeps builtin diagnostics equivalent to a fresh build after adding a user catalogue with a builtin name', async () => {
+        const files = { 'app/xsmp.project': project('app') };
+        const incremental = await createWorkspace(files);
+        const builtin = incremental.services.shared.workspace.LangiumDocuments.all
+            .find(document => document.uri.scheme === 'xsmp' && ast.isCatalogue(document.parseResult.value))!;
+        const name = (builtin.parseResult.value as ast.Catalogue).name;
+        const source = catalogue(name, 1, 'struct UserType {}');
+        await incremental.change('app/src/user.xsmpcat', source);
+        const fresh = await createWorkspace({ ...files, 'app/src/user.xsmpcat': source });
+        const builtinErrors = (workspace: Awaited<ReturnType<typeof createWorkspace>>) =>
+            workspace.services.shared.workspace.LangiumDocuments.all.filter(document => document.uri.scheme === 'xsmp')
+                .map(document => [document.uri.toString(), errors(document)]).toArray();
+        expect(errors(incremental.document('app/src/user.xsmpcat'))).toContain('Duplicated Document name.');
+        expect(builtinErrors(incremental)).toEqual(builtinErrors(fresh));
+    });
+
     test('resolves missing references after an export appears, and diagnoses them after a rename', async () => {
         const original = catalogue('A', 1, 'struct Existing {}');
         const workspace = await createWorkspace({
