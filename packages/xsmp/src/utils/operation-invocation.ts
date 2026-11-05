@@ -1,10 +1,8 @@
-import { type ValidationAcceptor, type ValidationChecks } from 'langium';
-import * as ast from '../../generated/ast.js';
-import type { XsmpcatServices } from '../../xsmpcat-module.js';
-import type { AttributeHelper } from '../../utils/attribute-helper.js';
+import * as ast from '../generated/ast-partial.js';
+import type { AttributeHelper } from './attribute-helper.js';
 
 /** SMP identifies dynamically invoked operations by name, not by C++ signature. */
-export function getCppOperationInvocationIssue(operation: ast.Operation, attributes: AttributeHelper): string | undefined {
+export function getOperationInvocationIssue(operation: ast.Operation, attributes: AttributeHelper): string | undefined {
     if (attributes.isConstructor(operation)) {
         return 'constructors cannot be dynamically invoked';
     }
@@ -33,16 +31,4 @@ export function getCppOperationInvocationIssue(operation: ast.Operation, attribu
     };
     visit(operation.$container);
     return signatures.size > 1 ? 'overloaded operation names cannot be distinguished by Smp::IRequest' : undefined;
-}
-
-export function registerCppInvocationValidationChecks(services: XsmpcatServices, category: string): void {
-    const attributes = services.shared.AttributeHelper;
-    const checks: ValidationChecks<ast.XsmpAstType> = {
-        Operation: (operation: ast.Operation, accept: ValidationAcceptor) => {
-            if (!ast.isComponent(operation.$container) || attributes.isConstructor(operation)) return;
-            const issue = getCppOperationInvocationIssue(operation, attributes);
-            if (issue) accept('warning', `The C++ operation remains available, but is not published for dynamic invocation: ${issue}.`, { node: operation, property: 'name' });
-        },
-    };
-    services.validation.ValidationRegistry.register(checks, undefined, category);
 }
