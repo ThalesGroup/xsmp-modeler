@@ -69,7 +69,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
 
     checkModelInstance(model: ast.ModelInstance, accept: ValidationAcceptor): void {
         if (!this.identifierPatternService.hasTemplate(model.name)) {
-            checkName(accept, model, model.name, ast.ModelInstance.name, { allowCppKeywords: false });
+            checkName(accept, model, model.name, ast.ModelInstance.name, { allowCppKeywords: false, cppKeywordSeverity: 'warning' });
         }
         this.checkTemplatedInstanceName(model.name, model, accept);
         this.checkModelInstanceImplementation(model, accept);
@@ -99,7 +99,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
 
     checkAssemblyInstance(instance: ast.AssemblyInstance, accept: ValidationAcceptor): void {
         if (!this.identifierPatternService.hasTemplate(instance.name)) {
-            checkName(accept, instance, instance.name, ast.AssemblyInstance.name, { allowCppKeywords: false });
+            checkName(accept, instance, instance.name, ast.AssemblyInstance.name, { allowCppKeywords: false, cppKeywordSeverity: 'warning' });
         }
         this.checkTemplatedInstanceName(instance.name, instance, accept);
         this.checkInstantiatedChildNames(instance, accept);
@@ -123,7 +123,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
             }
             const concreteName = this.identifierPatternService.substitute(child.name, bindings);
             if (concreteName !== undefined && cppReservedNames.has(concreteName)) {
-                accept('error', `The expanded child instance name '${concreteName}' shall not be an ISO/ANSI C++ keyword.`, {
+                accept('warning', `The expanded child instance name '${concreteName}' shall not be an ISO/ANSI C++ keyword.`, {
                     node: instance,
                     property: ast.AssemblyInstance.arguments,
                 });
@@ -954,7 +954,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
             });
         }
         if (concreteName !== undefined && cppReservedNames.has(concreteName)) {
-            accept('error', `The expanded name '${concreteName}' shall not be an ISO/ANSI C++ keyword.`, {
+            accept('warning', `The expanded name '${concreteName}' shall not be an ISO/ANSI C++ keyword.`, {
                 node,
                 property: ast.NamedElement.name,
             });

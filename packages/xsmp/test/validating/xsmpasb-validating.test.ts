@@ -115,7 +115,7 @@ afterEach(async () => {
 });
 
 describe('Validating Xsmpasb', () => {
-    test('rejects C++ keywords as model and assembly instance names', async () => {
+    test('warns about C++ keywords as model and assembly instance names', async () => {
         const document = await parseInProject(`assembly Demo
 class: demo.Root
 {
@@ -123,13 +123,13 @@ class: demo.Root
 }
 `, [['inner.xsmpasb', 'assembly Inner Root: demo.Child {}']]);
 
-        expect(getMessages(document)).toEqual([
+        expectWarningsOnly(document, [
             'A name shall not be an ISO/ANSI C++ keyword.',
             'A name shall not be an ISO/ANSI C++ keyword.',
         ]);
     });
 
-    test('rejects C++ keywords in expanded model instance names', async () => {
+    test('warns about C++ keywords in expanded model instance names', async () => {
         const document = await parseInProject(`assembly <Name = "class"> Demo
 Root: demo.Root
 {
@@ -137,12 +137,12 @@ Root: demo.Root
 }
 `);
 
-        expect(getMessages(document)).toEqual([
+        expectWarningsOnly(document, [
             "The expanded name 'class' shall not be an ISO/ANSI C++ keyword.",
         ]);
     });
 
-    test('rejects C++ keywords in expanded assembly instance names', async () => {
+    test('warns about C++ keywords in expanded assembly instance names', async () => {
         const document = await parseInProject(`assembly <Name = "template"> Demo
 Root: demo.Root
 {
@@ -150,7 +150,7 @@ Root: demo.Root
 }
 `, [['inner.xsmpasb', 'assembly Inner Root: demo.Child {}']]);
 
-        expect(getMessages(document)).toEqual([
+        expectWarningsOnly(document, [
             "The expanded name 'template' shall not be an ISO/ANSI C++ keyword.",
         ]);
     });
@@ -179,9 +179,25 @@ Root: demo.Root
 }
 `]]);
 
-        expect(getMessages(document)).toEqual(name === 'class'
+        expectWarningsOnly(document, name === 'class'
             ? ["The expanded child instance name 'class' shall not be an ISO/ANSI C++ keyword."]
             : []);
+    });
+
+    test('keeps C++ keywords as errors for catalogue types and fields', async () => {
+        const document = await parseCatalogue(`catalogue KeywordControls
+namespace demo {
+    /** @uuid 88000000-0000-4000-8000-000000000001 */
+    public model class {
+        field Smp.Int32 template
+    }
+}`, { documentUri: 'file:///keyword-controls.xsmpcat', validation: true });
+        documents.push(document);
+        expect(document.parseResult.parserErrors).toHaveLength(0);
+        expect((document.diagnostics ?? []).filter(diagnostic => diagnostic.severity === 1).map(diagnostic => diagnostic.message)).toEqual([
+            'A name shall not be an ISO/ANSI C++ keyword.',
+            'A name shall not be an ISO/ANSI C++ keyword.',
+        ]);
     });
 
     test('validates typed assembly configuration and link paths and honors unsafe', async () => {
@@ -472,6 +488,10 @@ Root: demo.Root
             "The expanded name '1bad' is not valid for SMP Level 2.",
         ]));
         expect(getMessages(document).filter(message => message === 'A Template Argument shall have a Value feature.')).toHaveLength(2);
+        expect(document.diagnostics).toContainEqual(expect.objectContaining({
+            severity: 1,
+            message: "The expanded name '1bad' is not valid for SMP Level 2.",
+        }));
     });
 
     test('validates subscriptions, operation parameters, and writable properties', async () => {
@@ -645,4 +665,9 @@ source "src"
 function getMessages(document: LangiumDocument<Assembly>): string[] {
     expect(isAssembly(document.parseResult.value)).toBe(true);
     return document.diagnostics?.map(diagnostic => diagnostic.message) ?? [];
+}
+
+function expectWarningsOnly(document: LangiumDocument<Assembly>, messages: string[]): void {
+    expect((document.diagnostics ?? []).filter(diagnostic => diagnostic.severity === 1)).toEqual([]);
+    expect((document.diagnostics ?? []).filter(diagnostic => diagnostic.severity === 2).map(diagnostic => diagnostic.message)).toEqual(messages);
 }

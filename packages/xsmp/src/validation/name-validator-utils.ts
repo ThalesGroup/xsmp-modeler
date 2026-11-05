@@ -21,6 +21,7 @@ export const cppReservedNames = new Set([
 
 export interface NameValidationOptions {
     allowCppKeywords?: boolean;
+    cppKeywordSeverity?: 'error' | 'warning';
     required?: boolean;
 }
 
@@ -31,7 +32,7 @@ export function checkName<N extends AstNode>(
     property: Properties<N>,
     options: NameValidationOptions = {},
 ): void {
-    const { allowCppKeywords = true, required = true } = options;
+    const { allowCppKeywords = true, cppKeywordSeverity = 'error', required = true } = options;
     if (!name) {
         if (required) {
             accept('error', 'A name shall not be empty.', { node, property });
@@ -42,7 +43,7 @@ export function checkName<N extends AstNode>(
         accept('error', 'A name shall start with a letter.', { node, property });
     }
     if (!allowCppKeywords && cppReservedNames.has(name)) {
-        accept('error', 'A name shall not be an ISO/ANSI C++ keyword.', { node, property });
+        accept(cppKeywordSeverity, 'A name shall not be an ISO/ANSI C++ keyword.', { node, property });
     }
 }
 
