@@ -1283,7 +1283,7 @@ export class SmpGenerator implements XsmpGenerator {
             case ast.StringArgument.$type: return {
                 '@xsi:type': 'Assembly:StringArgument',
                 '@Name': parameter.parameter.ref?.name,
-                '@Value': (parameter as ast.StringArgument).value.slice(1, -1)
+                '@Value': (parameter as ast.StringArgument).value
             } as Assembly.StringArgument;
             default: return {
                 '@xsi:type': 'Assembly:TemplateArgument',
@@ -1303,7 +1303,7 @@ export class SmpGenerator implements XsmpGenerator {
             case ast.StringParameter.$type: return {
                 '@xsi:type': 'Assembly:StringArgument',
                 '@Name': parameter.name,
-                '@Value': (parameter as ast.StringParameter).value?.slice(1, -1)
+                '@Value': (parameter as ast.StringParameter).value
             } as Assembly.StringArgument;
             default: return {
                 '@xsi:type': 'Assembly:TemplateArgument',
