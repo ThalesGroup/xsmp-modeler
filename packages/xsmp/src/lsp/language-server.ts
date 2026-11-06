@@ -1,5 +1,5 @@
 import { DefaultLanguageServer } from 'langium/lsp';
-import { RequestType, RequestType0 } from 'vscode-languageserver';
+import { LSPErrorCodes, RequestType, RequestType0, ResponseError } from 'vscode-languageserver';
 import { SmpImportService, type SmpImportResult } from '../smp/index.js';
 import type {
     XsmpContributionKind,
@@ -13,7 +13,7 @@ import type {
 } from '../contributions/xsmp-extension-types.js';
 import type { XsmpSharedServices } from '../xsmp-module.js';
 import * as ast from '../generated/ast-partial.js';
-import { AstUtils, Cancellation, URI } from 'langium';
+import { AstUtils, type Cancellation, interruptAndCheck, isOperationCancelled, URI } from 'langium';
 export type { XsmpProjectGenerationFailure, XsmpProjectGenerationReport } from '../workspace/document-generator.js';
 import type { XsmpProjectGenerationReport } from '../workspace/document-generator.js';
 
@@ -53,8 +53,7 @@ export class XsmpLanguageServer extends DefaultLanguageServer {
             );
         });
 
-        this.services.lsp.Connection?.onRequest(GenerateProject, async (uri) => {
-            await sharedServices.workspace.WorkspaceManager.ready;
+        this.services.lsp.Connection?.onRequest(GenerateProject, (uri, cancelToken) => this.runGeneration(cancelToken, async () => {
             const project = await sharedServices.workspace.WorkspaceLock.read(() =>
                 this.resolveProjectFromUri(sharedServices, uri)
             );
@@ -64,17 +63,16 @@ export class XsmpLanguageServer extends DefaultLanguageServer {
                     skippedProjects: [{ projectName: uri ?? 'current selection', errorCount: 1 }],
                 };
             }
-            return await sharedServices.DocumentGenerator.generateValidatedProject(project, Cancellation.CancellationToken.None);
-        });
+            return await sharedServices.DocumentGenerator.generateValidatedProject(project, cancelToken);
+        }));
 
-        this.services.lsp.Connection?.onRequest(GenerateAllProjects, async () => {
-            await sharedServices.workspace.WorkspaceManager.ready;
+        this.services.lsp.Connection?.onRequest(GenerateAllProjects, (cancelToken) => this.runGeneration(cancelToken, async () => {
             const projects = await sharedServices.workspace.WorkspaceLock.read(() =>
                 sharedServices.workspace.ProjectManager.getProjects().toArray()
                     .sort((left, right) => (left.name ?? '').localeCompare(right.name ?? ''))
             );
-            return await sharedServices.DocumentGenerator.generateValidatedProjects(projects, Cancellation.CancellationToken.None);
-        });
+            return await sharedServices.DocumentGenerator.generateValidatedProjects(projects, cancelToken);
+        }));
 
         this.services.lsp.Connection?.onRequest(ImportSmpFile, async (request) => {
             const importer = new SmpImportService(sharedServices);
@@ -84,6 +82,21 @@ export class XsmpLanguageServer extends DefaultLanguageServer {
                 overwrite: request.force ?? false,
             });
         });
+    }
+
+    protected async runGeneration(cancelToken: Cancellation.CancellationToken, generate: () => Promise<XsmpProjectGenerationReport>): Promise<XsmpProjectGenerationReport> {
+        try {
+            await (this.services as XsmpSharedServices).workspace.WorkspaceManager.ready;
+            await interruptAndCheck(cancelToken);
+            const report = await generate();
+            await interruptAndCheck(cancelToken);
+            return report;
+        } catch (error) {
+            if (isOperationCancelled(error)) {
+                throw new ResponseError(LSPErrorCodes.RequestCancelled, 'Generation cancelled.');
+            }
+            throw error;
+        }
     }
 
     protected registerWorkspaceFolderChangeHandler(): void {

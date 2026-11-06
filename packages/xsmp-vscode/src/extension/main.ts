@@ -26,6 +26,7 @@ import { registerSmpMirrorLanguages } from './smp-mirror-language.js';
 import { createXsmpDocumentSelector, xsmpFileWatcherPatterns, xsmpLanguageIds, xsmpReadonlySchemes } from './xsmp-language-support.js';
 import { registerLanguageClientRestartTask, startLanguageClientAndRunTask, stopLanguageClientWhenReady } from './language-client-running-handler.js';
 import { registerServerFiles } from './server-files.js';
+import { withGenerationProgress } from './generation-progress.js';
 
 let client: LanguageClient | undefined;
 let contributionOutputChannel: vscode.OutputChannel | undefined;
@@ -105,12 +106,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
                 void vscode.window.showErrorMessage('Open or select a project document before running XSMP generation.');
                 return;
             }
-            const report = await getClient().sendRequest(GenerateProject, targetUri);
-            reportProjectGeneration(report, 'XSMP project generation completed.');
+            const report = await withGenerationProgress(token => getClient().sendRequest(GenerateProject, targetUri, token));
+            if (report) reportProjectGeneration(report, 'XSMP project generation completed.');
         }),
         vscode.commands.registerCommand('xsmp.generateAll', async () => {
-            const report = await getClient().sendRequest(GenerateAllProjects);
-            reportProjectGeneration(report, 'XSMP workspace generation completed.');
+            const report = await withGenerationProgress(token => getClient().sendRequest(GenerateAllProjects, token));
+            if (report) reportProjectGeneration(report, 'XSMP workspace generation completed.');
         }),
         vscode.commands.registerCommand('xsmp.importSmp', async (uri?: vscode.Uri) => {
             const targetUri = await resolveImportSmpTarget(uri);
@@ -299,8 +300,8 @@ function registerGenerateOnSave(context: vscode.ExtensionContext): void {
             }
 
             try {
-                const report = await getClient().sendRequest(GenerateProject, document.uri.toString());
-                reportAutomaticProjectGeneration(report, document);
+                const report = await withGenerationProgress(token => getClient().sendRequest(GenerateProject, document.uri.toString(), token));
+                if (report) reportAutomaticProjectGeneration(report, document);
             } catch (error) {
                 logContributionMessage(`Automatic XSMP project generation on save failed for ${document.uri.toString()}.`);
                 logContributionError(error);
@@ -401,8 +402,8 @@ async function generateAllOnStartupIfEnabled(): Promise<void> {
 
     logContributionMessage('Automatic XSMP workspace generation on startup is enabled. Launching generate all.');
     try {
-        const report = await getClient().sendRequest(GenerateAllProjects);
-        reportProjectGeneration(report, 'XSMP startup generation completed.');
+        const report = await withGenerationProgress(token => getClient().sendRequest(GenerateAllProjects, token));
+        if (report) reportProjectGeneration(report, 'XSMP startup generation completed.');
     } catch (error) {
         logContributionMessage('Automatic XSMP startup generation failed.');
         logContributionError(error);
