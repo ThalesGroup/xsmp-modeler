@@ -390,6 +390,7 @@ describe('XsmpDocumentGenerator output lifecycle', () => {
         const currentProject = documentedProject('recovery', path.dirname(directory));
         let output: GeneratedFiles;
         let fail = true;
+        const renderNext = vi.fn(() => 'next');
         const fileGenerator: XsmpGenerator = {
             id: 'test',
             prepare: context => output = context.createFiles({ generated: { directory: path.basename(directory), writeMode: 'if-changed', cleanup: 'directory' } }),
@@ -401,6 +402,7 @@ describe('XsmpDocumentGenerator output lifecycle', () => {
                 if (fail) {
                     cancellation.cancel();
                 }
+                await output.write('generated', 'next.cpp', renderNext);
             }),
         };
         try {
@@ -409,8 +411,11 @@ describe('XsmpDocumentGenerator output lifecycle', () => {
                 .rejects.toBe(outcome === 'failure' ? taskError : OperationCancelled);
             expect(fs.readFileSync(stale, 'utf8')).toBe('previous');
             expect(fs.readFileSync(path.join(directory, 'current.cpp'), 'utf8')).toBe('current');
+            expect(renderNext).not.toHaveBeenCalled();
+            expect(fs.existsSync(path.join(directory, 'next.cpp'))).toBe(false);
             fail = false;
             await generator.generateProject(currentProject, Cancellation.CancellationToken.None);
+            expect(fs.readFileSync(path.join(directory, 'next.cpp'), 'utf8')).toBe('next');
             expect(fs.existsSync(stale)).toBe(false);
         } finally {
             fs.rmSync(directory, { recursive: true, force: true });
