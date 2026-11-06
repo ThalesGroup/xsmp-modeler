@@ -882,8 +882,10 @@ export abstract class CppGenerator implements XsmpGenerator {
         if (!element)
             return [];
         const type = element.type.ref;
+        const declarationOnly = this.attrHelper.isByPointer(element)
+            || this.attrHelper.isByReference(element) && !(ast.isParameter(element) && element.default);
         const includes: Include[] = this.isForwardable(type)
-            ? [ForwardedType.create(type), ...this.attrHelper.isByPointer(element) ? [] : [type]]
+            ? [ForwardedType.create(type), ...declarationOnly ? [] : [type]]
             : [type];
         return [...includes, ...ast.isParameter(element) ? this.expressionIncludes(element.default) : []];
     }
@@ -1006,7 +1008,7 @@ export abstract class CppGenerator implements XsmpGenerator {
         return [];
     }
     sourceIncludesParameter(element: ast.Parameter | ast.ReturnParameter | undefined): Include[] {
-        if (element && this.attrHelper.isByPointer(element) && this.isForwardable(element.type.ref))
+        if (element && (this.attrHelper.isByPointer(element) || this.attrHelper.isByReference(element)) && this.isForwardable(element.type.ref))
             return [element.type.ref];
         return [];
     }
