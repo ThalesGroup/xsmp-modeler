@@ -1,4 +1,5 @@
-import { type LangiumDocument, type LangiumDocumentFactory, Cancellation, DefaultWorkspaceManager, interruptAndCheck, stream } from 'langium';
+import { type LangiumDocument, type LangiumDocumentFactory, Cancellation, DefaultWorkspaceManager, interruptAndCheck, stream, UriUtils } from 'langium';
+import * as ast from '../generated/ast-partial.js';
 import { builtInScheme } from '../builtins.js';
 import { URI } from 'vscode-uri';
 import type { WorkspaceFolder, WorkspaceFoldersChangeEvent } from 'vscode-languageserver-protocol';
@@ -53,7 +54,12 @@ export class XsmpWorkspaceManager extends DefaultWorkspaceManager {
         this.builtinDirectoryProvider = services.BuiltinDirectoryProvider;
     }
 
-    override async initializeWorkspace(folders: WorkspaceFolder[], cancelToken = Cancellation.CancellationToken.None): Promise<void> {
+    /** With a target, folders must be discovered project directories, each containing xsmp.project. */
+    override async initializeWorkspace(
+        folders: WorkspaceFolder[],
+        cancelToken = Cancellation.CancellationToken.None,
+        targetProjectUri?: URI,
+    ): Promise<void> {
         this.folders = [...folders];
         const documents: LangiumDocument[] = [];
         const collector = (document: LangiumDocument) => {
@@ -64,19 +70,32 @@ export class XsmpWorkspaceManager extends DefaultWorkspaceManager {
         };
 
         await this.loadAdditionalDocuments(folders, collector);
+        let selectedProjects: ReadonlySet<ast.Project> | undefined;
+        let sourceRoots = folders.map(folder => this.getRootFolder(folder));
+        if (targetProjectUri) {
+            // Descriptors remain global for dependency resolution, duplicate names and
+            // ownership of nested projects. Source loading is restricted before reading text.
+            await this.loadWorkspaceDocuments(stream(folders.map(folder =>
+                UriUtils.joinPath(this.getRootFolder(folder), 'xsmp.project'))), collector);
+            await this.documentBuilder.build(documents, this.initialBuildOptions, cancelToken);
+            const target = this.langiumDocuments.getDocument(targetProjectUri)?.parseResult.value;
+            selectedProjects = ast.isProject(target)
+                ? this.services.workspace.ProjectManager.getDependencies(target) : new Set();
+            sourceRoots = [...selectedProjects].map(project => UriUtils.dirname(project.$document!.uri));
+        }
         const uris: URI[] = [];
         await Promise.all(
-            folders.map(wf => this.getRootFolder(wf))
-                .map(async entry => this.traverseFolder(entry, uris))
+            sourceRoots.map(async entry => this.traverseFolder(entry, uris))
         );
         const uniqueUris = stream(uris)
             .distinct(uri => uri.toString())
-            .filter(uri => !this.langiumDocuments.hasDocument(uri));
+            .filter(uri => !this.langiumDocuments.hasDocument(uri))
+            .filter(uri => !selectedProjects || selectedProjects.has(this.services.workspace.ProjectManager.getProjectForUri(uri)!));
         await this.loadWorkspaceDocuments(uniqueUris, collector);
         await interruptAndCheck(cancelToken);
         await this.documentBuilder.build(documents, this.initialBuildOptions, cancelToken);
 
-        const mirrors = await this.smpMirrorManager.initializeWorkspaceMirrors(cancelToken);
+        const mirrors = await this.smpMirrorManager.initializeWorkspaceMirrors(cancelToken, selectedProjects);
         if (mirrors.changed.length > 0 || mirrors.deleted.length > 0) {
             await interruptAndCheck(cancelToken);
             await this.documentBuilder.update(mirrors.changed, mirrors.deleted, cancelToken);

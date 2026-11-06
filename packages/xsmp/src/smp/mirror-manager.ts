@@ -168,13 +168,13 @@ export class SmpMirrorManager {
         }
     }
 
-    async initializeWorkspaceMirrors(cancelToken = Cancellation.CancellationToken.None): Promise<SmpMirrorRefreshResult> {
-        return this.refreshWorkspaceMirrors(cancelToken);
+    async initializeWorkspaceMirrors(cancelToken = Cancellation.CancellationToken.None, projects?: ReadonlySet<ast.Project>): Promise<SmpMirrorRefreshResult> {
+        return this.refreshWorkspaceMirrors(cancelToken, projects);
     }
 
-    async refreshWorkspaceMirrors(cancelToken = Cancellation.CancellationToken.None): Promise<SmpMirrorRefreshResult> {
+    async refreshWorkspaceMirrors(cancelToken = Cancellation.CancellationToken.None, projects?: ReadonlySet<ast.Project>): Promise<SmpMirrorRefreshResult> {
         this.mirrorStateVersion++;
-        const refresh = this.doRefreshWorkspaceMirrors(cancelToken);
+        const refresh = this.doRefreshWorkspaceMirrors(cancelToken, projects);
         const completion = refresh.then(() => undefined, () => undefined);
         this.activeRefreshes.add(completion);
         try {
@@ -185,7 +185,7 @@ export class SmpMirrorManager {
         }
     }
 
-    protected async doRefreshWorkspaceMirrors(cancelToken: Cancellation.CancellationToken): Promise<SmpMirrorRefreshResult> {
+    protected async doRefreshWorkspaceMirrors(cancelToken: Cancellation.CancellationToken, projects?: ReadonlySet<ast.Project>): Promise<SmpMirrorRefreshResult> {
         await interruptAndCheck(cancelToken);
         const previousSourceUris = this.getTrackedSourceUris();
         const previousMirrorUris = new Set(this.mirrorContentByUri.keys());
@@ -195,7 +195,7 @@ export class SmpMirrorManager {
         const documentsToAdd: LangiumDocument[] = [];
         const changed: URI[] = [];
         const deleted: URI[] = [];
-        const eligibleSourcePaths = await this.collectEligibleSourcePaths();
+        const eligibleSourcePaths = await this.collectEligibleSourcePaths(projects);
         await interruptAndCheck(cancelToken);
         const nextWorkspaceIndex = new SmpWorkspaceIndex();
         nextWorkspaceIndex.setEligibleSourcePaths(eligibleSourcePaths);
@@ -328,16 +328,18 @@ export class SmpMirrorManager {
         return false;
     }
 
-    protected async collectEligibleSourcePaths(): Promise<string[]> {
+    protected async collectEligibleSourcePaths(projects?: ReadonlySet<ast.Project>): Promise<string[]> {
         const sourcePaths = new Set<string>();
-        for (const directory of this.getSourceDirectories()) {
+        for (const directory of this.getSourceDirectories(projects)) {
             await collectSmpSourceFiles(directory, sourcePaths);
         }
-        return [...sourcePaths].sort((left, right) => left.localeCompare(right));
+        return [...sourcePaths]
+            .filter(sourcePath => !projects || projects.has(this.services.workspace.ProjectManager.getProjectForUri(URI.file(sourcePath))!))
+            .sort((left, right) => left.localeCompare(right));
     }
 
-    protected *getSourceDirectories(): Iterable<string> {
-        for (const project of this.services.workspace.ProjectManager.getProjects()) {
+    protected *getSourceDirectories(projects?: ReadonlySet<ast.Project>): Iterable<string> {
+        for (const project of projects ?? this.services.workspace.ProjectManager.getProjects()) {
             const projectDocument = project.$document;
             if (!projectDocument) {
                 continue;

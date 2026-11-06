@@ -58,15 +58,19 @@ export class ProjectManager {
     }
 
     getProject(document: LangiumDocument): ast.Project | undefined {
-        return this.projectCache.get(document.uri, () => this.doGetProject(document));
+        return this.getProjectForUri(document.uri);
     }
 
-    protected doGetProject(document: LangiumDocument): ast.Project | undefined {
+    getProjectForUri(uri: URI): ast.Project | undefined {
+        return this.projectCache.get(uri, () => this.doGetProject(uri));
+    }
+
+    protected doGetProject(uri: URI): ast.Project | undefined {
         let bestProject: ast.Project | undefined;
         let bestProjectDirectoryLength = -1;
         for (const candidate of this.getProjects()) {
             const doc = AstUtils.getDocument(candidate);
-            const project = this.getProjectForDocument(doc, document);
+            const project = this.getProjectForDocument(doc, uri);
             if (!project) {
                 continue;
             }
@@ -79,16 +83,16 @@ export class ProjectManager {
         return bestProject;
     }
 
-    protected getProjectForDocument(doc: LangiumDocument, document: LangiumDocument): ast.Project | undefined {
+    protected getProjectForDocument(doc: LangiumDocument, documentUri: URI): ast.Project | undefined {
         const project = doc.parseResult.value;
         if (!ast.isProject(project)) {
             return undefined;
         }
         const projectUri = UriUtils.dirname(doc.uri);
-        if (!isSameOrContainedPath(projectUri.path, document.uri.path)) {
+        if (!isSameOrContainedPath(projectUri.path, documentUri.path)) {
             return undefined;
         }
-        return this.projectContainsDocument(project, projectUri, document.uri) ? project : undefined;
+        return this.projectContainsDocument(project, projectUri, documentUri) ? project : undefined;
     }
 
     protected projectContainsDocument(project: ast.Project, projectUri: URI, documentUri: URI): boolean {
