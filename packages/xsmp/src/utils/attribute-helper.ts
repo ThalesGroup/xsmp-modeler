@@ -253,12 +253,18 @@ export class AttributeHelper {
         return signature;
     }
     getAllFields(element: ast.Structure): Stream<ast.Field> {
-        // Return non static and public fields from element's base if any and current element
-        const result = stream(element.elements).filter(ast.isField).filter(f => !this.isStatic(f) && getRealVisibility(f) === VisibilityKind.public);
-        if (ast.isClass(element) && ast.isStructure(element.base)) {
-            return this.getAllFields(element.base).concat(result);
+        const hierarchy: ast.Structure[] = [];
+        const visited = new Set<ast.Structure>();
+        let current: ast.Structure | undefined = element;
+        while (current && !visited.has(current)) {
+            hierarchy.push(current);
+            visited.add(current);
+            const base: ast.Type | undefined = ast.isClass(current) ? current.base?.ref : undefined;
+            current = ast.isStructure(base) ? base : undefined;
         }
-        return result;
+        // Base fields come first; invalid inheritance cycles still terminate.
+        return stream(hierarchy.reverse()).flatMap(type => type.elements).filter(ast.isField)
+            .filter(field => !this.isStatic(field) && getRealVisibility(field) === VisibilityKind.public);
     }
 
 }

@@ -39,6 +39,23 @@ afterEach(async () => {
 
 describe('Validating Xsmpcat', () => {
 
+    test('types inherited aggregate defaults in base-to-derived order', async () => {
+        document = await parse(`
+            catalogue InheritedDefaults
+            namespace inheritedDefaults {
+                /** @uuid 6dacb35c-6db7-4e3a-9956-4ebbf191bd01 */
+                public class Base { public field Bool first }
+                /** @uuid 6dacb35c-6db7-4e3a-9956-4ebbf191bd02 */
+                public class Derived extends Base { public field Int32 second }
+                /** @uuid 6dacb35c-6db7-4e3a-9956-4ebbf191bd03 */
+                public model Model { field Derived value = {true, 2} }
+            }
+        `, { documentUri: 'inherited-defaults.xsmpcat' });
+
+        expect(checkDocumentValid(document)).toBeUndefined();
+        expect((document.diagnostics ?? []).filter(diagnostic => diagnostic.severity === DiagnosticSeverity.Error)).toEqual([]);
+    });
+
     test('check validation issues', async () => {
 
         document = await parse(fs.readFileSync(path.resolve(__dirname, 'test.xsmpcat')).toString(), { documentUri: 'test.xsmpcat' });

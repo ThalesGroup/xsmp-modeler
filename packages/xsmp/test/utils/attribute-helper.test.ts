@@ -62,4 +62,37 @@ describe('AttributeHelper', () => {
         expect(helper.operatorKind(op)).toBe(OperatorKind.NONE);
         expect(helper.isConstructor(op)).toBe(false);
     });
+
+    test('collects public non-static fields from every base before derived fields', async () => {
+        const root = await parseMembers(`
+            public class FieldBase {
+                public field Int32 first
+                protected field Int32 protectedField
+                private field Int32 privateField
+                @Attributes.Static public field Int32 staticField
+            }
+            public class FieldMiddle extends FieldBase { public field Bool second }
+            public class FieldDerived extends FieldMiddle {
+                public field Float64 third
+                field Int32 implicitPrivateField
+            }
+        `);
+        const derived = AstUtils.streamAllContents(root).find(node => ast.isClass(node) && node.name === 'FieldDerived') as ast.Class;
+        const helper = new AttributeHelper(services.shared);
+
+        expect(helper.getAllFields(derived).map(field => field.name).toArray()).toEqual(['first', 'second', 'third']);
+    });
+
+    test('terminates on cyclic and unresolved class bases', async () => {
+        const root = await parseMembers(`
+            public class FieldCycleA extends FieldCycleB { public field Int32 a }
+            public class FieldCycleB extends FieldCycleA { public field Int32 b }
+            public class FieldUnresolved extends MissingFieldBase { public field Int32 own }
+        `);
+        const types = AstUtils.streamAllContents(root).filter(ast.isClass).toArray();
+        const helper = new AttributeHelper(services.shared);
+
+        expect(helper.getAllFields(types[0]).map(field => field.name).toArray()).toEqual(['b', 'a']);
+        expect(helper.getAllFields(types[2]).map(field => field.name).toArray()).toEqual(['own']);
+    });
 });
