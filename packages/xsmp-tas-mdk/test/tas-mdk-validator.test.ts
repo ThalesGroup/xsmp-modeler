@@ -17,6 +17,50 @@ afterEach(() => {
 });
 
 describe('TAS MDK validator', () => {
+    test('rejects a payload event imported from a project without the TAS profile', async () => {
+        const services = await createBuiltinTestXsmpServices(NodeFileSystem);
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-tas-imported-event-'));
+        tempDirs.push(root);
+        for (const project of ['Events', 'Consumer']) {
+            fs.mkdirSync(path.join(root, project, 'src'), { recursive: true });
+        }
+        fs.writeFileSync(path.join(root, 'Events/xsmp.project'), 'project "Events"\nsource "src"\n');
+        fs.writeFileSync(path.join(root, 'Events/src/Events.xsmpcat'), `catalogue Events
+namespace events {
+    /** @uuid b1f3c4d5-0000-4000-8000-000000000001 */
+    public event Payload extends Int32
+    /** @uuid b1f3c4d5-0000-4000-8000-000000000002 */
+    public event Empty
+}`);
+        fs.writeFileSync(path.join(root, 'Consumer/xsmp.project'), 'project "Consumer"\nsource "src"\nprofile "tas-mdk"\ndependency "Events"\n');
+        fs.writeFileSync(path.join(root, 'Consumer/src/Consumer.xsmpcat'), `catalogue Consumer
+namespace TasMdk {
+    /** @uuid b1f3c4d5-0000-4000-8000-000000000003 */
+    public model Model {}
+}
+namespace consumer {
+    /** @uuid b1f3c4d5-0000-4000-8000-000000000004 */
+    public model Consumer extends TasMdk.Model {
+        /** Payload event */
+        eventsink events.Payload esi_payload
+        /** Void event */
+        eventsink events.Empty esi_empty
+    }
+}`);
+        await services.shared.workspace.WorkspaceManager.initializeWorkspace([
+            { name: 'events', uri: URI.file(root).toString() },
+        ]);
+        const documents = services.shared.workspace.LangiumDocuments.all.toArray();
+        await services.shared.workspace.DocumentBuilder.build(documents, { validation: true });
+        const find = (relative: string) => documents.find(document => document.uri.toString() === URI.file(path.join(root, relative)).toString())!;
+
+        expect(errorMessages(find('Events/src/Events.xsmpcat'))).toEqual([]);
+        const consumer = find('Consumer/src/Consumer.xsmpcat');
+        expect(errorMessages(consumer)).toEqual(['An EventSink must be of type void.']);
+        const diagnostic = consumer.diagnostics!.find(value => value.severity === DiagnosticSeverity.Error)!;
+        expect(consumer.textDocument.getText(diagnostic.range)).toBe('events.Payload');
+    });
+
     test('reports catalogue naming, inheritance, and forbidden grammar constructs', async () => {
         const document = await loadTasMdkCatalogue(
             `
