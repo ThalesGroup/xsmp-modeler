@@ -4,6 +4,7 @@ import {
     getAttribute,
     getChildObjects,
     getChildText,
+    getTextAttributeOrChild,
     getXsiTypeLocalName,
     joinBlocks,
     parseBigIntAttribute,
@@ -194,8 +195,8 @@ function renderTaskReference(
 
 function renderScheduleHeaderTimes(node: SmpXmlObject): string {
     const fragments: string[] = [];
-    const epochTime = getAttribute(node, 'EpochTime');
-    const missionStart = getAttribute(node, 'MissionStart');
+    const epochTime = getTextAttributeOrChild(node, 'EpochTime');
+    const missionStart = getTextAttributeOrChild(node, 'MissionStart');
     if (epochTime) {
         fragments.push(`epoch ${renderStringLiteral(epochTime)}`);
     }
