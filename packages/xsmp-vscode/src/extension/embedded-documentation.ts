@@ -27,13 +27,9 @@ export function registerEmbeddedDocumentation(context: vscode.ExtensionContext):
                         return undefined;
                     }
 
-                    if (isInsideCommentOrString(document, position)) {
-                        return undefined;
-                    }
-
                     const keyword = document.getText(range);
                     const target = getEmbeddedDocumentationTarget(document.languageId, keyword, document.lineAt(position.line).text);
-                    if (!target) {
+                    if (!target || isInsideCommentOrString(document, position)) {
                         return undefined;
                     }
 
@@ -64,37 +60,32 @@ function createOpenDocumentationCommandUri(target: XsmpEmbeddedDocumentationTarg
 }
 
 function isInsideCommentOrString(document: vscode.TextDocument, position: vscode.Position): boolean {
-    const lineText = document.lineAt(position.line).text;
-    const linePrefix = lineText.slice(0, position.character);
-    if (linePrefix.includes('//')) {
-        return true;
-    }
-
-    if (hasUnclosedQuote(linePrefix, '"') || hasUnclosedQuote(linePrefix, '\'')) {
-        return true;
-    }
-
-    const textBeforeOffset = document.getText(new vscode.Range(new vscode.Position(0, 0), position));
-    const lastBlockCommentStart = textBeforeOffset.lastIndexOf('/*');
-    const lastBlockCommentEnd = textBeforeOffset.lastIndexOf('*/');
-    return lastBlockCommentStart > lastBlockCommentEnd;
-}
-
-function hasUnclosedQuote(text: string, quote: '"' | '\''): boolean {
-    let escaped = false;
-    let opened = false;
-    for (const char of text) {
-        if (escaped) {
-            escaped = false;
-            continue;
-        }
-        if (char === '\\') {
-            escaped = true;
-            continue;
-        }
-        if (char === quote) {
-            opened = !opened;
+    const text = document.getText(new vscode.Range(new vscode.Position(0, 0), position));
+    let quote: '"' | "'" | undefined;
+    let lineComment = false;
+    let blockComment = false;
+    for (let index = 0; index < text.length; index++) {
+        const char = text[index];
+        const next = text[index + 1];
+        if (lineComment) {
+            if (char === '\n' || char === '\r') lineComment = false;
+        } else if (blockComment) {
+            if (char === '*' && next === '/') {
+                blockComment = false;
+                index++;
+            }
+        } else if (quote) {
+            if (char === '\\' && document.languageId === 'xsmpcat') index++;
+            else if (char === quote) quote = undefined;
+        } else if (char === '"' || char === "'") {
+            quote = char;
+        } else if (char === '/' && next === '/') {
+            lineComment = true;
+            index++;
+        } else if (char === '/' && next === '*') {
+            blockComment = true;
+            index++;
         }
     }
-    return opened;
+    return lineComment || blockComment || quote !== undefined;
 }
