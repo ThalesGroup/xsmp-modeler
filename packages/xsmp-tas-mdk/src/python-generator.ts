@@ -122,7 +122,7 @@ export class TasMdkPythonGenerator implements XsmpGenerator {
             `;
     }
 
-    private generateWrapper(type: ast.Component, notice: string | undefined, libName: string): string {
+    protected generateWrapper(type: ast.Component, notice: string | undefined, libName: string): string {
         let base_wrapper_name = 'Model';
         let base_wrapper_path = 'TasMdk.Model';
         let base_wrapper_root = 'TasMdk__CommonModels';
@@ -140,14 +140,13 @@ export class TasMdkPythonGenerator implements XsmpGenerator {
                 }
             }
         }
-        const builder_module = this.splitByLastDot(fqn(type));
         return s`
                     ${notice}
-                    from ${base_wrapper_root}.test_utils.${base_wrapper_path} import ${base_wrapper_name}Wrapper
-                    from ${libName}.builder.${builder_module[0]} import ${builder_module[1]}
+                    from importlib import import_module as _import_module
+                    _BaseWrapper = getattr(_import_module('${base_wrapper_root}.test_utils.${base_wrapper_path}'), '${base_wrapper_name}Wrapper')
 
-                    class ${type.name}Wrapper( ${base_wrapper_name}Wrapper ):
-                        builder = ${type.name}
+                    class ${type.name}Wrapper( _BaseWrapper ):
+                        builder = _import_module('${libName}.builder.${fqn(type)}')
 
                 `;
     }
