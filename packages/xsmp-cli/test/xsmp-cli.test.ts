@@ -66,6 +66,47 @@ describe('XSMP CLI', () => {
         expect(result.stdout).toContain('new');
     });
 
+    test.each([false, true])('removes bundled runtime assets after validation (invalid source: %s)', invalid => {
+        const runtimeTemp = path.join(tempDir, 'runtime');
+        fs.mkdirSync(runtimeTemp);
+        fs.writeFileSync(path.join(runtimeTemp, 'keep.txt'), 'user data');
+        const projectDir = createProject(tempDir, 'app', 'project "app"\nsource "smdl"', {
+            'smdl/app.xsmpcat': invalid ? 'catalogue App namespace' : 'catalogue App namespace app {}',
+        });
+        const result = runNodeProcess(standaloneBundlePath, ['validate', projectDir, '--workspace-root', projectDir], {
+            env: { ...process.env, TMPDIR: runtimeTemp, TMP: runtimeTemp, TEMP: runtimeTemp },
+        });
+        expect(result.status, result.stderr).toBe(invalid ? 1 : 0);
+        expect(fs.readdirSync(runtimeTemp)).toEqual(['keep.txt']);
+        expect(fs.readFileSync(path.join(runtimeTemp, 'keep.txt'), 'utf8')).toBe('user data');
+    });
+
+    test('waits for pending asset writes before cleaning up a failed extraction', () => {
+        const runtimeTemp = path.join(tempDir, 'runtime');
+        fs.mkdirSync(runtimeTemp);
+        const preload = path.join(tempDir, 'fail-extraction.cjs');
+        fs.writeFileSync(preload, `
+const fs = require('node:fs/promises');
+const path = require('node:path');
+const original = fs.writeFile;
+let failed = false;
+fs.writeFile = async (file, ...args) => {
+    if (String(file).startsWith(process.env.TMPDIR + path.sep)) {
+        if (!failed) { failed = true; throw new Error('injected extraction failure'); }
+        await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    return original(file, ...args);
+};
+`);
+        const result = runProcess(process.execPath, ['--require', preload, standaloneBundlePath, 'new', 'project', 'App', tempDir, '--no-interactive'], {
+            env: { ...process.env, TMPDIR: runtimeTemp, TMP: runtimeTemp, TEMP: runtimeTemp },
+        });
+        expect(result.status).toBe(2);
+        expect(result.stderr).toContain('injected extraction failure');
+        expect(result.stderr).not.toContain('ENOENT');
+        expect(fs.readdirSync(runtimeTemp)).toEqual([]);
+    });
+
     test('creates a project with the standalone CLI bundle', () => {
         const standaloneDir = path.join(tempDir, 'standalone');
         const workspaceDir = path.join(tempDir, 'workspace');
@@ -648,13 +689,14 @@ async function runCliWithOutput(args: readonly string[]) {
     };
 }
 
-function runNodeProcess(scriptPath: string, args: readonly string[] = [], options: { cwd?: string } = {}) {
+function runNodeProcess(scriptPath: string, args: readonly string[] = [], options: { cwd?: string; env?: NodeJS.ProcessEnv } = {}) {
     return runProcess(process.execPath, [scriptPath, ...args], options);
 }
 
-function runProcess(command: string, args: readonly string[] = [], options: { cwd?: string } = {}) {
+function runProcess(command: string, args: readonly string[] = [], options: { cwd?: string; env?: NodeJS.ProcessEnv } = {}) {
     return spawnSync(command, [...args], {
         cwd: options.cwd ?? repoRoot,
+        env: options.env,
         encoding: 'utf8',
     });
 }

@@ -56,6 +56,16 @@ const bundledContributionDefinitions = [
 ];
 
 let bundledRuntimePromise;
+let bundledRuntimeRoot;
+
+export async function disposeCliBuiltinRuntime() {
+    // Extraction may fail while other asset writes are still pending.
+    await bundledRuntimePromise?.catch(() => undefined);
+    if (bundledRuntimeRoot) {
+        await fs.rm(bundledRuntimeRoot, { recursive: true, force: true });
+        bundledRuntimeRoot = undefined;
+    }
+}
 
 export async function getCliBuiltinContributionPackages() {
     const runtime = await getBundledRuntime();
@@ -81,22 +91,17 @@ async function getBundledRuntime() {
 
 async function extractBundledAssets() {
     const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), `xsmp-${embeddedAssetsHash}-`));
+    bundledRuntimeRoot = rootDir;
 
-    await Promise.all(
+    const results = await Promise.allSettled(
         Object.entries(embeddedTextAssets).map(async ([relativePath, content]) => {
             const targetPath = path.join(rootDir, relativePath);
-            try {
-                const existing = await fs.readFile(targetPath, 'utf8');
-                if (existing === content) {
-                    return;
-                }
-            } catch {
-                // Asset not extracted yet.
-            }
             await fs.mkdir(path.dirname(targetPath), { recursive: true });
             await fs.writeFile(targetPath, content, 'utf8');
         }),
     );
+    const failure = results.find(result => result.status === 'rejected');
+    if (failure) throw failure.reason;
 
     return {
         rootDir,

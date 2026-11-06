@@ -2,8 +2,10 @@ process.env.XSMP_CLI_VERSION = __XSMP_CLI_VERSION__;
 process.env.XSMP_CORE_VERSION = __XSMP_CORE_VERSION__;
 
 const { runCli } = require('../src/main.ts');
+const { disposeCliBuiltinRuntime } = require('./builtin-packages-bundle.mjs');
 
 runCli(process.argv)
+    .finally(disposeCliBuiltinRuntime)
     .then(exitCode => {
         process.exitCode = exitCode;
     })
