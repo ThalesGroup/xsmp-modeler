@@ -848,7 +848,10 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
             ${this.comment(element)}${this.attrHelper.isStatic(element) ? 'static ' : ''}${this.attrHelper.isMutable(element) ? 'mutable ' : ''}${this.type(element)} ${element.name};
             `;
     }
-    protected defineAssociationGen(_element: ast.Association, _gen: boolean): string | undefined {
+    protected defineAssociationGen(element: ast.Association, gen: boolean): string | undefined {
+        if (this.attrHelper.isStatic(element)) {
+            return `${this.type(element)} ${this.name(element.$container, gen)}::${element.name}{};`;
+        }
         return undefined;
     }
 
