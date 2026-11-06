@@ -309,6 +309,49 @@ describe('VS Code extension runtime behavior', () => {
         expect(vscodeState.shownDocuments[0]?.document).toBe(vscodeState.openedDocuments[1]);
     });
 
+    test.each([
+        ['block-comment marker in a string', 'field Smp.String8 marker = "/*"\n', true],
+        ['line-comment marker in a string', 'field Smp.String8 marker = "https://example/" ', true],
+        ['escaped quote before a comment marker', String.raw`field Smp.String8 marker = "\"/*"` + '\n', true],
+        ['quoted apostrophe', 'field Smp.String8 marker = "\'" ', true],
+        ['closed comment containing quotes', '/* " \' // */\n', true],
+        ['previous line comment containing a quote', '// "\r\n', true],
+        ['open block comment', '/* open\n', false],
+        ['current line comment', '// ', false],
+        ['open double-quoted string', 'field Smp.String8 marker = "', false],
+        ['open single-quoted string', "field Smp.String8 marker = '", false],
+    ])('shows documentation in the correct lexical context: %s', (_name, prefix, expected) => {
+        fs.mkdirSync(path.join(tempDir, 'out', 'docs', 'languages'), { recursive: true });
+        fs.writeFileSync(path.join(tempDir, 'out', 'docs', 'languages', 'xsmpcat.md'), '# Catalogue docs\n');
+        registerEmbeddedDocumentation(createExtensionContext(tempDir));
+        const text = `${prefix}field Smp.Int32 value = 0`;
+        const lines = text.split('\n');
+        const document = createTextDocument('xsmpcat', text, vscode.Uri.file('/workspace/demo.xsmpcat'));
+        const position = new vscode.Position(lines.length - 1, lines.at(-1)!.lastIndexOf('field') + 2);
+        const hover = vscodeState.hoverProviders[0].provider.provideHover(document, position);
+        expect(Boolean(hover)).toBe(expected);
+        if (expected) expect(hover.contents.value).toContain('command:xsmp.openDocumentation?');
+    });
+
+    test('treats a trailing backslash as text in project strings', () => {
+        fs.mkdirSync(path.join(tempDir, 'out', 'docs', 'languages'), { recursive: true });
+        fs.writeFileSync(path.join(tempDir, 'out', 'docs', 'languages', 'xsmpproject.md'), '# Project docs\n');
+        registerEmbeddedDocumentation(createExtensionContext(tempDir));
+        const document = createTextDocument('xsmpproject', String.raw`project 'demo' source 'C:\' tool 'xsmp.tool.smp'`, vscode.Uri.file('/workspace/xsmp.project'));
+        const hover = vscodeState.hoverProviders[0].provider.provideHover(document, new vscode.Position(0, document.getText().indexOf('tool') + 2));
+        expect(hover?.contents.value).toContain('command:xsmp.openDocumentation?');
+    });
+
+    test('does not read the document prefix when a hovered name has no documentation page', () => {
+        registerEmbeddedDocumentation(createExtensionContext(tempDir));
+        const document = createTextDocument('xsmpcat', '// header\nOrdinaryTypeName', vscode.Uri.file('/workspace/demo.xsmpcat'));
+        const read = vi.spyOn(document, 'getText');
+        const hover = vscodeState.hoverProviders[0].provider.provideHover(document, new vscode.Position(1, 3));
+        expect(hover).toBeUndefined();
+        expect(read).toHaveBeenCalledTimes(1);
+        expect(read.mock.results[0].value).toBe('OrdinaryTypeName');
+    });
+
     test('opens embedded documentation pages and exposes hover links only in code positions', async () => {
         fs.mkdirSync(path.join(tempDir, 'out', 'docs', 'languages'), { recursive: true });
         fs.writeFileSync(path.join(tempDir, 'out', 'docs', 'languages', 'xsmpasb.md'), '# Assembly docs\n', 'utf-8');
