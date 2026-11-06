@@ -38,6 +38,29 @@ afterEach(() => {
 });
 
 describe('XSMP CLI new project', () => {
+    test.each([
+        ['class', 'class_'],
+        ['namespace', 'namespace_'],
+        ['class_', 'class_'],
+        ['Ordinary', 'Ordinary'],
+        ['A-B', 'A_B'],
+    ])('creates a valid catalogue and matching scaffold for %s', async (projectName, identifier) => {
+        const created = await runCliWithOutput([
+            'new', 'project', projectName, tempDir,
+            '--profile', 'xsmp-sdk', '--tool', 'python', '--no-interactive',
+        ]);
+        expect(created.exitCode, created.stderr).toBe(0);
+
+        const projectDir = path.join(tempDir, projectName);
+        const validated = await runCliWithOutput(['validate', projectDir, '--workspace-root', projectDir]);
+        expect(validated.exitCode, validated.stderr).toBe(0);
+        expect(fs.readFileSync(path.join(projectDir, 'xsmp.project'), 'utf-8')).toContain(`project '${projectName}'`);
+        const catalogue = fs.readFileSync(path.join(projectDir, 'smdl', `${projectName}.xsmpcat`), 'utf-8');
+        expect(catalogue).toContain(`catalogue ${identifier}\n`);
+        expect(catalogue).toContain(`namespace ${identifier}\n`);
+        expect(fs.existsSync(path.join(projectDir, 'python', identifier, `test_${identifier}.py`))).toBe(true);
+    });
+
     test('creates a complete project in scriptable mode', async () => {
         const result = await runCliWithOutput([
             'new',

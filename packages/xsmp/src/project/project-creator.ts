@@ -6,6 +6,7 @@ import type {
     XsmpProjectScaffoldRequest,
 } from '../contributions/xsmp-extension-types.js';
 import { toXsmpIdentifier } from '../utils/path-utils.js';
+import { cppReservedNames } from '../validation/name-validator-utils.js';
 
 export interface XsmpProjectContributionSelection {
     readonly id: string;
@@ -82,7 +83,7 @@ export async function createXsmpProject(
         const smdlPath = path.join(projectDir, 'smdl');
         await fs.promises.mkdir(smdlPath);
 
-        const catalogueName = toXsmpIdentifier(request.projectName);
+        const catalogueName = getProjectIdentifier(request.projectName);
         await fs.promises.writeFile(
             path.join(smdlPath, `${request.projectName}.xsmpcat`),
             createCatalogueContent(request.projectName, catalogueName),
@@ -148,6 +149,12 @@ async function scaffoldProject(
             { cause: error },
         );
     }
+}
+
+/** Identifier shared by the starter catalogue and contribution scaffolders. */
+export function getProjectIdentifier(projectName: string): string {
+    const identifier = toXsmpIdentifier(projectName);
+    return cppReservedNames.has(identifier) ? `${identifier}_` : identifier;
 }
 
 function validateProjectName(projectName: string): void {
