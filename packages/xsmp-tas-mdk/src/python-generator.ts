@@ -1,5 +1,5 @@
 import * as ast from '@xsmp/core/ast';
-import { type AstNode } from 'langium';
+import { AstUtils, type AstNode } from 'langium';
 import type { GeneratedFiles, GenerationContext, GenerationPreparationContext, XsmpGenerator } from '@xsmp/core/generator';
 import { fqn } from '@xsmp/core/utils';
 import * as CopyrightNoticeProvider from '@xsmp/core/generator';
@@ -130,9 +130,10 @@ export class TasMdkPythonGenerator implements XsmpGenerator {
             const wrapper_module = this.splitByLastDot(fqn(type.base.ref));
             base_wrapper_name = wrapper_module[1];
             base_wrapper_path = wrapper_module[0]+'.'+wrapper_module[1];
-            base_wrapper_root = wrapper_module[0].split('.')[0];
+            const namespace_root = wrapper_module[0].split('.')[0];
+            base_wrapper_root = AstUtils.getContainerOfType(type.base.ref, ast.isCatalogue)?.name ?? namespace_root;
             // Workaround for the TasMdk case
-            if (base_wrapper_root === 'TasMdk') {
+            if (namespace_root === 'TasMdk') {
                 if (base_wrapper_path.startsWith('TasMdk.CommonModels') || base_wrapper_path.startsWith('TasMdk.InterfacesImplem') || base_wrapper_path.startsWith('TasMdk.Model')) {
                     base_wrapper_root = 'TasMdk__CommonModels';
                 } else if (base_wrapper_path.startsWith('TasMdk.CommonTestModels')) {
