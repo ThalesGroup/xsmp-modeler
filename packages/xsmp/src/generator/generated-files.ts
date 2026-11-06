@@ -96,6 +96,7 @@ export class GenerationSession {
     private readonly expected = new Map<string, ResolvedOutput>();
     private readonly caseVariants = new Map<string, string[]>();
     private readonly pendingWrites = new Map<string, Promise<void>>();
+    private readonly createOnceWrites = new Map<string, Promise<void>>();
     private readonly checkedDirectories = new Map<string, Promise<void>>();
     private readonly inventory: GeneratedFileInventory;
     private purgeRoots: string[] = [];
@@ -194,7 +195,10 @@ export class GenerationSession {
         }
         const identity = pathIdentity(file);
         const previous = this.expected.get(identity);
-        if (previous) throw new Error(`Duplicate generated file '${file}' from '${previous.owner}/${previous.output}' and '${output.owner}/${output.output}'.`);
+        if (previous) {
+            if (previous === output && output.writeMode === 'if-missing') return this.createOnceWrites.get(identity)!;
+            throw new Error(`Duplicate generated file '${file}' from '${previous.owner}/${previous.output}' and '${output.owner}/${output.output}'.`);
+        }
         this.expected.set(identity, output);
         const caseKey = file.toLowerCase();
         const variants = this.caseVariants.get(caseKey) ?? [];
@@ -207,13 +211,19 @@ export class GenerationSession {
         let release!: () => void;
         const pending = new Promise<void>(resolve => { release = resolve; });
         this.pendingWrites.set(caseKey, pending);
-        try {
-            if (predecessor) await predecessor;
-            await this.writeContent(output, file, content, previousVariants);
-        } finally {
-            release();
-            if (this.pendingWrites.get(caseKey) === pending) this.pendingWrites.delete(caseKey);
-        }
+        const result = (async () => {
+            try {
+                if (predecessor) await predecessor;
+                await this.writeContent(output, file, content, previousVariants);
+            } finally {
+                release();
+                if (this.pendingWrites.get(caseKey) === pending) this.pendingWrites.delete(caseKey);
+            }
+        })();
+        // Unlike the alias lock, this promise preserves the first request's failure as well
+        // as its success. Retain it for sequential duplicates until the session closes.
+        if (output.writeMode === 'if-missing') this.createOnceWrites.set(identity, result);
+        return result;
     }
 
     private async writeContent(output: ResolvedOutput, file: string, content: GeneratedContent, aliases: readonly string[]): Promise<void> {
@@ -279,6 +289,7 @@ export class GenerationSession {
             this.expected.clear();
             this.caseVariants.clear();
             this.pendingWrites.clear();
+            this.createOnceWrites.clear();
             this.checkedDirectories.clear();
             this.outputs.length = 0;
         }

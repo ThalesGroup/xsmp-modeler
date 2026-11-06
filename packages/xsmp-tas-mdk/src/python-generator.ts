@@ -9,7 +9,6 @@ import { type DocumentationHelper } from '@xsmp/core/utils';
 
 export class TasMdkPythonGenerator implements XsmpGenerator {
     readonly id: string = 'python';
-    private readonly initializers = new WeakMap<GeneratedFiles, Set<string>>();
 
     protected helpersFolder = 'helpers';
     protected readonly docHelper: DocumentationHelper;
@@ -19,37 +18,28 @@ export class TasMdkPythonGenerator implements XsmpGenerator {
     }
 
     prepare(context: GenerationPreparationContext): GeneratedFiles {
-        const files = context.createFiles({
+        return context.createFiles({
             generated: { directory: this.helpersFolder, writeMode: 'if-changed', cleanup: 'tracked' },
             user: { directory: this.helpersFolder, writeMode: 'if-missing' },
         });
-        this.initializers.set(files, new Set());
-        return files;
     }
 
     generate(node: AstNode, context: GenerationContext) {
         if (ast.isCatalogue(node)) {
+            const { files, acceptTask } = context;
             const notice = CopyrightNoticeProvider.getCopyrightNotice(node.$document, '# ');
             for (const directory of ['', 'builder/', 'test_utils/']) {
-                this.generateInitializer(`${directory}__init__.py`, context, () => s`${notice}`);
+                acceptTask(() => files.write('user', `${directory}__init__.py`, () => s`${notice}`));
             }
             node.elements.forEach(ns => this.generateNamespace(ns, context, notice, node.name));
         }
     }
 
-    private generateInitializer(path: string, { files, acceptTask }: GenerationContext, content: () => string): void {
-        const scheduled = this.initializers.get(files)!;
-        // Namespace packages can be shared by several catalogues in the same project.
-        if (!scheduled.has(path)) {
-            scheduled.add(path);
-            acceptTask(() => files.write('user', path, content));
-        }
-    }
-
     public generateNamespace(ns: ast.Namespace, context: GenerationContext, notice: string | undefined, libName: string) {
+        const { files, acceptTask } = context;
         const qualifiedName = fqn(ns, '/');
-        this.generateInitializer(`builder/${qualifiedName}/__init__.py`, context, () => s`${notice}`);
-        this.generateInitializer(`test_utils/${qualifiedName}/__init__.py`, context, () => s`${notice}`);
+        acceptTask(() => files.write('user', `builder/${qualifiedName}/__init__.py`, () => s`${notice}`));
+        acceptTask(() => files.write('user', `test_utils/${qualifiedName}/__init__.py`, () => s`${notice}`));
 
         for (const elem of ns.elements) {
             switch (elem.$type) {
@@ -91,13 +81,13 @@ export class TasMdkPythonGenerator implements XsmpGenerator {
                         pass
 
                 `));
-        this.generateInitializer(`builder/${qualifiedName}/__init__.py`, context, () => s`${notice}`);
+        acceptTask(() => files.write('user', `builder/${qualifiedName}/__init__.py`, () => s`${notice}`));
         acceptTask(() => files.write('user', `test_utils/${qualifiedName}/wrapper.py`, () => this.generateWrapper(type, notice, libName)));
-        this.generateInitializer(`test_utils/${qualifiedName}/__init__.py`, context, () => s`
+        acceptTask(() => files.write('user', `test_utils/${qualifiedName}/__init__.py`, () => s`
                     ${notice}
                     from .wrapper import ${type.name}Wrapper
 
-                `);
+                `));
     }
 
     private generateIcd(type: ast.Component, notice: string | undefined): string {

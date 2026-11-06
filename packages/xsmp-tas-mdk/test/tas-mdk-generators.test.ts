@@ -80,7 +80,7 @@ describe('xsmp-tas-mdk generators', () => {
         expect(fs.readFileSync(unknown, 'utf8')).toBe('# unrelated module\n');
     });
 
-    test('schedules shared namespace initializers once across catalogues', async () => {
+    test('creates shared namespace initializers despite duplicate requests across catalogues', async () => {
         const document = await parseProfileGeneratorFixture(context);
         const first = await context.parseCatalogue(`catalogue First
 namespace shared { /** @uuid 11111111-1111-1111-1111-111111111111 */ public model One {} }`, {
