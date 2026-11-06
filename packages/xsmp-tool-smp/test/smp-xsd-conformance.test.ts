@@ -39,6 +39,46 @@ afterEach(async () => {
 
 describe.skipIf(!hasXmllint())('SMP XSD conformance tests', () => {
   for (const standard of ['ECSS_SMP_2020', 'ECSS_SMP_2025'] as const) {
+    test(`designated structure defaults preserve scalar and nested values (${standard})`, async () => {
+      const source = `catalogue Defaults
+namespace ns {
+    /** @uuid 12000000-0000-4000-8000-000000000001 */
+    public struct Pair { field Int32 number field Bool flag }
+    /** @uuid 12000000-0000-4000-8000-000000000002 */
+    public array Pairs = Pair[2]
+    /** @uuid 12000000-0000-4000-8000-000000000003 */
+    public struct Nested { field Pair pair field Pairs pairs }
+    /** @uuid 12000000-0000-4000-8000-000000000004 */
+    public model Device {
+        field Pair scalar = { .number = 7, .flag = true }
+        field Nested nested = {
+            .pair = { .number = 8, .flag = false },
+            .pairs = { { .number = 9, .flag = true }, { 10, false } }
+        }
+    }
+}`;
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-smp-designated-defaults-'));
+      try {
+        const { document, projectUri } = await parseInProject(parseCatalogue, source, 'defaults.xsmpcat', standard, tmpDir);
+        await services.shared.workspace.DocumentBuilder.build(documents, { validation: true });
+        expect(document.diagnostics?.filter(diagnostic => diagnostic.severity === 1)).toEqual([]);
+        await generateDocuments(new SmpGenerator(services.shared), [document.parseResult.value], projectUri);
+
+        const output = path.join(tmpDir, 'smdl-gen', 'defaults.smpcat');
+        const xml = fs.readFileSync(output, 'utf8');
+        for (const value of [7, 8, 9]) {
+          expect(xml).toContain(`<FieldValue xsi:type="Types:Int32Value" Value="${value}" Field="number"/>`);
+        }
+        expect(xml).toContain('<FieldValue xsi:type="Types:Int32Value" Value="10"/>');
+        expect(xml.match(/<FieldValue xsi:type="Types:BoolValue" Value="true" Field="flag"\/>/g)).toHaveLength(2);
+        expect(xml).toContain('<FieldValue xsi:type="Types:BoolValue" Value="false" Field="flag"/>');
+        expect(xml).toContain('<FieldValue xsi:type="Types:BoolValue" Value="false"/>');
+        assertXmlConformsToXsd(output, 'catalogue', standard);
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
     test(`generated catalogue and package files conform to the Level 1 XSD (${standard})`, async () => {
       const source = `catalogue Demo
 
