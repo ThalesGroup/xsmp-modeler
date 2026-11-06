@@ -633,6 +633,10 @@ public:
         const cmp = this.name(property.$container, gen);
         const hasGetter = accessKind === undefined || accessKind === 'readOnly' || accessKind === 'readWrite';
         const hasSetter = accessKind === undefined || accessKind === 'writeOnly' || accessKind === 'readWrite';
+        const byReference = this.attrHelper.isByReference(property);
+        const keepString = isString8(property.type.ref);
+        const needsLocal = byReference || keepString;
+        const read = `::Xsmp::Request::get<${keepString ? '::Smp::AnySimple' : this.fqn(property.type.ref)}>(component, request, "${property.name}", ${this.primitiveTypeKind(property.type.ref)})`;
         const getterHandler = hasGetter ? `
                 // Getter handler for Property ${property.name}
                 {"get_${property.name}",
@@ -645,7 +649,9 @@ public:
                 // Setter handler for Property ${property.name}
                 {"set_${property.name}",
                 [](${cmp}* component, ::Smp::IRequest *request) {
-                    component->set_${property.name}(::Xsmp::Request::get<${this.fqn(property.type.ref)}>(component, request, "${property.name}", ${this.primitiveTypeKind(property.type.ref)}));
+                    ${needsLocal ? `${keepString ? `const auto storage = ${read};
+                    auto value = static_cast<${this.fqn(property.type.ref)}>(storage);` : `auto value = ${read};`}
+                    ` : ''}component->set_${property.name}(${needsLocal ? 'value' : read});
                 }},
                 
                 ` : undefined;

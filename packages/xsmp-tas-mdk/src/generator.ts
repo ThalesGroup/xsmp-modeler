@@ -2,7 +2,7 @@ import { GapPatternCppGenerator, CxxStandard, type Include } from '@xsmp/core/ge
 import type { XsmpSharedServices } from '@xsmp/core';
 import * as ast from '@xsmp/core/ast';
 import { expandToString as s } from 'langium/generate';
-import { getAccessKind, isInput, isOutput, isState, isAbstractType, VisibilityKind } from '@xsmp/core/utils';
+import { getAccessKind, isInput, isOutput, isState, isAbstractType, isString8, VisibilityKind } from '@xsmp/core/utils';
 import { getXsmpVersion } from '@xsmp/core';
 import * as Path from 'node:path';
 import { AstUtils } from 'langium';
@@ -667,7 +667,7 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
 			    [[maybe_unused]] typename ::TasMdk::Request::Handler<_Type>::CollectionType& handlers)
 			{
                 ${type.elements.filter(ast.isOperation).filter(operation => this.isInvokable(operation)).map(operation => this.generateRqHandlerOperation(operation, gen)).join('\n')}
-                ${type.elements.filter(ast.isProperty).map(property => this.generateRqHandlerProperty(property, gen)).join('\n')}
+                ${type.elements.filter(ast.isProperty).filter(property => this.isInvokable(property)).map(property => this.generateRqHandlerProperty(property, gen)).join('\n')}
 			}
             `;
     }
@@ -830,6 +830,7 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
 
     protected generateRqHandlerProperty(property: ast.Property, _gen: boolean): string {
         const accessKind = getAccessKind(property);
+        const keepString = isString8(property.type.ref);
         const hasGetter = accessKind === undefined || accessKind === 'readOnly' || accessKind === 'readWrite';
         const hasSetter = accessKind === undefined || accessKind === 'writeOnly' || accessKind === 'readWrite';
         const getterHandler = hasGetter ? `
@@ -844,9 +845,10 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
                 if (handlers.find("set_${property.name}") == handlers.end()) {
                     handlers["set_${property.name}"] = [](_Type & component, ::Smp::IRequest* request) {
                         /// Invoke set_${property.name}
-                        ${this.fqn(property.type.ref)} ${property.name};
-                        ::TasMdk::Request::initParameter(${property.name}, request, "${property.name}", ${this.primitiveTypeKind(property.type.ref)});
-                        component.set_${property.name}(${property.name});
+                        ${keepString ? `::Smp::AnySimple storage_${property.name}` : `${this.fqn(property.type.ref)} ${property.name}`};
+                        ::TasMdk::Request::initParameter(${keepString ? `storage_${property.name}` : property.name}, request, "${property.name}", ${this.primitiveTypeKind(property.type.ref)});
+                        ${keepString ? `auto ${property.name} = static_cast<${this.fqn(property.type.ref)}>(storage_${property.name});
+                        ` : ''}component.set_${property.name}(${property.name});
                     };
                 }
                 ` : undefined;
