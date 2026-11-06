@@ -82,6 +82,40 @@ interface FieldIssues {
     readonly string8Field?: ast.Field;
 }
 
+interface FieldSummary extends FieldIssues {
+    readonly isString8: boolean;
+}
+
+/** Cache completed DAG nodes only; an unfinished cycle never contributes a cached result. */
+function cacheAcyclicGraph<T>(root: ast.Type, cache: WorkspaceCache<ast.Type, T>,
+    children: (type: ast.Type) => ast.Type[], summarize: (type: ast.Type) => T): boolean {
+    if (cache.has(root)) return true;
+    const active = new Set<ast.Type>([root]);
+    const stack = [{ type: root, children: children(root), index: 0 }];
+    while (stack.length > 0) {
+        const frame = stack[stack.length - 1];
+        if (frame.index < frame.children.length) {
+            const child = frame.children[frame.index++];
+            if (cache.has(child)) continue;
+            if (active.has(child)) return false;
+            active.add(child);
+            stack.push({ type: child, children: children(child), index: 0 });
+        } else {
+            cache.set(frame.type, summarize(frame.type));
+            active.delete(frame.type);
+            stack.pop();
+        }
+    }
+    return true;
+}
+
+function containedTypes(type: ast.Type): ast.Type[] {
+    if (ast.isArrayType(type)) return type.itemType?.ref ? [type.itemType.ref] : [];
+    return ast.isStructure(type)
+        ? type.elements.filter(ast.isField).flatMap(field => field.type?.ref ? [field.type.ref] : [])
+        : [];
+}
+
 /**
  * Implementation of custom validations.
  */
@@ -90,7 +124,9 @@ export class XsmpcatValidator {
     protected readonly globalCache: WorkspaceCache<string, MultiMap<string, AstNodeDescription>>;
     protected readonly visibleCache: VisibilityCache<MultiMap<string, AstNodeDescription>>;
     protected readonly catalogueCycleCache: VisibilityCache<Map<string, AstNodeDescription[]>>;
-    protected readonly fieldIssuesCache: WorkspaceCache<ast.Type, FieldIssues>;
+    protected readonly fieldIssuesCache: WorkspaceCache<ast.Type, FieldSummary>;
+    protected readonly cyclicFieldIssuesCache: WorkspaceCache<ast.Type, FieldSummary>;
+    protected readonly acyclicTypesCache: WorkspaceCache<ast.Type, true>;
     protected readonly docHelper: DocumentationHelper;
     protected readonly attrHelper: AttributeHelper;
     protected readonly projectManager: ProjectManager;
@@ -100,7 +136,9 @@ export class XsmpcatValidator {
         this.globalCache = new WorkspaceCache<string, MultiMap<string, AstNodeDescription>>(services.shared);
         this.visibleCache = new VisibilityCache<MultiMap<string, AstNodeDescription>>();
         this.catalogueCycleCache = new VisibilityCache<Map<string, AstNodeDescription[]>>();
-        this.fieldIssuesCache = new WorkspaceCache<ast.Type, FieldIssues>(services.shared);
+        this.fieldIssuesCache = new WorkspaceCache<ast.Type, FieldSummary>(services.shared);
+        this.cyclicFieldIssuesCache = new WorkspaceCache<ast.Type, FieldSummary>(services.shared);
+        this.acyclicTypesCache = new WorkspaceCache<ast.Type, true>(services.shared);
         this.docHelper = services.shared.DocumentationHelper;
         this.attrHelper = services.shared.AttributeHelper;
         this.projectManager = services.shared.workspace.ProjectManager;
@@ -469,12 +507,13 @@ export class XsmpcatValidator {
     checkField(field: ast.Field, accept: ValidationAcceptor): void {
         if (this.checkTypeReference(accept, field, field.type?.ref, ast.Field.type)) {
             const type = field.type.ref;
+            const issues: FieldSummary = ast.isValueType(type) ? this.getFieldIssues(type) : { isString8: false };
             if (ast.isComponent(field.$container)) {
                 if (!ast.isValueType(type)) {
                     accept('error', 'A Field of a Model or Service shall have a ValueType type.', { node: field, property: ast.Field.type });
                 }
                 else {
-                    const { nonValueTypeField, string8Field } = this.getFieldIssues(type);
+                    const { nonValueTypeField, string8Field } = issues;
                     if (nonValueTypeField) {
                         accept('error', 'A Field of a Model or Service shall not use a type containing non-ValueType fields.', {
                             node: field,
@@ -483,7 +522,7 @@ export class XsmpcatValidator {
                         });
                     }
 
-                    if (this.resolvesToString8(type)) {
+                    if (issues.isString8) {
                         accept('error', 'A Field of a Model or Service shall not use the String8 type.', { node: field, property: ast.Field.type });
                     }
                     else if (string8Field) {
@@ -498,11 +537,11 @@ export class XsmpcatValidator {
             else if (!ast.isValueType(type)) {
                 accept('warning', 'Field type is not a ValueType. This is allowed outside Model/Service but is not SMP compatible.', { node: field, property: ast.Field.type });
             }
-            else if (this.resolvesToString8(type)) {
+            else if (issues.isString8) {
                 accept('warning', 'Field type is String8. This is allowed outside Model/Service but is not SMP compatible.', { node: field, property: ast.Field.type });
             }
             else {
-                const { string8Field } = this.getFieldIssues(type);
+                const { string8Field } = issues;
                 if (string8Field) {
                     accept('warning', 'Field type contains a String8 field. This is allowed outside Model/Service but is not SMP compatible.', {
                         node: field,
@@ -518,16 +557,63 @@ export class XsmpcatValidator {
         }
     }
 
-    /**
-     * Returns the (cached) FieldIssues for `type`, i.e. whether it transitively contains a
-     * non-ValueType field and/or a String8 field. Only ever caches at this outer boundary — one entry
-     * per distinct Type a Field directly declares — never for a type reached mid-recursion (see
-     * computeFieldIssues), which is what keeps this safe: each cache entry is written exactly once,
-     * from a single, fully-completed top-level traversal, so a Type shared as a nested field of two
-     * different outer types can never see a partially-explored result cached under its own key.
-     */
-    private getFieldIssues(type: ast.Type): FieldIssues {
-        return this.fieldIssuesCache.get(type, () => this.computeFieldIssues(type, new Set()));
+    private getFieldIssues(type: ast.Type): FieldSummary {
+        const cached = this.fieldIssuesCache.get(type) ?? this.cyclicFieldIssuesCache.get(type);
+        if (cached) return cached;
+        if (cacheAcyclicGraph(type, this.fieldIssuesCache,
+            node => this.fieldDependencies(node), node => this.summarizeFields(node))) {
+            return this.fieldIssuesCache.get(type)!;
+        }
+        // Keep cyclic root summaries separate: descendants cannot reuse their root-specific witnesses.
+        return this.cyclicFieldIssuesCache.get(type, () => ({
+            ...this.computeFieldIssues(type, new Set()), isString8: this.resolvesToString8(type)
+        }));
+    }
+
+    private fieldDependencies(type: ast.Type): ast.Type[] {
+        if (ast.isArrayType(type)) return type.itemType?.ref ? [type.itemType.ref] : [];
+        if (!ast.isStructure(type)) return [];
+        const base = ast.isClass(type) ? type.base?.ref : undefined;
+        const dependencies: ast.Type[] = ast.isStructure(base) ? [base] : [];
+        for (const field of type.elements.filter(ast.isField)) {
+            if (!this.attrHelper.isStatic(field) && field.type?.ref) dependencies.push(field.type.ref);
+        }
+        return dependencies;
+    }
+
+    private summarizeFields(type: ast.Type): FieldSummary {
+        if (ast.isArrayType(type)) {
+            return type.itemType?.ref ? this.fieldIssuesCache.get(type.itemType.ref)! : { isString8: false };
+        }
+        if (!ast.isStructure(type)) return { isString8: XsmpUtils.isString8(type) };
+        const base = ast.isClass(type) ? type.base?.ref : undefined;
+        const inherited = ast.isStructure(base) ? this.fieldIssuesCache.get(base) : undefined;
+        let nonValueTypeField = inherited?.nonValueTypeField;
+        let string8Field = inherited?.string8Field;
+        for (const field of type.elements.filter(ast.isField)) {
+            const fieldType = field.type?.ref;
+            if (!fieldType || this.attrHelper.isStatic(field)) continue;
+            if (!ast.isValueType(fieldType)) {
+                nonValueTypeField ??= field;
+            } else {
+                const nested = this.fieldIssuesCache.get(fieldType)!;
+                if (nested.isString8) string8Field ??= field;
+                else {
+                    nonValueTypeField ??= nested.nonValueTypeField;
+                    string8Field ??= nested.string8Field;
+                }
+            }
+            if (nonValueTypeField && string8Field) break;
+        }
+        return { isString8: false, nonValueTypeField, string8Field };
+    }
+
+    /** For an existing parent → child edge, an acyclic child graph cannot reach the parent. */
+    private isRecursiveTypeEdge(parent: ast.Type, other: ast.Type | undefined): boolean {
+        if (!other) return false;
+        if (parent === other) return true;
+        return !cacheAcyclicGraph(other, this.acyclicTypesCache, containedTypes, () => true)
+            && XsmpUtils.isRecursiveType(parent, other);
     }
 
     /**
@@ -919,7 +1005,7 @@ export class XsmpcatValidator {
                     break;
                 case ast.Field.$type:
                     this.checkModifier(element, [(elem) => elem === 'input', (elem) => elem === 'output', (elem) => elem === 'transient'], accept);
-                    if (XsmpUtils.isRecursiveType(structure, element.type?.ref)) { accept('error', 'Recursive Field Type.', { node: element, property: ast.Field.type }); }
+                    if (this.isRecursiveTypeEdge(structure, element.type?.ref)) { accept('error', 'Recursive Field Type.', { node: element, property: ast.Field.type }); }
                     break;
             }
         }
@@ -943,7 +1029,7 @@ export class XsmpcatValidator {
                     break;
                 case ast.Field.$type:
                     this.checkModifier(element, [ast.isVisibilityModifiers, (elem) => elem === 'input', (elem) => elem === 'output', (elem) => elem === 'transient'], accept);
-                    if (XsmpUtils.isRecursiveType(clazz, element.type?.ref)) {
+                    if (this.isRecursiveTypeEdge(clazz, element.type?.ref)) {
                         accept('error', 'Recursive Field Type.', { node: element, property: ast.Field.type });
                     }
                     break;
@@ -997,7 +1083,7 @@ export class XsmpcatValidator {
         if (this.checkTypeReference(accept, array, array.itemType?.ref, ast.ArrayType.itemType)) {
             const type = array.itemType.ref as ast.ValueType;
 
-            if (XsmpUtils.isRecursiveType(array, type)) {
+            if (this.isRecursiveTypeEdge(array, type)) {
                 accept('error', 'Recursive Array Type.', { node: array, property: ast.ArrayType.itemType });
             }
 
