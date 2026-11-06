@@ -489,7 +489,7 @@ function doGetValueAs<T>(expression: ast.Expression, value: Value<T>, type: ast.
 
             const max = getValue(type.maximum)?.floatValue(kind)?.getValue();
             if (max !== undefined) {
-                if (floatValue.getValue() > max || floatValue.getValue() === max && (type.range === '<..' || type.range === '<.<')) {
+                if (floatValue.getValue() > max || floatValue.getValue() === max && (type.range === '..<' || type.range === '<.<')) {
                     if (type.range === '..<' || type.range === '<.<') {
                         accept('error', `Float value shall be less than ${max}.`, {
                             node: expression,
