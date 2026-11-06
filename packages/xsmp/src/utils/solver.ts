@@ -108,7 +108,9 @@ export class StringValue extends Value<StringValue> {
         }
         else if (type === PTK.Duration) {
             try {
-                return new IntegralValue(Duration.parse(this.value), type);
+                const value = Duration.parse(this.value);
+                const result = new IntegralValue(value, type);
+                return result.value === value ? result : undefined;
             }
             catch {
                 return undefined;
@@ -314,7 +316,9 @@ export class FloatValue extends Value<FloatValue> {
     override boolValue(): BoolValue { return new BoolValue(this.value !== 0); }
     override integralValue(type: IntegralPTK): IntegralValue | undefined {
         try {
-            return new IntegralValue(BigInt(this.value), type);
+            const value = BigInt(this.value);
+            const result = new IntegralValue(value, type);
+            return result.value === value ? result : undefined;
         } catch {
             return undefined;
         }
