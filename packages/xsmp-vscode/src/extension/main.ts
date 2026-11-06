@@ -22,9 +22,10 @@ import { registerEmbeddedDocumentation } from './embedded-documentation.js';
 import { readXsmpContributionEntries } from './contribution-manifest.js';
 import { registerSmpMirrorCommands } from './smp-mirror-commands.js';
 import { registerSmpMirrorPreview } from './smp-mirror-preview.js';
-import { createXsmpDocumentSelector, xsmpFileWatcherPatterns, xsmpLanguageIds } from './xsmp-language-support.js';
+import { registerSmpMirrorLanguages } from './smp-mirror-language.js';
+import { createXsmpDocumentSelector, xsmpFileWatcherPatterns, xsmpLanguageIds, xsmpReadonlySchemes } from './xsmp-language-support.js';
 import { registerLanguageClientRestartTask, startLanguageClientAndRunTask, stopLanguageClientWhenReady } from './language-client-running-handler.js';
-import { refreshOpenServerDocuments } from './text-document-content.js';
+import { registerServerFiles } from './server-files.js';
 
 let client: LanguageClient | undefined;
 let contributionOutputChannel: vscode.OutputChannel | undefined;
@@ -36,13 +37,17 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     context.subscriptions.push(contributionOutputChannel);
 
     try {
+        await registerSmpMirrorLanguages(context);
         const languageClient = createLanguageClient(context);
         client = languageClient;
+        const serverFiles = registerServerFiles(languageClient, xsmpReadonlySchemes);
+        context.subscriptions.push(serverFiles);
         await startLanguageClientAndRunTask(
             languageClient,
             State.Starting,
             State.Running,
             async () => {
+                serverFiles.onClientStarted();
                 registerSmpMirrorPreview(context);
                 registerSmpMirrorCommands(context);
                 const initialContributionRegistration = registerDiscoveredXsmpContributions(context, languageClient);
@@ -52,8 +57,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
                     async () => {
                         // Running is emitted before the standard content providers are registered.
                         await languageClient.start();
+                        serverFiles.onClientStarted();
                         await registerDiscoveredXsmpContributions(context, languageClient);
-                        refreshOpenServerDocuments(languageClient);
+                        serverFiles.refreshOpenDocuments();
                     },
                     error => {
                         logContributionMessage('Failed to restore external XSMP contributions after the language server restarted.');
@@ -64,7 +70,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
                 );
                 try {
                     await initialContributionRegistration;
-                    refreshOpenServerDocuments(languageClient);
+                    serverFiles.refreshOpenDocuments();
                     context.subscriptions.push(restartRegistration);
                 } catch (error) {
                     restartRegistration.dispose();
@@ -422,6 +428,12 @@ function createLanguageClient(context: vscode.ExtensionContext): LanguageClient 
         // Options to control the language client
         clientOptions: LanguageClientOptions = {
             documentSelector: createXsmpDocumentSelector(),
+            middleware: {
+                // Server documents use native file models. Never let the text provider edit them,
+                // including while the refresh handler is being reinstalled after a restart.
+                provideTextDocumentContent: (uri, token, next) =>
+                    xsmpReadonlySchemes.some(scheme => scheme === uri.scheme) ? undefined : next(uri, token),
+            },
             markdown: {
                 isTrusted: true, supportHtml: true
             },

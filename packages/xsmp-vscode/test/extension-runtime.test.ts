@@ -17,6 +17,7 @@ const vscodeState = vi.hoisted(() => ({
     activeTextEditor: undefined as any,
     tabGroupsAll: [] as any[],
     closeTabCalls: [] as Array<{ tab: any; preserveFocus: boolean }>,
+    tabListeners: new Set<(event: { opened: any[] }) => void>(),
 }));
 
 vi.mock('vscode', async () => {
@@ -60,6 +61,10 @@ vi.mock('vscode', async () => {
         ) { }
     }
 
+    class TabInputText {
+        constructor(public readonly uri: VscodeUri) { }
+    }
+
     return {
         Uri: URI,
         Position,
@@ -67,6 +72,7 @@ vi.mock('vscode', async () => {
         MarkdownString,
         Hover,
         TabInputCustom,
+        TabInputText,
         commands: {
             registerCommand: (command: string, handler: (...args: any[]) => any) => {
                 vscodeState.commandHandlers.set(command, handler);
@@ -110,21 +116,21 @@ vi.mock('vscode', async () => {
                 vscodeState.customEditorProviders.set(viewType, { provider, options });
                 return { dispose() { } };
             },
-            get tabGroups() {
-                return {
-                    all: vscodeState.tabGroupsAll,
-                    close: async (tab: unknown, preserveFocus: boolean) => {
-                        vscodeState.closeTabCalls.push({ tab, preserveFocus });
-                    },
-                };
+            tabGroups: {
+                get all() { return vscodeState.tabGroupsAll; },
+                onDidChangeTabs: (listener: (event: { opened: any[] }) => void) => {
+                    vscodeState.tabListeners.add(listener);
+                    return { dispose: () => vscodeState.tabListeners.delete(listener) };
+                },
+                close: async (tab: unknown, preserveFocus: boolean) => {
+                    vscodeState.closeTabCalls.push({ tab, preserveFocus });
+                },
             },
         },
     };
 });
 
 import * as vscode from 'vscode';
-import { TextDocumentContentRequest } from 'vscode-languageserver-protocol';
-import { refreshOpenServerDocuments } from '../src/extension/text-document-content.js';
 import {
     OpenEmbeddedDocumentationCommand,
     registerEmbeddedDocumentation,
@@ -147,12 +153,62 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+    vi.restoreAllMocks();
     fs.rmSync(tempDir, { recursive: true, force: true });
 });
 
 describe('VS Code extension runtime behavior', () => {
+    test('keeps a legacy tab in its own group when it is the only tab between two other groups', async () => {
+        const groups = [1, 2, 3].map(viewColumn => ({ viewColumn, tabs: [] as any[] }));
+        const oldUri = vscode.Uri.parse('xsmp-smp:/workspace/Type.xsmpcat');
+        const oldTab = { input: new vscode.TabInputText(oldUri), group: groups[1], isPreview: false };
+        groups[0].tabs.push({ input: new vscode.TabInputText(vscode.Uri.file('/left.txt')) });
+        groups[1].tabs.push(oldTab);
+        groups[2].tabs.push({ input: new vscode.TabInputText(vscode.Uri.file('/right.txt')) });
+        vscodeState.tabGroupsAll = groups;
+        vi.spyOn(vscode.window, 'showTextDocument').mockImplementation(async (document: any, options: any) => {
+            const group = vscodeState.tabGroupsAll.find(candidate => candidate.viewColumn === options.viewColumn);
+            group.tabs.push({ input: new vscode.TabInputText(document.uri) });
+            // The editor API may replace tab handles when another editor opens.
+            group.tabs = group.tabs.map((tab: any) => ({ ...tab }));
+            return {} as vscode.TextEditor;
+        });
+        const close = vi.spyOn(vscode.window.tabGroups, 'close').mockImplementation(async (tab: any) => {
+            const group = vscodeState.tabGroupsAll.find(candidate => candidate.tabs.includes(tab));
+            if (!group) throw new Error('Invalid tab not found');
+            group.tabs.splice(group.tabs.indexOf(tab), 1);
+            if (!group.tabs.length) {
+                vscodeState.tabGroupsAll.splice(vscodeState.tabGroupsAll.indexOf(group), 1);
+                vscodeState.tabGroupsAll.forEach((candidate, index) => { candidate.viewColumn = index + 1; });
+            }
+            return true;
+        });
+
+        registerSmpMirrorPreview(createExtensionContext());
+
+        await vi.waitFor(() => expect(close).toHaveBeenCalledOnce());
+        expect(vscodeState.tabGroupsAll).toHaveLength(3);
+        expect(groups[1].tabs.map(tab => tab.input.uri.path)).toEqual(['/workspace/Type.smpcat']);
+        expect(groups[2].viewColumn).toBe(3);
+    });
+
+    test('migrates a restored legacy mirror tab to the source suffix without changing its group', async () => {
+        const group = { viewColumn: 2, tabs: [] as any[] };
+        const oldUri = vscode.Uri.parse('xsmp-smp://server/share/Type.xsmpcat');
+        const tab = { input: new vscode.TabInputText(oldUri), group, isPreview: false };
+        group.tabs.push(tab);
+        vscodeState.tabGroupsAll = [group];
+
+        registerSmpMirrorPreview(createExtensionContext());
+
+        await vi.waitFor(() => expect(vscodeState.shownDocuments).toHaveLength(1));
+        expect(vscodeState.closeTabCalls).toContainEqual({ tab, preserveFocus: true });
+        expect(vscodeState.shownDocuments[0].document.uri).toEqual(oldUri.with({ path: '/share/Type.smpcat' }));
+        expect(vscodeState.shownDocuments[0].options).toEqual({ viewColumn: 2, preserveFocus: true, preview: false });
+    });
+
     test('opens XSMP mirrors from SMP source files and reopens XML sources from mirror documents', async () => {
-        vscodeState.documentContents.set('xsmp-smp:/workspace/demo/test.xsmpcat', 'catalogue Demo\n');
+        vscodeState.documentContents.set('xsmp-smp:/workspace/demo/test.smpcat', 'catalogue Demo\n');
         const context = createExtensionContext();
 
         registerSmpMirrorCommands(context);
@@ -166,11 +222,11 @@ describe('VS Code extension runtime behavior', () => {
 
         expect(vscodeState.openedDocuments).toHaveLength(1);
         expect(vscodeState.shownDocuments[0]?.document).toBe(vscodeState.openedDocuments[0]);
-        expect(vscodeState.openedDocuments[0]?.uri.toString()).toBe('xsmp-smp:/workspace/demo/test.xsmpcat');
-        expect(vscodeState.shownDocuments[0]?.document.uri.toString()).toBe('xsmp-smp:/workspace/demo/test.xsmpcat');
+        expect(vscodeState.openedDocuments[0]?.uri.toString()).toBe('xsmp-smp:/workspace/demo/test.smpcat');
+        expect(vscodeState.shownDocuments[0]?.document.uri.toString()).toBe('xsmp-smp:/workspace/demo/test.smpcat');
         expect(vscodeState.shownDocuments[0]?.options).toEqual({ preview: false });
 
-        await reopenSource?.(vscode.Uri.parse('xsmp-smp:/workspace/demo/test.xsmpcat'));
+        await reopenSource?.(vscode.Uri.parse('xsmp-smp:/workspace/demo/test.smpcat'));
 
         expect(vscodeState.openedDocuments[1]?.uri.toString()).toBe('file:///workspace/demo/test.smpcat');
         expect(vscodeState.shownDocuments[1]?.document.uri.toString()).toBe('file:///workspace/demo/test.smpcat');
@@ -201,7 +257,7 @@ describe('VS Code extension runtime behavior', () => {
     });
 
     test('resolves SMP preview editors to mirror documents and closes the transient custom tab', async () => {
-        vscodeState.documentContents.set('xsmp-smp:/workspace/demo/test.xsmpcat', 'catalogue Demo\n');
+        vscodeState.documentContents.set('xsmp-smp:/workspace/demo/test.smpcat', 'catalogue Demo\n');
         const context = createExtensionContext();
 
         registerSmpMirrorPreview(context);
@@ -227,7 +283,7 @@ describe('VS Code extension runtime behavior', () => {
         expect(webviewPanel.webview.html).toContain('Opening XSMP for /workspace/demo/test.smpcat...');
         expect(vscodeState.openedDocuments).toHaveLength(1);
         expect(vscodeState.shownDocuments[0]?.document).toBe(vscodeState.openedDocuments[0]);
-        expect(vscodeState.openedDocuments[0]?.uri.toString()).toBe('xsmp-smp:/workspace/demo/test.xsmpcat');
+        expect(vscodeState.openedDocuments[0]?.uri.toString()).toBe('xsmp-smp:/workspace/demo/test.smpcat');
         expect(vscodeState.shownDocuments[0]?.options).toEqual({
             viewColumn: 2,
             preview: true,
@@ -247,36 +303,10 @@ describe('VS Code extension runtime behavior', () => {
         await provider.resolveCustomEditor(document, { viewColumn: 2, webview: { html: '' } });
 
         expect(vscodeState.openedDocuments.map(doc => doc.uri.toString())).toEqual([
-            'xsmp-smp:/workspace/demo/test.xsmpcat',
+            'xsmp-smp:/workspace/demo/test.smpcat',
             sourceUri.toString(),
         ]);
         expect(vscodeState.shownDocuments[0]?.document).toBe(vscodeState.openedDocuments[1]);
-    });
-
-    test('refreshes open virtual documents through the current providers after each restart', () => {
-        const builtin = vscode.Uri.parse('xsmp:///ecss.smp.xsmpcat');
-        const mirror = vscode.Uri.parse('xsmp-smp:/workspace/demo/test.xsmpcat');
-        vscodeState.openedDocuments = [builtin, mirror, vscode.Uri.file('/workspace/demo/source.xsmpcat')]
-            .map(uri => ({ uri }));
-        const firstEmitter = { fire: vi.fn() };
-        const nextBuiltinEmitter = { fire: vi.fn() };
-        const nextMirrorEmitter = { fire: vi.fn() };
-        const getProviders = vi.fn()
-            .mockReturnValueOnce([{ scheme: 'xsmp', onDidChangeEmitter: firstEmitter }])
-            .mockReturnValueOnce([
-                { scheme: 'xsmp', onDidChangeEmitter: nextBuiltinEmitter },
-                { scheme: 'xsmp-smp', onDidChangeEmitter: nextMirrorEmitter },
-            ]);
-        const client = { getFeature: vi.fn(() => ({ getProviders })) };
-
-        refreshOpenServerDocuments(client as never);
-        refreshOpenServerDocuments(client as never);
-
-        expect(client.getFeature).toHaveBeenCalledWith(TextDocumentContentRequest.method);
-        expect(getProviders).toHaveBeenCalledTimes(2);
-        expect(firstEmitter.fire).toHaveBeenCalledExactlyOnceWith(builtin);
-        expect(nextBuiltinEmitter.fire).toHaveBeenCalledExactlyOnceWith(builtin);
-        expect(nextMirrorEmitter.fire).toHaveBeenCalledExactlyOnceWith(mirror);
     });
 
     test('opens embedded documentation pages and exposes hover links only in code positions', async () => {
@@ -333,6 +363,7 @@ function resetVscodeState(): void {
     vscodeState.activeTextEditor = undefined;
     vscodeState.tabGroupsAll = [];
     vscodeState.closeTabCalls = [];
+    vscodeState.tabListeners.clear();
 }
 
 function createExtensionContext(root = tempDir) {

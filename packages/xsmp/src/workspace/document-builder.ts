@@ -39,6 +39,12 @@ export class XsmpDocumentBuilder extends DefaultDocumentBuilder {
             || document.references.some(reference => reference.error !== undefined);
     }
 
+    protected override async findChangedUris(changed: URI): Promise<URI[]> {
+        // Langium accepts open text documents without checking their language. Reject obsolete
+        // mirror URIs and XML sources before an unparseable INVALID document enters the index.
+        return (await super.findChangedUris(changed)).filter(uri => this.serviceRegistry.hasServices(uri));
+    }
+
     protected override async emitUpdate(changed: URI[], deleted: URI[]): Promise<void> {
         const structural = this.indexManager.changesWorkspaceStructure(changed, deleted);
         this.indexManager.requiresFullRebuild ||= structural;

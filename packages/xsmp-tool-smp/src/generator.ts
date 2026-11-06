@@ -675,7 +675,7 @@ export class SmpGenerator implements XsmpGenerator {
             Metadata: catalogue.attributes.map(attribute => this.convertMetadata(attribute)),
             Implementation: AstUtils.streamAllContents(catalogue).filter(ast.isType).filter(e => !ast.isInterface(e)).map(e =>
                 this.convertXlink({ ref: e, $refText: e.name }, undefined)).toArray(),
-            Dependency: dependencies.map(dependency => ({ '@xlink:title': dependency.name, '@xlink:href': `${UriUtils.basename(AstUtils.getDocument(dependency).uri).replace(/\.xsmpcat$/, '.smppkg')}#${this.docHelper.getId(dependency) ?? '_' + XsmpUtils.fqn(dependency)}` })),
+            Dependency: dependencies.map(dependency => ({ '@xlink:title': dependency.name, '@xlink:href': `${UriUtils.basename(AstUtils.getDocument(dependency).uri).replace(/\.x?smpcat$/, '.smppkg')}#${this.docHelper.getId(dependency) ?? '_' + XsmpUtils.fqn(dependency)}` })),
         };
     }
     protected generatedBy(): string | undefined {
@@ -1557,7 +1557,7 @@ export class SmpGenerator implements XsmpGenerator {
     }
 
     public async generatePackage(catalogue: ast.Catalogue, files: GeneratedFiles, notice: string | undefined): Promise<void> {
-        const fileName = UriUtils.basename(AstUtils.getDocument(catalogue).uri).replace(/\.xsmpcat$/, '.smppkg');
+        const fileName = UriUtils.basename(AstUtils.getDocument(catalogue).uri).replace(/\.x?smpcat$/, '.smppkg');
         await files.write('smp', fileName, () => this.doGeneratePackage(catalogue, notice));
 
     }
