@@ -21,7 +21,7 @@
         "modeling"
     ],
     "engines": {
-        "vscode": "^1.82.0",
+        "vscode": "^1.101.0",
         "node": ">=22.13.0"
     },
     "contributes": {
@@ -367,9 +367,10 @@
         "vscode:prepublish": "npm run clean && tsc -p tsconfig.json && node esbuild.mjs --minify"
     },
     "dependencies": {
-        "semver": "^7.8.5",
-        "vscode-languageclient": "~9.0.1",
-        "vscode-languageserver": "~9.0.1",
-        "@xsmp/core": "2.0.3"
+        "semver": "^7.8.6",
+        "vscode-languageclient": "~10.1.2",
+        "vscode-languageserver": "~10.1.2",
+        "@xsmp/core": "2.0.3",
+        "vscode-languageserver-protocol": "3.18.4"
     }
 }

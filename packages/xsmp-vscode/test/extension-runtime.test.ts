@@ -10,6 +10,7 @@ const vscodeState = vi.hoisted(() => ({
     customEditorProviders: new Map<string, { provider: any; options: unknown }>(),
     executedCommands: [] as Array<{ command: string; args: unknown[] }>,
     openedDocuments: [] as any[],
+    documentContents: new Map<string, string>(),
     shownDocuments: [] as Array<{ document: any; options: unknown }>,
     errorMessages: [] as string[],
     infoMessages: [] as string[],
@@ -82,8 +83,11 @@ vi.mock('vscode', async () => {
             },
         },
         workspace: {
+            get textDocuments() {
+                return vscodeState.openedDocuments;
+            },
             openTextDocument: async (uri: VscodeUri) => {
-                const document = { uri };
+                const document = { uri, getText: () => vscodeState.documentContents.get(uri.toString()) ?? '' };
                 vscodeState.openedDocuments.push(document);
                 return document;
             },
@@ -119,7 +123,8 @@ vi.mock('vscode', async () => {
 });
 
 import * as vscode from 'vscode';
-import { GetServerFileContentRequest } from '@xsmp/core/lsp';
+import { TextDocumentContentRequest } from 'vscode-languageserver-protocol';
+import { refreshOpenServerDocuments } from '../src/extension/text-document-content.js';
 import {
     OpenEmbeddedDocumentationCommand,
     registerEmbeddedDocumentation,
@@ -147,12 +152,10 @@ afterEach(() => {
 
 describe('VS Code extension runtime behavior', () => {
     test('opens XSMP mirrors from SMP source files and reopens XML sources from mirror documents', async () => {
-        const client = {
-            sendRequest: vi.fn().mockResolvedValue('catalogue Demo\n'),
-        };
+        vscodeState.documentContents.set('xsmp-smp:/workspace/demo/test.xsmpcat', 'catalogue Demo\n');
         const context = createExtensionContext();
 
-        registerSmpMirrorCommands(context, () => client as never);
+        registerSmpMirrorCommands(context);
 
         const openMirror = vscodeState.commandHandlers.get(OpenSmpMirrorCommand);
         const reopenSource = vscodeState.commandHandlers.get(OpenSmpXmlSourceCommand);
@@ -161,10 +164,8 @@ describe('VS Code extension runtime behavior', () => {
 
         await openMirror?.(vscode.Uri.file('/workspace/demo/test.smpcat'));
 
-        expect(client.sendRequest).toHaveBeenCalledWith(
-            GetServerFileContentRequest,
-            'xsmp-smp:/workspace/demo/test.xsmpcat',
-        );
+        expect(vscodeState.openedDocuments).toHaveLength(1);
+        expect(vscodeState.shownDocuments[0]?.document).toBe(vscodeState.openedDocuments[0]);
         expect(vscodeState.openedDocuments[0]?.uri.toString()).toBe('xsmp-smp:/workspace/demo/test.xsmpcat');
         expect(vscodeState.shownDocuments[0]?.document.uri.toString()).toBe('xsmp-smp:/workspace/demo/test.xsmpcat');
         expect(vscodeState.shownDocuments[0]?.options).toEqual({ preview: false });
@@ -178,12 +179,9 @@ describe('VS Code extension runtime behavior', () => {
     });
 
     test('reports user-facing mirror command errors when no usable source or mirror content exists', async () => {
-        const client = {
-            sendRequest: vi.fn().mockResolvedValue(undefined),
-        };
         const context = createExtensionContext();
 
-        registerSmpMirrorCommands(context, () => client as never);
+        registerSmpMirrorCommands(context);
 
         const openMirror = vscodeState.commandHandlers.get(OpenSmpMirrorCommand);
         const reopenSource = vscodeState.commandHandlers.get(OpenSmpXmlSourceCommand);
@@ -199,15 +197,14 @@ describe('VS Code extension runtime behavior', () => {
         expect(vscodeState.infoMessages).toEqual([
             "No XSMP view is currently available for '/workspace/demo/test.smpcat'.",
         ]);
+        expect(vscodeState.shownDocuments).toHaveLength(0);
     });
 
     test('resolves SMP preview editors to mirror documents and closes the transient custom tab', async () => {
-        const client = {
-            sendRequest: vi.fn().mockResolvedValue('catalogue Demo\n'),
-        };
+        vscodeState.documentContents.set('xsmp-smp:/workspace/demo/test.xsmpcat', 'catalogue Demo\n');
         const context = createExtensionContext();
 
-        registerSmpMirrorPreview(context, () => client as never);
+        registerSmpMirrorPreview(context);
 
         const registration = vscodeState.customEditorProviders.get(SmpMirrorPreviewViewType);
         expect(registration).toBeDefined();
@@ -228,10 +225,8 @@ describe('VS Code extension runtime behavior', () => {
         await provider.resolveCustomEditor(document, webviewPanel);
 
         expect(webviewPanel.webview.html).toContain('Opening XSMP for /workspace/demo/test.smpcat...');
-        expect(client.sendRequest).toHaveBeenCalledWith(
-            GetServerFileContentRequest,
-            'xsmp-smp:/workspace/demo/test.xsmpcat',
-        );
+        expect(vscodeState.openedDocuments).toHaveLength(1);
+        expect(vscodeState.shownDocuments[0]?.document).toBe(vscodeState.openedDocuments[0]);
         expect(vscodeState.openedDocuments[0]?.uri.toString()).toBe('xsmp-smp:/workspace/demo/test.xsmpcat');
         expect(vscodeState.shownDocuments[0]?.options).toEqual({
             viewColumn: 2,
@@ -241,6 +236,47 @@ describe('VS Code extension runtime behavior', () => {
         expect(vscodeState.closeTabCalls).toEqual([
             { tab: matchingTab, preserveFocus: true },
         ]);
+    });
+
+    test('keeps the XML source visible when no mirror content is available', async () => {
+        registerSmpMirrorPreview(createExtensionContext());
+        const provider = vscodeState.customEditorProviders.get(SmpMirrorPreviewViewType)!.provider;
+        const sourceUri = vscode.Uri.file('/workspace/demo/test.smpcat');
+        const document = await provider.openCustomDocument(sourceUri);
+
+        await provider.resolveCustomEditor(document, { viewColumn: 2, webview: { html: '' } });
+
+        expect(vscodeState.openedDocuments.map(doc => doc.uri.toString())).toEqual([
+            'xsmp-smp:/workspace/demo/test.xsmpcat',
+            sourceUri.toString(),
+        ]);
+        expect(vscodeState.shownDocuments[0]?.document).toBe(vscodeState.openedDocuments[1]);
+    });
+
+    test('refreshes open virtual documents through the current providers after each restart', () => {
+        const builtin = vscode.Uri.parse('xsmp:///ecss.smp.xsmpcat');
+        const mirror = vscode.Uri.parse('xsmp-smp:/workspace/demo/test.xsmpcat');
+        vscodeState.openedDocuments = [builtin, mirror, vscode.Uri.file('/workspace/demo/source.xsmpcat')]
+            .map(uri => ({ uri }));
+        const firstEmitter = { fire: vi.fn() };
+        const nextBuiltinEmitter = { fire: vi.fn() };
+        const nextMirrorEmitter = { fire: vi.fn() };
+        const getProviders = vi.fn()
+            .mockReturnValueOnce([{ scheme: 'xsmp', onDidChangeEmitter: firstEmitter }])
+            .mockReturnValueOnce([
+                { scheme: 'xsmp', onDidChangeEmitter: nextBuiltinEmitter },
+                { scheme: 'xsmp-smp', onDidChangeEmitter: nextMirrorEmitter },
+            ]);
+        const client = { getFeature: vi.fn(() => ({ getProviders })) };
+
+        refreshOpenServerDocuments(client as never);
+        refreshOpenServerDocuments(client as never);
+
+        expect(client.getFeature).toHaveBeenCalledWith(TextDocumentContentRequest.method);
+        expect(getProviders).toHaveBeenCalledTimes(2);
+        expect(firstEmitter.fire).toHaveBeenCalledExactlyOnceWith(builtin);
+        expect(nextBuiltinEmitter.fire).toHaveBeenCalledExactlyOnceWith(builtin);
+        expect(nextMirrorEmitter.fire).toHaveBeenCalledExactlyOnceWith(mirror);
     });
 
     test('opens embedded documentation pages and exposes hover links only in code positions', async () => {
@@ -290,6 +326,7 @@ function resetVscodeState(): void {
     vscodeState.customEditorProviders.clear();
     vscodeState.executedCommands = [];
     vscodeState.openedDocuments = [];
+    vscodeState.documentContents.clear();
     vscodeState.shownDocuments = [];
     vscodeState.errorMessages = [];
     vscodeState.infoMessages = [];

@@ -443,7 +443,7 @@ function toCliDiagnostic(
     const outputDocument = resolveCliDiagnosticDocument(document, services);
     return {
         document: outputDocument,
-        message: diagnostic.message,
+        message: typeof diagnostic.message === 'string' ? diagnostic.message : diagnostic.message.value,
         severity,
         line: diagnostic.range.start.line + 1,
         column: diagnostic.range.start.character + 1,

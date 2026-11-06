@@ -1,7 +1,7 @@
 import * as path from 'node:path';
 import { NodeFileSystem } from 'langium/node';
 import { startLanguageServer, WorkspaceState } from 'langium/lsp';
-import { ProposedFeatures, createConnection } from 'vscode-languageserver/node.js';
+import { ProposedFeatures, createConnection } from 'vscode-languageserver/node';
 import { createXsmpServices } from '@xsmp/core';
 import { loadVscodeBuiltinContributionPackages } from '../builtin-packages.js';
 
@@ -24,6 +24,8 @@ async function main(): Promise<void> {
     // workspace build avoids Langium's document-specific Validated race during startup.
     startLanguageServer(shared, {
         CodeActionProvider: WorkspaceState.Validated,
+        // Outline signatures and details resolve attributes and referenced types.
+        DocumentSymbolProvider: WorkspaceState.Linked,
     });
 }
 

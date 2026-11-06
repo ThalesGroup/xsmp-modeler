@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'node:path';
-import type { LanguageClient } from 'vscode-languageclient/node.js';
+import type { LanguageClient } from 'vscode-languageclient/node';
 import { GetContributionSummaries, GetContributionWizardPrompts, ScaffoldProject } from '../lsp/language-server.js';
 import { isSameOrContainedPath } from '../utils/path-utils.js';
 import { createXsmpProject, XsmpProjectCreationError } from '../project/project-creator.js';

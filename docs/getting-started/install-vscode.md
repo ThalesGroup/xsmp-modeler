@@ -2,6 +2,9 @@
 
 XSMP Modeler is distributed as a Visual Studio Code extension.
 
+VS Code **1.101 or newer** is required, including for remote development. This is
+the first release with the Node.js 22 runtime required by the Langium parser.
+
 ## Install from the Marketplace
 
 1. Open **Visual Studio Code**.
