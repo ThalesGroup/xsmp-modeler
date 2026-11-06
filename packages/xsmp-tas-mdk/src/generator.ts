@@ -558,7 +558,7 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
             };
             `;
     }
-    override async generateComponentSource(type: ast.Component): Promise<string | undefined> {
+    override async generateComponentSource(type: ast.Component, gen = true): Promise<string | undefined> {
         return s`
             ${type.name}::${type.name}(
                     ::Smp::String8 name,
@@ -575,7 +575,7 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
                 // Disconnect_Callback = std::bind(&${type.name}::_disconnectHook, this);
             }
             
-            ${this.defineMembers(type, false)}
+            ${this.defineMembers(type, gen)}
             `;
     }
     override async generateComponentHeaderGen(type: ast.Component, gen: boolean): Promise<string | undefined> {
