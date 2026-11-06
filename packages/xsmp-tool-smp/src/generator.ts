@@ -440,7 +440,18 @@ export class SmpGenerator implements XsmpGenerator {
 
     protected convertStructureValue(type: ast.Structure, expression: ast.CollectionLiteral): Types.StructureValue {
         const fields = this.attrHelper.getAllFields(type).toArray();
-        return { '@xsi:type': 'Types:StructureValue', FieldValue: expression.elements.map((element, index) => this.convertTypedValue(fields.at(index)?.type?.ref as ast.Type | undefined, element)) };
+        return {
+            '@xsi:type': 'Types:StructureValue',
+            FieldValue: expression.elements.map((element, index) => {
+                if (ast.isDesignatedInitializer(element)) {
+                    return {
+                        ...this.convertTypedValue(element.field.ref?.type.ref, element.expr),
+                        '@Field': element.field.ref?.name ?? element.field.$refText,
+                    };
+                }
+                return this.convertTypedValue(fields.at(index)?.type?.ref as ast.Type | undefined, element);
+            }),
+        };
     }
 
     protected convertAttributeType(attributeType: ast.AttributeType): Types.AttributeType {
