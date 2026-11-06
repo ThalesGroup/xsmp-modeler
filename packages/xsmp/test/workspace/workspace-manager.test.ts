@@ -1,11 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { URI } from 'langium';
+import { Cancellation, URI } from 'langium';
 import { NodeFileSystem } from 'langium/node';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { createBuiltinTestXsmpServices } from '../test-services.js';
-import { SmpMirrorsChangedNotification } from '../../src/lsp/protocol.js';
 
 let tempDir: string;
 
@@ -89,18 +88,12 @@ describe('XSMP workspace manager', () => {
         expect(services.shared.workspace.ProjectManager.getProject(preloadedDocument)).toBeUndefined();
     });
 
-    test('notifies readonly clients after initial mirrors have been rebuilt', async () => {
+    test('serves initialized mirrors without sending startup refreshes', async () => {
         const projectDir = createProject('mirror');
         const sourcePath = path.join(projectDir, 'src', 'external.smpcat');
         fs.writeFileSync(sourcePath, createSmpCatalogue('external'));
-        const sendNotification = vi.fn(async () => undefined);
-        const services = await createBuiltinTestXsmpServices({
-            ...NodeFileSystem,
-            connection: {
-                sendDiagnostics: vi.fn(),
-                sendNotification,
-            },
-        } as never);
+        const services = await createBuiltinTestXsmpServices(NodeFileSystem);
+        const refresh = vi.spyOn(services.shared.lsp.TextDocumentContentProvider, 'refresh').mockResolvedValue(undefined);
 
         await services.shared.workspace.WorkspaceManager.initializeWorkspace([
             { name: 'mirror', uri: URI.file(projectDir).toString() },
@@ -108,10 +101,11 @@ describe('XSMP workspace manager', () => {
 
         const mirrorUri = services.shared.SmpWorkspaceIndex.getMirrorUriForSourcePath(sourcePath);
         expect(mirrorUri).toBeDefined();
-        expect(sendNotification).toHaveBeenCalledWith(SmpMirrorsChangedNotification, {
-            changed: [mirrorUri!.toString()],
-            deleted: [],
-        });
+        expect(refresh).not.toHaveBeenCalled();
+        const content = await services.shared.lsp.TextDocumentContentProvider.provideTextDocumentContent(
+            { uri: mirrorUri!.toString() }, Cancellation.CancellationToken.None,
+        );
+        expect(content.text).toContain('catalogue external');
     });
 });
 

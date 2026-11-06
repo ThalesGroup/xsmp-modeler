@@ -4,20 +4,20 @@ import { FileChangeType, type DidChangeWatchedFilesParams, type TextDocumentChan
 import type { ProjectManager } from '../workspace/project-manager.js';
 import type { XsmpSharedServices } from '../xsmp-module.js';
 import type { SmpMirrorManager, SmpMirrorRefreshResult } from '../smp/index.js';
-import { SmpMirrorsChangedNotification } from './protocol.js';
+import type { XsmpTextDocumentContentProvider } from './text-document-content-provider.js';
 
 export class XsmpDocumentUpdateHandler extends DefaultDocumentUpdateHandler {
     protected readonly smpMirrorManager: SmpMirrorManager;
     protected readonly projectManager: ProjectManager;
     protected readonly documents: LangiumDocuments;
-    protected readonly connection: XsmpSharedServices['lsp']['Connection'];
+    protected readonly textDocumentContentProvider: XsmpTextDocumentContentProvider;
 
     constructor(services: XsmpSharedServices) {
         super(services);
         this.smpMirrorManager = services.SmpMirrorManager;
         this.projectManager = services.workspace.ProjectManager;
         this.documents = services.workspace.LangiumDocuments;
-        this.connection = services.lsp.Connection;
+        this.textDocumentContentProvider = services.lsp.TextDocumentContentProvider;
     }
 
     protected override fireDocumentUpdate(changed: URI[], deleted: URI[]): void {
@@ -89,15 +89,8 @@ export class XsmpDocumentUpdateHandler extends DefaultDocumentUpdateHandler {
             completedMirrorRefresh = mirrorRefresh;
         });
 
-        if (completedMirrorRefresh && (completedMirrorRefresh.changed.length > 0 || completedMirrorRefresh.deleted.length > 0)) {
-            try {
-                await this.connection?.sendNotification(SmpMirrorsChangedNotification, {
-                    changed: completedMirrorRefresh.changed.map(uri => uri.toString()),
-                    deleted: completedMirrorRefresh.deleted.map(uri => uri.toString()),
-                });
-            } catch (error) {
-                console.error('Could not notify the client about refreshed SMP mirrors.', error);
-            }
+        if (completedMirrorRefresh) {
+            await this.textDocumentContentProvider.refresh([...completedMirrorRefresh.changed, ...completedMirrorRefresh.deleted]);
         }
     }
 

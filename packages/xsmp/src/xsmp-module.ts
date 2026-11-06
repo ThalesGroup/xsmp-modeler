@@ -38,6 +38,7 @@ import { XsmpsedModule } from './xsmpsed-module.js';
 import { registerXsmpcfgValidationChecks } from './validation/xsmpcfg-validator.js';
 import { XsmpContributionRegistry } from './contributions/xsmp-contribution-registry.js';
 import { XsmpDocumentUpdateHandler } from './lsp/document-update-handler.js';
+import { XsmpTextDocumentContentProvider } from './lsp/text-document-content-provider.js';
 import { SmpMirrorManager, SmpWorkspaceIndex, XsmpLangiumDocumentFactory } from './smp/index.js';
 
 export type XsmpServices = LangiumServices & { shared: XsmpSharedServices; }
@@ -153,6 +154,7 @@ export interface XsmpAddedSharedServices {
     readonly TypeProvider: XsmpTypeProvider,
     readonly lsp: {
         readonly NodeInfoProvider: XsmpNodeInfoProvider,
+        readonly TextDocumentContentProvider: XsmpTextDocumentContentProvider,
     },
     readonly DocumentationHelper: DocumentationHelper,
     readonly AttributeHelper: AttributeHelper,
@@ -190,6 +192,7 @@ export const XsmpSharedModule: Module<XsmpSharedServices, DeepPartial<XsmpShared
         NodeInfoProvider: (services) => new XsmpNodeInfoProvider(services),
         NodeKindProvider: () => new XsmpNodeKindProvider(),
         LanguageServer: (services) => new XsmpLanguageServer(services),
+        TextDocumentContentProvider: (services) => new XsmpTextDocumentContentProvider(services),
     },
     workspace: {
         LangiumDocumentFactory: (services) => new XsmpLangiumDocumentFactory(services),

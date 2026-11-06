@@ -1,6 +1,4 @@
 import * as vscode from 'vscode';
-import type { LanguageClient } from 'vscode-languageclient/node.js';
-import { GetServerFileContentRequest } from '@xsmp/core/lsp';
 import { getSmpMirrorPreviewUri, isSmpMirrorPreviewSourcePath } from './smp-mirror-preview-support.js';
 
 export const SmpMirrorPreviewViewType = 'xsmp.smpMirrorPreview';
@@ -9,14 +7,11 @@ interface SmpMirrorPreviewDocument extends vscode.CustomDocument {
     readonly uri: vscode.Uri;
 }
 
-export function registerSmpMirrorPreview(
-    context: vscode.ExtensionContext,
-    getClient: () => LanguageClient,
-): void {
+export function registerSmpMirrorPreview(context: vscode.ExtensionContext): void {
     context.subscriptions.push(
         vscode.window.registerCustomEditorProvider(
             SmpMirrorPreviewViewType,
-            new SmpMirrorPreviewEditorProvider(getClient),
+            new SmpMirrorPreviewEditorProvider(),
             {
                 webviewOptions: {
                     retainContextWhenHidden: false,
@@ -27,12 +22,6 @@ export function registerSmpMirrorPreview(
 }
 
 class SmpMirrorPreviewEditorProvider implements vscode.CustomReadonlyEditorProvider<SmpMirrorPreviewDocument> {
-    protected readonly getClient: () => LanguageClient;
-
-    constructor(getClient: () => LanguageClient) {
-        this.getClient = getClient;
-    }
-
     async openCustomDocument(uri: vscode.Uri): Promise<SmpMirrorPreviewDocument> {
         return {
             uri,
@@ -46,8 +35,7 @@ class SmpMirrorPreviewEditorProvider implements vscode.CustomReadonlyEditorProvi
     ): Promise<void> {
         webviewPanel.webview.html = renderLoadingHtml(document.uri);
 
-        const targetUri = await this.resolveTargetUri(document.uri);
-        const textDocument = await vscode.workspace.openTextDocument(targetUri);
+        const textDocument = await this.resolveTextDocument(document.uri);
         await vscode.window.showTextDocument(textDocument, {
             viewColumn: webviewPanel.viewColumn,
             preview: true,
@@ -60,18 +48,18 @@ class SmpMirrorPreviewEditorProvider implements vscode.CustomReadonlyEditorProvi
         }
     }
 
-    protected async resolveTargetUri(sourceUri: vscode.Uri): Promise<vscode.Uri> {
+    protected async resolveTextDocument(sourceUri: vscode.Uri): Promise<vscode.TextDocument> {
         if (sourceUri.scheme !== 'file' || !isSmpMirrorPreviewSourcePath(sourceUri.fsPath)) {
-            return sourceUri;
+            return vscode.workspace.openTextDocument(sourceUri);
         }
 
         const mirrorUri = getSmpMirrorPreviewUri(sourceUri.fsPath);
         if (!mirrorUri) {
-            return sourceUri;
+            return vscode.workspace.openTextDocument(sourceUri);
         }
 
-        const content = await this.getClient().sendRequest(GetServerFileContentRequest, mirrorUri);
-        return content ? vscode.Uri.parse(mirrorUri) : sourceUri;
+        const document = await vscode.workspace.openTextDocument(vscode.Uri.parse(mirrorUri));
+        return document.getText() ? document : vscode.workspace.openTextDocument(sourceUri);
     }
 }
 

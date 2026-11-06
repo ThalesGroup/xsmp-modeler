@@ -4,11 +4,11 @@ import { NodeFileSystem } from 'langium/node';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { FileChangeType, type DidChangeWatchedFilesParams, type LocationLink, type TextDocumentPositionParams } from 'vscode-languageserver';
-import { createXsmpServices } from '@xsmp/core';
+import { FileChangeType, type LocationLink, type TextDocumentPositionParams } from 'vscode-languageserver';
+import { createXsmpServices, type XsmpSharedServices } from '@xsmp/core';
 import { createSmpMirrorDescriptor, type SmpImportService } from '@xsmp/core/smp';
-import { resolveServerFileContent, SmpMirrorsChangedNotification } from '@xsmp/core/lsp';
 import { createBuiltinTestXsmpServices } from '../test-services.js';
+import type { XsmpDocumentUpdateHandler } from '../../src/lsp/document-update-handler.js';
 
 let tempDir: string;
 
@@ -322,7 +322,7 @@ namespace dep
         expect(mirrorUri).toBeDefined();
         expect(mirrorUri && services.shared.workspace.LangiumDocuments.getDocument(mirrorUri)).toBeUndefined();
 
-        const content = await resolveServerFileContent(services.shared, mirrorUri!);
+        const content = await getVirtualContent(services.shared, mirrorUri!);
 
         expect(content).toContain('catalogue types');
         expect(content).toContain('@uuid bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb');
@@ -378,7 +378,7 @@ source 'src'
             return rendered;
         });
 
-        const pendingContent = resolveServerFileContent(services.shared, mirrorUri);
+        const pendingContent = getVirtualContent(services.shared, mirrorUri);
         await renderFinished;
         fs.rmSync(sourcePath);
         try {
@@ -387,14 +387,14 @@ source 'src'
             resumeRender();
         }
 
-        await expect(pendingContent).resolves.toBeNull();
+        await expect(pendingContent).resolves.toBe('');
         expect(mirrorManager.getMirrorContent(mirrorUri)).toBeUndefined();
         expect(services.shared.SmpWorkspaceIndex.getMirrorUriForSourcePath(sourcePath)).toBeUndefined();
         expect(services.shared.SmpWorkspaceIndex.getCachedExternalDocumentIndex(staleCachePath)).toBeUndefined();
 
         const staleDocument = services.shared.workspace.LangiumDocumentFactory.fromString('catalogue stale\n', mirrorUri);
         services.shared.workspace.LangiumDocuments.addDocument(staleDocument);
-        await expect(resolveServerFileContent(services.shared, mirrorUri)).resolves.toBeNull();
+        await expect(getVirtualContent(services.shared, mirrorUri)).resolves.toBe('');
     });
 
     test('preserves both results when two mirrors are rendered on demand concurrently', async () => {
@@ -445,7 +445,7 @@ source 'src'
             return rendered;
         });
 
-        const pendingContents = mirrorUris.map(uri => resolveServerFileContent(services.shared, uri));
+        const pendingContents = mirrorUris.map(uri => mirrorManager.getOrCreateMirrorContent(uri));
         await bothRendersFinished;
         resumeRenders();
 
@@ -509,9 +509,9 @@ source 'src'
         expect(mirrorUri).toBeDefined();
         expect(services.shared.SmpWorkspaceIndex.getMirrorUriForSourcePath(sourcePath)).toBeUndefined();
 
-        const content = await resolveServerFileContent(services.shared, mirrorUri!);
+        const content = await getVirtualContent(services.shared, mirrorUri!);
 
-        expect(content).toBeNull();
+        expect(content).toBe('');
         expect(services.shared.workspace.LangiumDocuments.getDocument(mirrorUri!)).toBeUndefined();
     });
 
@@ -740,12 +740,11 @@ namespace demo::avionics
 </Catalogue:Catalogue>
 `);
 
-        const sendNotification = vi.fn(async () => undefined);
-        const updateHandler = services.shared.lsp.DocumentUpdateHandler as unknown as {
-            connection: { sendNotification: typeof sendNotification };
-            updateWatchedFiles(params: DidChangeWatchedFilesParams): Promise<void>;
-        };
-        updateHandler.connection = { sendNotification };
+        const refresh = vi.spyOn(services.shared.lsp.TextDocumentContentProvider, 'refresh').mockImplementation(async () => {
+            // A client may read content while acknowledging refresh: the update lock must be released.
+            await services.shared.workspace.WorkspaceLock.read(() => undefined);
+        });
+        const updateHandler = services.shared.lsp.DocumentUpdateHandler as XsmpDocumentUpdateHandler;
 
         await updateHandler.updateWatchedFiles({
             changes: [
@@ -757,10 +756,7 @@ namespace demo::avionics
         const mirrorUri = services.shared.SmpWorkspaceIndex.getMirrorUriForSourcePath(foundationSmpPath);
         expect(mirrorUri).toBeDefined();
         expect(mirrorUri && services.shared.workspace.LangiumDocuments.getDocument(mirrorUri)).toBeDefined();
-        expect(sendNotification).toHaveBeenCalledWith(SmpMirrorsChangedNotification, {
-            changed: [mirrorUri!.toString()],
-            deleted: [],
-        });
+        expect(refresh).toHaveBeenCalledWith([mirrorUri]);
 
         const avionicsDocumentAfter = services.shared.workspace.LangiumDocuments.getDocument(avionicsUri);
         expect(avionicsDocumentAfter?.diagnostics?.some(diagnostic => diagnostic.message.includes('Could not resolve reference'))).not.toBe(true);
@@ -778,12 +774,8 @@ source 'src'
         ]);
 
         vi.spyOn(services.shared.SmpMirrorManager, 'refreshWorkspaceMirrors').mockRejectedValueOnce(OperationCancelled);
-        const sendNotification = vi.fn(async () => undefined);
-        const updateHandler = services.shared.lsp.DocumentUpdateHandler as unknown as {
-            connection: { sendNotification: typeof sendNotification };
-            updateWatchedFiles(params: DidChangeWatchedFilesParams): Promise<void>;
-        };
-        updateHandler.connection = { sendNotification };
+        const refresh = vi.spyOn(services.shared.lsp.TextDocumentContentProvider, 'refresh').mockResolvedValue(undefined);
+        const updateHandler = services.shared.lsp.DocumentUpdateHandler as XsmpDocumentUpdateHandler;
 
         await expect(updateHandler.updateWatchedFiles({
             changes: [{
@@ -792,7 +784,7 @@ source 'src'
             }],
         })).resolves.toBeUndefined();
 
-        expect(sendNotification).not.toHaveBeenCalled();
+        expect(refresh).not.toHaveBeenCalled();
     });
 
     test.each([
@@ -817,12 +809,8 @@ source 'src'
         const previousContent = mirrorDocument.textDocument.getText();
         fs.writeFileSync(sourcePath, createSmpCatalogue('after', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'));
 
-        const sendNotification = vi.fn(async () => undefined);
-        const updateHandler = services.shared.lsp.DocumentUpdateHandler as unknown as {
-            connection: { sendNotification: typeof sendNotification };
-            updateWatchedFiles(params: DidChangeWatchedFilesParams): Promise<void>;
-        };
-        updateHandler.connection = { sendNotification };
+        const refresh = vi.spyOn(services.shared.lsp.TextDocumentContentProvider, 'refresh').mockResolvedValue(undefined);
+        const updateHandler = services.shared.lsp.DocumentUpdateHandler as XsmpDocumentUpdateHandler;
 
         const documentBuilder = services.shared.workspace.DocumentBuilder;
         const originalUpdate = documentBuilder.update.bind(documentBuilder);
@@ -850,10 +838,7 @@ source 'src'
         expect(updatedContent).not.toBe(previousContent);
         expect(updatedContent).toContain('catalogue after');
         expect(mirrorDocument.textDocument.getText()).toBe(updatedContent);
-        expect(sendNotification).toHaveBeenCalledWith(SmpMirrorsChangedNotification, {
-            changed: [mirrorUri.toString()],
-            deleted: [],
-        });
+        expect(refresh).toHaveBeenCalledWith([mirrorUri]);
     });
 
     test('keeps the server alive when a stale SMP mirror document is reopened', async () => {
@@ -937,4 +922,11 @@ function expectMirrorLocation(
         start: mirrorDocument.textDocument.positionAt(start),
         end: mirrorDocument.textDocument.positionAt(start + token.length),
     });
+}
+
+async function getVirtualContent(services: XsmpSharedServices, uri: URI): Promise<string> {
+    const result = await services.lsp.TextDocumentContentProvider.provideTextDocumentContent(
+        { uri: uri.toString() }, Cancellation.CancellationToken.None,
+    );
+    return result.text;
 }

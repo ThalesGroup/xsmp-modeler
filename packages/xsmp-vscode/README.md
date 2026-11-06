@@ -13,6 +13,8 @@ XSMP Modeler brings the XSMP language family to Visual Studio Code for day-to-da
 
 ## Installation
 
+Requires VS Code **1.101 or newer**, including for remote development.
+
 Install **XSMP Modeler** from the Visual Studio Marketplace:
 
 - <https://marketplace.visualstudio.com/items?itemName=ydaveluy.xsmp-modeler>

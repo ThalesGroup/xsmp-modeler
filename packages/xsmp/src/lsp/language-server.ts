@@ -14,11 +14,9 @@ import type {
 import type { XsmpSharedServices } from '../xsmp-module.js';
 import * as ast from '../generated/ast-partial.js';
 import { AstUtils, Cancellation, URI } from 'langium';
-import { isSmpMirrorDocument } from '../builtins.js';
 export type { XsmpProjectGenerationFailure, XsmpProjectGenerationReport } from '../workspace/document-generator.js';
 import type { XsmpProjectGenerationReport } from '../workspace/document-generator.js';
 
-export const GetServerFileContentRequest = new RequestType<string, string | null, void>('xsmp/getServerFileContent');
 export const RegisterContributions = new RequestType<XsmpResolvedContributionManifestEntry[], XsmpContributionRegistrationReport, void>('xsmp/registerContributions');
 export const GetContributionSummaries = new RequestType<XsmpContributionKind | undefined, XsmpContributionSummary[], void>('xsmp/getContributionSummaries');
 export const GetContributionWizardPrompts = new RequestType<XsmpProjectWizardPromptsRequest, XsmpContributionWizardPrompt[], void>('xsmp/getContributionWizardPrompts');
@@ -33,13 +31,6 @@ export class XsmpLanguageServer extends DefaultLanguageServer {
         super.eagerLoadServices();
         const sharedServices = this.services as XsmpSharedServices;
         this.registerWorkspaceFolderChangeHandler();
-        this.services.lsp.Connection?.onRequest(GetServerFileContentRequest, async (uri) => {
-            await sharedServices.workspace.WorkspaceManager.ready;
-            return await sharedServices.workspace.WorkspaceLock.read(() =>
-                resolveServerFileContent(sharedServices, URI.parse(uri))
-            );
-        });
-
         this.services.lsp.Connection?.onRequest(RegisterContributions, async (entries) => {
             return await sharedServices.ContributionRegistry.registerExtensionManifestEntries(entries);
         });
@@ -137,12 +128,4 @@ export class XsmpLanguageServer extends DefaultLanguageServer {
         });
         return containingProject;
     }
-}
-
-export async function resolveServerFileContent(services: XsmpSharedServices, uri: URI): Promise<string | null> {
-    if (isSmpMirrorDocument(uri)) {
-        return await services.SmpMirrorManager.getOrCreateMirrorContent(uri) ?? null;
-    }
-
-    return services.workspace.LangiumDocuments.getDocument(uri)?.textDocument.getText() ?? null;
 }

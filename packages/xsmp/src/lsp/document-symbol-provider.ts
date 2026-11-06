@@ -1,4 +1,4 @@
-import { interruptAndCheck, type AstNode, Cancellation, type LangiumDocument, type MaybePromise, type WorkspaceLock } from 'langium';
+import { interruptAndCheck, type AstNode, Cancellation, type LangiumDocument, type MaybePromise } from 'langium';
 import type { DocumentSymbolProvider, NodeKindProvider } from 'langium/lsp';
 import type { DocumentSymbol, DocumentSymbolParams } from 'vscode-languageserver';
 import * as ast from '../generated/ast-partial.js';
@@ -11,20 +11,18 @@ export class XsmpDocumentSymbolProvider implements DocumentSymbolProvider {
 
     protected readonly nodeKindProvider: NodeKindProvider;
     protected readonly nodeInfoProvider: XsmpNodeInfoProvider;
-    protected readonly workspaceManager: WorkspaceLock;
     protected readonly attrHelper: AttributeHelper;
     protected readonly pathService: XsmpPathService;
 
     constructor(services: XsmpServices) {
         this.nodeKindProvider = services.shared.lsp.NodeKindProvider;
         this.nodeInfoProvider = services.shared.lsp.NodeInfoProvider;
-        this.workspaceManager = services.shared.workspace.WorkspaceLock;
         this.attrHelper = services.shared.AttributeHelper;
         this.pathService = services.shared.PathService;
     }
 
     getSymbols(document: LangiumDocument, _params: DocumentSymbolParams, cancelToken = Cancellation.CancellationToken.None): MaybePromise<DocumentSymbol[]> {
-        return this.workspaceManager.read(() => this.getSymbol(document, document.parseResult.value, cancelToken));
+        return this.getSymbol(document, document.parseResult.value, cancelToken);
     }
 
     protected async getSymbol(document: LangiumDocument, astNode: AstNode, cancelToken: Cancellation.CancellationToken): Promise<DocumentSymbol[]> {

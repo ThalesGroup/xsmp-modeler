@@ -8,7 +8,6 @@ import type { XsmpSharedServices } from '../xsmp-module.js';
 import type { SmpMirrorManager, SmpMirrorRefreshResult } from '../smp/index.js';
 import { getXsmpPackageRoot } from '../version.js';
 import { isSameOrContainedPath } from '../utils/path-utils.js';
-import { SmpMirrorsChangedNotification } from '../lsp/protocol.js';
 
 export function resolveBuiltinDir(explicitDir?: string): string {
     const candidateDirs = explicitDir ? [explicitDir] : (() => {
@@ -83,7 +82,6 @@ export class XsmpWorkspaceManager extends DefaultWorkspaceManager {
             await this.documentBuilder.update(mirrors.changed, mirrors.deleted, cancelToken);
         }
         this.smpMirrorManager.publishSourceDiagnostics();
-        await this.notifyMirrorChanges(mirrors);
         this._ready.resolve();
     }
 
@@ -140,21 +138,7 @@ export class XsmpWorkspaceManager extends DefaultWorkspaceManager {
         });
 
         if (mirrorChanges) {
-            await this.notifyMirrorChanges(mirrorChanges);
-        }
-    }
-
-    protected async notifyMirrorChanges(changes: SmpMirrorRefreshResult): Promise<void> {
-        if (changes.changed.length === 0 && changes.deleted.length === 0) {
-            return;
-        }
-        try {
-            await this.services.lsp.Connection?.sendNotification(SmpMirrorsChangedNotification, {
-                changed: changes.changed.map(uri => uri.toString()),
-                deleted: changes.deleted.map(uri => uri.toString()),
-            });
-        } catch (error) {
-            console.error('Could not notify the client about refreshed SMP mirrors.', error);
+            await this.services.lsp.TextDocumentContentProvider.refresh([...mirrorChanges.changed, ...mirrorChanges.deleted]);
         }
     }
 

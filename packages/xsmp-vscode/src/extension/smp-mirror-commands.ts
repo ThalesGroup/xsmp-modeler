@@ -1,6 +1,4 @@
 import * as vscode from 'vscode';
-import type { LanguageClient } from 'vscode-languageclient/node.js';
-import { GetServerFileContentRequest } from '@xsmp/core/lsp';
 import { getSmpMirrorSourceUri } from '@xsmp/core/smp';
 import { URI } from 'langium';
 import { getSmpMirrorPreviewUri, isSmpMirrorPreviewSourcePath } from './smp-mirror-preview-support.js';
@@ -8,10 +6,7 @@ import { getSmpMirrorPreviewUri, isSmpMirrorPreviewSourcePath } from './smp-mirr
 export const OpenSmpMirrorCommand = 'xsmp.openSmpMirror';
 export const OpenSmpXmlSourceCommand = 'xsmp.openSmpXmlSource';
 
-export function registerSmpMirrorCommands(
-    context: vscode.ExtensionContext,
-    getClient: () => LanguageClient,
-): void {
+export function registerSmpMirrorCommands(context: vscode.ExtensionContext): void {
     context.subscriptions.push(
         vscode.commands.registerCommand(OpenSmpMirrorCommand, async (uri?: vscode.Uri) => {
             const sourceUri = getActiveSmpSourceUri(uri);
@@ -26,13 +21,12 @@ export function registerSmpMirrorCommands(
                 return;
             }
 
-            const content = await getClient().sendRequest(GetServerFileContentRequest, mirrorUri);
-            if (!content) {
+            const document = await vscode.workspace.openTextDocument(vscode.Uri.parse(mirrorUri));
+            if (!document.getText()) {
                 void vscode.window.showInformationMessage(`No XSMP view is currently available for '${sourceUri.fsPath}'.`);
                 return;
             }
 
-            const document = await vscode.workspace.openTextDocument(vscode.Uri.parse(mirrorUri));
             await vscode.window.showTextDocument(document, { preview: false });
         }),
         vscode.commands.registerCommand(OpenSmpXmlSourceCommand, async (uri?: vscode.Uri) => {
