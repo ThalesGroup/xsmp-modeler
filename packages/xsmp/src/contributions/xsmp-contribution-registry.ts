@@ -7,7 +7,8 @@ import satisfies from 'semver/functions/satisfies.js';
 import * as ast from '../generated/ast-partial.js';
 import type { XsmpSharedServices } from '../xsmp-module.js';
 import { builtInScheme } from '../builtins.js';
-import { isSameOrContainedPath, toXsmpIdentifier } from '../utils/path-utils.js';
+import { isSameOrContainedPath } from '../utils/path-utils.js';
+import { getProjectIdentifier } from '../project/project-creator.js';
 import { xsmpExtensionApiVersion } from '../version.js';
 import type {
     XsmpContributionHandlerModule,
@@ -201,7 +202,7 @@ export class XsmpContributionRegistry {
             const context: XsmpContributionScaffoldContext = {
                 projectName: request.projectName,
                 projectDir: request.projectDir,
-                projectIdentifier: toXsmpIdentifier(request.projectName),
+                projectIdentifier: getProjectIdentifier(request.projectName),
                 contributionId: contribution.id,
                 kind: contribution.kind,
                 selectedProfileId: request.selectedProfileId,
