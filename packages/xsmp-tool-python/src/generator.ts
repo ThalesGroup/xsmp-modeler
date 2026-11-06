@@ -103,11 +103,11 @@ export class PythonGenerator implements XsmpGenerator {
             
             ${namespaces.length > 0 ? namespaces.map(ns => `from . import ${this.identifier(ns)}`).join('\n') : undefined}
             ${components.length > 0 ? s`
-                import ecss_smp
+                import ecss_smp as _ecss_smp
 
                 ${components.map(type => s`
                 class ${this.identifier(type)}:
-                    uuid: ecss_smp.Smp.Uuid = ecss_smp.Smp.Uuid("${this.docHelper.getUuid(type)?.toString().trim()}")
+                    uuid: _ecss_smp.Smp.Uuid = _ecss_smp.Smp.Uuid("${this.docHelper.getUuid(type)?.toString().trim()}")
                 `).join('\n')}
 
                 `: undefined}

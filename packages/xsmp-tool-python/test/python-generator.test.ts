@@ -131,4 +131,33 @@ assert _None is not None_
 assert None_.peer is not None
 `, root], { encoding: 'utf8' });
     });
+
+    test.skipIf(!hasPython).each([
+        ['component', `
+            /** @uuid 11111111-1111-1111-1111-111111111111 */
+            public model ecss_smp {}
+        `, 'ecss_smp.uuid'],
+        ['namespace', `
+            namespace ecss_smp {
+                /** @uuid 11111111-1111-1111-1111-111111111111 */
+                public model Child {}
+            }
+        `, 'ecss_smp.Child.uuid'],
+    ])('keeps the Python binding separate from a %s named ecss_smp', async (_kind, declaration, uuidPath) => {
+        const root = await generate(`catalogue Collision
+namespace demo {
+    ${declaration}
+    /** @uuid 22222222-2222-2222-2222-222222222222 */
+    public model Consumer {}
+}`);
+        execFileSync('python3', ['-c', `
+import sys
+import types
+sys.path.insert(0, sys.argv[1])
+sys.modules['ecss_smp'] = types.SimpleNamespace(Smp=types.SimpleNamespace(Uuid=lambda value: value))
+from Collision import demo
+assert demo.${uuidPath} == '11111111-1111-1111-1111-111111111111'
+assert demo.Consumer.uuid == '22222222-2222-2222-2222-222222222222'
+`, root], { encoding: 'utf8' });
+    });
 });
