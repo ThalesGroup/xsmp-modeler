@@ -683,17 +683,29 @@ export class XsmpContributionRegistry {
     }
 
     protected async activateDocuments(documents: readonly LangiumDocument[]): Promise<void> {
-        const newDocuments = documents.filter(document => !this.langiumDocuments.hasDocument(document.uri));
-        if (newDocuments.length === 0 || !this.bootstrapServices) {
+        const activatedDocuments = new Map(documents.map(document => [document.uri.toString(), document]));
+        for (const [uri, document] of activatedDocuments) {
+            if (this.langiumDocuments.getDocument(document.uri) === document) {
+                activatedDocuments.delete(uri);
+            }
+        }
+        if (activatedDocuments.size === 0 || !this.bootstrapServices) {
             return;
         }
 
-        for (const document of newDocuments) {
+        for (const document of activatedDocuments.values()) {
+            const existing = this.langiumDocuments.getDocument(document.uri);
+            if (existing) {
+                // A reopened editor can create a placeholder before its contribution is restored.
+                // The extension's document is authoritative; discard the old index and build state.
+                this.bootstrapServices.shared.workspace.DocumentBuilder.resetToState(existing, DocumentState.Changed);
+                this.langiumDocuments.deleteDocument(document.uri);
+            }
             this.langiumDocuments.addDocument(document);
         }
 
         const existingDocuments = this.langiumDocuments.all
-            .filter(document => !newDocuments.some(newDocument => newDocument.uri.toString() === document.uri.toString()))
+            .filter(document => !activatedDocuments.has(document.uri.toString()))
             .filter(document => !UriUtils.basename(document.uri).startsWith('__INVALID__'))
             .toArray();
 
@@ -702,7 +714,7 @@ export class XsmpContributionRegistry {
         }
 
         await this.bootstrapServices.shared.workspace.DocumentBuilder.build(
-            [...newDocuments, ...existingDocuments],
+            [...activatedDocuments.values(), ...existingDocuments],
             this.bootstrapServices.shared.workspace.DocumentBuilder.updateBuildOptions,
             Cancellation.CancellationToken.None,
         );
