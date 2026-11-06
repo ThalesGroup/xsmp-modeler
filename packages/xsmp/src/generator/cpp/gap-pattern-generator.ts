@@ -1197,7 +1197,7 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
     }
 
     protected declarePropertySetter(element: ast.Property): string | undefined {
-        return `void set_${element.name}(${this.type(element)} value)${this.attrHelper.isConst(element) ? ' const' : ''} override;`;
+        return `void set_${element.name}(${this.type(element)} value) override;`;
     }
 
     protected declarePropertyGetter(element: ast.Property): string | undefined {
@@ -1224,7 +1224,7 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
 
     protected definePropertySetter(element: ast.Property): string | undefined {
         return s`
-            void ${element.$container.name}::set_${element.name}(${this.type(element)} value)${this.attrHelper.isConst(element) ? ' const' : ''}{
+            void ${element.$container.name}::set_${element.name}(${this.type(element)} value){
                 // TODO
             }
             `;

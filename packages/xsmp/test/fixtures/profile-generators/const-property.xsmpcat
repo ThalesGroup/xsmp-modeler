@@ -1,0 +1,9 @@
+catalogue ConstProperty
+
+namespace properties {
+    /** @uuid 91b212ea-f292-4fc1-a40a-86db8f457bca */
+    public model Probe {
+        @Const property Int32 value
+        @ConstGetter property Int32 read
+    }
+}
