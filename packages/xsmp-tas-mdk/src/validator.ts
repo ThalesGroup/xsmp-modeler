@@ -199,6 +199,9 @@ export class TasMdkValidator {
         if (!n.name?.startsWith('esi_')) {
             accept('error', 'The name of an EventSink must start with \'esi_\'.', { node: n, property: ast.EventSink.name });
         }
+        if (ast.isEventType(n.type?.ref) && n.type.ref.eventArgs?.ref) {
+            accept('error', 'An EventSink must be of type void.', { node: n, property: ast.EventSink.type });
+        }
         this.checkForMissingDescription(n, accept, 'eventsink');
     }
 
