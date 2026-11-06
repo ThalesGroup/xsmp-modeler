@@ -1,0 +1,37 @@
+catalogue CompositeReturnDefaults
+namespace defaults {
+    /** @uuid 91000000-0000-4000-8000-000000000001 */
+    public array Pair = Int32[2]
+    /** @uuid 91000000-0000-4000-8000-000000000002 */
+    public array Matrix = Pair[2]
+    /** @uuid 91000000-0000-4000-8000-000000000003 */
+    public array Cube = Matrix[2]
+    /** @uuid 91000000-0000-4000-8000-000000000004 */
+    public array Hypercube = Cube[2]
+    /** @uuid 91000000-0000-4000-8000-000000000005 */
+    public struct Record { field Int32 number = 9 field Bool flag }
+    /** @uuid 91000000-0000-4000-8000-000000000006 */
+    public array Records = Record[2]
+    /** @uuid 91000000-0000-4000-8000-000000000007 */
+    public struct WithArray { field Pair data }
+    /** @uuid 91000000-0000-4000-8000-000000000008 */
+    public enum Choice { First = 7, Second = 11 }
+    /** @uuid 91000000-0000-4000-8000-000000000009 */
+    public array Choices = Choice[2]
+    /** @uuid 91000000-0000-4000-8000-00000000000a */
+    public array Strings = String8[2]
+    /** @uuid 91000000-0000-4000-8000-00000000000b */
+    public array Large = Float64[1000000]
+    /** @uuid 91000000-0000-4000-8000-00000000000c */
+    public model Device {
+        def Pair pair()
+        def Matrix matrix()
+        def Cube cube()
+        def Hypercube hypercube()
+        def Records records()
+        def WithArray record()
+        def Choices choices()
+        def Strings strings()
+        def Large large()
+    }
+}

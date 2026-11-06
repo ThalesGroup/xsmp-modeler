@@ -1543,8 +1543,12 @@ export abstract class CppGenerator implements XsmpGenerator {
                 return '{}';
             }
             const itemDefaultValue = this.getDefaultValueForType(type.itemType.ref);
+            const itemKind = getPTK(type.itemType.ref);
+            if (itemDefaultValue === '{}' || (itemKind !== PTK.None && itemKind !== PTK.Enum && itemKind !== PTK.String8)) {
+                return '{}';
+            }
             const defaultItems = new Array(Number(value)).fill(itemDefaultValue).join(', ');
-            return `{${defaultItems}}`;
+            return `{{${defaultItems}}}`;
         }
         if (ast.isStructure(type)) {
             const defaultFields = this.attrHelper.getAllFields(type)
