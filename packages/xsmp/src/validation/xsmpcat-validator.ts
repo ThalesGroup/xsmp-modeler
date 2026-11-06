@@ -1210,7 +1210,7 @@ export class XsmpcatValidator {
             else { parameterNames.add(parameter.name ?? ''); }
 
             if (parameter.default !== undefined) { requireDefaultValue = true; }
-            else if (requireDefaultValue) { accept('error', 'The Parameter requires a default vallue.', { node: parameter, property: ast.Parameter.default, data: diagnosticData(IssueCodes.MissingValue) }); }
+            else if (requireDefaultValue) { accept('error', 'The Parameter requires a default value.', { node: parameter, property: ast.Parameter.default, data: diagnosticData(IssueCodes.MissingValue) }); }
         }
 
     }
