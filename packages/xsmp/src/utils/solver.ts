@@ -167,23 +167,17 @@ export class IntegralValue extends Value<IntegralValue> {
         // how the C++ generator emits it; BigInt() would otherwise read it as decimal.
         const value = /^0[0-7]+$/.test(text) ? BigInt(`0o${text.slice(1)}`) : BigInt(text);
 
+        // Decimal literals without U have only signed candidate types in C++.
+        const decimal = /^(?:0|[1-9][0-9]*)$/.test(text);
         let type: IntegralPTK;
-        if (value > 0x7FFFFFFFFFFFFFFFn) {
-            type = PTK.UInt64;
-        }
-        else if (value > 0xFFFFFFFFn) {
-            type = isUnsigned ? PTK.UInt64 : PTK.Int64;
-        }
-        else if (value > 0x7FFFFFFFn) {
-            if (isUnsigned) {
-                type = isLong ? PTK.UInt64 : PTK.UInt32;
-            } else {
-                type = isLong ? PTK.Int64 : PTK.UInt32;
-            }
-        } else if (isUnsigned) {
-            type = isLong ? PTK.UInt64 : PTK.UInt32;
+        if (isUnsigned) {
+            type = isLong || value > 0xFFFFFFFFn ? PTK.UInt64 : PTK.UInt32;
+        } else if (!isLong && value <= 0x7FFFFFFFn) {
+            type = PTK.Int32;
+        } else if (!decimal && !isLong && value <= 0xFFFFFFFFn) {
+            type = PTK.UInt32;
         } else {
-            type = isLong ? PTK.Int64 : PTK.Int32;
+            type = !decimal && value > 0x7FFFFFFFFFFFFFFFn ? PTK.UInt64 : PTK.Int64;
         }
 
         const result = new IntegralValue(value, type);
@@ -236,28 +230,15 @@ export class IntegralValue extends Value<IntegralValue> {
         return new CharValue(String.fromCodePoint(Number(this.value)));
     }
 
-    override unaryComplement(): IntegralValue { return new IntegralValue(~this.value, this.type); }
-    override plus(): this { return this; }
-    override negate(): IntegralValue { return new IntegralValue(-this.value, this.type); }
+    override unaryComplement(): IntegralValue { return new IntegralValue(~this.value, this.promote(PTK.Int32)); }
+    override plus(): IntegralValue { return new IntegralValue(this.value, this.promote(PTK.Int32)); }
+    override negate(): IntegralValue { return new IntegralValue(-this.value, this.promote(PTK.Int32)); }
     promote(type: IntegralPTK): IntegralPTK {
-
-        switch (this.type) { // Promote correctly Int8
-            case PTK.Int8:
-            case PTK.Int16:
-            case PTK.UInt8:
-            case PTK.UInt16:
-                return type === PTK.Int8 || type === PTK.Int16 || type === PTK.UInt8 || type === PTK.UInt16 ? PTK.Int32 : type;
-            case PTK.Int32:
-                return type;
-            case PTK.UInt32:
-                return type === PTK.Int32 ? this.type : type;
-            case PTK.Duration:
-            case PTK.DateTime:
-            case PTK.Int64:
-                return type === PTK.UInt64 ? type : this.type;
-            case PTK.UInt64:
-                return PTK.UInt64;
-        }
+        if (this.type === PTK.UInt64 || type === PTK.UInt64) return PTK.UInt64;
+        if (this.type === PTK.Int64 || this.type === PTK.DateTime || this.type === PTK.Duration
+            || type === PTK.Int64 || type === PTK.DateTime || type === PTK.Duration) return PTK.Int64;
+        if (this.type === PTK.UInt32 || type === PTK.UInt32) return PTK.UInt32;
+        return PTK.Int32;
     }
     override or(val: IntegralValue): IntegralValue { return new IntegralValue(this.value | val.value, this.promote(val.type)); }
     override and(val: IntegralValue): IntegralValue { return new IntegralValue(this.value & val.value, this.promote(val.type)); }
@@ -686,6 +667,21 @@ function checkUnevaluatedExpression(expression: ast.Expression | undefined, acce
 
 function applyBinaryOperation<T>(expression: ast.BinaryOperation, left: Value<unknown>, right: Value<unknown>, accept?: ValidationAcceptor): Value<T> | undefined {
     if (!expression.feature) return undefined;
+
+    // Apply integral promotions to bool/small integers, then the usual arithmetic
+    // conversions before the operator (including division and comparisons).
+    if (left instanceof BoolValue && (right instanceof BoolValue || right instanceof IntegralValue)) {
+        left = left.integralValue(PTK.Int32);
+    }
+    if (right instanceof BoolValue && left instanceof IntegralValue) {
+        right = right.integralValue(PTK.Int32);
+    }
+    if (left instanceof IntegralValue && right instanceof IntegralValue) {
+        const shift = expression.feature === '<<' || expression.feature === '>>';
+        const type = left.promote(shift ? PTK.Int32 : right.type);
+        left = new IntegralValue(left.value, type);
+        right = new IntegralValue(right.value, shift ? right.promote(PTK.Int32) : type);
+    }
 
     let result: Value<T> | undefined;
     try {
