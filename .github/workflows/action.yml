@@ -36,14 +36,15 @@ jobs:
       run: |
         npm run lint
     - name: Build
+      id: build
       shell: bash
       run: |
-        npm run build
+        npm run build:workspace
     - name: Test
-      if: success() || failure()
+      if: ${{ !cancelled() && steps.build.outcome == 'success' }}
       shell: bash
       run: |
-        npm run coverage
+        npm run coverage:raw
     - name: Package VS Code extension
       shell: bash
       run: |
