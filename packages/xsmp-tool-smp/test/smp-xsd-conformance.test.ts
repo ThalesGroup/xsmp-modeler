@@ -87,6 +87,35 @@ include Other at child
         fs.rmSync(tmpDir, { recursive: true, force: true });
       }
     });
+    test(`duration constants conform to the Level 1 XSD (${standard})`, async () => {
+      const source = `catalogue Durations
+namespace ns {
+    /** @uuid 13000000-0000-4000-8000-000000000001 */
+    public interface Values {
+        constant Duration NegativeNano = "-PT0.000000001S"
+        constant Duration WholeDay = "P1D"
+        constant Duration NegativeDay = "-P1D"
+        constant Duration Zero = "PT0S"
+        constant Duration PositiveSecond = "PT1S"
+    }
+}`;
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-smp-duration-values-'));
+      try {
+        const { document, projectUri } = await parseInProject(parseCatalogue, source, 'durations.xsmpcat', standard, tmpDir);
+        await services.shared.workspace.DocumentBuilder.build(documents, { validation: true });
+        expect(document.diagnostics?.filter(diagnostic => diagnostic.severity === 1)).toEqual([]);
+        await generateDocuments(new SmpGenerator(services.shared), [document.parseResult.value], projectUri);
+        const output = path.join(tmpDir, 'smdl-gen', 'durations.smpcat');
+        const xml = fs.readFileSync(output, 'utf8');
+        for (const value of ['-PT0.000000001S', 'P1D', '-P1D', 'PT0S', 'PT1S']) {
+          expect(xml).toContain(`<Value xsi:type="Types:DurationValue" Value="${value}"/>`);
+        }
+        assertXmlConformsToXsd(output, 'catalogue', standard);
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
   }
 
   test('generated link base file conforms to the Level 2 XSD', async () => {

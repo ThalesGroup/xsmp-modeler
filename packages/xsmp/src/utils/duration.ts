@@ -12,14 +12,14 @@ const ZERO = BigInt(0);
 /**
  * The pattern for parsing.
  */
-const PATTERN = /([-+]?)P(?:([-+]?\d+)D)?(T(?:([-+]?\d+)H)?(?:([-+]?\d+)M)?(?:([-+]?\d+)(?:[.,](\d{0,9}))?S)?)?/i;
+const PATTERN = /^([-+]?)P(?:([-+]?\d+)D)?(T(?:([-+]?\d+)H)?(?:([-+]?\d+)M)?(?:([-+]?\d+)(?:[.,](\d{1,9}))?S)?)?$/i;
 
 export function parse(text: string): bigint {
 
     const matches = PATTERN.exec(text);
-    if (matches !== null) {
+    if (matches !== null && matches[0] === text) {
         // check for letter T but no time sections
-        if (matches.at(3) !== 'T') {
+        if (matches.at(3)?.length !== 1) {
             const negate = '-' === matches.at(1);
             const dayMatch = matches.at(2);
             const hourMatch = matches.at(4);
@@ -46,10 +46,7 @@ function _parseNumber(parsed: string | undefined, multiplier: number): bigint {
     if (parsed === undefined) {
         return ZERO;
     }
-    if (parsed.startsWith('+')) {
-        parsed = parsed.substring(1);
-    }
-    return BigInt(Number.parseFloat(parsed) * multiplier);
+    return BigInt(parsed) * BigInt(multiplier);
 }
 
 function _parseFraction(parsed: string | undefined, negate: number): bigint {
@@ -58,7 +55,7 @@ function _parseFraction(parsed: string | undefined, negate: number): bigint {
         return ZERO;
     }
     parsed = parsed.padEnd(9, '0');
-    return BigInt(Number.parseFloat(parsed) * negate);
+    return BigInt(parsed) * BigInt(negate);
 }
 
 export function serialize(value: bigint) {
@@ -66,10 +63,18 @@ export function serialize(value: bigint) {
         return 'PT0S';
     }
 
-    let nanos = value;
+    let nanos = value < ZERO ? -value : value;
 
     const days = nanos / NANOS_PER_DAY;
     nanos %= NANOS_PER_DAY;
+
+    let rval = value < ZERO ? '-P' : 'P';
+    if (days !== ZERO) {
+        rval += `${days}D`;
+        if (nanos === ZERO) {
+            return rval;
+        }
+    }
 
     const hours = nanos / NANOS_PER_HOUR;
     nanos %= NANOS_PER_HOUR;
@@ -80,10 +85,6 @@ export function serialize(value: bigint) {
     const secs = nanos / NANOS_PER_SECOND;
     nanos %= NANOS_PER_SECOND;
 
-    let rval = 'P';
-    if (days !== ZERO) {
-        rval += `${days}D`;
-    }
     rval += 'T';
     if (hours !== ZERO) {
         rval += `${hours}H`;
@@ -91,17 +92,13 @@ export function serialize(value: bigint) {
     if (minutes !== ZERO) {
         rval += `${minutes}M`;
     }
-    if (secs === ZERO && nanos === ZERO && rval.length > 2) {
+    if (secs === ZERO && nanos === ZERO) {
         return rval;
     }
-    if (secs < ZERO || nanos < ZERO) {
-        rval += '-' + (secs < ZERO ? -secs : secs);
-    } else {
-        rval += secs;
-    }
+    rval += secs;
     if (nanos !== ZERO) {
         rval += '.';
-        rval += (nanos < ZERO ? -nanos : nanos).toString().padStart(9, '0');
+        rval += nanos.toString().padStart(9, '0');
         while (rval.endsWith('0')) {
             rval = rval.slice(0, -1);
         }
