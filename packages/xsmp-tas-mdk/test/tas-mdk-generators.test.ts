@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { URI } from 'langium';
 import { setClangFormat, setGeneratedBy } from '@xsmp/core/generator';
+import type { Component } from '@xsmp/core/ast';
 import { TasMdkGenerator, TasMdkPythonGenerator } from 'xsmp-tas-mdk';
 import { generateDocuments } from '../../xsmp/test/generation-test-utils.js';
 import {
@@ -49,16 +50,16 @@ describe('xsmp-tas-mdk generators', () => {
 
     test('skips existing wrapper rendering and removes only owned Python outputs after a restart', async () => {
         class ObservedGenerator extends TasMdkPythonGenerator {
-            wrapperLookups = 0;
-            protected override splitByLastDot(value: string) {
-                this.wrapperLookups++;
-                return super.splitByLastDot(value);
+            wrapperRenders = 0;
+            protected override generateWrapper(type: Component, notice: string | undefined, libName: string) {
+                this.wrapperRenders++;
+                return super.generateWrapper(type, notice, libName);
             }
         }
         const document = await parseProfileGeneratorFixture(context);
         const first = new ObservedGenerator(context.services.shared);
         const outputDir = await generateProfileTree(context, first, document, 'tas-mdk-python-lifecycle-');
-        expect(first.wrapperLookups).toBeGreaterThan(0);
+        expect(first.wrapperRenders).toBeGreaterThan(0);
         const wrapper = path.join(outputDir, 'helpers/test_utils/demo/support/RootModel/wrapper.py');
         const userCode = path.join(outputDir, 'helpers/builder/demo/support/RootModel/user_code.py');
         const unknown = path.join(outputDir, 'helpers/user_module.py');
@@ -68,7 +69,7 @@ describe('xsmp-tas-mdk generators', () => {
 
         const fresh = new ObservedGenerator(context.services.shared);
         await generateDocuments(fresh, [document.parseResult.value], URI.file(outputDir));
-        expect(fresh.wrapperLookups).toBe(0);
+        expect(fresh.wrapperRenders).toBe(0);
         expect(fs.readFileSync(wrapper, 'utf8')).toBe('# customized wrapper\n');
 
         // All declarations disappear. A fresh writer must load the ownership inventory.

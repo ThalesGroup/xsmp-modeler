@@ -1,5 +1,5 @@
-from TasMdk__CommonModels.test_utils.TasMdk.Model import ModelWrapper
-from ProfileGenerators.builder.demo.support import RootModel
+from importlib import import_module as _import_module
+_BaseWrapper = getattr(_import_module('TasMdk__CommonModels.test_utils.TasMdk.Model'), 'ModelWrapper')
 
-class RootModelWrapper( ModelWrapper ):
-    builder = RootModel
+class RootModelWrapper( _BaseWrapper ):
+    builder = _import_module('ProfileGenerators.builder.demo.support.RootModel')
