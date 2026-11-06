@@ -190,9 +190,12 @@ Paths are relative to the named output directory, itself relative to the
 project. `files.resolvePath(outputName, relativePath)` resolves an input path
 without disk access, for example to inspect an existing generation-gap header.
 Output names separate the generator's rendering from a profile's directory
-configuration. Conflicting writes to the same normalized destination are errors,
-including writes from different generators or output names. Shared files such
-as Python package initializers must be scheduled once per session.
+configuration. Repeated `if-missing` writes from the same generator and output
+to the same normalized destination share the first request's result, including
+any failure. Later content functions are not evaluated. This permits shared
+files such as Python package initializers to be requested by several catalogues.
+Conflicting writes involving `if-changed`, different generators or output names,
+or ambiguous physical aliases remain errors.
 
 Each output independently specifies its cleanup policy:
 

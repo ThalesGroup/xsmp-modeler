@@ -76,6 +76,7 @@ test('existing create-once files require no content evaluation, content read or 
     const render = vi.fn(() => { throw new Error('must not run'); });
     const reads = vi.spyOn(fs.promises, 'readFile');
     await files.write('user', 'user.cpp', render);
+    await files.write('user', './user.cpp', render);
     expect(reads).not.toHaveBeenCalled();
     expect(render).not.toHaveBeenCalled();
     expect(value.prepare).not.toHaveBeenCalled();
@@ -106,6 +107,48 @@ test('missing create-once files evaluate and format asynchronous content exactly
     expect(render).toHaveBeenCalledTimes(1);
     expect(format).toHaveBeenCalledTimes(1);
     expect(read(directory, 'src/new.cpp')).toBe('formatted:initial');
+});
+
+test('create-once duplicates share the first result without rendering or writing again', async () => {
+    const directory = temporaryDirectory();
+    const { session, files } = await prepare(directory, { user });
+    const writes = vi.spyOn(fs.promises, 'writeFile');
+    let release!: () => void;
+    const ready = new Promise<void>(resolve => { release = resolve; });
+    const firstRender = vi.fn(async () => { await ready; return 'first'; });
+    const duplicateRender = vi.fn(() => 'duplicate');
+    const first = files.write('user', 'new.cpp', firstRender);
+    const duplicate = files.write('user', './new.cpp', duplicateRender);
+    release();
+    await Promise.all([first, duplicate]);
+    await files.write('user', 'new.cpp', duplicateRender);
+    await session.finish(true);
+    expect(firstRender).toHaveBeenCalledTimes(1);
+    expect(duplicateRender).not.toHaveBeenCalled();
+    expect(writes).toHaveBeenCalledTimes(1);
+    expect(read(directory, 'src/new.cpp')).toBe('first');
+    expect((session as unknown as { createOnceWrites: Map<string, unknown> }).createOnceWrites.size).toBe(0);
+});
+
+test.each(['render', 'write'])('create-once duplicates share a %s failure and prevent cleanup', async failure => {
+    const directory = temporaryDirectory();
+    put(directory, 'src-gen/stale.cpp', 'old');
+    const { session, files } = await prepare(directory, { generated, user });
+    const error = new Error('first request failed');
+    const render = vi.fn(async () => { if (failure === 'render') throw error; return 'first'; });
+    if (failure === 'write') vi.spyOn(fs.promises, 'writeFile').mockRejectedValue(error);
+    const duplicateRender = vi.fn(() => 'duplicate');
+    const results = await Promise.allSettled([
+        files.write('user', 'new.cpp', render),
+        files.write('user', './new.cpp', duplicateRender),
+    ]);
+    expect(results).toEqual([{ status: 'rejected', reason: error }, { status: 'rejected', reason: error }]);
+    await expect(files.write('user', 'new.cpp', duplicateRender)).rejects.toBe(error);
+    await session.finish(true);
+    expect(render).toHaveBeenCalledTimes(1);
+    expect(duplicateRender).not.toHaveBeenCalled();
+    expect(fs.existsSync(path.join(directory, 'src/new.cpp'))).toBe(false);
+    expect(read(directory, 'src-gen/stale.cpp')).toBe('old');
 });
 
 test.each([false, true])('a %s async rendering failure creates no empty file and prevents cleanup', async asynchronous => {
@@ -407,7 +450,7 @@ test('duplicate destinations are diagnosed across output names even for existing
     await session.finish(false);
 });
 
-test.each(['if-changed', 'if-missing'] as const)('rejects case variants that address the same physical %s file', async writeMode => {
+test.each(['if-changed', 'if-missing'] as const)('checks physical case aliases for %s outputs', async writeMode => {
     const directory = temporaryDirectory();
     put(directory, 'src/A.cpp', 'initial');
     try {
@@ -422,8 +465,8 @@ test.each(['if-changed', 'if-missing'] as const)('rejects case variants that add
         files.write('output', 'a.cpp', renderAlias),
     ]);
     expect(results[0].status).toBe('fulfilled');
-    expect(results[1].status).toBe('rejected');
-    expect((results[1] as PromiseRejectedResult).reason.message).toContain('Duplicate generated file');
+    expect(results[1].status).toBe(process.platform === 'win32' && writeMode === 'if-missing' ? 'fulfilled' : 'rejected');
+    if (results[1].status === 'rejected') expect(results[1].reason.message).toContain('Duplicate generated file');
     expect(renderAlias).not.toHaveBeenCalled();
     await session.finish(false);
     expect(read(directory, 'src/A.cpp')).toBe(writeMode === 'if-changed' ? 'first' : 'initial');
