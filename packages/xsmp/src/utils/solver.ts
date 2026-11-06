@@ -8,10 +8,9 @@ import { type FloatingPTK, type IntegralPTK, isFloatingType, isIntegralType, PTK
 import { Location } from 'vscode-languageserver';
 import * as IssueCodes from '../validation/xsmpcat-issue-codes.js';
 
-// Constants currently being evaluated, used to break circular references. getValue runs
-// synchronously to completion, so a single shared set with add/remove around each constant
-// resolution is re-entrancy safe.
-const evaluatingConstants = new Set<ast.Constant>();
+// A fresh context belongs to one public evaluation. Undefined marks a constant
+// being evaluated (or one without a value), so cyclic references also terminate.
+type EvaluationContext = Map<ast.Constant, Value<unknown> | undefined>;
 
 abstract class Value<T> {
 
@@ -360,14 +359,14 @@ const builtInFloat32Functions = new Set<BuiltInFloat32Function>([
     'expf', 'logf', 'log10f', 'expm1f', 'log1pf', 'sqrtf', 'ceilf', 'floorf', 'absf',
 ]);
 
-function convertBuiltinFunction<T>(func: ast.BuiltInFunction, accept?: ValidationAcceptor): Value<T> | undefined {
+function convertBuiltinFunction<T>(func: ast.BuiltInFunction, context: EvaluationContext, accept?: ValidationAcceptor): Value<T> | undefined {
     if (func.name?.endsWith('f')) {
         if (!builtInFloat32Functions.has(func.name as BuiltInFloat32Function)) {
             if (accept)
                 accept('error', `Unknown built-in function '${func.name}'.`, { node: func, property: ast.BuiltInFunction.name });
             return undefined;
         }
-        const value = getValueAs(func.argument, PTK.Float32, accept)?.floatValue(PTK.Float32);
+        const value = evaluateAs(func.argument, PTK.Float32, context, accept)?.floatValue(PTK.Float32);
         return value ? new FloatValue(Math[func.name.slice(0, -1) as BuiltInFloat64Function](value.getValue()), PTK.Float32) : undefined;
     }
     if (func.name && !builtInFloat64Functions.has(func.name as BuiltInFloat64Function)) {
@@ -375,11 +374,15 @@ function convertBuiltinFunction<T>(func: ast.BuiltInFunction, accept?: Validatio
             accept('error', `Unknown built-in function '${func.name}'.`, { node: func, property: ast.BuiltInFunction.name });
         return undefined;
     }
-    const value = getValueAs(func.argument, PTK.Float64, accept)?.floatValue(PTK.Float64);
+    const value = evaluateAs(func.argument, PTK.Float64, context, accept)?.floatValue(PTK.Float64);
     return value ? new FloatValue(Math[func.name as BuiltInFloat64Function](value.getValue()), PTK.Float64) : undefined;
 
 }
 export function getValue<T>(expression: ast.Expression | undefined, accept?: ValidationAcceptor): Value<T> | undefined {
+    return evaluate(expression, new Map(), accept);
+}
+
+function evaluate<T>(expression: ast.Expression | undefined, context: EvaluationContext, accept?: ValidationAcceptor): Value<T> | undefined {
     if (expression) {
         switch (expression.$type) {
             case ast.IntegerLiteral.$type: return IntegralValue.of(expression as ast.IntegerLiteral, accept);
@@ -390,9 +393,9 @@ export function getValue<T>(expression: ast.Expression | undefined, accept?: Val
             case ast.KeywordExpression.$type:
                 accept?.('error', 'The nullptr literal requires a pointer type.', { node: expression });
                 return undefined;
-            case ast.UnaryOperation.$type: return unaryOperation(expression as ast.UnaryOperation, accept);
-            case ast.BinaryOperation.$type: return binaryOperation(expression as ast.BinaryOperation, accept);
-            case ast.ParenthesizedExpression.$type: return getValue((expression as ast.ParenthesizedExpression).expr, accept);
+            case ast.UnaryOperation.$type: return unaryOperation(expression as ast.UnaryOperation, context, accept);
+            case ast.BinaryOperation.$type: return binaryOperation(expression as ast.BinaryOperation, context, accept);
+            case ast.ParenthesizedExpression.$type: return evaluate((expression as ast.ParenthesizedExpression).expr, context, accept);
             case ast.BuiltInConstant.$type: {
                 const cst = expression as ast.BuiltInConstant;
                 if (cst.name && !builtInConstants.has(cst.name as BuiltInConstants)) {
@@ -406,7 +409,7 @@ export function getValue<T>(expression: ast.Expression | undefined, accept?: Val
                 if (!(expression as ast.BuiltInFunction).argument && accept) {
                     accept('error', 'Missing argument.', { node: expression, property: ast.BuiltInFunction.argument });
                 }
-                return convertBuiltinFunction(expression as ast.BuiltInFunction, accept);
+                return convertBuiltinFunction(expression as ast.BuiltInFunction, context, accept);
             case ast.NamedElementReference.$type:
                 {
                     const ref = expression as ast.NamedElementReference;
@@ -419,18 +422,12 @@ export function getValue<T>(expression: ast.Expression | undefined, accept?: Val
                             accept('error', 'The Constant is not visible.', { node: expression });
                         }
                         if (cst.type?.ref) {
-                            // Guard against circular constant references (e.g. A = B, B = A),
-                            // which would otherwise recurse forever and crash the evaluator.
-                            if (evaluatingConstants.has(cst)) {
-                                return undefined;
-                            }
-                            evaluatingConstants.add(cst);
-                            try {
-                                //do not forward accept
-                                return getValueAs(cst.value, cst.type.ref);
-                            } finally {
-                                evaluatingConstants.delete(cst);
-                            }
+                            if (context.has(cst)) return context.get(cst);
+                            context.set(cst, undefined);
+                            // The constant's initializer is validated at its declaration.
+                            const value = evaluateAs(cst.value, cst.type.ref, context);
+                            context.set(cst, value);
+                            return value;
                         }
                     }
                 }
@@ -443,12 +440,12 @@ function getTypeName(type: ast.Type | PTK): string {
     return PTK[type];
 }
 
-function doGetValueAs<T>(expression: ast.Expression, value: Value<T>, type: ast.Type | PTK, accept?: ValidationAcceptor): Value<T> | undefined {
+function doGetValueAs<T>(expression: ast.Expression, value: Value<T>, type: ast.Type | PTK, context: EvaluationContext, accept?: ValidationAcceptor): Value<T> | undefined {
     const kind = ast.isType(type) ? getPTK(type) : type;
     if (isIntegralType(kind)) {
         const integralValue = value.integralValue(kind);
         if (integralValue && accept && ast.isInteger(type)) {
-            const min = getValue(type.minimum)?.integralValue(kind)?.getValue();
+            const min = evaluate(type.minimum, context)?.integralValue(kind)?.getValue();
             if (min !== undefined && integralValue.getValue() < min) {
                 accept('error', `Integral value shall be greater than or equal to ${min}.`, {
                     node: expression,
@@ -456,7 +453,7 @@ function doGetValueAs<T>(expression: ast.Expression, value: Value<T>, type: ast.
                 });
             }
 
-            const max = getValue(type.maximum)?.integralValue(kind)?.getValue();
+            const max = evaluate(type.maximum, context)?.integralValue(kind)?.getValue();
             if (max !== undefined && integralValue.getValue() > max) {
                 accept('error', `Integral value shall be less than or equal to ${max}.`, {
                     node: expression,
@@ -469,7 +466,7 @@ function doGetValueAs<T>(expression: ast.Expression, value: Value<T>, type: ast.
     else if (isFloatingType(kind)) {
         const floatValue = value.floatValue(kind);
         if (floatValue && accept && ast.isFloat(type)) {
-            const min = getValue(type.minimum)?.floatValue(kind)?.getValue();
+            const min = evaluate(type.minimum, context)?.floatValue(kind)?.getValue();
             if (min !== undefined) {
                 if (floatValue.getValue() < min || floatValue.getValue() === min && (type.range === '<..' || type.range === '<.<')) {
                     if (type.range === '<..' || type.range === '<.<') {
@@ -487,7 +484,7 @@ function doGetValueAs<T>(expression: ast.Expression, value: Value<T>, type: ast.
                 }
             }
 
-            const max = getValue(type.maximum)?.floatValue(kind)?.getValue();
+            const max = evaluate(type.maximum, context)?.floatValue(kind)?.getValue();
             if (max !== undefined) {
                 if (floatValue.getValue() > max || floatValue.getValue() === max && (type.range === '<..' || type.range === '<.<')) {
                     if (type.range === '..<' || type.range === '<.<') {
@@ -516,7 +513,7 @@ function doGetValueAs<T>(expression: ast.Expression, value: Value<T>, type: ast.
             return value;
         }
         else if (value instanceof IntegralValue) {
-            const literal = type.literal.find(l => getValueAs(l.value, PTK.Int32)?.getValue() === value.getValue());
+            const literal = type.literal.find(l => evaluateAs(l.value, PTK.Int32, context)?.getValue() === value.getValue());
             if (literal) {
                 if (accept) {
                     accept('warning', 'An enumeration literal is expected.', {
@@ -533,7 +530,7 @@ function doGetValueAs<T>(expression: ast.Expression, value: Value<T>, type: ast.
     else if (kind === PTK.String8) {
         const stringValue = value.stringValue();
         if (stringValue && accept && ast.isStringType(type)) {
-            const length = getValue(type.length)?.integralValue(PTK.Int64)?.getValue();
+            const length = evaluate(type.length, context)?.integralValue(PTK.Int64)?.getValue();
             if (length !== undefined && stringValue.getValue().length > length) {
                 accept('error', 'The string length exceeds the allowed length for its type.', {
                     node: expression,
@@ -557,15 +554,19 @@ function doGetValueAs<T>(expression: ast.Expression, value: Value<T>, type: ast.
 }
 
 export function getValueAs<T>(expression: ast.Expression | undefined, type: ast.Type | PTK, accept?: ValidationAcceptor): Value<T> | undefined {
+    return evaluateAs(expression, type, new Map(), accept);
+}
+
+function evaluateAs<T>(expression: ast.Expression | undefined, type: ast.Type | PTK, context: EvaluationContext, accept?: ValidationAcceptor): Value<T> | undefined {
     if (!expression) {
         return;
     }
-    const value = getValue(expression, accept);
+    const value = evaluate(expression, context, accept);
     if (value === undefined) {
         return undefined;
     }
 
-    const result = doGetValueAs(expression, value, type, accept);
+    const result = doGetValueAs(expression, value, type, context, accept);
     if (!result && accept) {
         accept('error', `${getTypeName(value.primitiveTypeKind())} cannot be converted to ${getTypeName(type)}.`, { node: expression });
     }
@@ -598,10 +599,10 @@ function binaryOperationFunction<T, U>(left: Value<T>, right: Value<T>, feature:
 
 }
 
-function binaryOperation<T>(expression: ast.BinaryOperation, accept?: ValidationAcceptor): Value<T> | undefined {
+function binaryOperation<T>(expression: ast.BinaryOperation, context: EvaluationContext, accept?: ValidationAcceptor): Value<T> | undefined {
 
-    const left = getValue(expression.leftOperand, accept),
-        right = getValue(expression.rightOperand, accept);
+    const left = evaluate(expression.leftOperand, context, accept),
+        right = evaluate(expression.rightOperand, context, accept);
     if (!left || !right || !expression.feature) {
         return undefined;
     }
@@ -666,8 +667,8 @@ function unaryOperationFunction<T, U>(operand: Value<T>, feature: ast.OpUnary): 
         case '!': return operand.not();
     }
 }
-function unaryOperation<T>(expression: ast.UnaryOperation, accept?: ValidationAcceptor): Value<T> | undefined {
-    const operand = getValue(expression.operand, accept);
+function unaryOperation<T>(expression: ast.UnaryOperation, context: EvaluationContext, accept?: ValidationAcceptor): Value<T> | undefined {
+    const operand = evaluate(expression.operand, context, accept);
     if (!operand || !expression.feature) {
         return undefined;
     }
