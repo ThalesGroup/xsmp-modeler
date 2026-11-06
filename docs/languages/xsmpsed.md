@@ -325,6 +325,8 @@ Example:
 <Root = "/system", Cycles = 3>
 ```
 
+When exporting these arguments to SMP XML, see the [published XSD restriction on string template values](../tools/smp.md#string-template-values-and-the-published-xsd), including schedule root paths.
+
 ## Events
 
 **Events** define when tasks start running, whether from time origins or from global events.
