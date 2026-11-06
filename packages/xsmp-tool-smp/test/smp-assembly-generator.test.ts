@@ -8,6 +8,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { SmpGenerator } from '@xsmp/tool-smp';
+import { create as createXml } from 'xmlbuilder2';
 import { setGeneratedBy } from '@xsmp/core/generator';
 import { rebuildTestDocuments } from './test-services.js';
 
@@ -45,6 +46,7 @@ namespace demo
         container Child child = demo.Child
         public property Smp.Int32 count -> countState
         public def void apply(in Smp.Int32 nextCount, in Smp.Float64 nextRatio)
+        entrypoint step
 
         eventsink demo.FlagEvent inbound
         eventsource demo.FlagEvent outbound
@@ -166,6 +168,32 @@ Root: demo.Root
         expect(actualXml).toContain('<FieldValue xsi:type="Types:Int32ArrayValue" Field="simpleValues">');
         expect(actualXml).toContain('<StartIndex>2</StartIndex>');
         expect(actualXml).toContain('<ItemValue xsi:type="Types:Int32Value" Value="3"/>');
+    });
+
+    test('orders component configuration values, invocations and handlers according to the XSD', async () => {
+        const generator = new SmpGenerator(services.shared);
+        const document = await parseSource(`assembly Demo
+
+configure .
+{
+    subscribe step -> "Boot"
+    call apply(nextCount = 2, nextRatio = 3.5)
+    countState = 1
+    property count = 4
+}
+
+Root: demo.Root
+{
+}
+`);
+        const xml = await generator.doGenerateAssembly(document.parseResult.value, undefined);
+        const configuration = createXml(xml).find(node => node.node.nodeName === 'ComponentConfiguration', false, true);
+
+        expect(configuration).toBeDefined();
+        expect(configuration!.filter(child => child.node.nodeType === 1).map(child => child.node.nodeName)).toEqual([
+            'FieldValue', 'Invocation', 'Invocation', 'GlobalEventHandler'
+        ]);
+        expect(xml).toContain('<FieldValue xsi:type="Types:Int32Value" Value="1" Field="countState"/>');
     });
 });
 

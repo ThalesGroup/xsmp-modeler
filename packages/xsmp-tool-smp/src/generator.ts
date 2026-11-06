@@ -1313,9 +1313,9 @@ export class SmpGenerator implements XsmpGenerator {
     convertAssemblyComponentConfiguration(component: ast.AssemblyComponentConfiguration): Assembly.ComponentConfiguration {
         return {
             '@InstancePath': this.pathService.stringifyPath(component.name),
+            FieldValue: component.elements.filter(ast.isValue).map(value => this.convertValue(value as ast.Value)),
             Invocation: component.elements.filter(ast.isInvocation).map(invocation => this.convertInvocation(invocation)),
             GlobalEventHandler: component.elements.filter(ast.isGlobalEventHandler).map(handler => this.convertGlobalEventHandler(handler)),
-            FieldValue: component.elements.filter(ast.isValue).map(value => this.convertValue(value as ast.Value)),
         };
     }
 
