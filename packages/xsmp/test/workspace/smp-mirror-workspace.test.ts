@@ -22,6 +22,150 @@ afterEach(() => {
 });
 
 describe('SMP mirror workspace support', () => {
+    test.each([
+        ['native content', 'src/local.xsmpcat', FileChangeType.Changed, 'catalogue Renamed\n// changed\n'],
+        ['generated output', 'smdl-gen/generated.smpcat', FileChangeType.Created, createSmpCatalogue('generated', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb')],
+    ])('does not reimport XML after an unrelated %s change', async (_name, file, type, content) => {
+        const projectDir = createProject(tempDir, 'app', "project 'app'\nsource 'src'\n", {
+            'src/local.xsmpcat': 'catalogue Local\n',
+            'src/types.smpcat': createSmpCatalogue('types', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
+        });
+        const services = await createBuiltinTestXsmpServices(NodeFileSystem);
+        await services.shared.workspace.WorkspaceManager.initializeWorkspace([{ name: 'app', uri: URI.file(projectDir).toString() }]);
+        const mirrors = services.shared.SmpMirrorManager;
+        const importer = (mirrors as unknown as { importer: SmpImportService }).importer;
+        const render = vi.spyOn(importer, 'renderImportedDocument');
+        const mirrorUri = services.shared.SmpWorkspaceIndex.getMirrorUriForSourcePath(path.join(projectDir, 'src', 'types.smpcat'))!;
+        const previous = mirrors.getMirrorContent(mirrorUri);
+        const changedPath = path.join(projectDir, file);
+        fs.mkdirSync(path.dirname(changedPath), { recursive: true });
+        fs.writeFileSync(changedPath, content);
+        await (services.shared.lsp.DocumentUpdateHandler as XsmpDocumentUpdateHandler).updateWatchedFiles({
+            changes: [{ uri: URI.file(changedPath).toString(), type }],
+        });
+        expect(render).not.toHaveBeenCalled();
+        expect(mirrors.getMirrorContent(mirrorUri)).toBe(previous);
+        // A forced refresh confirms that even a native catalogue rename cannot alter XML imports.
+        expect(await mirrors.refreshWorkspaceMirrors()).toEqual({ changed: [], deleted: [] });
+    });
+
+    test('keeps case-insensitive external dependencies and native homologue changes relevant', async () => {
+        const services = await createBuiltinTestXsmpServices(NodeFileSystem);
+        const index = services.shared.SmpWorkspaceIndex;
+        index.recordExternalReference('TYPES.smpcat');
+        const mirrors = services.shared.SmpMirrorManager;
+        expect(mirrors.isMirrorRelevantChange(URI.file(path.join(tempDir, 'outside', 'types.smpcat')), FileChangeType.Changed)).toBe(true);
+        expect(index.createSnapshot().hasExternalReference(path.join(tempDir, 'Types.smpcat'))).toBe(true);
+        const nativeUri = URI.file(path.join(tempDir, 'TYPES.xsmpcat'));
+        expect(mirrors.isMirrorRelevantChange(nativeUri, FileChangeType.Created)).toBe(true);
+        expect(mirrors.isMirrorRelevantChange(nativeUri, FileChangeType.Deleted)).toBe(true);
+        expect(mirrors.isMirrorRelevantChange(nativeUri, FileChangeType.Changed)).toBe(false);
+    });
+
+    test('refreshes when a native homologue is added, renamed or deleted', async () => {
+        const projectDir = createProject(tempDir, 'app', "project 'app'\nsource 'src'\n", {
+            'src/types.smpcat': createSmpCatalogue('types', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
+            'src/types.xsmpcat': 'catalogue Native\n',
+        });
+        const services = await createBuiltinTestXsmpServices(NodeFileSystem);
+        await services.shared.workspace.WorkspaceManager.initializeWorkspace([{ name: 'app', uri: URI.file(projectDir).toString() }]);
+        const mirrors = services.shared.SmpMirrorManager;
+        const nativePath = path.join(projectDir, 'src', 'types.xsmpcat');
+        const renamedPath = path.join(projectDir, 'src', 'renamed.xsmpcat');
+        const mirrorUri = services.shared.SmpWorkspaceIndex.getMirrorUriForSourcePath(path.join(projectDir, 'src', 'types.smpcat'))!;
+        const update = services.shared.lsp.DocumentUpdateHandler as XsmpDocumentUpdateHandler;
+        expect(mirrors.getMirrorContent(mirrorUri)).toBeUndefined();
+        fs.renameSync(nativePath, renamedPath);
+        await update.updateWatchedFiles({ changes: [
+            { uri: URI.file(nativePath).toString(), type: FileChangeType.Deleted },
+            { uri: URI.file(renamedPath).toString(), type: FileChangeType.Created },
+        ] });
+        expect(mirrors.getMirrorContent(mirrorUri)).toContain('catalogue types');
+        fs.writeFileSync(nativePath, 'catalogue NativeAgain\n');
+        await update.updateWatchedFiles({ changes: [{ uri: URI.file(nativePath).toString(), type: FileChangeType.Created }] });
+        expect(mirrors.getMirrorContent(mirrorUri)).toBeUndefined();
+        fs.unlinkSync(nativePath);
+        await update.updateWatchedFiles({ changes: [{ uri: URI.file(nativePath).toString(), type: FileChangeType.Deleted }] });
+        expect(mirrors.getMirrorContent(mirrorUri)).toContain('catalogue types');
+    });
+
+    test.each([
+        ['src/added.smpcat', 'src', true],
+        ['smdl-gen/added.smpcat', '.', false],
+        ['smdl-gen/added.smpcat', 'smdl-gen', true],
+        ['src/.hidden/added.smpcat', 'src', false],
+        ['src-other/added.smpcat', 'src', false],
+    ])('filters new SMP source %s for declared directory %s', async (file, source, expected) => {
+        const projectDir = createProject(tempDir, 'app', `project 'app'\nsource '${source}'\n`, {});
+        const services = await createBuiltinTestXsmpServices(NodeFileSystem);
+        await services.shared.workspace.WorkspaceManager.initializeWorkspace([{ name: 'app', uri: URI.file(projectDir).toString() }]);
+        const sourcePath = path.join(projectDir, file);
+        fs.mkdirSync(path.dirname(sourcePath), { recursive: true });
+        fs.writeFileSync(sourcePath, createSmpCatalogue('added', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'));
+        const refresh = vi.spyOn(services.shared.SmpMirrorManager, 'refreshWorkspaceMirrors');
+        await (services.shared.lsp.DocumentUpdateHandler as XsmpDocumentUpdateHandler).updateWatchedFiles({
+            changes: [{ uri: URI.file(sourcePath).toString(), type: FileChangeType.Created }],
+        });
+        expect(refresh).toHaveBeenCalledTimes(expected ? 1 : 0);
+        expect(services.shared.SmpMirrorManager.getMirrorContent(createSmpMirrorDescriptor(sourcePath)!.mirrorUri) !== undefined).toBe(expected);
+    });
+
+    test.each(['dependency.smpcat', '../smdl-gen/dependency.smpcat'])('refreshes external dependency %s outside source roots', async href => {
+        const catalogue = createSmpCatalogue('Owner', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa').replace(
+            'Uuid="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"/>',
+            `Uuid="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"><Field Name="value"><Type xlink:href="${href}#demo.Type"/></Field></Type>`,
+        );
+        const projectDir = createProject(tempDir, 'app', "project 'app'\nsource 'src'\n", { 'src/owner.smpcat': catalogue });
+        const services = await createBuiltinTestXsmpServices(NodeFileSystem);
+        await services.shared.workspace.WorkspaceManager.initializeWorkspace([{ name: 'app', uri: URI.file(projectDir).toString() }]);
+        const mirrors = services.shared.SmpMirrorManager;
+        const ownerPath = path.join(projectDir, 'src', 'owner.smpcat');
+        const ownerUri = URI.file(ownerPath);
+        const mirrorUri = createSmpMirrorDescriptor(ownerPath)!.mirrorUri;
+        const update = services.shared.lsp.DocumentUpdateHandler as XsmpDocumentUpdateHandler;
+        const dependencyPath = path.join(projectDir, 'smdl-gen', 'dependency.smpcat');
+        const otherPath = path.join(projectDir, 'other', 'dependency.smpcat');
+        async function change(file: string, type: FileChangeType, text?: string) {
+            if (text === undefined) fs.unlinkSync(file);
+            else {
+                fs.mkdirSync(path.dirname(file), { recursive: true });
+                fs.writeFileSync(file, text);
+            }
+            await update.updateWatchedFiles({ changes: [{ uri: URI.file(file).toString(), type }] });
+        }
+        const dependency = createSmpCatalogue('Type', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb').replaceAll('Name="Type"', 'Name="External"');
+        expect(mirrors.getMirrorContent(mirrorUri)).not.toContain('demo.External');
+        await change(dependencyPath, FileChangeType.Created, dependency);
+        expect(mirrors.getMirrorContent(mirrorUri)).toContain('field demo.External value');
+        const renamed = dependency.replaceAll('Name="External"', 'Name="Renamed"');
+        await change(dependencyPath, FileChangeType.Changed, renamed);
+        expect(mirrors.getMirrorContent(mirrorUri)).toContain('field demo.Renamed value');
+        await change(otherPath, FileChangeType.Created, dependency);
+        expect(mirrors.getSourceDiagnostics(ownerUri).some(d => d.message.includes('Multiple SMP files match'))).toBe(href === 'dependency.smpcat');
+        await change(otherPath, FileChangeType.Deleted);
+        expect(mirrors.getMirrorContent(mirrorUri)).toContain('field demo.Renamed value');
+        await change(dependencyPath, FileChangeType.Deleted);
+        expect(mirrors.getMirrorContent(mirrorUri)).not.toContain('demo.Renamed');
+        await change(dependencyPath, FileChangeType.Created, dependency);
+        expect(mirrors.getMirrorContent(mirrorUri)).toContain('field demo.External value');
+    });
+
+    test('refreshes mirrors when a project source declaration changes', async () => {
+        const projectDir = createProject(tempDir, 'app', "project 'app'\nsource 'src'\n", {
+            'other/types.smpcat': createSmpCatalogue('types', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
+        });
+        const services = await createBuiltinTestXsmpServices(NodeFileSystem);
+        await services.shared.workspace.WorkspaceManager.initializeWorkspace([{ name: 'app', uri: URI.file(projectDir).toString() }]);
+        const mirrorUri = createSmpMirrorDescriptor(path.join(projectDir, 'other', 'types.smpcat'))!.mirrorUri;
+        expect(services.shared.SmpMirrorManager.getMirrorContent(mirrorUri)).toBeUndefined();
+        const projectPath = path.join(projectDir, 'xsmp.project');
+        fs.writeFileSync(projectPath, "project 'app'\nsource 'other'\n");
+        await (services.shared.lsp.DocumentUpdateHandler as XsmpDocumentUpdateHandler).updateWatchedFiles({
+            changes: [{ uri: URI.file(projectPath).toString(), type: FileChangeType.Changed }],
+        });
+        expect(services.shared.SmpMirrorManager.getMirrorContent(mirrorUri)).toContain('catalogue types');
+    });
+
     test('creates XSMP mirrors for SMP source files and resolves XSMP references against them', async () => {
         const projectDir = createProject(tempDir, 'app', `
 project 'app'
