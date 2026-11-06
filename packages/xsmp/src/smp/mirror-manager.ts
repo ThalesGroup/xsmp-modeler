@@ -6,7 +6,7 @@ import {
     URI,
     UriUtils,
 } from 'langium';
-import { DiagnosticSeverity, type Diagnostic, Range } from 'vscode-languageserver';
+import { DiagnosticSeverity, FileChangeType, type Diagnostic, Range } from 'vscode-languageserver';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as ast from '../generated/ast-partial.js';
@@ -299,17 +299,44 @@ export class SmpMirrorManager {
         };
     }
 
-    isMirrorRelevantUri(uri: URI): boolean {
+    isMirrorRelevantChange(uri: URI, type: FileChangeType): boolean {
         if (uri.scheme !== 'file') {
             return false;
         }
-        return path.basename(uri.fsPath) === 'xsmp.project'
-            || isSmpSourceFilePath(uri.fsPath)
-            || isXsmpSourceFilePath(uri.fsPath);
+        const sourcePath = uri.fsPath;
+        if (path.basename(sourcePath) === 'xsmp.project') {
+            return true;
+        }
+        if (isXsmpSourceFilePath(sourcePath)) {
+            // Native text is not read by the XML importer. Adding/removing a
+            // homologue can change which source supplies the mirror.
+            return type !== FileChangeType.Changed;
+        }
+        if (!isSmpSourceFilePath(sourcePath)) {
+            return false;
+        }
+        if (this.workspaceIndex.hasEligibleSourcePath(sourcePath)
+            || this.workspaceIndex.hasExternalReference(sourcePath)) {
+            return true;
+        }
+        for (const directory of this.getSourceDirectories()) {
+            if (isSameOrContainedPath(directory, sourcePath, path)
+                && !path.relative(directory, sourcePath).split(path.sep).some(isIgnoredSourceEntry)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     protected async collectEligibleSourcePaths(): Promise<string[]> {
         const sourcePaths = new Set<string>();
+        for (const directory of this.getSourceDirectories()) {
+            await collectSmpSourceFiles(directory, sourcePaths);
+        }
+        return [...sourcePaths].sort((left, right) => left.localeCompare(right));
+    }
+
+    protected *getSourceDirectories(): Iterable<string> {
         for (const project of this.services.workspace.ProjectManager.getProjects()) {
             const projectDocument = project.$document;
             if (!projectDocument) {
@@ -321,13 +348,11 @@ export class SmpMirrorManager {
                     continue;
                 }
                 const sourceDirectory = path.resolve(projectDirectory, normalizePath(source.path));
-                if (!isSameOrContainedPath(projectDirectory, sourceDirectory, path)) {
-                    continue;
+                if (isSameOrContainedPath(projectDirectory, sourceDirectory, path)) {
+                    yield sourceDirectory;
                 }
-                await collectSmpSourceFiles(sourceDirectory, sourcePaths);
             }
         }
-        return [...sourcePaths].sort((left, right) => left.localeCompare(right));
     }
 
     protected sourceUriByString(uri: string): URI {
@@ -351,6 +376,10 @@ export class SmpMirrorManager {
     }
 }
 
+function isIgnoredSourceEntry(name: string): boolean {
+    return name.startsWith('.') || ignoredDirectories.has(name);
+}
+
 async function collectSmpSourceFiles(currentDirectory: string, sourcePaths: Set<string>): Promise<void> {
     let entries;
     try {
@@ -360,7 +389,7 @@ async function collectSmpSourceFiles(currentDirectory: string, sourcePaths: Set<
     }
 
     await Promise.all(entries.map(async entry => {
-        if (entry.name.startsWith('.') || ignoredDirectories.has(entry.name)) {
+        if (isIgnoredSourceEntry(entry.name)) {
             return;
         }
 

@@ -13,6 +13,7 @@ export class SmpWorkspaceIndex {
     protected readonly scannedSourcePaths = new Set<string>();
     protected readonly indexedSearchRoots = new Set<string>();
     protected readonly externalDocumentIndexCache = new Map<string, object | null>();
+    protected readonly referencedFileNames = new Set<string>();
     protected searchIndexUpdate = Promise.resolve();
 
     createSnapshot(): SmpWorkspaceIndex {
@@ -25,11 +26,13 @@ export class SmpWorkspaceIndex {
         replaceSet(this.scannedSourcePaths, other.scannedSourcePaths);
         replaceSet(this.indexedSearchRoots, other.indexedSearchRoots);
         this.setEligibleSourcePaths(other.getEligibleSourcePaths());
+        replaceSet(this.referencedFileNames, other.referencedFileNames);
     }
 
     setEligibleSourcePaths(sourcePaths: readonly string[]): void {
         this.descriptorsBySourcePath.clear();
         this.sourceUriByMirrorUri.clear();
+        this.referencedFileNames.clear();
         this.externalDocumentIndexCache.clear();
 
         for (const sourcePath of sourcePaths) {
@@ -63,6 +66,16 @@ export class SmpWorkspaceIndex {
 
     hasEligibleSourcePath(sourcePath: string): boolean {
         return this.descriptorsBySourcePath.has(path.resolve(sourcePath));
+    }
+
+    recordExternalReference(fileName: string): void {
+        // This is an invalidation filter, not name resolution: prefer an extra
+        // refresh to a missed change on a case-insensitive filesystem.
+        this.referencedFileNames.add(fileName.toLowerCase());
+    }
+
+    hasExternalReference(sourcePath: string): boolean {
+        return this.referencedFileNames.has(path.basename(sourcePath).toLowerCase());
     }
 
     async rebuildSearchRoots(searchRoots: readonly string[]): Promise<void> {

@@ -58,11 +58,12 @@ export class XsmpDocumentUpdateHandler extends DefaultDocumentUpdateHandler {
             .distinct(change => change.uri)
             .map(change => change.parsedUri)
             .toArray();
-        const requiresMirrorRefresh = watchedChanges.some(change => this.smpMirrorManager.isMirrorRelevantUri(change.parsedUri));
         let completedMirrorRefresh: SmpMirrorRefreshResult | undefined;
 
         await this.workspaceManager.ready;
         await this.workspaceLock.write(async token => {
+            const requiresMirrorRefresh = watchedChanges.some(change =>
+                this.smpMirrorManager.isMirrorRelevantChange(change.parsedUri, change.type));
             // A watched-file event is a delta that a later write cannot reconstruct. Once mirrors
             // are involved, keep the source update, refresh and dependent rebuild atomic.
             const updateToken = requiresMirrorRefresh ? Cancellation.CancellationToken.None : token;

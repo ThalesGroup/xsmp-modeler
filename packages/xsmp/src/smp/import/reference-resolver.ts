@@ -213,6 +213,8 @@ export class SmpExternalReferenceResolver {
         }
 
         const normalizedPart = normalizeSearchPath(filePart);
+        // Retain missing references too: a later file creation can resolve them.
+        this.workspaceIndex.recordExternalReference(path.basename(normalizedPart));
         const directCandidates = new Set<string>();
         if (path.isAbsolute(normalizedPart)) {
             directCandidates.add(path.resolve(normalizedPart));
