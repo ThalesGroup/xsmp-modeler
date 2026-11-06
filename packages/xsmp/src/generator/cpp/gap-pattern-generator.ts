@@ -200,6 +200,9 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
                     ...this.sourceIncludesParameter(element.returnParameter),
                     ...element.parameter.flatMap(parameter => this.sourceIncludesParameter(parameter)),
                 ] : []).filter(include => include !== type)) : undefined}
+                ${ast.isWithBody(type) && type.elements.some(element => ast.isOperation(element)
+                    ? element.returnParameter && this.attrHelper.isByReference(element.returnParameter)
+                    : ast.isProperty(element) && this.attrHelper.isByReference(element)) ? '#include <stdexcept>' : undefined}
 
                 ${this.namespace(type, body)}
                 `;
@@ -1011,13 +1014,17 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
     protected override defineOperation(op: ast.Operation, gen = false): string | undefined {
         if (this.attrHelper.isConstructor(op)) // constructor declared in gen folder
             return undefined;
+        const result = op.returnParameter;
         const isStatic = this.attrHelper.isStatic(op);
         const isVirtual = this.attrHelper.isVirtual(op);
         const generatedOwner = gen && (isStatic || !isVirtual);
+        const needsReference = result && this.attrHelper.isByReference(result)
+            && (result.type.ref !== op.$container || this.attrHelper.isByPointer(result) || isStatic || generatedOwner
+                || this.attrHelper.isConst(op) && !this.attrHelper.isConst(result));
         if (isStatic || !isVirtual || !this.attrHelper.isAbstract(op))
             return `${this.type(op.returnParameter)} ${this.name(op.$container, generatedOwner)}::${this.operationName(op)}(${op.parameter.map(param => this.defineParameter(param)).join(', ')})${!isStatic && this.attrHelper.isConst(op) ? ' const' : ''} {
     // TODO
-    ${op.returnParameter ? `return ${this.defaultReturn(op.returnParameter, generatedOwner)};` : ''}
+    ${needsReference ? 'throw std::logic_error("Operation is not implemented.");' : result ? `return ${this.defaultReturn(result, generatedOwner)};` : ''}
 }
 `;
         return undefined;
@@ -1244,8 +1251,10 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
     protected definePropertyGetter(element: ast.Property): string | undefined {
         return s`
             ${this.type(element)} ${element.$container.name}::get_${element.name}()${this.attrHelper.isConstGetter(element) ? ' const' : ''}{
-                ${this.type(element)} ret {};
-                return ret;
+                ${this.attrHelper.isByReference(element) ? 'throw std::logic_error("Property getter is not implemented.");' : s`
+                    ${this.type(element)} ret {};
+                    return ret;
+                    `}
             }
             `;
     }
