@@ -1380,8 +1380,8 @@ export class SmpGenerator implements XsmpGenerator {
             Description: this.docHelper.getDescription(schedule),
             Metadata: schedule.attributes.map(attribute => this.convertMetadata(attribute)),
             Parameter: schedule.parameters.map(parameter => this.convertTemplateParameter(parameter)),
-            '@EpochTime': schedule.epochTime,
-            '@MissionStart': schedule.missionStart,
+            EpochTime: schedule.epochTime,
+            MissionStart: schedule.missionStart,
             Task: schedule.elements.filter(ast.isTask).map(task => this.convertTask(task)),
             Event: schedule.elements.filter(ast.isEvent).map(event => this.convertEvent(event)),
         };

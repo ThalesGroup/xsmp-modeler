@@ -470,6 +470,38 @@ describe('SMP importer', () => {
         expect(regenerated).toBe(fs.readFileSync(path.resolve(__dirname, 'test.smpsed'), 'utf-8'));
     });
 
+    test.each(['elements', 'legacy attributes', 'both'])('preserves schedule origins from %s and exports canonical elements', async (representation) => {
+        const epochTime = '2025-01-01T12:00:00.123456789Z';
+        const missionStart = '2025-01-02T08:30:00+02:30';
+        const attributes = representation === 'elements' ? '' : representation === 'both'
+            ? ' EpochTime="2000-01-01T12:00:00Z" MissionStart="2000-01-02T00:00:00Z"'
+            : ` EpochTime="${epochTime}" MissionStart="${missionStart}"`;
+        const elements = representation === 'legacy attributes' ? ''
+            : `<EpochTime>${epochTime}</EpochTime><MissionStart>${missionStart}</MissionStart>`;
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-smp-import-sed-origins-'));
+        tempDirs.push(tempDir);
+        const inputPath = path.join(tempDir, 'origins.smpsed');
+        fs.writeFileSync(inputPath, `<Schedule:Schedule xmlns:Schedule="http://www.ecss.nl/smp/2025/Smdl/Schedule" Id="Origins" Name="Origins"${attributes}>
+${elements}
+</Schedule:Schedule>`, 'utf-8');
+
+        const result = await new SmpImportService(services.shared).importFile({ inputPath });
+        const document = await parseSchedule(fs.readFileSync(result.outputPath, 'utf-8'), {
+            documentUri: URI.file(result.outputPath).toString()
+        });
+        documents.push(document);
+        expect(result.warnings).toEqual([]);
+        expect(document.parseResult.parserErrors).toHaveLength(0);
+        expect(document.parseResult.value.epochTime).toBe(epochTime);
+        expect(document.parseResult.value.missionStart).toBe(missionStart);
+
+        const xml = await new SmpGenerator(services.shared).doGenerateSchedule(document.parseResult.value, undefined);
+        expect(xml).toContain(`<EpochTime>${epochTime}</EpochTime>`);
+        expect(xml).toContain(`<MissionStart>${missionStart}</MissionStart>`);
+        expect(xml).not.toContain(' EpochTime=');
+        expect(xml).not.toContain(' MissionStart=');
+    });
+
     test('imports schedule headers, task execution, and unsupported nodes into readable schedule syntax', async () => {
         const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-smp-import-sed-runtime-'));
         tempDirs.push(tempDir);

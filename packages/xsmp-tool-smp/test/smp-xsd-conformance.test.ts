@@ -139,7 +139,7 @@ Root: pkg.Comp
   });
 
   test('generated schedule file conforms to the Level 2 XSD', async () => {
-    const source = `schedule <count = 1> Demo
+    const source = `schedule <count = 1> Demo epoch "2025-01-01T12:00:00Z" mission "2025-01-02T00:00:00Z"
 
 task Child
 {

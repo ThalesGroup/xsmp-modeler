@@ -134,6 +134,33 @@ task Main on demo.Root
     expect(actualXml).toContain('<Parameter Parameter="nextRatio">');
     expect(actualXml).toContain('<Value xsi:type="Types:Float64Value" Value="1.5"/>');
   });
+
+  test.each([
+    { name: 'no origins', header: '', epochTime: undefined, missionStart: undefined },
+    { name: 'epoch only', header: 'epoch "2025-01-01T12:00:00.123456789Z"', epochTime: '2025-01-01T12:00:00.123456789Z', missionStart: undefined },
+    { name: 'mission only', header: 'mission "2025-01-02T08:30:00+02:30"', epochTime: undefined, missionStart: '2025-01-02T08:30:00+02:30' },
+    { name: 'both origins', header: 'mission "2025-01-02T08:30:00+02:30" epoch "2025-01-01T12:00:00.123456789Z"', epochTime: '2025-01-01T12:00:00.123456789Z', missionStart: '2025-01-02T08:30:00+02:30' },
+  ])('serializes $name as ordered schedule elements', async ({ name, header, epochTime, missionStart }) => {
+    const document = await parse(`schedule <Count = 1> Timing ${header}
+
+task Main
+{
+}
+
+event Main epoch "2025-01-03T00:00:00Z"
+`, { documentUri: `origins-${name}.xsmpsed` });
+    documents.push(document);
+    expect(checkDocumentValid(document)).toBeUndefined();
+
+    const xml = await new SmpGenerator(services.shared).doGenerateSchedule(document.parseResult.value, undefined);
+    const root = createXml(xml).root();
+    expect(root.filter(child => child.node.nodeType === 1).map(child => child.node.nodeName)).toEqual([
+      'Parameter', ...(epochTime ? ['EpochTime'] : []), ...(missionStart ? ['MissionStart'] : []), 'Task', 'Event'
+    ]);
+    expect(root.find(child => child.node.nodeName === 'EpochTime')?.node.textContent).toBe(epochTime);
+    expect(root.find(child => child.node.nodeName === 'MissionStart')?.node.textContent).toBe(missionStart);
+    expect(xml).toContain('EpochTime="2025-01-03T00:00:00Z"');
+  });
 });
 
 async function parseInProject(source: string): Promise<LangiumDocument<ast.Schedule>> {

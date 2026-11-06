@@ -14,8 +14,8 @@ export interface Schedule extends Document {
   '@xmlns:xsi': string;
   '@xmlns:xlink': string;
   Parameter?: TemplateArgument[];
-  '@EpochTime'?: string;
-  '@MissionStart'?: string;
+  EpochTime?: string;
+  MissionStart?: string;
   Task?: Task[];
   Event?: Event[];
 }
