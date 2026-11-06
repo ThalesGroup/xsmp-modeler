@@ -1,0 +1,19 @@
+catalogue ReferenceStubs
+namespace references {
+    /** @uuid 84000000-0000-4000-8000-000000000001 */
+    public interface AbstractResult { def void run() }
+    /** @uuid 84000000-0000-4000-8000-000000000002 */
+    public model Model {
+        @ByReference readOnly property Int32 reference
+        @ByReference readOnly property AbstractResult abstractResult
+        def @ByReference Int32 scalar()
+        def @Const @ByReference Int32 constantScalar()
+        def @ByReference AbstractResult abstractValue()
+        @Static def @ByReference Model staticSelf()
+        @Virtual(false) def @ByReference Model nonVirtualSelf()
+        def @ByReference Model self()
+        @Const def @ByReference Model mutableSelf()
+        def @ByPointer Int32 pointer()
+        def Int32 value()
+    }
+}
