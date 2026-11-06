@@ -599,12 +599,93 @@ function binaryOperationFunction<T, U>(left: Value<T>, right: Value<T>, feature:
 }
 
 function binaryOperation<T>(expression: ast.BinaryOperation, accept?: ValidationAcceptor): Value<T> | undefined {
-
-    const left = getValue(expression.leftOperand, accept),
-        right = getValue(expression.rightOperand, accept);
+    const left = getValue(expression.leftOperand, accept);
+    const condition = expression.feature === '&&' || expression.feature === '||'
+        ? left?.boolValue()?.getValue() : undefined;
+    const unused = expression.feature === '&&' && condition === false
+        || expression.feature === '||' && condition === true;
+    const right = unused ? checkUnevaluatedExpression(expression.rightOperand, accept)
+        : getValue(expression.rightOperand, accept);
     if (!left || !right || !expression.feature) {
         return undefined;
     }
+
+    return applyBinaryOperation(expression, left, right, accept);
+}
+
+/** Values used only to check operator compatibility, never to evaluate an unused branch. */
+function typeValue(type: PTK): Value<unknown> | undefined {
+    if (isIntegralType(type)) return new IntegralValue(1n, type);
+    if (isFloatingType(type)) return new FloatValue(1, type);
+    if (type === PTK.Bool) return new BoolValue(true);
+    if (type === PTK.String8) return new StringValue('');
+    if (type === PTK.Char8) return new CharValue('a');
+    return undefined;
+}
+
+/** Check the complete branch, including nested logical operators, without following initializers. */
+function checkUnevaluatedExpression(expression: ast.Expression | undefined, accept?: ValidationAcceptor): Value<unknown> | undefined {
+    if (!expression) return undefined;
+    if (ast.isNamedElementReference(expression) && ast.isConstant(expression.value?.ref)) {
+        const constant = expression.value.ref;
+        if (accept && !isConstantVisibleFrom(expression, constant)) {
+            accept('error', 'The Constant is not visible.', { node: expression });
+        }
+        const type = constant.type?.ref;
+        if (ast.isEnumeration(type)) return type.literal[0] ? new EnumerationLiteralValue(type.literal[0]) : undefined;
+        return type ? typeValue(getPTK(type)) : undefined;
+    }
+    if (ast.isParenthesizedExpression(expression)) return checkUnevaluatedExpression(expression.expr, accept);
+    if (ast.isBuiltInFunction(expression)) {
+        const name = expression.name ?? '';
+        const float32 = name.endsWith('f');
+        const known = float32 ? builtInFloat32Functions.has(name as BuiltInFloat32Function)
+            : builtInFloat64Functions.has(name as BuiltInFloat64Function);
+        if (!known) {
+            accept?.('error', `Unknown built-in function '${name}'.`, { node: expression, property: ast.BuiltInFunction.name });
+            return undefined;
+        }
+        if (!expression.argument) {
+            accept?.('error', 'Missing argument.', { node: expression, property: ast.BuiltInFunction.argument });
+            return undefined;
+        }
+        const argument = checkUnevaluatedExpression(expression.argument, accept);
+        const type = float32 ? PTK.Float32 : PTK.Float64;
+        if (!argument) return undefined;
+        if (!argument.floatValue(type)) {
+            accept?.('error', `${getTypeName(argument.primitiveTypeKind())} cannot be converted to ${getTypeName(type)}.`, { node: expression.argument });
+            return undefined;
+        }
+        return typeValue(type);
+    }
+    if (ast.isBuiltInConstant(expression)) {
+        if (!expression.name || !builtInConstants.has(expression.name as BuiltInConstants)) {
+            accept?.('error', `Unknown built-in constant '${expression.name}'.`, { node: expression, property: ast.BuiltInConstant.name });
+            return undefined;
+        }
+        return typeValue(PTK.Float64);
+    }
+    let value: Value<unknown> | undefined;
+    if (ast.isBinaryOperation(expression)) {
+        const left = checkUnevaluatedExpression(expression.leftOperand, accept);
+        const right = checkUnevaluatedExpression(expression.rightOperand, accept);
+        if (left && right) value = applyBinaryOperation(expression, left, right, accept);
+    } else if (ast.isUnaryOperation(expression)) {
+        const operand = checkUnevaluatedExpression(expression.operand, accept);
+        if (operand && expression.feature) {
+            value = unaryOperationFunction(operand, expression.feature);
+            if (!value) accept?.('error', `Unary operator '${expression.feature}' is not supported for operand of type '${PTK[operand.primitiveTypeKind()]}'.`, { node: expression });
+        }
+    } else {
+        value = getValue(expression, accept);
+    }
+    // Reset every intermediate result too: e.g. the type of 1 / (1 - 1) is
+    // checked with 1 / 1, without producing a value-dependent diagnostic.
+    return value ? typeValue(value.primitiveTypeKind()) ?? value : undefined;
+}
+
+function applyBinaryOperation<T>(expression: ast.BinaryOperation, left: Value<unknown>, right: Value<unknown>, accept?: ValidationAcceptor): Value<T> | undefined {
+    if (!expression.feature) return undefined;
 
     let result: Value<T> | undefined;
     try {
