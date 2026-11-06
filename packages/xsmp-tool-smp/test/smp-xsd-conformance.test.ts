@@ -114,7 +114,9 @@ include Other at child
     const source = `assembly <count = 1> Demo
 configure child/path
 {
+    subscribe OnTick -> "Tick"
     property flag = true
+    count = 1i32
 }
 Root: pkg.Comp
 {
