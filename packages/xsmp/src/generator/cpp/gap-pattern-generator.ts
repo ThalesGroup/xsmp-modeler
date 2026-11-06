@@ -50,7 +50,7 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
         if (useGenerationGapPattern) {
             acceptTask(() => this.generateOptionalFile(files, 'userInclude', header, () => this.generateHeader(header, type, notice), true));
         }
-        acceptTask(() => this.generateOptionalFile(files, 'userSource', source, () => this.generateSource(source, type, notice), true));
+        acceptTask(() => this.generateOptionalFile(files, 'userSource', source, () => this.generateSource(source, type, notice, useGenerationGapPattern), true));
 
         const qualifiedNameGen = this.name(qualifiedName, useGenerationGapPattern);
         const generatedHeader = qualifiedNameGen + '.h';
@@ -148,14 +148,14 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
         return undefined;
     }
 
-    public async generateSource(path: string, type: ast.Type, notice: string | undefined) {
+    public async generateSource(path: string, type: ast.Type, notice: string | undefined, gen = this.useGenerationGapPattern(type)) {
         let body: string | undefined;
         switch (type.$type) {
             case ast.Class.$type:
-                body = await this.generateClassSource(type as ast.Class);
+                body = await this.generateClassSource(type as ast.Class, gen);
                 break;
             case ast.Exception.$type:
-                body = await this.generateExceptionSource(type as ast.Exception);
+                body = await this.generateExceptionSource(type as ast.Exception, gen);
                 break;
             case ast.Structure.$type:
                 body = await this.generateStructureSource(type as ast.Structure);
@@ -168,7 +168,7 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
                 break;
             case ast.Model.$type:
             case ast.Service.$type:
-                body = await this.generateComponentSource(type as ast.Component);
+                body = await this.generateComponentSource(type as ast.Component, gen);
                 break;
             case ast.Interface.$type:
                 body = await this.generateInterfaceSource(type as ast.Interface);
@@ -371,9 +371,9 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
             };
         `;
     }
-    async generateClassSource(type: ast.Class): Promise<string | undefined> {
+    async generateClassSource(type: ast.Class, gen = false): Promise<string | undefined> {
         return s`
-            ${this.defineMembers(type, false)}
+            ${this.defineMembers(type, gen)}
             `;
     }
     async generateClassHeaderGen(type: ast.Class, gen: boolean): Promise<string | undefined> {
@@ -434,8 +434,8 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
         return this.generateClassHeader(type);
     }
 
-    async generateExceptionSource(type: ast.Exception): Promise<string | undefined> {
-        return this.generateClassSource(type);
+    async generateExceptionSource(type: ast.Exception, gen = false): Promise<string | undefined> {
+        return this.generateClassSource(type, gen);
     }
 
     async generateExceptionHeaderGen(type: ast.Exception, gen: boolean): Promise<string | undefined> {
@@ -738,7 +738,7 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
         `;
     }
 
-    async generateComponentSource(type: ast.Component): Promise<string | undefined> {
+    async generateComponentSource(type: ast.Component, gen = true): Promise<string | undefined> {
         return s`
         void ${type.name}::DoPublish( ::Smp::IPublication* receiver) {
         }
@@ -751,7 +751,7 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
         
         void ${type.name}::DoDisconnect() {
         }
-        ${this.defineMembers(type, false)}
+        ${this.defineMembers(type, gen)}
         `;
     }
 
@@ -990,23 +990,27 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
             return `${this.comment(op)}${this.type(op.returnParameter)} ${this.operationName(op)}(${op.parameter.map(param => this.declareParameter(param)).join(', ')})${this.attrHelper.isConst(op) ? ' const' : ''} override;`;
         return undefined;
     }
-    defaultReturn(param: ast.ReturnParameter): string {
+    defaultReturn(param: ast.ReturnParameter, generatedOwner = false): string {
+        const instance = !generatedOwner && !this.attrHelper.isStatic(param.$container) && param.type.ref === param.$container.$container;
         if (this.attrHelper.isByPointer(param)) {
-            if (param.type.ref === param.$container.$container)
+            if (instance)
                 return 'this';
             return 'nullptr';
         }
-        if (param.type.ref === param.$container.$container)
+        if (instance)
             return '*this';
         return this.getDefaultValueForType(param.type.ref);
     }
-    protected override defineOperation(op: ast.Operation): string | undefined {
+    protected override defineOperation(op: ast.Operation, gen = false): string | undefined {
         if (this.attrHelper.isConstructor(op)) // constructor declared in gen folder
             return undefined;
-        if (this.attrHelper.isStatic(op) || !this.attrHelper.isVirtual(op) || !this.attrHelper.isAbstract(op))
-            return `${this.type(op.returnParameter)} ${op.$container.name}::${this.operationName(op)}(${op.parameter.map(param => this.defineParameter(param)).join(', ')})${this.attrHelper.isConst(op) ? ' const' : ''} {
+        const isStatic = this.attrHelper.isStatic(op);
+        const isVirtual = this.attrHelper.isVirtual(op);
+        const generatedOwner = gen && (isStatic || !isVirtual);
+        if (isStatic || !isVirtual || !this.attrHelper.isAbstract(op))
+            return `${this.type(op.returnParameter)} ${this.name(op.$container, generatedOwner)}::${this.operationName(op)}(${op.parameter.map(param => this.defineParameter(param)).join(', ')})${!isStatic && this.attrHelper.isConst(op) ? ' const' : ''} {
     // TODO
-    ${op.returnParameter ? `return ${this.defaultReturn(op.returnParameter)};` : ''}
+    ${op.returnParameter ? `return ${this.defaultReturn(op.returnParameter, generatedOwner)};` : ''}
 }
 `;
         return undefined;
@@ -1171,8 +1175,8 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
         return buffer.join('\n');
     }
 
-    protected defineMembers(container: ast.WithBody, _useGenPattern: boolean): string {
-        return container.elements.map(element => this.define(element)).filter(v => v !== undefined).join('\n');
+    protected defineMembers(container: ast.WithBody, useGenPattern: boolean): string {
+        return container.elements.map(element => ast.isOperation(element) ? this.defineOperation(element, useGenPattern) : this.define(element)).filter(v => v !== undefined).join('\n');
     }
     protected defineMembersGen(container: ast.WithBody, useGenPattern: boolean): string {
         return container.elements.map(element => this.defineGen(element, useGenPattern)).filter(v => v !== undefined).join('\n');

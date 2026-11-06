@@ -1,0 +1,22 @@
+catalogue StaticOperations
+namespace operations {
+    /** @uuid 87000000-0000-4000-8000-000000000001 */
+    public model Model {
+        @Static def void shared()
+        @Static def Model self()
+        @Virtual(false) def Model nonVirtualSelf()
+        @Virtual(false) def Int32 nonVirtual()
+        def Int32 ordinary()
+    }
+    /** @uuid 87000000-0000-4000-8000-000000000002 */
+    public class Value {
+        @Static def Int32 shared()
+        def void nonVirtual()
+    }
+    /** @uuid 87000000-0000-4000-8000-000000000003 */
+    public class GapValue {
+        @Static def Int32 shared()
+        def void nonVirtual()
+        @Virtual def void ordinary()
+    }
+}
