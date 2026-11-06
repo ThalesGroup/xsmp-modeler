@@ -65,7 +65,7 @@
 [104:8..104:17]: An Operation shall not be both Static and Abstract.
 [105:83..105:98]: Duplicated parameter name.
 [105:153..105:154]: Duplicated parameter name.
-[105:145..105:154]: The Parameter requires a default vallue.
+[105:145..105:154]: The Parameter requires a default value.
 [105:47..105:51]: The PrimitiveType Smp.Bool is not visible.
 [105:22..105:32]: A Parameter shall not be both ByPointer and ByReference.
 [105:74..105:82]: Deprecated.
