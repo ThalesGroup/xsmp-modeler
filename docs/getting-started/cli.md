@@ -4,6 +4,10 @@ XSMP Modeler ships with a project-oriented CLI.
 
 The `validate` and `generate` commands work at project level. They load the target project, scan a workspace root to discover related `xsmp.project` files, resolve dependencies by project name, check the target project together with its visible dependencies, and can run the generators selected for that project.
 
+XSMP source files and `xsmp.project` must use UTF-8. Invalid byte sequences stop
+the command with the file path and an encoding error before generation starts.
+Save a file from another encoding as UTF-8 before running the CLI.
+
 ## Main commands
 
 The CLI provides these commands:

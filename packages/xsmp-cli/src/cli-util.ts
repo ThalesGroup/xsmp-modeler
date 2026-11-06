@@ -1,5 +1,4 @@
 import { AstUtils, Cancellation, type LangiumDocument, type WorkspaceFolder } from 'langium';
-import { NodeFileSystem } from 'langium/node';
 import { DiagnosticSeverity, type Diagnostic } from 'vscode-languageserver';
 import { URI } from 'vscode-uri';
 import * as fs from 'node:fs/promises';
@@ -8,6 +7,10 @@ import { createInterface } from 'node:readline/promises';
 import * as ast from '@xsmp/core/ast-partial';
 import { createXsmpServices, isSmpMirrorDocument } from '@xsmp/core';
 import { getCliBuiltinContributionPackages, getCliBuiltinDirectory } from './builtin-packages.js';
+import { CliFileSystemProvider } from './file-system.js';
+import { CliError } from './cli-error.js';
+
+export { CliError } from './cli-error.js';
 
 const ignoredWorkspaceDirectories = new Set([
     '.git',
@@ -91,16 +94,6 @@ export interface CliDiagnostic {
 
 export interface CliMissingDependencyDiagnostic extends CliDiagnostic {
     readonly dependencyName: string;
-}
-
-export class CliError extends Error {
-    readonly exitCode: 1 | 2;
-
-    constructor(message: string, exitCode: 1 | 2 = 2) {
-        super(message);
-        this.name = 'CliError';
-        this.exitCode = exitCode;
-    }
 }
 
 export function createConsoleIo(): CliIo {
@@ -203,7 +196,7 @@ function resolvePromptChoice(value: string, choices: readonly CliPromptChoice[])
 
 export async function createCliServices() {
     const builtinDir = await getCliBuiltinDirectory();
-    const services = createXsmpServices(builtinDir ? { ...NodeFileSystem, builtinDir } : NodeFileSystem);
+    const services = createXsmpServices({ fileSystemProvider: () => new CliFileSystemProvider(), builtinDir });
     const report = await services.shared.ContributionRegistry.registerBuiltinPackages(await getCliBuiltinContributionPackages());
     if (report.failures.length > 0) {
         const details = report.failures.map(failure => `[${failure.phase}] ${failure.extensionId}: ${failure.message}`).join('\n');

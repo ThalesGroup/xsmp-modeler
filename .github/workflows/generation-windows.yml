@@ -36,3 +36,4 @@ jobs:
           packages/xsmp/test/workspace/document-generator.test.ts
           packages/xsmp-tool-python/test/python-generator.test.ts
           packages/xsmp-tas-mdk/test/tas-mdk-generators.test.ts
+          packages/xsmp-cli/test/file-system.test.ts
