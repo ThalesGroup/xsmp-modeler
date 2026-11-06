@@ -16,12 +16,12 @@ import {
 import type { XsmpProjectGenerationReport } from '@xsmp/core/lsp';
 import type {
     XsmpContributionRegistrationReport,
-    XsmpExtensionContributionManifestEntry,
     XsmpResolvedContributionManifestEntry,
 } from '@xsmp/core/contributions';
 import { smpMirrorScheme, xsmpExtensionApiVersion } from '@xsmp/core';
 import { getDefaultImportedXsmpPath, getSmpMirrorSourceUri } from '@xsmp/core/smp';
 import { registerEmbeddedDocumentation } from './embedded-documentation.js';
+import { readXsmpContributionEntries } from './contribution-manifest.js';
 import { registerSmpMirrorCommands } from './smp-mirror-commands.js';
 import { registerSmpMirrorPreview } from './smp-mirror-preview.js';
 import { createXsmpDocumentSelector, xsmpFileWatcherPatterns, xsmpLanguageIds, xsmpReadonlySchemes } from './xsmp-language-support.js';
@@ -186,7 +186,9 @@ async function registerDiscoveredXsmpContributions(
             continue;
         }
 
-        const manifestEntries = readXsmpContributionEntries(extension.packageJSON);
+        const manifestEntries = readXsmpContributionEntries(extension.packageJSON, message => {
+            skippedEntries.push(`${extension.id}: ${message}`);
+        });
         if (manifestEntries.length === 0) {
             continue;
         }
@@ -219,18 +221,6 @@ async function registerDiscoveredXsmpContributions(
         const report = await languageClient.sendRequest(RegisterContributions, contributions);
         reportContributionRegistration(report, 'Some XSMP contributions failed to initialize.');
     }
-}
-
-function readXsmpContributionEntries(packageJson: unknown): readonly XsmpExtensionContributionManifestEntry[] {
-    if (typeof packageJson !== 'object' || packageJson === null) {
-        return [];
-    }
-    const contributes = Reflect.get(packageJson, 'contributes');
-    if (typeof contributes !== 'object' || contributes === null) {
-        return [];
-    }
-    const xsmp = Reflect.get(contributes, 'xsmp');
-    return Array.isArray(xsmp) ? xsmp as readonly XsmpExtensionContributionManifestEntry[] : [];
 }
 
 function reportContributionRegistration(
