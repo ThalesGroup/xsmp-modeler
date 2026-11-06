@@ -1,0 +1,16 @@
+catalogue CommentBackslashes
+
+namespace comments {
+    /** @uuid 0bb87ed0-fcbd-46ca-8196-3c6f0e2a5f2e */
+    public struct Doc {
+        /** Path C:\temp\ */
+        field Int32 first
+        /** First line ends here \
+         * Next line ends twice \\
+         * Last line remains visible.
+         */
+        field Int32 second
+        /** A backslash \ inside a sentence is unchanged. */
+        field Int32 third
+    }
+}

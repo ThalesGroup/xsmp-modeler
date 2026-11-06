@@ -495,7 +495,8 @@ export abstract class CppGenerator implements XsmpGenerator {
         if (result.length === 0) {
             return '';
         }
-        return '///' + this.protectTrigraphs(result) + '\n';
+        // C++ splices lines before parsing comments, even with trailing whitespace.
+        return '///' + this.protectTrigraphs(result).replace(/\\(?=[^\S\r\n]*(?:\r?\n|$))/g, '&#92;') + '\n';
     }
 
     protected fqn(reference: ast.NamedElement | undefined, defaultFqn?: string): string {
