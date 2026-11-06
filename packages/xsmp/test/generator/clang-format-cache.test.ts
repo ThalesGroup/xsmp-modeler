@@ -7,7 +7,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { GeneratedFileWriter } from '../../src/generator/generated-files.js';
 
-const state = vi.hoisted(() => ({ version: 'clang-format 20', style: 'IndentWidth: 2', fail: false, failConfiguration: false, calls: [] as string[][] }));
+const state = vi.hoisted(() => ({ version: 'clang-format 20', style: 'IndentWidth: 2', fail: false, calls: [] as string[][] }));
 vi.mock('node:child_process', () => ({
     spawn: (_command: string, args: string[]) => {
         state.calls.push(args);
@@ -20,13 +20,10 @@ vi.mock('node:child_process', () => ({
             queueMicrotask(() => {
                 if (args.includes('--version')) {
                     child.stdout.write(state.version);
-                } else if (args.includes('--dump-config')) {
-                    child.stdout.write(state.style);
                 } else if (!state.fail) {
                     child.stdout.write(`${state.version}\n${state.style}\n${input}`);
                 }
-                const failed = state.failConfiguration && args.includes('--dump-config')
-                    || state.fail && !args.includes('--version') && !args.includes('--dump-config');
+                const failed = state.fail && !args.includes('--version');
                 child.emit('close', failed ? 1 : 0);
             });
         });
@@ -40,14 +37,16 @@ beforeEach(() => {
     state.version = 'clang-format 20';
     state.style = 'IndentWidth: 2';
     state.fail = false;
-    state.failConfiguration = false;
     state.calls = [];
 });
 
 const formattingCalls = () => state.calls.filter(args => !args.includes('--version') && !args.includes('--dump-config'));
 
 let directory: string;
-beforeEach(() => { directory = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-format-reuse-')); });
+beforeEach(() => {
+    directory = fs.mkdtempSync(path.join(os.tmpdir(), 'xsmp-format-reuse-'));
+    fs.writeFileSync(path.join(directory, '.clang-format'), state.style);
+});
 afterEach(() => { vi.restoreAllMocks(); fs.rmSync(directory, { recursive: true, force: true }); });
 
 async function generate(writer: GeneratedFileWriter, sources: Record<string, string>, project = directory): Promise<void> {
@@ -79,7 +78,7 @@ test('skips formatting and writing unchanged disk bytes while resolving configur
         expect(read.mock.calls.filter(args => args[0] === path.join(directory, 'src-gen', file))).toHaveLength(1);
     }
     expect(state.calls.filter(args => args.includes('--version'))).toHaveLength(1);
-    expect(state.calls.filter(args => args.includes('--dump-config'))).toHaveLength(2);
+    expect(state.calls.filter(args => args.includes('--dump-config'))).toHaveLength(0);
 });
 
 test('reformats changed raw source, effective configuration, version and destination', async () => {
@@ -87,6 +86,7 @@ test('reformats changed raw source, effective configuration, version and destina
     await generate(writer, { 'a.cpp': 'int value;' });
     await generate(writer, { 'a.cpp': 'double value;' });
     state.style = 'IndentWidth: 4';
+    fs.writeFileSync(path.join(directory, '.clang-format'), state.style);
     await generate(writer, { 'a.cpp': 'double value;' });
     expect(fs.readFileSync(path.join(directory, 'src-gen/a.cpp'), 'utf8')).toContain('IndentWidth: 4');
     state.version = 'clang-format 21';
@@ -133,13 +133,57 @@ test('does not cache raw fallbacks after a formatter failure', async () => {
 test('formats without reuse when configuration discovery is unavailable', async () => {
     const writer = new GeneratedFileWriter();
     const sources = { 'a.cpp': 'int value;' };
-    state.failConfiguration = true;
+    const readFile = fs.promises.readFile;
+    const read = vi.spyOn(fs.promises, 'readFile').mockImplementation(async (...args) => {
+        if (args[0] === path.join(directory, '.clang-format')) {
+            throw Object.assign(new Error('unreadable configuration'), { code: 'EACCES' });
+        }
+        return readFile(...args);
+    });
     await generate(writer, sources);
     await generate(writer, sources);
-    state.failConfiguration = false;
+    read.mockRestore();
     await generate(writer, sources);
     await generate(writer, sources);
     expect(formattingCalls()).toHaveLength(3);
+});
+
+test('shares ancestor configuration reads across directories and languages', async () => {
+    const read = vi.spyOn(fs.promises, 'readFile');
+    const formatter = new ClangFormatter();
+    const [cpp, header] = await Promise.all([
+        formatter.prepare(path.join(directory, 'project/src-gen/n/a.cpp')),
+        formatter.prepare(path.join(directory, 'project/src-gen/n/a.h')),
+        formatter.prepare(path.join(directory, 'project/src-gen/other/b.cpp')),
+    ]);
+    expect(cpp.cacheKey).toBeDefined();
+    expect(header.cacheKey).not.toBe(cpp.cacheKey);
+    for (const name of ['.clang-format', '_clang-format']) {
+        expect(read.mock.calls.filter(args => args[0] === path.join(directory, name))).toHaveLength(1);
+        expect(read.mock.calls.filter(args => args[0] === path.join(directory, 'project/src-gen', name))).toHaveLength(1);
+    }
+    expect(state.calls).toEqual([['--version']]);
+});
+
+test('detects configuration creation, changes, renames and deletion outside or inside the project', async () => {
+    const project = path.join(directory, 'project');
+    const nested = path.join(project, 'src-gen/nested');
+    fs.mkdirSync(nested, { recursive: true });
+    const key = async () => (await new ClangFormatter().prepare(path.join(nested, 'a.cpp'))).cacheKey;
+    const initial = await key();
+    fs.writeFileSync(path.join(directory, '.clang-format'), 'IndentWidth: 4');
+    const changedParent = await key();
+    expect(changedParent).not.toBe(initial);
+    fs.writeFileSync(path.join(nested, '_clang-format'), 'BasedOnStyle: InheritParentConfig\nColumnLimit: 80');
+    const addedChild = await key();
+    expect(addedChild).not.toBe(changedParent);
+    fs.renameSync(path.join(nested, '_clang-format'), path.join(nested, '.clang-format'));
+    const renamedChild = await key();
+    expect(renamedChild).not.toBe(addedChild);
+    fs.unlinkSync(path.join(nested, '.clang-format'));
+    expect(await key()).toBe(changedParent);
+    fs.unlinkSync(path.join(directory, '.clang-format'));
+    expect(await key()).not.toBe(changedParent);
 });
 
 test('reuses hashes across projects A, B, then A', async () => {

@@ -29,6 +29,7 @@ jobs:
         run: >-
           node node_modules/vitest/vitest.mjs run --maxWorkers=2
           packages/xsmp/test/generator/generated-files.test.ts
+          packages/xsmp/test/generator/clang-format-cache.test.ts
           packages/xsmp/test/generator/windows-cleanup.test.ts
           packages/xsmp/test/generator/builtin-generators-lifecycle.test.ts
           packages/xsmp/test/generator/incremental-generation.test.ts

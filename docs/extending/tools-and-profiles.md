@@ -235,6 +235,11 @@ without a formatter. Opening a workspace with startup generation disabled does
 not write or delete outputs.
 Model inputs, formatter configuration and tool version must remain stable during
 a generation; changes are re-evaluated on the next pass.
+The C++ formatter identifies configuration by hashing `.clang-format` and
+`_clang-format` files in the output directory and every ancestor, plus its version
+and the output extension. Ancestor reads are shared within a pass, without
+starting a configuration process per directory. This fingerprint is conservative:
+changing an unused parent configuration may also require reformatting.
 
 ### Migrating Existing Generators
 
