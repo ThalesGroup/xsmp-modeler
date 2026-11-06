@@ -4,7 +4,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Cancellation, URI } from 'langium';
-import { GetContributionSummaries } from '@xsmp/core/lsp';
+import { GenerateAllProjects, GenerateProject, GetContributionSummaries, RegisterContributions } from '@xsmp/core/lsp';
 import { createSmpMirrorDescriptor } from '@xsmp/core/smp';
 import {
     CompletionRequest,
@@ -148,6 +148,132 @@ test('bundled language server supports virtual content, refresh, cancellation an
         if (server.exitCode === null) {
             server.kill();
         }
+        await exited;
+        await fs.rm(directory, { recursive: true, force: true });
+    }
+}, 30_000);
+
+test.each(['project', 'workspace'] as const)('cancels %s generation before workspace initialization', async scope => {
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'xsmp-lsp-cancel-'));
+    await fs.writeFile(path.join(directory, 'xsmp.project'), "project 'demo'\nsource '.'\ntool 'smp'\n");
+    await fs.writeFile(path.join(directory, 'demo.xsmpcat'), 'catalogue Demo\nnamespace demo {}\n');
+    const server = spawn(process.execPath, [fileURLToPath(new URL('../out/language/main.cjs', import.meta.url)), '--stdio'], {
+        cwd: directory,
+        stdio: ['pipe', 'pipe', 'pipe'],
+        timeout: 20_000,
+    });
+    const exited = new Promise<number | null>(resolve => server.once('exit', resolve));
+    let stderr = '';
+    server.stderr.setEncoding('utf8').on('data', chunk => { stderr += chunk; });
+    const connection = createProtocolConnection(server.stdout, server.stdin);
+    connection.onRequest(RegistrationRequest.type, () => undefined);
+    connection.listen();
+    const cancellation = new Cancellation.CancellationTokenSource();
+    try {
+        await connection.sendRequest(InitializeRequest.type, {
+            processId: process.pid,
+            rootUri: URI.file(directory).toString(),
+            workspaceFolders: [{ name: 'demo', uri: URI.file(directory).toString() }],
+            capabilities: { workspace: { workspaceFolders: true } },
+        });
+        const request = scope === 'project'
+            ? connection.sendRequest(GenerateProject, URI.file(path.join(directory, 'xsmp.project')).toString(), cancellation.token)
+            : connection.sendRequest(GenerateAllProjects, cancellation.token);
+        const cancelled = request.catch((error: unknown) => error);
+        cancellation.cancel();
+        await connection.sendNotification(InitializedNotification.type, {});
+        expect(await cancelled).toMatchObject({ code: LSPErrorCodes.RequestCancelled });
+        await expect(fs.stat(path.join(directory, 'smdl-gen'))).rejects.toMatchObject({ code: 'ENOENT' });
+
+        const report = await connection.sendRequest(GenerateAllProjects);
+        expect(report.generatedProjects).toEqual(['demo']);
+        expect(await fs.readFile(path.join(directory, 'smdl-gen', 'demo.smpcat'), 'utf8')).toContain('Catalogue');
+        await connection.sendRequest(ShutdownRequest.type);
+        await connection.sendNotification(ExitNotification.type);
+        expect(await exited, stderr).toBe(0);
+        expect(stderr).toBe('');
+    } finally {
+        cancellation.dispose();
+        connection.dispose();
+        if (server.exitCode === null) server.kill();
+        await exited;
+        await fs.rm(directory, { recursive: true, force: true });
+    }
+}, 30_000);
+
+test('cancels through LSP between generated files and leaves the server usable', async () => {
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'xsmp-lsp-cancel-files-'));
+    await fs.writeFile(path.join(directory, 'xsmp.project'), "project 'demo'\nsource '.'\ntool 'audit.cancel'\n");
+    await fs.writeFile(path.join(directory, 'demo.xsmpcat'), 'catalogue Demo\nnamespace demo {}\n');
+    const descriptorPath = path.join(directory, 'audit.xsmptool');
+    const handlerPath = path.join(directory, 'audit.mjs');
+    await fs.writeFile(descriptorPath, "tool 'audit.cancel'\n");
+    await fs.writeFile(handlerPath, `
+export function registerContribution(api) {
+    api.addGenerator(services => ({
+        id: 'cancel-test',
+        prepare({ createFiles }) {
+            return createFiles({ gen: { directory: 'gen', writeMode: 'if-changed', cleanup: 'directory' } });
+        },
+        generate(node, context) {
+            if (node.$type !== 'Catalogue') return;
+            context.acceptTask(async () => {
+                await context.files.write('gen', 'first.txt', 'first');
+                const cancelled = new Promise(resolve => {
+                    if (context.cancelToken.isCancellationRequested) return resolve();
+                    const listener = context.cancelToken.onCancellationRequested(() => {
+                        listener.dispose();
+                        resolve();
+                    });
+                });
+                services.lsp.Connection.sendNotification('audit/firstFile');
+                await cancelled;
+                await context.files.write('gen', 'second.txt', 'second');
+            });
+        }
+    }));
+}
+`);
+    const server = spawn(process.execPath, [fileURLToPath(new URL('../out/language/main.cjs', import.meta.url)), '--stdio'], {
+        cwd: directory,
+        stdio: ['pipe', 'pipe', 'pipe'],
+        timeout: 20_000,
+    });
+    const exited = new Promise<number | null>(resolve => server.once('exit', resolve));
+    let stderr = '';
+    server.stderr.setEncoding('utf8').on('data', chunk => { stderr += chunk; });
+    const connection = createProtocolConnection(server.stdout, server.stdin);
+    connection.onRequest(RegistrationRequest.type, () => undefined);
+    const cancellation = new Cancellation.CancellationTokenSource();
+    connection.onNotification('audit/firstFile', () => cancellation.cancel());
+    connection.listen();
+    try {
+        await connection.sendRequest(InitializeRequest.type, {
+            processId: process.pid,
+            rootUri: URI.file(directory).toString(),
+            workspaceFolders: [{ name: 'demo', uri: URI.file(directory).toString() }],
+            capabilities: { workspace: { workspaceFolders: true } },
+        });
+        await connection.sendNotification(InitializedNotification.type, {});
+        const registration = await connection.sendRequest(RegisterContributions, [{
+            extensionId: 'audit.cancel', extensionRoot: directory, descriptorPath, handlerPath,
+            apiVersion: '2.0.0', aliases: [], deprecatedAliases: [], builtins: [],
+        }]);
+        expect(registration.failures).toEqual([]);
+        await expect(connection.sendRequest(GenerateAllProjects, cancellation.token)).rejects.toMatchObject({
+            code: LSPErrorCodes.RequestCancelled,
+        });
+        expect(await fs.readFile(path.join(directory, 'gen', 'first.txt'), 'utf8')).toBe('first');
+        await expect(fs.stat(path.join(directory, 'gen', 'second.txt'))).rejects.toMatchObject({ code: 'ENOENT' });
+        expect(await connection.sendRequest(GetContributionSummaries, undefined)).toContainEqual(expect.objectContaining({ id: 'audit.cancel' }));
+        await connection.sendRequest(ShutdownRequest.type);
+        await connection.sendNotification(ExitNotification.type);
+        expect(await exited, stderr).toBe(0);
+        expect(stderr).toBe('');
+    } finally {
+        cancellation.dispose();
+        connection.dispose();
+        if (server.exitCode === null) server.kill();
         await exited;
         await fs.rm(directory, { recursive: true, force: true });
     }
