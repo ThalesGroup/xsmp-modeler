@@ -210,7 +210,7 @@ export async function loadCliProjectContext(inputPath: string, options: CliComma
     const services = await createCliServices();
 
     const folders = await discoverWorkspaceFolders(input.workspaceRoot, input.projectDir);
-    await services.shared.workspace.WorkspaceManager.initializeWorkspace(folders);
+    await services.shared.workspace.WorkspaceManager.initializeWorkspace(folders, Cancellation.CancellationToken.None, URI.file(input.projectFile));
     await services.shared.workspace.DocumentBuilder.build(
         services.shared.workspace.LangiumDocuments.all.toArray(),
         { validation: true },
@@ -327,6 +327,9 @@ function getScopedDocuments(
         .filter(document => {
             if (reachableProjectUris.has(document.uri.toString())) {
                 return true;
+            }
+            if (ast.isProject(document.parseResult.value)) {
+                return false;
             }
             const ownerProject = projectManager.getProject(document);
             return Boolean(ownerProject && reachableProjects.has(ownerProject));
