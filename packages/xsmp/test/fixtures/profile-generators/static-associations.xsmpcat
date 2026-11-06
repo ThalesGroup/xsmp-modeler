@@ -1,0 +1,19 @@
+catalogue StaticAssociations
+
+namespace associations {
+    /** @uuid 03b67f01-a20c-4b9c-a337-b730008b869d */
+    public model Target {}
+
+    /** @uuid ef32092d-b3ae-47a3-acbd-9a09c81e1693 */
+    public model Probe {
+        @Static public association Target shared
+        @Static @Const public association Target constShared
+        @Static public association Int32 count
+        public association Target instance
+    }
+
+    /** @uuid 7b5bf5ee-a155-4e15-8705-348896a2451d */
+    public class Value {
+        @Static public association Int32 count
+    }
+}
