@@ -1,4 +1,4 @@
-import { Cancellation } from 'langium';
+import { Cancellation, OperationCancelled } from 'langium';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -595,6 +595,63 @@ test('cancellation skips rendering and cleanup, and finishing closes the facade'
     expect(read(directory, 'src-gen/old.cpp')).toBe('old');
     await expect(files.write('generated', 'later.cpp', 'later')).rejects.toThrow('not open');
     expect(() => session.createFiles('late', {})).toThrow('closed');
+});
+
+test.each([generated, tracked])('cancellation between files preserves $cleanup outputs and recovers after restart', async output => {
+    const directory = temporaryDirectory();
+    const initial = await prepare(directory, { output });
+    await initial.files.write('output', 'first.txt', 'old first');
+    await initial.files.write('output', 'second.txt', 'old second');
+    await initial.files.write('output', 'stale.txt', 'stale');
+    await initial.session.finish(true);
+
+    const cancellation = new Cancellation.CancellationTokenSource();
+    const interrupted = await prepare(directory, { output }, new GeneratedFileWriter(), cancellation.token);
+    await interrupted.files.write('output', 'first.txt', 'new first');
+    await interrupted.files.write('output', 'intermediate.txt', 'intermediate');
+    cancellation.cancel();
+    const render = vi.fn(() => 'new second');
+    await expect(interrupted.files.write('output', 'second.txt', render)).rejects.toBe(OperationCancelled);
+    await interrupted.session.finish(false);
+    expect(render).not.toHaveBeenCalled();
+    expect(read(directory, `${output.directory}/first.txt`)).toBe('new first');
+    expect(read(directory, `${output.directory}/second.txt`)).toBe('old second');
+    expect(read(directory, `${output.directory}/stale.txt`)).toBe('stale');
+    expect(read(directory, `${output.directory}/intermediate.txt`)).toBe('intermediate');
+
+    // A fresh writer has no in-memory knowledge of the interrupted generation.
+    const recovery = await prepare(directory, { output });
+    await recovery.files.write('output', 'first.txt', 'new first');
+    await recovery.files.write('output', 'second.txt', 'new second');
+    await recovery.session.finish(true);
+    expect(read(directory, `${output.directory}/first.txt`)).toBe('new first');
+    expect(read(directory, `${output.directory}/second.txt`)).toBe('new second');
+    expect(fs.readdirSync(path.join(directory, output.directory)).sort()).toEqual(['first.txt', 'second.txt']);
+});
+
+test.each([generated, tracked])('cancellation between $cleanup deletions retains ownership for recovery', async output => {
+    const directory = temporaryDirectory();
+    const initial = await prepare(directory, { output });
+    await initial.files.write('output', 'first.txt', 'first');
+    await initial.files.write('output', 'second.txt', 'second');
+    await initial.session.finish(true);
+
+    const cancellation = new Cancellation.CancellationTokenSource();
+    const interrupted = await prepare(directory, { output }, new GeneratedFileWriter(), cancellation.token);
+    const remove = fs.promises.rm;
+    const removals = vi.spyOn(fs.promises, 'rm').mockImplementation(async (file, options) => {
+        await remove(file, options);
+        cancellation.cancel();
+    });
+    await expect(interrupted.session.finish(true)).rejects.toBe(OperationCancelled);
+    // Saving tracked ownership also removes its temporary inventory file.
+    expect(removals.mock.calls.filter(([file]) => path.dirname(String(file)) === path.join(directory, output.directory))).toHaveLength(1);
+    expect(fs.readdirSync(path.join(directory, output.directory))).toHaveLength(1);
+    removals.mockRestore();
+
+    const recovery = await prepare(directory, { output });
+    await recovery.session.finish(true);
+    expect(fs.readdirSync(path.join(directory, output.directory))).toEqual([]);
 });
 
 test('invalid byte edits are detected even when UTF-8 decoding would give the same replacement characters', async () => {

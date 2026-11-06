@@ -211,8 +211,14 @@ folders. Use `if-missing` for generation-gap files and Python user stubs. Mixed
 outputs can share a directory; a directory purged in its entirety cannot contain
 protected user outputs. Cleanup preserves the union of outputs from all active
 generators. An unchanged file remains an expected output even when no write
-occurs. Failure, cancellation or skipped invalid documents prevents cleanup.
-Files already written are not rolled back.
+occurs. Failure, cancellation or skipped invalid documents prevents cleanup
+from starting. Cancellation remains available between files, including after
+the first write and during cleanup. An in-flight filesystem operation finishes
+before generation returns; files already written or removed are not rolled
+back. Outputs may therefore temporarily reflect different generations.
+Ownership of completed writes and pending deletions is saved even on
+cancellation, so the next successful generation updates the remaining outputs
+and completes cleanup, including after a restart.
 Output directories differing only in case cannot use incompatible cleanup
 policies, so the same configuration stays safe on case-insensitive volumes.
 Declared output roots are kept in place, including nested roots. Empty
