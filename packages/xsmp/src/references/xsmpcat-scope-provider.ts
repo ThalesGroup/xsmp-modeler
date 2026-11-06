@@ -27,7 +27,9 @@ export class XsmpcatScopeProvider implements ScopeProvider {
     }
 
     protected collectScopesFromNode(node: AstNode, scopes: Array<Map<string, AstNodeDescription>>,
-        document: LangiumDocument, referenceType: string) {
+        document: LangiumDocument, referenceType: string, visited: Set<AstNode>) {
+        if (visited.has(node)) return;
+        visited.add(node);
 
         const precomputed = this.getPrecomputedScope(node, document, referenceType);
         if (precomputed.size > 0) {
@@ -38,30 +40,30 @@ export class XsmpcatScopeProvider implements ScopeProvider {
             case ast.Service.$type: {
                 const component = node as ast.Component;
                 if (component.base) {
-                    this.collectScopesFromReference(component.base, scopes, referenceType);
+                    this.collectScopesFromReference(component.base, scopes, referenceType, visited);
                 }
-                component.interface.forEach(i => this.collectScopesFromReference(i, scopes, referenceType));
+                component.interface.forEach(i => this.collectScopesFromReference(i, scopes, referenceType, visited));
                 break;
             }
             case ast.Interface.$type: {
-                (node as ast.Interface).base.forEach(i => this.collectScopesFromReference(i, scopes, referenceType));
+                (node as ast.Interface).base.forEach(i => this.collectScopesFromReference(i, scopes, referenceType, visited));
                 break;
             }
             case ast.Class.$type:
             case ast.Exception.$type: {
                 const clazz = node as ast.Class;
                 if (clazz.base)
-                    this.collectScopesFromReference(clazz.base, scopes, referenceType);
+                    this.collectScopesFromReference(clazz.base, scopes, referenceType, visited);
                 break;
             }
         }
     }
-    protected collectScopesFromReference(node: Reference, scopes: Array<Map<string, AstNodeDescription>>, referenceType: string) {
+    protected collectScopesFromReference(node: Reference, scopes: Array<Map<string, AstNodeDescription>>, referenceType: string, visited: Set<AstNode>) {
         // Check if the node is currently processed to avoid cyclic dependency
         if (!this.contexts.has(node) && node.ref) {
             this.contexts.add(node);
             try {
-                this.collectScopesFromNode(node.ref, scopes, AstUtils.getDocument(node.ref), referenceType);
+                this.collectScopesFromNode(node.ref, scopes, AstUtils.getDocument(node.ref), referenceType, visited);
             }
             finally {
                 // Remove the context
@@ -86,6 +88,7 @@ export class XsmpcatScopeProvider implements ScopeProvider {
         let parent: Scope;
 
         const scopes: Array<Map<string, AstNodeDescription>> = [];
+        const visited = new Set<AstNode>();
         const referenceType = this.reflection.getReferenceType(context);
 
         if (ast.DesignatedInitializer.$type === context.container.$type && context.property === ast.DesignatedInitializer.field) {
@@ -95,7 +98,7 @@ export class XsmpcatScopeProvider implements ScopeProvider {
                     case ast.Structure.$type:
                     case ast.Class.$type:
                     case ast.Exception.$type:
-                        this.collectScopesFromNode(type, scopes, AstUtils.getDocument(type), referenceType);
+                        this.collectScopesFromNode(type, scopes, AstUtils.getDocument(type), referenceType, visited);
                         parent = EMPTY_SCOPE;
                         break;
                     default: return EMPTY_SCOPE;
@@ -110,7 +113,7 @@ export class XsmpcatScopeProvider implements ScopeProvider {
             const document = AstUtils.getDocument(context.container);
             parent = this.getGlobalScope(document, referenceType);
             while (currentNode) {
-                this.collectScopesFromNode(currentNode, scopes, document, referenceType);
+                this.collectScopesFromNode(currentNode, scopes, document, referenceType, visited);
                 currentNode = currentNode.$container;
             }
         }

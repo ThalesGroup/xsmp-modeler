@@ -44,15 +44,35 @@ export class XsmpMapScope implements Scope {
     }
 
     getElement(name: string): AstNodeDescription | undefined {
-        return this.elements.get(name) ?? this.outerScope.getElement(name);
+        const local = this.elements.get(name);
+        if (local) return local;
+        let scope: Scope = this.outerScope;
+        while (scope instanceof XsmpMapScope) {
+            const element = scope.elements.get(name);
+            if (element) return element;
+            scope = scope.outerScope;
+        }
+        return scope.getElement(name);
     }
 
     getElements(name: string): Stream<AstNodeDescription> {
-        const element = this.elements.get(name);
-        return stream(element ? [element] : []).concat(this.outerScope.getElements(name));
+        return stream({ [Symbol.iterator]: () => XsmpMapScope.iterateElements(this, name) });
     }
 
     getAllElements(): Stream<AstNodeDescription> {
-        return stream(this.elements.values()).concat(this.outerScope.getAllElements());
+        return stream({ [Symbol.iterator]: () => XsmpMapScope.iterateElements(this) });
+    }
+
+    private static *iterateElements(scope: Scope, name?: string): IterableIterator<AstNodeDescription> {
+        while (scope instanceof XsmpMapScope) {
+            if (name === undefined) {
+                yield* scope.elements.values();
+            } else {
+                const element = scope.elements.get(name);
+                if (element) yield element;
+            }
+            scope = scope.outerScope;
+        }
+        yield* name === undefined ? scope.getAllElements() : scope.getElements(name);
     }
 }
