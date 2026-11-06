@@ -216,7 +216,7 @@ describe('Project cache sharing', () => {
         expect(manager.getVisibleUris(b)).not.toContain(a.uri.toString());
 
         await workspace.change('added/xsmp.project', project('added'));
-        expect(manager.getProjects().map(project => project.name).toArray()).toEqual(['app', 'added']);
+        expect(manager.getProjects().map(project => project.name).toArray().sort()).toEqual(['added', 'app']);
         expect(manager.getProject(c)?.name).toBe('added');
         const addedProjectUri = workspace.uri('added/xsmp.project');
         fs.rmSync(addedProjectUri.fsPath);
