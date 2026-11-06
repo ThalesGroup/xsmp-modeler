@@ -97,7 +97,6 @@ test('detects inherited overloads without treating matching overrides as overloa
     } finally { await cleanupProfileGeneratorTestContext(context); }
 });
 
-
 test('TASMDK applies invocation eligibility to its header-defined request handlers', async () => {
     const { context, document } = await parseCase(`
         /** @uuid 85000000-0000-4000-8000-000000000005 */ public model Probe {
@@ -122,6 +121,40 @@ test('TASMDK applies invocation eligibility to its header-defined request handle
     } finally { await cleanupProfileGeneratorTestContext(context); }
 });
 
+test.each([['xsmp-sdk', XsmpSdkGenerator], ['tas-mdk', TasMdkGenerator]] as const)('preserves reference properties and omits pointer property handlers for %s', async (_profile, Generator) => {
+    const { context, document, diagnostics } = await parseCase(`
+        /** @uuid 85000000-0000-4000-8000-000000000010 */ public model Properties {
+            @ByPointer property Int32 pointer
+            @ByReference property Int32 reference
+            @Const @ByReference property Int32 constantReference
+            @ByReference property String8 text
+            property String8 textValue
+            property Int32 value
+        }
+    `);
+    try {
+        expect(diagnostics).toEqual([]);
+        const output = await generateProfileTree(context, new Generator(context.services.shared), document, 'property-invocation-');
+        const source = fs.readFileSync(path.join(output, 'src-gen/checks/PropertiesGen.cpp'), 'utf8');
+        const header = fs.readFileSync(path.join(output, Generator === TasMdkGenerator ? 'include-gen/checks/PropertiesGen.h' : 'src-gen/checks/PropertiesGen.h'), 'utf8');
+        const handlers = Generator === TasMdkGenerator ? header : source;
+        expect(source).toContain('Property pointer is not invokable');
+        expect(handlers).not.toMatch(/component(?:->|\.)[gs]et_pointer\(/);
+        expect(handlers).toMatch(/component(?:->|\.)get_reference\(/);
+        expect(handlers).toMatch(/component(?:->|\.)set_reference\((?:reference|value)\)/);
+        expect(handlers).toMatch(/component(?:->|\.)set_constantReference\((?:constantReference|value)\)/);
+        expect(header).toMatch(/Int32\s*\*get_pointer\(/);
+        if (Generator === XsmpSdkGenerator) {
+            expect(source.match(/const auto storage =\s*::Xsmp::Request::get<::Smp::AnySimple>/g)).toHaveLength(2);
+            expect(source.match(/auto value = static_cast<::Smp::String8>\(storage\);/g)).toHaveLength(2);
+        } else {
+            for (const name of ['text', 'textValue']) {
+                expect(header).toContain(`::TasMdk::Request::initParameter(storage_${name}, request, "${name}"`);
+                expect(header).toContain(`auto ${name} = static_cast<::Smp::String8>(storage_${name});`);
+            }
+        }
+    } finally { await cleanupProfileGeneratorTestContext(context); }
+});
 
 test('updates invocation eligibility when only an ancestor document changes', async () => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'cpp-invocation-update-'));

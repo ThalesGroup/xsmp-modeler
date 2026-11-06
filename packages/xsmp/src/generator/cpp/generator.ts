@@ -1344,6 +1344,9 @@ export abstract class CppGenerator implements XsmpGenerator {
      */
     protected getNotInvokableReason(element: ast.Invokable): string | undefined {
         if (ast.isProperty(element)) {
+            if (this.attrHelper.isByPointer(element)) {
+                return 'pointer properties cannot be represented by Smp::AnySimple';
+            }
             return ast.isSimpleType(element.type.ref) ? undefined : 'its type is not a SimpleType';
         }
         const operationIssue = getOperationInvocationIssue(element, this.attrHelper);
