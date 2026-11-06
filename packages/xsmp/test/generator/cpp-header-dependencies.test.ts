@@ -19,6 +19,11 @@ test('operation signatures break include cycles while retaining transitive type 
         }
         expect(fs.readFileSync(path.join(output, 'src-gen/dependencies/Defaults.h'), 'utf8'))
             .toContain('#include <dependencies/Value.h>');
+        const interfaceHeader = fs.readFileSync(path.join(output, 'src-gen/dependencies/IGen.h'), 'utf8');
+        expect(interfaceHeader).toContain('class M;');
+        expect(interfaceHeader).not.toContain('#include <dependencies/M.h>');
+        expect(fs.readFileSync(path.join(output, 'src-gen/dependencies/MGen.h'), 'utf8'))
+            .toContain('#include <dependencies/I.h>');
     } finally {
         await cleanupProfileGeneratorTestContext(context);
     }

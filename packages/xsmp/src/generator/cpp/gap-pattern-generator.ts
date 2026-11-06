@@ -196,6 +196,10 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
                 /// @file ${fqn(type, '/')}.cpp
 
                 #include <${fqn(type, '/')}.h>
+                ${ast.isWithBody(type) ? this.includes(type.elements.flatMap(element => ast.isOperation(element) ? [
+                    ...this.sourceIncludesParameter(element.returnParameter),
+                    ...element.parameter.flatMap(parameter => this.sourceIncludesParameter(parameter)),
+                ] : []).filter(include => include !== type)) : undefined}
 
                 ${this.namespace(type, body)}
                 `;

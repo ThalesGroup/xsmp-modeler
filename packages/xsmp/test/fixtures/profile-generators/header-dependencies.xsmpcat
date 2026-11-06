@@ -15,5 +15,12 @@ namespace dependencies {
     /** @uuid 82000000-0000-4000-8000-000000000005 */
     public struct Value { field Int32 number }
     /** @uuid 82000000-0000-4000-8000-000000000006 */
-    public class Defaults { def void consume(in Value item = {1}) }
+    public class Defaults {
+        def void consume(in Value item = {1})
+        def void consumeReference(@Const @ByReference in Value item = {1})
+    }
+    /** @uuid 82000000-0000-4000-8000-000000000007 */
+    public interface I { def void attach(in M model) }
+    /** @uuid 82000000-0000-4000-8000-000000000008 */
+    public model M implements I { def void attach(in M model) }
 }
