@@ -614,9 +614,19 @@ tool 'smp'
             'src/types.smpcat': `<?xml version="1.0" encoding="UTF-8"?>
 <Catalogue:Catalogue xmlns:Catalogue="http://www.ecss.nl/smp/2025/Smdl/Catalogue" xmlns:Elements="http://www.ecss.nl/smp/2025/Core/Elements" xmlns:Types="http://www.ecss.nl/smp/2025/Core/Types" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" Id="dep" Name="types">
   <Namespace Name="dep">
-    <Type xsi:type="Types:Structure" Id="dep.ExternalType" Name="ExternalType" Uuid="cccccccc-cccc-cccc-cccc-cccccccccccc"/>
+    <Type xsi:type="Types:Structure" Id="dep.ExternalType" Name="ExternalType" Visibility="public" Uuid="cccccccc-cccc-cccc-cccc-cccccccccccc"/>
   </Namespace>
 </Catalogue:Catalogue>
+`,
+            'src/app.xsmpcat': `catalogue app
+namespace app
+{
+    /** @uuid dddddddd-dddd-dddd-dddd-dddddddddddd */
+    public struct UsesExternal
+    {
+        field dep.ExternalType external
+    }
+}
 `,
             'src/smdl-gen/generated.smpcat': `<?xml version="1.0" encoding="UTF-8"?>
 <Catalogue:Catalogue xmlns:Catalogue="http://www.ecss.nl/smp/2025/Smdl/Catalogue" xmlns:Elements="http://www.ecss.nl/smp/2025/Core/Elements" xmlns:Types="http://www.ecss.nl/smp/2025/Core/Types" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" Id="ignored" Name="ignored"/>
@@ -630,6 +640,8 @@ tool 'smp'
 
         const ignoredMirrorUri = services.shared.SmpWorkspaceIndex.getMirrorUriForSourcePath(path.join(projectDir, 'src', 'smdl-gen', 'generated.smpcat'));
         expect(ignoredMirrorUri).toBeUndefined();
+        const appDocument = services.shared.workspace.LangiumDocuments.getDocument(URI.file(path.join(projectDir, 'src', 'app.xsmpcat')));
+        expect(appDocument?.diagnostics?.filter(diagnostic => diagnostic.severity === 1)).toEqual([]);
 
         const project = services.shared.workspace.ProjectManager.getProjects().find(candidate => candidate.name === 'app');
         expect(project).toBeDefined();
@@ -638,6 +650,8 @@ tool 'smp'
         expect(report.generatedProjects).toEqual(['app']);
         expect(fs.existsSync(path.join(projectDir, 'smdl-gen', 'types.smpcat'))).toBe(true);
         expect(fs.existsSync(path.join(projectDir, 'smdl-gen', 'types.smppkg'))).toBe(true);
+        expect(fs.readFileSync(path.join(projectDir, 'smdl-gen', 'app.smppkg'), 'utf8'))
+            .toContain('xlink:href="types.smppkg#_types"');
     });
 
     test('skips validated project generation when visible documents have errors', async () => {

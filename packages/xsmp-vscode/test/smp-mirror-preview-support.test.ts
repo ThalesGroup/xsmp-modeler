@@ -11,7 +11,7 @@ describe('SMP mirror preview support', () => {
     });
 
     test('maps SMP source files to their in-memory XSMP mirror uri', () => {
-        expect(getSmpMirrorPreviewUri('/workspace/demo/test.smpcat')).toBe('xsmp-smp:/workspace/demo/test.xsmpcat');
-        expect(getSmpMirrorPreviewUri('/workspace/demo/test.smpsed')).toBe('xsmp-smp:/workspace/demo/test.xsmpsed');
+        expect(getSmpMirrorPreviewUri('/workspace/demo/test.smpcat')).toBe('xsmp-smp:/workspace/demo/test.smpcat');
+        expect(getSmpMirrorPreviewUri('/workspace/demo/test.smpsed')).toBe('xsmp-smp:/workspace/demo/test.smpsed');
     });
 });

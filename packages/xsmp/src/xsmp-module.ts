@@ -40,6 +40,7 @@ import { XsmpContributionRegistry } from './contributions/xsmp-contribution-regi
 import { XsmpDocumentUpdateHandler } from './lsp/document-update-handler.js';
 import { XsmpTextDocumentContentProvider } from './lsp/text-document-content-provider.js';
 import { SmpMirrorManager, SmpWorkspaceIndex, XsmpLangiumDocumentFactory } from './smp/index.js';
+import { XsmpServiceRegistry } from './smp/service-registry.js';
 
 export type XsmpServices = LangiumServices & { shared: XsmpSharedServices; }
 export interface XsmpModuleContext extends DefaultSharedModuleContext {
@@ -175,6 +176,7 @@ export interface XsmpAddedSharedServices {
 export type XsmpSharedServices = LangiumSharedServices & XsmpAddedSharedServices;
 
 export const XsmpSharedModule: Module<XsmpSharedServices, DeepPartial<XsmpSharedServices>> = {
+    ServiceRegistry: (services) => new XsmpServiceRegistry(services),
     AttributeHelper: (services) => new AttributeHelper(services),
     IdentifierPatternService: () => new IdentifierPatternService(),
     PathService: () => new XsmpPathService(),

@@ -48,6 +48,15 @@ export function getSmpMirrorExtension(kind: SmpImportKind): string {
     return kindToMirrorExtension.get(kind)!;
 }
 
+/** Select the XSMP language without changing the source filename shown by the mirror URI. */
+export function getSmpMirrorLanguageId(uri: URI): string | undefined {
+    if (uri.scheme !== smpMirrorScheme) {
+        return undefined;
+    }
+    const kind = getSmpMirrorKind(uri.path);
+    return kind ? getSmpMirrorExtension(kind).slice(1) : undefined;
+}
+
 export function getXsmpHomologuePath(sourcePath: string): string {
     const kind = getSmpMirrorKind(sourcePath);
     if (!kind) {
@@ -56,6 +65,7 @@ export function getXsmpHomologuePath(sourcePath: string): string {
     return sourcePath.slice(0, -path.extname(sourcePath).length) + getSmpMirrorExtension(kind);
 }
 
+/** Resolve legacy .xsmp* mirror paths when clients restore previews from earlier releases. */
 export function getSmpSourcePathFromMirrorPath(mirrorPath: string): string | undefined {
     const sourceExtension = mirrorExtensionToSource.get(path.extname(mirrorPath));
     if (!sourceExtension) {
@@ -77,15 +87,13 @@ export function createSmpMirrorDescriptor(sourcePath: string): SmpMirrorDescript
         sourceUri,
         mirrorUri: sourceUri.with({
             scheme: smpMirrorScheme,
-            path: sourceUri.path.slice(0, -path.extname(sourceUri.path).length) + getSmpMirrorExtension(kind),
         }),
     };
 }
 
 export function getSmpMirrorSourceUri(uri: URI): URI | undefined {
-    if (uri.scheme !== smpMirrorScheme) {
+    if (!getSmpMirrorLanguageId(uri)) {
         return undefined;
     }
-    const sourcePath = getSmpSourcePathFromMirrorPath(uri.path);
-    return sourcePath ? URI.file(sourcePath) : undefined;
+    return uri.with({ scheme: 'file' });
 }

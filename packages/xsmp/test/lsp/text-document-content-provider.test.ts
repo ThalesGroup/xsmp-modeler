@@ -11,13 +11,13 @@ describe('Virtual XSMP document content', () => {
         const fixture = createProvider();
         fixture.ready.resolve();
         fixture.documents.set(URI.parse('xsmp:///builtin.xsmpcat').toString(), 'catalogue Builtin');
-        fixture.documents.set(URI.parse('xsmp-smp:///mirror.xsmpcat').toString(), 'catalogue StaleClientCopy');
+        fixture.documents.set(URI.parse('xsmp-smp:///mirror.smpcat').toString(), 'catalogue StaleClientCopy');
         fixture.mirrorContent.mockResolvedValueOnce('catalogue CurrentMirror');
 
         expect(fixture.provider.schemes).toEqual(['xsmp', 'xsmp-smp']);
         await expect(fixture.content('xsmp:///builtin.xsmpcat')).resolves.toEqual({ text: 'catalogue Builtin' });
-        await expect(fixture.content('xsmp-smp:///mirror.xsmpcat')).resolves.toEqual({ text: 'catalogue CurrentMirror' });
-        await expect(fixture.content('xsmp-smp:///mirror.xsmpcat')).resolves.toEqual({ text: '' });
+        await expect(fixture.content('xsmp-smp:///mirror.smpcat')).resolves.toEqual({ text: 'catalogue CurrentMirror' });
+        await expect(fixture.content('xsmp-smp:///mirror.smpcat')).resolves.toEqual({ text: '' });
         await expect(fixture.content('xsmp:///missing.xsmpcat')).resolves.toEqual({ text: '' });
     });
 
@@ -33,7 +33,7 @@ describe('Virtual XSMP document content', () => {
         const fixture = createProvider();
         const release = new Deferred<void>();
         const write = fixture.lock.write(() => release.promise);
-        const content = fixture.content('xsmp-smp:///mirror.xsmpcat');
+        const content = fixture.content('xsmp-smp:///mirror.smpcat');
         try {
             await nextTurn();
             expect(fixture.mirrorContent).not.toHaveBeenCalled();
@@ -53,7 +53,7 @@ describe('Virtual XSMP document content', () => {
         const fixture = createProvider();
         const cancellation = new Cancellation.CancellationTokenSource();
         cancellation.cancel();
-        await expect(fixture.provider.provideTextDocumentContent({ uri: 'xsmp-smp:///mirror.xsmpcat' }, cancellation.token))
+        await expect(fixture.provider.provideTextDocumentContent({ uri: 'xsmp-smp:///mirror.smpcat' }, cancellation.token))
             .rejects.toBe(OperationCancelled);
         cancellation.dispose();
 
@@ -61,7 +61,7 @@ describe('Virtual XSMP document content', () => {
         const release = new Deferred<void>();
         const write = fixture.lock.write(() => release.promise);
         const queuedCancellation = new Cancellation.CancellationTokenSource();
-        const content = fixture.provider.provideTextDocumentContent({ uri: 'xsmp-smp:///mirror.xsmpcat' }, queuedCancellation.token);
+        const content = fixture.provider.provideTextDocumentContent({ uri: 'xsmp-smp:///mirror.smpcat' }, queuedCancellation.token);
         await nextTurn();
         queuedCancellation.cancel();
         release.resolve();
@@ -74,7 +74,7 @@ describe('Virtual XSMP document content', () => {
     test.each([undefined, {}, { dynamicRegistration: false }])('refreshes only clients advertising support: %j', async capability => {
         const fixture = createProvider(capability);
         fixture.ready.resolve();
-        await fixture.provider.refresh([URI.parse('xsmp-smp:///mirror.xsmpcat')]);
+        await fixture.provider.refresh([URI.parse('xsmp-smp:///mirror.smpcat')]);
         expect(fixture.refresh).toHaveBeenCalledTimes(capability === undefined ? 0 : 1);
     });
 
@@ -82,12 +82,12 @@ describe('Virtual XSMP document content', () => {
         const fixture = createProvider({});
         const secondReply = new Deferred<void>();
         fixture.refresh.mockImplementation(async uri => {
-            if (uri.endsWith('/first.xsmpcat')) throw new Error('Client refresh failed');
+            if (uri.endsWith('/first.smpcat')) throw new Error('Client refresh failed');
             await secondReply.promise;
         });
         const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-        const first = URI.parse('xsmp-smp:///first.xsmpcat');
-        const second = URI.parse('xsmp-smp:///second.xsmpcat');
+        const first = URI.parse('xsmp-smp:///first.smpcat');
+        const second = URI.parse('xsmp-smp:///second.smpcat');
         const refresh = fixture.provider.refresh([first, second, first]);
         try {
             expect(fixture.refresh.mock.calls).toEqual([[first.toString()], [second.toString()]]);

@@ -23,11 +23,13 @@ describe('SMP mirror commands contribution', () => {
             expect.arrayContaining([
                 expect.objectContaining({
                     command: 'xsmp.openSmpMirror',
-                    title: 'Open XSMP',
+                    title: 'Open XSMP Preview',
+                    icon: '$(open-preview)',
                 }),
                 expect.objectContaining({
                     command: 'xsmp.openSmpXmlSource',
                     title: 'Open XML Source',
+                    icon: '$(go-to-file)',
                 }),
             ]),
         );

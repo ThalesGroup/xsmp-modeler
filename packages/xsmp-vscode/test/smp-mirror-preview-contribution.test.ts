@@ -29,11 +29,11 @@ describe('SMP mirror preview contribution', () => {
             displayName: 'XSMP Preview',
             priority: 'default',
             selector: [
-                { filenamePattern: '*.smpcat' },
-                { filenamePattern: '*.smpcfg' },
-                { filenamePattern: '*.smplnk' },
-                { filenamePattern: '*.smpasb' },
-                { filenamePattern: '*.smpsed' },
+                { filenamePattern: 'file:/**/*.smpcat' },
+                { filenamePattern: 'file:/**/*.smpcfg' },
+                { filenamePattern: 'file:/**/*.smplnk' },
+                { filenamePattern: 'file:/**/*.smpasb' },
+                { filenamePattern: 'file:/**/*.smpsed' },
             ],
         });
     });

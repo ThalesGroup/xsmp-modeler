@@ -153,19 +153,19 @@
                 "displayName": "XSMP Preview",
                 "selector": [
                     {
-                        "filenamePattern": "*.smpcat"
+                        "filenamePattern": "file:/**/*.smpcat"
                     },
                     {
-                        "filenamePattern": "*.smpcfg"
+                        "filenamePattern": "file:/**/*.smpcfg"
                     },
                     {
-                        "filenamePattern": "*.smplnk"
+                        "filenamePattern": "file:/**/*.smplnk"
                     },
                     {
-                        "filenamePattern": "*.smpasb"
+                        "filenamePattern": "file:/**/*.smpasb"
                     },
                     {
-                        "filenamePattern": "*.smpsed"
+                        "filenamePattern": "file:/**/*.smpsed"
                     }
                 ],
                 "priority": "default"
@@ -225,12 +225,14 @@
             {
                 "command": "xsmp.openSmpMirror",
                 "category": "Xsmp",
-                "title": "Open XSMP"
+                "title": "Open XSMP Preview",
+                "icon": "$(open-preview)"
             },
             {
                 "command": "xsmp.openSmpXmlSource",
                 "category": "Xsmp",
-                "title": "Open XML Source"
+                "title": "Open XML Source",
+                "icon": "$(go-to-file)"
             },
             {
                 "command": "xsmp.registerContributor",

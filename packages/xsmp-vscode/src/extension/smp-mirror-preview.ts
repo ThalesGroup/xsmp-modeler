@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { getSmpSourcePathFromMirrorPath } from '@xsmp/core/smp';
 import { getSmpMirrorPreviewUri, isSmpMirrorPreviewSourcePath } from './smp-mirror-preview-support.js';
 
 export const SmpMirrorPreviewViewType = 'xsmp.smpMirrorPreview';
@@ -19,6 +20,46 @@ export function registerSmpMirrorPreview(context: vscode.ExtensionContext): void
             },
         ),
     );
+    context.subscriptions.push(vscode.window.tabGroups.onDidChangeTabs(event => {
+        for (const tab of event.opened) {
+            void migrateLegacyMirrorTab(tab);
+        }
+    }));
+    for (const group of vscode.window.tabGroups.all) {
+        for (const tab of group.tabs) {
+            void migrateLegacyMirrorTab(tab);
+        }
+    }
+}
+
+/** Older releases persisted mirror tabs with the XSMP suffix instead of the source suffix. */
+async function migrateLegacyMirrorTab(tab: vscode.Tab): Promise<void> {
+    if (!(tab.input instanceof vscode.TabInputText) || tab.input.uri.scheme !== 'xsmp-smp') {
+        return;
+    }
+    const uri = tab.input.uri;
+    const viewColumn = tab.group.viewColumn;
+    const preview = tab.isPreview;
+    const sourcePath = getSmpSourcePathFromMirrorPath(uri.path);
+    if (!sourcePath) {
+        return;
+    }
+    try {
+        const document = await vscode.workspace.openTextDocument(uri.with({ path: sourcePath }));
+        await vscode.window.showTextDocument(document, {
+            viewColumn,
+            preserveFocus: true,
+            preview,
+        });
+        // Fill the group before closing its old tab, and re-read handles after opening an editor.
+        const current = vscode.window.tabGroups.all.find(group => group.viewColumn === viewColumn)?.tabs
+            .find(candidate => candidate.input instanceof vscode.TabInputText && candidate.input.uri.toString() === uri.toString());
+        if (current) {
+            await vscode.window.tabGroups.close(current, true);
+        }
+    } catch (error) {
+        console.error(`Failed to reopen SMP preview ${uri.toString()}`, error);
+    }
 }
 
 class SmpMirrorPreviewEditorProvider implements vscode.CustomReadonlyEditorProvider<SmpMirrorPreviewDocument> {
