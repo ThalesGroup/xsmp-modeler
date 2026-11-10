@@ -64,9 +64,11 @@ A **Component Link-Base Block** changes the current component context and groups
 ```text
 <path>
 {
-    (<link> | <component-link-base>)*
+    <link-entry>*
 }
 ```
+
+Each `<link-entry>` is a link or a nested component link-base block.
 
 Required:
 

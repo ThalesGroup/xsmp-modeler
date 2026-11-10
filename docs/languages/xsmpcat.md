@@ -581,6 +581,8 @@ Syntax:
 [visibility] array <name> = <item-type>[<size>]
 ```
 
+The brackets around `<size>` are literal and required.
+
 Required:
 
 - `array`
@@ -616,6 +618,7 @@ Required:
 - `using`
 - the type name
 - the pointed value type
+- the literal `*` after the value type
 
 Optional:
 
@@ -746,6 +749,8 @@ Syntax:
 ```text
 [visibility] string <name>[<length>]
 ```
+
+The brackets around `<length>` are literal and required.
 
 Required:
 
@@ -987,9 +992,9 @@ Syntax:
 
 ```text
 [visibility] [readOnly|writeOnly|readWrite] property <value-type> <name>
-    ['get' 'throws' <exception>[, <exception>]*]
-    ['set' 'throws' <exception>[, <exception>]*]
-    ['->' <attached-field>]
+    [get throws <exception>[, <exception>]*]
+    [set throws <exception>[, <exception>]*]
+    [-> <attached-field>]
 ```
 
 Required:
@@ -1031,9 +1036,15 @@ An **Operation** defines callable behavior, with optional parameters, return val
 Syntax:
 
 ```text
-[visibility] def (<return-type> | <return-type> <return-name> | void) <name>(
+[visibility] def <return> <name>(
     [<parameter>[, <parameter>]*]
 ) [throws <exception>[, <exception>]*]
+```
+
+Here `<return>` is defined as:
+
+```text
+<return> = void | <return-type> [<return-name>]
 ```
 
 Parameter syntax:
@@ -1047,7 +1058,7 @@ Required:
 - `def`
 - `void` or a return type
 - the operation name
-- parentheses
+- parentheses around the parameter list, even when it is empty
 
 Optional:
 
@@ -1127,19 +1138,21 @@ A **Container** defines a child-component slot inside a model or service, option
 Syntax:
 
 ```text
-container <reference-type>[<multiplicity>] <name> [= <default-component>]
+container <reference-type><multiplicity> <name> [= <default-component>]
 ```
 
-Multiplicity forms:
+The suffix `<multiplicity>` may be empty or use one of these forms. The square brackets shown below are literal:
 
 ```text
 ?
 *
 +
 [<value>]
-[<lower>...<upper>]
-[<lower>...*]
+[<lower> ... <upper>]
+[<lower> ... *]
 ```
+
+Use spaces around `...` as shown to separate numeric bounds from the range operator.
 
 Required:
 
@@ -1158,8 +1171,8 @@ Behavior:
 - `?` means zero or one occurrence
 - `*` means zero or more occurrences
 - `+` means one or more occurrences
-- `[<lower>...<upper>]` defines explicit lower and upper bounds
-- `[<lower>...*]` defines an explicit lower bound with no upper bound
+- `[<lower> ... <upper>]` defines explicit lower and upper bounds
+- `[<lower> ... *]` defines an explicit lower bound with no upper bound
 - `[<value>]` defines one fixed cardinality, not a lower bound
 
 Examples:
@@ -1185,7 +1198,7 @@ container demo.payload.Sensor+ sensors
 Bounded range:
 
 ```xsmp
-container demo.payload.Sensor[1...4] sensors
+container demo.payload.Sensor[1 ... 4] sensors
 ```
 
 Fixed number of children:
@@ -1197,13 +1210,13 @@ container demo.payload.Sensor[2] sensorPair
 At least three children:
 
 ```xsmp
-container demo.payload.Sensor[3...*] sensors
+container demo.payload.Sensor[3 ... *] sensors
 ```
 
 Example:
 
 ```xsmp
-container demo.payload.Sensor[1...4] sensors = demo.payload.BasicSensor
+container demo.payload.Sensor[1 ... 4] sensors = demo.payload.BasicSensor
 ```
 
 Allowed in:
@@ -1218,8 +1231,10 @@ A **Reference** defines an aggregation point through which a component connects 
 Syntax:
 
 ```text
-reference <interface>[<multiplicity>] <name>
+reference <interface><multiplicity> <name>
 ```
+
+The suffix `<multiplicity>` may be empty or use one of the [container multiplicity forms](#container). Square brackets are literal parts of those suffixes.
 
 Required:
 
@@ -1237,8 +1252,8 @@ Behavior:
 - `?` means zero or one target
 - `*` means zero or more targets
 - `+` means one or more targets
-- `[<lower>...<upper>]` defines explicit lower and upper bounds
-- `[<lower>...*]` defines an explicit lower bound with no upper bound
+- `[<lower> ... <upper>]` defines explicit lower and upper bounds
+- `[<lower> ... *]` defines an explicit lower bound with no upper bound
 - `[<value>]` defines one fixed number of targets, not a lower bound
 
 Examples:
@@ -1264,7 +1279,7 @@ reference demo.foundation.ILogger+ loggers
 Bounded range:
 
 ```xsmp
-reference demo.foundation.ILogger[1...4] loggers
+reference demo.foundation.ILogger[1 ... 4] loggers
 ```
 
 Fixed number of references:
@@ -1276,7 +1291,7 @@ reference demo.foundation.ILogger[2] loggers
 At least three references:
 
 ```xsmp
-reference demo.foundation.ILogger[3...*] loggers
+reference demo.foundation.ILogger[3 ... *] loggers
 ```
 
 Example:
@@ -1298,12 +1313,18 @@ Syntax:
 
 ```text
 entrypoint <name>
+```
+
+Or, with a body describing field accesses:
+
+```text
 entrypoint <name>
 {
-    [in <field> ...]
-    [out <field> ...]
+    <field-access>*
 }
 ```
+
+Each `<field-access>` is `in <field>` or `out <field>`. Repeat the keyword for every field.
 
 Required:
 
@@ -1313,8 +1334,8 @@ Required:
 Optional:
 
 - body
-- `in` field list
-- `out` field list
+- zero or more `in <field>` declarations
+- zero or more `out <field>` declarations
 
 Example:
 
@@ -1322,6 +1343,7 @@ Example:
 entrypoint step
 {
     in commandedMode
+    in measuredMode
     out publishedMode
 }
 ```

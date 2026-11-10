@@ -4,10 +4,11 @@ import 'xsmp-types'
 
 entry Schedule returns Schedule:
     /**
-     * `schedule [<parameter, ...>] <name> [epoch "..."] [mission "..."]`
+     * `schedule [<template-parameter-list>] <name> [epoch "..."] [mission "..."]`
      *
      * Declares an XSMP schedule document.
      * A schedule contains tasks, events and optional template parameters used to specialize task roots and templated paths.
+     * The optional template list includes literal angle brackets, for example `<Root = "platform">`.
      *
      * **Example**
      * ```xsmp
@@ -82,9 +83,10 @@ Activity returns Activity:
 
 CallOperation returns CallOperation:
     /**
-     * `call <operation-path>(<parameter = value, ...>)`
+     * `call <operation-path>(<arguments>)`
      *
      * Calls one operation on the current task execution context or on a child component reached through a typed path.
+     * Arguments are named assignments separated by commas. The parentheses are literal and remain required for an empty call such as `call controller.reset()`.
      *
      * **Example**
      * ```xsmp
@@ -135,9 +137,10 @@ Trigger returns Trigger:
 
 ExecuteTask returns ExecuteTask:
     /**
-     * `execute <task> [<argument, ...>] [at <root-path>]`
+     * `execute <task> [<template-argument-list>] [at <root-path>]`
      *
      * Executes another task, optionally with template arguments and with a different execution root.
+     * When present, the template argument list includes literal angle brackets and at least one argument, for example `<Root = "platform">`.
      *
      * **Example**
      * ```xsmp

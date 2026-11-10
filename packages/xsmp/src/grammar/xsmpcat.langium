@@ -258,6 +258,7 @@ ArrayType returns ArrayType:
      * `[visibility] array <name> = <item-type>[<size>]`
      *
      * Defines a fixed-size array type.
+     * The brackets around `<size>` are literal and required.
      * Arrays are value types, so they are useful for vectors, samples, lookup tables and other bounded collections.
      *
      * **Example**
@@ -274,6 +275,7 @@ ValueReference returns ValueReference:
      * `[visibility] using <name> = <value-type>*`
      *
      * Defines a reference type to a value type.
+     * The trailing `*` is literal and required.
      * Use it when a model API needs to point to a value object rather than contain it directly.
      *
      * **Example**
@@ -349,6 +351,8 @@ StringType returns StringType:
     modifiers+=VisibilityModifiers*
     /**
      * `[visibility] string <name>[<length>]`
+     *
+     * The brackets around `<length>` are literal and required.
      *
      * Defines a fixed-length string type based on `Char8`.
      * Use string types when the model needs bounded textual data with explicit maximum storage.
@@ -446,7 +450,7 @@ Field returns Field:
     attributes+=Attribute*
     modifiers+=FieldModifiers*
     /**
-     * `[visibility] [input|output|transient] field <type> <name> [= <default-value>]`
+     * `[visibility] [input] [output] [transient] field <type> <name> [= <default-value>]`
      *
      * Declares state or data published by a type.
      * Use `input` and `output` for dataflow contracts, and `transient` when the value shall not be persisted as state.
@@ -481,7 +485,10 @@ Operation returns Operation:
     attributes+=Attribute*
     modifiers+=VisibilityModifiers*
     /**
-     * `[visibility] def (<return-type>|void) <name>(...) [throws <exception>, ...]`
+     * `[visibility] def <return> <name>(...) [throws <exception>, ...]`
+     *
+     * Here `<return>` is `void` or `<return-type> [<return-name>]`.
+     * Parentheses enclose the parameter list, even when it is empty.
      *
      * Declares an operation callable through publication and dynamic invocation.
      * Operations may define ordered parameters, an optional return value and raised exceptions.
@@ -534,17 +541,19 @@ Association returns Association:
 Container returns Container:
     attributes+=Attribute*
     /**
-     * `container <type>[<multiplicity>] <name> [= <default-component>]`
+     * `container <type><multiplicity> <name> [= <default-component>]`
      * 
-     * Multiplicity forms:
+     * The suffix `<multiplicity>` may be empty or use one of these forms.
+     * The square brackets shown below are literal:
      * ```
      *   ?
      *   *
      *   +
      *   [<value>]
-     *   [<lower>...<upper>]
-     *   [<lower>...*]
+     *   [<lower> ... <upper>]
+     *   [<lower> ... *]
      * ```
+     * Use spaces around `...` as shown to separate numeric bounds from the range operator.
      * 
      * Declares a containment slot for child components.
      * Use multiplicity to constrain how many children may be placed in the container, and `= <default-component>` to suggest an initial implementation.
@@ -559,17 +568,19 @@ Container returns Container:
 Reference returns Reference:
     attributes+=Attribute*
     /**
-     * `reference <type>[<multiplicity>] <name>`
+     * `reference <type><multiplicity> <name>`
      * 
-     * Multiplicity forms:
+     * The suffix `<multiplicity>` may be empty or use one of these forms.
+     * The square brackets shown below are literal:
      * ```
      *   ?
      *   *
      *   +
      *   [<value>]
-     *   [<lower>...<upper>]
-     *   [<lower>...*]
+     *   [<lower> ... <upper>]
+     *   [<lower> ... *]
      * ```
+     * Use spaces around `...` as shown to separate numeric bounds from the range operator.
      * 
      * Declares an aggregation reference to external components.
      * References are typed by a reference type, which can be an interface or a component depending on the selected SMP revision.
@@ -594,15 +605,18 @@ Multiplicity returns Multiplicity:
 EntryPoint returns EntryPoint:
     attributes+=Attribute*
     /**
-     * `entrypoint <name> { in ... out ... }`
+     * `entrypoint <name>` or `entrypoint <name> { <field-access>* }`
      *
      * Declares a scheduler- or event-triggerable entry point on a component.
-     * Use optional `in` and `out` sections to describe which published fields the entry point consumes or produces.
+     * The body is optional. Each `<field-access>` is `in <field>` or `out <field>`.
+     * Repeat the keyword for every published field the entry point consumes or produces.
      *
      * **Example**
      * ```xsmp
      * entrypoint step
      * {
+     *     in commandedMode
+     *     in measuredMode
      *     out thermal
      * }
      * ```

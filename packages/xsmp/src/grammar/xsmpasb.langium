@@ -4,10 +4,11 @@ import 'xsmp-types'
 
 entry Assembly returns Assembly:
     /**
-     * `assembly [<parameter, ...>] <name>`
+     * `assembly [<template-parameter-list>] <name>`
      *
      * Declares an XSMP assembly document.
      * An assembly defines one root model instance, optional template parameters and optional component configurations that override state or behavior inside the assembly tree.
+     * The optional template list includes literal angle brackets, for example `<Lane = "Ops">`.
      *
      * **Example**
      * ```xsmp
@@ -217,9 +218,10 @@ Invocation returns Invocation:
 
 OperationCall returns OperationCall:
     /**
-     * `call <operation>(<parameter = value, ...>)`
+     * `call <operation>(<arguments>)`
      *
      * Invokes one published operation of the current configured or current model instance.
+     * Arguments are named assignments separated by commas. The parentheses are literal and remain required for an empty call such as `call reset()`.
      *
      * **Example**
      * ```xsmp
