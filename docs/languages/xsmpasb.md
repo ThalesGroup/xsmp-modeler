@@ -30,11 +30,13 @@ An **Assembly** declares one reusable instantiated system: optional template par
 ### Syntax
 
 ```text
-assembly [<template-parameter>[, <template-parameter>]*] <name>
+assembly [<template-parameter-list>] <name>
     <configure-block>*
     <root-model-instance>
     <configure-block>*
 ```
+
+The optional `<template-parameter-list>` includes literal angle brackets, for example `<Lane = "Ops", Index = 1>`.
 
 Required:
 
@@ -98,7 +100,7 @@ A **Configure Block** applies local subscriptions, calls, property updates or fi
 ```text
 configure <instance-path>
 {
-    (<subscribe> | <call> | <property> | <field-assignment>)*
+    <configuration-item>*
 }
 ```
 
@@ -108,7 +110,7 @@ Required:
 - one instance path
 - one block body
 
-Inside the block you can write:
+Each `<configuration-item>` is one of:
 
 - global-event subscriptions
 - operation calls
@@ -260,11 +262,13 @@ A **Sub Assembly Instance** creates one child from another assembly definition, 
 
 ```text
 <container> += <instance-name> : <assembly-name>
-    [<template-argument>[, <template-argument>]*]
-    ['using' 'config' <configuration-name>]
-    ['using' 'link' <link-base-name>]
+    [<template-argument-list>]
+    [using config <configuration-name>]
+    [using link <link-base-name>]
     [ { <configure-block>* } ]
 ```
+
+The optional `<template-argument-list>` includes literal angle brackets, for example `<Lane = "A", Index = 1>`. An empty list `<>` is also accepted for an assembly instance.
 
 Required:
 
@@ -445,8 +449,10 @@ A **Call Invocation** invokes one local operation with zero or more named argume
 ### Syntax
 
 ```text
-call <operation>( [<parameter-name> = <simple-value>[, ...]] )
+call <operation>(<arguments>)
 ```
+
+`<arguments>` contains zero or more `<parameter-name> = <simple-value>` assignments separated by commas. The parentheses are literal and are required even when the argument list is empty: `call reset()`.
 
 Required:
 
@@ -556,17 +562,15 @@ An **Array Literal** initializes an array-typed value in one expression.
 Syntax:
 
 ```text
-[<value>[, <value>]*]
+[<elements>]
 ```
+
+Here, the brackets are literal. `<elements>` is a comma-separated list of values; the empty form is `[]`.
 
 Required:
 
 - opening and closing brackets
-- zero or more array elements
-
-Optional:
-
-- commas between elements
+- commas between consecutive elements
 
 Behavior:
 
@@ -586,19 +590,20 @@ Syntax:
 
 ```text
 {
-    [<field-path> =] <value>[, ...]
+    <elements>
 }
 ```
+
+Here, the braces are literal. `<elements>` is a comma-separated list of positional values or `<field-path> = <value>` assignments; the empty form is `{}`.
 
 Required:
 
 - opening and closing braces
-- zero or more structure elements
+- commas between consecutive elements
 
 Optional:
 
 - designated member paths
-- commas between elements
 
 Assembly structure elements may be:
 

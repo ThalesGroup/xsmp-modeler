@@ -31,8 +31,10 @@ A **Configuration** declares one reusable configuration and then fills it with c
 
 ```text
 configuration <name>
-    (<component-configuration> | <include>)*
+    <configuration-entry>*
 ```
+
+Each `<configuration-entry>` is a component configuration or an `include` statement.
 
 Required:
 
@@ -63,9 +65,11 @@ A **Component Configuration** block targets one component instance path and assi
 ```text
 <path> [: <component-or-assembly>]
 {
-    (<include> | <component-configuration> | <field-value>)*
+    <configuration-item>*
 }
 ```
+
+Each `<configuration-item>` is an `include`, a nested component configuration or a field assignment.
 
 Required:
 
@@ -204,17 +208,15 @@ An **Array Value** assigns an ordered list of values to one array-typed field.
 ### Syntax
 
 ```text
-[<value>[, <value>]*]
+[<elements>]
 ```
+
+Here, the brackets are literal. `<elements>` is a comma-separated list of values; the empty form is `[]`.
 
 Required:
 
 - opening and closing brackets
-- zero or more array elements
-
-Optional:
-
-- commas between elements
+- commas between consecutive elements
 
 Behavior:
 
@@ -239,18 +241,19 @@ A **Structure Value** assigns several member values at once to one structure-typ
 
 ```text
 {
-    <value-or-designated-field>[, <value-or-designated-field>]*
+    <elements>
 }
 ```
+
+Here, the braces are literal. `<elements>` is a comma-separated list of positional values or designated field assignments; the empty form is `{}`.
 
 Required:
 
 - opening and closing braces
-- zero or more structure elements
+- commas between consecutive elements
 
 Optional:
 
-- commas between elements
 - designated member names inside the literal
 
 Structure elements may be:

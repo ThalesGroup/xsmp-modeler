@@ -30,10 +30,12 @@ A **Schedule** declares one reusable schedule, optional timing origins, then a s
 ### Syntax
 
 ```text
-schedule [<template-parameter>[, <template-parameter>]*] <name>
+schedule [<template-parameter-list>] <name>
     [epoch "<time>"] [mission "<time>"]
     <task-or-event>*
 ```
+
+The optional `<template-parameter-list>` includes literal angle brackets, for example `<Root = "platform", Cycles = 3>`.
 
 Required:
 
@@ -141,8 +143,10 @@ A **Call Activity** invokes one operation in the current task execution context.
 ### Syntax
 
 ```text
-call <operation-path>( [<parameter-name> = <simple-value>[, ...]] )
+call <operation-path>(<arguments>)
 ```
+
+`<arguments>` contains zero or more `<parameter-name> = <simple-value>` assignments separated by commas. The parentheses are literal and are required even when the argument list is empty: `call controller.reset()`.
 
 Required:
 
@@ -234,9 +238,11 @@ An **Execute Activity** calls another task, optionally with template arguments a
 
 ```text
 execute <task>
-    [<template-argument>[, <template-argument>]*]
+    [<template-argument-list>]
     [at <root-path>]
 ```
+
+The optional `<template-argument-list>` includes literal angle brackets, for example `<Root = "/platform", Cycles = 3>`. When present, it must contain at least one argument.
 
 Required:
 

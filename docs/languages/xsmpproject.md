@@ -11,10 +11,16 @@ An **XSMP Project** declares one project and lists the sources, dependencies, pr
 ```text
 project '<project-name>'
 
-(source '<path>' | 
-dependency '<project-name>' | 
-profile '<profile-name>' | 
-tool '<tool-name>')*
+<project-element>*
+```
+
+Zero or more project elements may follow the project declaration. Each `<project-element>` uses one of these forms:
+
+```text
+source '<path>'
+dependency '<project-name>'
+profile '<profile-name>'
+tool '<tool-name>'
 ```
 
 Required:
