@@ -11,7 +11,7 @@ import {
 import { checkName, checkUniqueDocumentName } from './name-validator-utils.js';
 import type { XsmpInstancePathResolver } from '../references/xsmp-instance-path-resolver.js';
 import * as XsmpUtils from '../utils/xsmp-utils.js';
-import { checkTemplatedPathSegments, collectUsedTemplateParameterNames, createTemplateBindings, warnUnusedTemplateParameters } from './template-parameter-validator-utils.js';
+import { checkInt32TemplateValue, checkTemplatedPathSegments, collectUsedTemplateParameterNames, createTemplateBindings, warnUnusedTemplateParameters } from './template-parameter-validator-utils.js';
 import { XsmpcfgValidator } from './xsmpcfg-validator.js';
 
 export function registerXsmpsedValidationChecks(services: XsmpsedServices) {
@@ -21,7 +21,8 @@ export function registerXsmpsedValidationChecks(services: XsmpsedServices) {
         Schedule: validator.checkSchedule,
         Task: validator.checkTask,
         StringParameter: validator.checkStringParameter,
-        Int32Parameter: validator.checkInt32Parameter,
+        Int32Parameter: [validator.checkInt32Parameter, checkInt32TemplateValue],
+        Int32Argument: checkInt32TemplateValue,
         IntValue: validator.checkIntValue,
         FloatValue: validator.checkFloatValue,
         Trigger: validator.checkTrigger,

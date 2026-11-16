@@ -9,7 +9,7 @@ import { PTK } from '../utils/primitive-type-kind.js';
 import * as Solver from '../utils/solver.js';
 import * as XsmpUtils from '../utils/xsmp-utils.js';
 import { XsmpcfgValidator } from './xsmpcfg-validator.js';
-import { checkTemplatedPathSegments, collectUsedTemplateParameterNames, createTemplateBindings, warnUnusedTemplateParameters } from './template-parameter-validator-utils.js';
+import { checkInt32TemplateValue, checkTemplatedPathSegments, collectUsedTemplateParameterNames, createTemplateBindings, warnUnusedTemplateParameters } from './template-parameter-validator-utils.js';
 
 export function registerXsmpasbValidationChecks(services: XsmpasbServices) {
     const registry = services.validation.ValidationRegistry;
@@ -20,7 +20,8 @@ export function registerXsmpasbValidationChecks(services: XsmpasbServices) {
         AssemblyInstance: validator.checkAssemblyInstance,
         SubInstance: validator.checkSubInstance,
         StringParameter: validator.checkStringParameter,
-        Int32Parameter: validator.checkInt32Parameter,
+        Int32Parameter: [validator.checkInt32Parameter, checkInt32TemplateValue],
+        Int32Argument: checkInt32TemplateValue,
         AssemblyComponentConfiguration: validator.checkAssemblyComponentConfiguration,
         GlobalEventHandler: validator.checkGlobalEventHandler,
         FieldValue: validator.checkAssemblyFieldValue,
