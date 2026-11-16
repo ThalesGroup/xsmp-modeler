@@ -439,6 +439,11 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
         const rawFqn = this.name(this.fqn(type), gen);
         const hasConstructor = fields.some(f => f.default !== undefined);
         const name = this.name(type, gen);
+        // Keep the first argument required so the default constructor stays unambiguous.
+        const parameters = hasConstructor ? fields.map((field, index) => {
+            const fieldType = this.fqn(field.type.ref);
+            return `${fieldType} ${field.name}${index === 0 ? '' : ` = ${fieldType}${this.directListInitializer(field.default)}`}`;
+        }).join(', ') : undefined;
         const fieldInitializerSeparator = fields.length === 0 ? '' : ',';
 
         return s`
@@ -450,7 +455,7 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
             ~${name}() = default;
             ${name}(const ${name}&) = default;
             ${name}(${name}&&) = default;
-            ${name}(${fields.map(field => `${this.fqn(field.type.ref)} ${field.name}`).join(', ')}):
+            ${name}(${parameters}):
             ${fields.map(field => `${field.name}(${field.name})`).join(', ')} {}
             ${name}& operator=(const ${name}&) = default;` : undefined}
             static void _Register(::Smp::Publication::ITypeRegistry* registry);
