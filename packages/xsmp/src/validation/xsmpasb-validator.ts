@@ -30,6 +30,8 @@ export function registerXsmpasbValidationChecks(services: XsmpasbServices) {
         OperationCall: validator.checkOperationCall,
         PropertyValue: validator.checkPropertyValue,
         IntValue: validator.checkIntValue,
+        DateTimeValue: validator.checkDateTimeValue,
+        DurationValue: validator.checkDurationValue,
         FloatValue: validator.checkFloatValue,
     };
     registry.register(checks, validator, 'fast');

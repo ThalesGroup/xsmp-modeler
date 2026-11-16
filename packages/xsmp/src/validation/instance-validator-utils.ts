@@ -1,8 +1,11 @@
 import type { AstNode, Properties, ValidationAcceptor } from 'langium';
 import * as ast from '../generated/ast-partial.js';
 import * as Duration from '../utils/duration.js';
+import { parseDateTime } from '../utils/date-time.js';
 
-const dateTimeRegex = /^\d{4}-\d{2}-\d{2}T.+$/;
+// Runtime values are exported verbatim, so require XML Schema lexical forms.
+const dateTimeRegex = /^(?!0000)\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-](?:(?:0\d|1[0-3]):[0-5]\d|14:00))?$/;
+const durationRegex = /^-?P(?:\d+D)?(?:T(?:\d+H)?(?:\d+M)?(?:\d+(?:\.\d+)?S)?)?$/;
 const pathIdentifierRegex = /^[_a-zA-Z]\w*$/;
 type PathLikeValue = string | ast.Path | undefined;
 
@@ -59,10 +62,11 @@ export function checkValidDuration<N extends AstNode>(
     property: Properties<N>,
     label: string,
 ): void {
-    if (!value) {
+    if (value === undefined) {
         return;
     }
     try {
+        if (!durationRegex.test(value)) throw new Error('Invalid duration syntax');
         Duration.parse(value);
     } catch {
         accept('error', `${label} shall be a valid Duration (e.g: PT1S).`, { node, property });
@@ -76,10 +80,10 @@ export function checkValidDateTime<N extends AstNode>(
     property: Properties<N>,
     label: string,
 ): void {
-    if (!value) {
+    if (value === undefined) {
         return;
     }
-    if (!dateTimeRegex.test(value) || Number.isNaN(Date.parse(value))) {
+    if (!dateTimeRegex.test(value) || parseDateTime(value) === undefined) {
         accept('error', `${label} shall be a valid DateTime (e.g: 1970-01-01T00:00:00Z).`, { node, property });
     }
 }

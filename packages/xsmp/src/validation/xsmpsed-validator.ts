@@ -23,6 +23,8 @@ export function registerXsmpsedValidationChecks(services: XsmpsedServices) {
         StringParameter: validator.checkStringParameter,
         Int32Parameter: validator.checkInt32Parameter,
         IntValue: validator.checkIntValue,
+        DateTimeValue: validator.checkDateTimeValue,
+        DurationValue: validator.checkDurationValue,
         FloatValue: validator.checkFloatValue,
         Trigger: validator.checkTrigger,
         Transfer: validator.checkTransfer,
