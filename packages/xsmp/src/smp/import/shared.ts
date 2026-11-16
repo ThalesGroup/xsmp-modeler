@@ -325,7 +325,8 @@ export function renderReferenceText(
     const title = getAttribute(link, 'xlink:title');
     const href = getAttribute(link, 'xlink:href');
     const fragment = extractHrefFragment(href);
-    const localResolution = context.resolveLocal?.(fragment, title);
+    const localResolution = !href || href.startsWith('#')
+        ? context.resolveLocal?.(fragment, title) : undefined;
     if (localResolution) {
         return localResolution;
     }
