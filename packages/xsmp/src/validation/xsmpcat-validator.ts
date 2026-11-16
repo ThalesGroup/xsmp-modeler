@@ -1176,6 +1176,18 @@ export class XsmpcatValidator {
             accept('error', 'The Type of the AttachedField shall match the Type of the Property.', { node: property, property: ast.Property.attachedField });
         }
 
+        const attachedField = property.attachedField?.ref;
+        if (attachedField) {
+            if (this.attrHelper.isByPointer(property)) {
+                accept('error', 'ByPointer is not supported for a Property with an attached field.', { node: property, property: ast.Property.attachedField });
+            }
+            if (XsmpUtils.getAccessKind(property) !== 'writeOnly' && this.attrHelper.isByReference(property)
+                && this.attrHelper.isConstGetter(property) && !this.attrHelper.isConst(property)
+                && !this.attrHelper.isMutable(attachedField) && !this.attrHelper.isStatic(attachedField)) {
+                accept('error', 'A const Property getter cannot return a non-const reference to a non-mutable, non-static attached field.', { node: property, property: ast.Property.attachedField });
+            }
+        }
+
         const getRaises = new Set<ast.Type | undefined>();
         for (const [index, exception] of property.getRaises.entries()) {
             if (this.checkTypeReference(accept, property, exception.ref, ast.Property.getRaises, index)) {

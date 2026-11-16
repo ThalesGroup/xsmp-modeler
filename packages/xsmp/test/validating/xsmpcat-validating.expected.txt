@@ -96,6 +96,7 @@
 [132:14..132:35]: The Integer hidden.privateInteger is not visible.
 [138:137..138:138]: Deprecated: do not use
 [138:137..138:138]: The Type of the AttachedField shall match the Type of the Property.
+[138:137..138:138]: ByPointer is not supported for a Property with an attached field.
 [138:84..138:96]: Duplicated exception.
 [138:121..138:133]: Duplicated exception.
 [136:8..136:18]: A Property shall not be both ByPointer and ByReference.
