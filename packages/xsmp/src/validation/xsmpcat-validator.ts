@@ -826,13 +826,13 @@ export class XsmpcatValidator {
     }
 
     checkNamedElementWithMultiplicity(element: ast.NamedElementWithMultiplicity, accept: ValidationAcceptor): void {
-        const lower = XsmpUtils.getLower(element);
-        if (lower !== undefined && lower < 0) {
+        const lower = this.checkExpression(PTK.Int64, element.multiplicity?.lower, accept);
+        if (typeof lower === 'bigint' && lower < 0) {
             accept('error', 'Lower bound shall be a positive number or 0.', { node: element.multiplicity!, property: ast.Multiplicity.lower });
         }
 
-        const upper = XsmpUtils.getUpper(element);
-        if (upper !== undefined && upper !== BigInt(-1) && lower !== undefined && upper < lower) {
+        const upper = this.checkExpression(PTK.Int64, element.multiplicity?.upper, accept);
+        if (typeof upper === 'bigint' && upper !== BigInt(-1) && typeof lower === 'bigint' && upper < lower) {
             accept('error', 'Lower bound shall be less or equal to the upper bound, if present.\nUpper bound shall be -1 or larger or equal to the lower bound.',
                 { node: element.multiplicity!, property: ast.Multiplicity.lower });
         }
