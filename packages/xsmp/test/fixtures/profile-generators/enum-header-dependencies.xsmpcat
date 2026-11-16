@@ -1,0 +1,9 @@
+catalogue EnumHeaderDependencies
+namespace enumdeps {
+    /** @uuid a1200000-0000-4000-8000-000000000001 */
+    public struct Constants { constant Int32 Base = 7 }
+    /** @uuid a1200000-0000-4000-8000-000000000002 */
+    public enum Mode { First = Constants.Base, Next = Constants.Base + 1 }
+    /** @uuid a1200000-0000-4000-8000-000000000003 */
+    public enum Independent { First = 1, Next = 2 }
+}
