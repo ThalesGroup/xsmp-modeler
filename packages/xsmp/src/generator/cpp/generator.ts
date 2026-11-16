@@ -593,7 +593,7 @@ export abstract class CppGenerator implements XsmpGenerator {
                     case PTK.Duration:
                     case PTK.DateTime: {
                         const value = Solver.getValue(expr)?.integralValue(kind)?.getValue();
-                        if (value !== undefined) { return `${value}L`; }
+                        if (value !== undefined) { return value === -9223372036854775808n ? '(-9223372036854775807LL - 1LL)' : `${value}L`; }
                         break;
                     }
                 }
