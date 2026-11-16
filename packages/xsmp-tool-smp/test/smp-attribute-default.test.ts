@@ -60,10 +60,11 @@ namespace ns {
 }
 
 describe.each(['ECSS_SMP_2020', 'ECSS_SMP_2025'] as const)('SMP attribute defaults (%s)', standard => {
-    test('diagnoses the missing default when the SMP contribution is active', async () => {
+    test('warns about the missing default when the SMP contribution is active', async () => {
         const { document } = await fixture(standard, true);
-        expect(document.diagnostics?.filter(d => d.severity === 1)).toEqual([
-            expect.objectContaining({ message: diagnostic }),
+        expect(document.diagnostics?.filter(d => d.severity === 1)).toEqual([]);
+        expect(document.diagnostics?.filter(d => d.message === diagnostic)).toEqual([
+            expect.objectContaining({ severity: 2 }),
         ]);
     });
 
@@ -73,14 +74,14 @@ describe.each(['ECSS_SMP_2020', 'ECSS_SMP_2025'] as const)('SMP attribute defaul
         expect(document.diagnostics?.some(d => d.message === diagnostic)).toBe(false);
     });
 
-    test('rejects direct generation before writing an invalid catalogue', async () => {
-        const { directory, document, generator } = await fixture(standard, false);
+    test('generates the catalogue despite the warning without inventing a default', async () => {
+        const { directory, document, generator } = await fixture(standard, true);
         const catalogue = document.parseResult.value;
-        await expect(generator.doGenerateCatalogue(catalogue, undefined))
-            .rejects.toThrow("Cannot export attribute type 'ns.Tag' to SMP without a default value.");
-        await expect(generateDocuments(generator, [catalogue], URI.file(directory)))
-            .rejects.toThrow("Cannot export attribute type 'ns.Tag' to SMP without a default value.");
-        expect(fs.existsSync(path.join(directory, 'smdl-gen', 'Attributes.smpcat'))).toBe(false);
+        expect(document.diagnostics?.filter(d => d.severity === 1)).toEqual([]);
+        await generateDocuments(generator, [catalogue], URI.file(directory));
+        const xml = fs.readFileSync(path.join(directory, 'smdl-gen', 'Attributes.smpcat'), 'utf8');
+        expect(xml).toContain('Name="Tag"');
+        expect(xml).not.toContain('<Default');
     });
 
     test.each([
@@ -89,6 +90,7 @@ describe.each(['ECSS_SMP_2020', 'ECSS_SMP_2025'] as const)('SMP attribute defaul
     ])('preserves an explicit $type default of $value', async ({ type, value }) => {
         const { directory, document, generator } = await fixture(standard, true, type, value);
         expect(document.diagnostics?.filter(d => d.severity === 1)).toEqual([]);
+        expect(document.diagnostics?.some(d => d.message === diagnostic)).toBe(false);
         await generateDocuments(generator, [document.parseResult.value], URI.file(directory));
         const cataloguePath = path.join(directory, 'smdl-gen', 'Attributes.smpcat');
         expect(fs.readFileSync(cataloguePath, 'utf8')).toContain(`<Default xsi:type="Types:${type}Value" Value="${value}"/>`);

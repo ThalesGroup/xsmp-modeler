@@ -455,13 +455,11 @@ export class SmpGenerator implements XsmpGenerator {
     }
 
     protected convertAttributeType(attributeType: ast.AttributeType): Types.AttributeType {
-        if (attributeType.default === undefined) {
-            throw new Error(`Cannot export attribute type '${XsmpUtils.fqn(attributeType)}' to SMP without a default value.`);
-        }
+
         return {
             ...this.convertType(attributeType, 'Types:AttributeType'),
             Type: this.convertXlink(attributeType.type, attributeType),
-            Default: this.convertTypedValue(attributeType.type.ref, attributeType.default),
+            Default: attributeType.default ? this.convertTypedValue(attributeType.type.ref, attributeType.default) : undefined,
             '@AllowMultiple': this.docHelper.allowMultiple(attributeType),
             Usage: this.docHelper.getUsages(attributeType)?.map(t => t.toString()),
         };

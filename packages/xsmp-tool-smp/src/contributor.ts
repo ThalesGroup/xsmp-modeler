@@ -13,7 +13,7 @@ export function registerContribution(api: XsmpContributionRegistrationApi): void
         const checks: ValidationChecks<ast.XsmpAstType> = {
             AttributeType: (attributeType, accept) => {
                 if (attributeType.default === undefined) {
-                    accept('error', 'SMP export requires a default value for attribute types.', {
+                    accept('warning', 'SMP export requires a default value for attribute types.', {
                         node: attributeType,
                         property: ast.AttributeType.name,
                     });
