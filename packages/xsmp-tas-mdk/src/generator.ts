@@ -1,3 +1,4 @@
+import { isCdkField } from './fields.js';
 import { GapPatternCppGenerator, CxxStandard, type Include } from '@xsmp/core/generator/cpp';
 import type { XsmpSharedServices } from '@xsmp/core';
 import * as ast from '@xsmp/core/ast';
@@ -857,20 +858,9 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
             ${setterHandler}
             `;
     }
-    private isCdkFieldType(type: ast.Type | undefined): boolean {
-        if (ast.isClass(type))
-            return false;
-        if (ast.isStructure(type))
-            return type.elements.filter(ast.isField).some(field => this.isCdkField(field));
-        if (ast.isArrayType(type))
-            return this.isCdkFieldType(type.itemType.ref);
-        return false;
-    }
 
     protected override isCdkField(field: ast.Field): boolean {
-        return this.cached(field, 'isCdkField', () => ast.isComponent(field.$container) && !this.attrHelper.isStatic(field) && !ast.isClass(field.type.ref) &&
-            (isOutput(field) || isInput(field) || this.attrHelper.isFailure(field) || this.attrHelper.isForcible(field) || this.isOfInput(field) || this.isOfOutput(field)
-                || this.isOfFailure(field) || this.isCdkFieldType(field.type.ref)));
+        return this.cached(field, 'isCdkField', () => isCdkField(field, this.attrHelper));
     }
     override headerIncludesField(field: ast.Field): Include[] {
         if (this.isCdkField(field)) {

@@ -1,5 +1,6 @@
 import { XsmpSdkGenerator } from './generator.js';
 import { scaffoldXsmpSdkProject } from './scaffold.js';
+import { registerXsmpSdkValidationChecks } from './validator.js';
 import type { XsmpContributionRegistrationApi } from '@xsmp/core/contributions';
 
 export function registerContribution(api: XsmpContributionRegistrationApi): void {
@@ -10,4 +11,5 @@ export function registerContribution(api: XsmpContributionRegistrationApi): void
     });
     api.setScaffolder(scaffoldXsmpSdkProject);
     api.addGenerator(services => new XsmpSdkGenerator(services));
+    api.addValidation('xsmpcat', registerXsmpSdkValidationChecks);
 }
