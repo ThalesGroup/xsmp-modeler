@@ -1063,7 +1063,7 @@ export class ADocGenerator implements XsmpGenerator {
                     .^h|Primitive Type |${this.crossReference(integer.primitiveType ?? ['Smp', 'Int32'], integer)}
                     ${integer.minimum ? `.^h|Minimum |${this.getShortValue(integer.minimum)}` : undefined}
                     ${integer.maximum ? `.^h|Maximum |${this.getShortValue(integer.maximum)}` : undefined}
-                    ${unit ? `.^h|Unit |${unit}` : undefined}
+                    ${unit ? `.^h|Unit |${this.escapeCell(unit)}` : undefined}
                 `;
             }
             case ast.Float.$type: {
@@ -1076,7 +1076,7 @@ export class ADocGenerator implements XsmpGenerator {
                     .^h|Primitive Type |${this.crossReference(float.primitiveType ?? ['Smp', 'Float64'], float)}
                     ${float.minimum ? `.^h|Minimum |${this.getShortValue(float.minimum)}${minimumSuffix}` : undefined}
                     ${float.maximum ? `.^h|Maximum |${this.getShortValue(float.maximum)}${maximumSuffix}` : undefined}
-                    ${unit ? `.^h|Unit |${unit}` : undefined}
+                    ${unit ? `.^h|Unit |${this.escapeCell(unit)}` : undefined}
                 `;
             }
             case ast.ArrayType.$type: {
@@ -1409,9 +1409,9 @@ export class ADocGenerator implements XsmpGenerator {
                     this.getFieldKinds(field).join(', '),
                     field.name,
                     this.crossReference(field.type, field),
-                    hasUnit ? this.unit(field) ?? '' : undefined,
+                    hasUnit ? this.escapeCell(this.unit(field)) : undefined,
                     hasViewKind ? this.viewKind(field) : undefined,
-                    hasInitialValue ? this.getShortValue(field.default) ?? '' : undefined,
+                    hasInitialValue ? this.escapeCell(this.getShortValue(field.default)) : undefined,
                     hasDescription ? this.escapeDescription(this.docHelper.getDescription(field)) : undefined,
                 )}
             `).join('\n')}
@@ -1443,7 +1443,7 @@ export class ADocGenerator implements XsmpGenerator {
                 ${this.tableRow(
                     constant.name,
                     this.crossReference(constant.type, constant),
-                    this.getShortValue(constant.value) ?? '',
+                    this.escapeCell(this.getShortValue(constant.value)),
                     hasDescription ? this.escapeDescription(this.docHelper.getDescription(constant)) : undefined,
                 )}
             `).join('\n')}
@@ -1538,7 +1538,7 @@ export class ADocGenerator implements XsmpGenerator {
                 |Direction |Name |Type${this.optionalHeader(hasDefaultValue, 'Default Value')}${this.optionalHeader(hasDescription, 'Description')}
 
                 ${element.parameter.map(param => s`
-                    |${param.direction ?? 'in'} |${param.name} |${this.crossReference(param.type, param)}${this.inlineOptionalCell(hasDefaultValue, this.getShortValue(param.default))}${this.inlineOptionalCell(hasDescription, this.escapeDescription(this.docHelper.getDescription(param)))}
+                    |${param.direction ?? 'in'} |${param.name} |${this.crossReference(param.type, param)}${this.inlineOptionalCell(hasDefaultValue, this.escapeCell(this.getShortValue(param.default)))}${this.inlineOptionalCell(hasDescription, this.escapeDescription(this.docHelper.getDescription(param)))}
                 `).join('\n')}
                 ${returnParameterSection}
                 |===
@@ -1641,7 +1641,7 @@ export class ADocGenerator implements XsmpGenerator {
                 ${this.tableRow(
                     property.name,
                     this.crossReference(property.type, property),
-                    hasCategory ? this.docHelper.getPropertyCategory(property) ?? '' : undefined,
+                    hasCategory ? this.escapeCell(this.docHelper.getPropertyCategory(property)) : undefined,
                     hasViewKind ? this.viewKind(property) : undefined,
                     hasDescription ? this.escapeDescription(this.docHelper.getDescription(property)) : undefined,
                 )}
