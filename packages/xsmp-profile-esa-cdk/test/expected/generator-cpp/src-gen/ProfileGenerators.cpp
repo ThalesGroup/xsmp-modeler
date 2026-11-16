@@ -21,7 +21,7 @@
 #include <demo/support/RootModel.h>
 #include <esa/ecss/smp/cdk/Factory.h>
 #include <ProfileGenerators.h>
-#include <unordered_set>
+#include <unordered_map>
 
 
 // -----------------------------------------------------------------------------
@@ -29,8 +29,9 @@
 // -----------------------------------------------------------------------------
 
 namespace {
-/// Simulators set.
-std::unordered_set<::Smp::ISimulator*> simulators { };
+enum class InitializationState { Initializing, Initialized, Failed };
+/// Package initialization state for each simulator.
+std::unordered_map<::Smp::ISimulator*, InitializationState> simulators { };
 } // namespace
 
 
@@ -51,53 +52,60 @@ extern "C"
         if (!simulator) {
             return false;
         }
-        // avoid double initialisation
-        if (!::simulators.emplace(simulator).second) {
-            return true;
+        // Allow recursive initialisation, but never report a previous failure as success.
+        const auto entry = ::simulators.emplace(simulator, InitializationState::Initializing);
+        if (!entry.second) {
+            return entry.first->second != InitializationState::Failed;
         }
+        try {
 
-        // register Enumeration Mode
-        ::demo::support::_Register_Mode(typeRegistry);
-        // register Integer Counter
-        ::demo::support::_Register_Counter(typeRegistry);
-        // register Float Ratio
-        ::demo::support::_Register_Ratio(typeRegistry);
-        // register String Label
-        ::demo::support::_Register_Label(typeRegistry);
-        // register Class DeviceBase
-        ::demo::support::DeviceBase::_Register(typeRegistry);
-        // register Exception DeviceError
-        ::demo::support::DeviceError::_Register(typeRegistry);
-        // register Array CounterArray
-        ::demo::support::_Register_CounterArray(typeRegistry);
-        // register Structure Payload
-        ::demo::support::Payload::_Register(typeRegistry);
-        // Register Service MonitorService
-        simulator->AddService( new ::demo::support::MonitorService(
-            "MonitorService", // Name
-            "", // Description
-            simulator, // Parent
-            simulator // Simulator
-            ));
+            // register Enumeration Mode
+            ::demo::support::_Register_Mode(typeRegistry);
+            // register Integer Counter
+            ::demo::support::_Register_Counter(typeRegistry);
+            // register Float Ratio
+            ::demo::support::_Register_Ratio(typeRegistry);
+            // register String Label
+            ::demo::support::_Register_Label(typeRegistry);
+            // register Class DeviceBase
+            ::demo::support::DeviceBase::_Register(typeRegistry);
+            // register Exception DeviceError
+            ::demo::support::DeviceError::_Register(typeRegistry);
+            // register Array CounterArray
+            ::demo::support::_Register_CounterArray(typeRegistry);
+            // register Structure Payload
+            ::demo::support::Payload::_Register(typeRegistry);
+            // Register Service MonitorService
+            simulator->AddService( new ::demo::support::MonitorService(
+                "MonitorService", // Name
+                "", // Description
+                simulator, // Parent
+                simulator // Simulator
+                ));
 
-        // Register factory for Model ChildModel
-        simulator->RegisterFactory(new ::esa::ecss::smp::cdk::Factory<::demo::support::ChildModel>(
-            "ChildModel", // Name
-            "", // Description
-            simulator, // Simulator
-            ::demo::support::Uuid_ChildModel // UUID
-            ));
+            // Register factory for Model ChildModel
+            simulator->RegisterFactory(new ::esa::ecss::smp::cdk::Factory<::demo::support::ChildModel>(
+                "ChildModel", // Name
+                "", // Description
+                simulator, // Simulator
+                ::demo::support::Uuid_ChildModel // UUID
+                ));
 
-        // Register factory for Model RootModel
-        simulator->RegisterFactory(new ::esa::ecss::smp::cdk::Factory<::demo::support::RootModel>(
-            "RootModel", // Name
-            "", // Description
-            simulator, // Simulator
-            ::demo::support::Uuid_RootModel // UUID
-            ));
+            // Register factory for Model RootModel
+            simulator->RegisterFactory(new ::esa::ecss::smp::cdk::Factory<::demo::support::RootModel>(
+                "RootModel", // Name
+                "", // Description
+                simulator, // Simulator
+                ::demo::support::Uuid_RootModel // UUID
+                ));
 
-
-        return true;
+            ::simulators[simulator] = InitializationState::Initialized;
+            return true;
+        } catch (...) {
+            // Registration may already have side effects; do not retry it implicitly.
+            ::simulators[simulator] = InitializationState::Failed;
+            throw;
+        }
     }
 }
 
