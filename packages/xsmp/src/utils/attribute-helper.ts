@@ -221,13 +221,13 @@ export class AttributeHelper {
     /**
      * Compute the signature of an element
      *
-     * @param op
-     *          the input Operation
+     * @param element the named element
+     * @param includeMemberConst whether to include the method qualifier (ignored for static methods)
      * @return the signature
      */
-    getSignature(element: ast.NamedElement): string | undefined {
-        if (ast.Operation.$type === element.$type) {
-            return `${element.name}(${(element as ast.Operation).parameter.map(parameter => this.getParameterSignature(parameter)).join(', ')})`;
+    getSignature(element: ast.NamedElement, includeMemberConst = true): string | undefined {
+        if (ast.isOperation(element)) {
+            return `${element.name}(${element.parameter.map(parameter => this.getParameterSignature(parameter)).join(', ')})${includeMemberConst && !this.isStatic(element) && this.isConst(element) ? ' const' : ''}`;
         }
         return element.name;
     }
@@ -239,15 +239,18 @@ export class AttributeHelper {
      * @return the signature of the parameter
      */
     getParameterSignature(p: ast.Parameter): string {
+        const byPointer = this.isByPointer(p);
+        const byReference = this.isByReference(p);
         let signature = '';
-        if (this.isConst(p)) {
+        // Top-level const on a value parameter does not distinguish C++ overloads.
+        if ((byPointer || byReference) && this.isConst(p)) {
             signature += 'const ';
         }
         signature += p.type?.ref ? fqn(p.type.ref) : p.type?.$refText;
-        if (this.isByPointer(p)) {
+        if (byPointer) {
             signature += '*';
         }
-        if (this.isByReference(p)) {
+        if (byReference) {
             signature += '&';
         }
         return signature;
