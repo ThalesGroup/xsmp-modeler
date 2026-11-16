@@ -10,6 +10,7 @@
 
 #include <demo/support/ChildModel.h>
 #include <Smp/Version.h>
+#include <string>
 
 
 namespace demo
@@ -92,7 +93,11 @@ namespace demo
                  #if ECSS_SMP_VERSION < 202503L
                  auto handler = requestHandlers.find(request->GetOperationName());
                  #else
-                 auto handler = requestHandlers.find(request->GetName());
+                 const std::string key =
+                     (request->GetType() == ::Smp::RequestType::RT_Get ? "get_"
+                      : request->GetType() == ::Smp::RequestType::RT_Set ? "set_"
+                      : "") + std::string{request->GetName()};
+                 auto handler = requestHandlers.find(key);
                  #endif
                  if (handler != requestHandlers.end()) {
                      handler->second(*this, request);
