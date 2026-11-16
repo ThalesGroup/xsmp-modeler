@@ -436,7 +436,7 @@ function createLanguageClient(context: vscode.ExtensionContext): LanguageClient 
                     xsmpReadonlySchemes.some(scheme => scheme === uri.scheme) ? undefined : next(uri, token),
             },
             markdown: {
-                isTrusted: true, supportHtml: true
+                isTrusted: false, supportHtml: true
             },
             synchronize: {
                 fileEvents: fileEventWatchers,
