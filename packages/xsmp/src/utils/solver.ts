@@ -256,12 +256,18 @@ export class IntegralValue extends Value<IntegralValue> {
         return new IntegralValue(this.value % val.value, this.promote(val.type));
     }
     override shiftLeft(n: IntegralValue): IntegralValue {
-        if (n.value < 0n) { throw new Error('Shift amount must be non-negative.'); }
+        this.checkShiftAmount(n);
         return new IntegralValue(this.value << n.value, this.type);
     }
     override shiftRight(n: IntegralValue): IntegralValue {
-        if (n.value < 0n) { throw new Error('Shift amount must be non-negative.'); }
+        this.checkShiftAmount(n);
         return new IntegralValue(this.value >> n.value, this.type);
+    }
+    private checkShiftAmount(n: IntegralValue): void {
+        if (n.value < 0n) { throw new Error('Shift amount must be non-negative.'); }
+        const promoted = this.promote(PTK.Int32);
+        const width = promoted === PTK.Int32 || promoted === PTK.UInt32 ? 32n : 64n;
+        if (n.value >= width) { throw new Error(`Shift amount must be less than the promoted operand width (${width}).`); }
     }
     override equal(val: IntegralValue): BoolValue { return new BoolValue(this.value === val.value); }
     override notEqual(val: IntegralValue): BoolValue { return new BoolValue(this.value !== val.value); }
