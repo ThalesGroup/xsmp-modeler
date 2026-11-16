@@ -252,7 +252,7 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
     }
 
     override sourceIncludesComponent(type: ast.Component): Include[] {
-        return ['Smp/Version.h', ...type.elements.flatMap(element => this.sourceIncludes(element))];
+        return ['Smp/Version.h', 'string', ...type.elements.flatMap(element => this.sourceIncludes(element))];
     }
 
     override sourceIncludesEnumeration(_type: ast.Enumeration): Include[] {
@@ -746,7 +746,11 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
                 #if ECSS_SMP_VERSION < 202503L
                 auto handler = requestHandlers.find(request->GetOperationName());
                 #else
-                auto handler = requestHandlers.find(request->GetName());
+                const std::string key =
+                    (request->GetType() == ::Smp::RequestType::RT_Get ? "get_"
+                     : request->GetType() == ::Smp::RequestType::RT_Set ? "set_"
+                     : "") + std::string{request->GetName()};
+                auto handler = requestHandlers.find(key);
                 #endif
                 if (handler != requestHandlers.end()) {
                     handler->second(*this, request);
