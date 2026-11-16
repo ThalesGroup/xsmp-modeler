@@ -1,0 +1,25 @@
+catalogue EnumExpressionCasts
+namespace enumexpressions {
+    /** @uuid 86000000-0000-4000-8000-000000000001 */
+    public enum Mode { Negative = -1, Zero = 0, One = 1, Two = 2 }
+    /** @uuid 86000000-0000-4000-8000-000000000002 */
+    public array Modes = Mode[2]
+    /** @uuid 86000000-0000-4000-8000-000000000003 */
+    public struct Inner { field Mode value }
+    /** @uuid 86000000-0000-4000-8000-000000000004 */
+    public struct State {
+        constant Int32 Base = 2
+        constant Mode Alias = Mode.One
+        constant Mode Calculated = Base - 1
+        field Mode binary = 2 - 1
+        field Mode unary = -1
+        field Mode parenthesized = (2 - 1)
+        field Mode numericReference = Base
+        field Mode literal = 1
+        field Mode enumReference = Mode.One
+        field Mode alias = Alias
+        field Modes array = { 2 - 1, -1 }
+        field Inner nested = { .value = 2 - 1 }
+        field Float64 pi = $cos($PI)
+    }
+}

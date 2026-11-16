@@ -546,6 +546,21 @@ export abstract class CppGenerator implements XsmpGenerator {
         if (!expr) {
             return '';
         }
+        const type = this.typeProvider.getType(expr);
+        if (ast.isEnumeration(type)) {
+            if (ast.isIntegerLiteral(expr)) {
+                const literal = Solver.getValueAs(expr, type)?.enumerationLiteral()?.getValue();
+                if (literal !== undefined) return this.fqn(literal as ast.EnumerationLiteral);
+            }
+            if (Solver.getValue(expr) instanceof Solver.IntegralValue) {
+                return `static_cast<${this.fqn(type)}>(${this.expressionValue(expr)})`;
+            }
+        }
+        return this.expressionValue(expr);
+    }
+
+    protected expressionValue(expr: ast.Expression | undefined): string {
+        if (!expr) { return ''; }
         switch (expr.$type) {
             case ast.CollectionLiteral.$type: {
                 const type = this.typeProvider.getType(expr);
@@ -567,20 +582,13 @@ export abstract class CppGenerator implements XsmpGenerator {
                 return `{ ${literalElements}}`;
             }
             case ast.DesignatedInitializer.$type: return `/* .${(expr as ast.DesignatedInitializer).field.ref?.name} = */${this.expression((expr as ast.DesignatedInitializer).expr)}`;
-            case ast.UnaryOperation.$type: return `${(expr as ast.UnaryOperation).feature}${this.expression((expr as ast.UnaryOperation).operand)}`;
-            case ast.BinaryOperation.$type: return `${this.expression((expr as ast.BinaryOperation).leftOperand)} ${(expr as ast.BinaryOperation).feature} ${this.expression((expr as ast.BinaryOperation).rightOperand)}`;
-            case ast.ParenthesizedExpression.$type: return `(${this.expression((expr as ast.ParenthesizedExpression).expr)})`;
+            case ast.UnaryOperation.$type: return `${(expr as ast.UnaryOperation).feature}${this.expressionValue((expr as ast.UnaryOperation).operand)}`;
+            case ast.BinaryOperation.$type: return `${this.expressionValue((expr as ast.BinaryOperation).leftOperand)} ${(expr as ast.BinaryOperation).feature} ${this.expressionValue((expr as ast.BinaryOperation).rightOperand)}`;
+            case ast.ParenthesizedExpression.$type: return `(${this.expressionValue((expr as ast.ParenthesizedExpression).expr)})`;
             case ast.BooleanLiteral.$type: return (expr as ast.BooleanLiteral).isTrue ? 'true' : 'false';
             case ast.BuiltInConstant.$type: return `M_${(expr as ast.BuiltInConstant).name}`;
-            case ast.BuiltInFunction.$type: return `std::${(expr as ast.BuiltInFunction).name}(${this.expression((expr as ast.BuiltInFunction).argument)})`;
+            case ast.BuiltInFunction.$type: return `std::${(expr as ast.BuiltInFunction).name}(${this.expressionValue((expr as ast.BuiltInFunction).argument)})`;
             case ast.IntegerLiteral.$type: {
-                const type = this.typeProvider.getType(expr);
-                if (ast.isEnumeration(type)) {
-                    const value = Solver.getValueAs(expr, type)?.enumerationLiteral()?.getValue();
-                    if (value !== undefined) {
-                        return this.fqn(value as ast.EnumerationLiteral);
-                    }
-                }
                 if (this.cxxStandard >= CxxStandard.CXX_STD_14) {
                     return (expr as ast.IntegerLiteral).text;
                 }
