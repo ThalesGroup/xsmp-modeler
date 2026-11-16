@@ -59,7 +59,7 @@ describe('CLI source encoding', () => {
         });
 
         expect(code).toBe(2);
-        expect(stderr).toContain(`File '${URI.file(source).fsPath}' is not valid UTF-8`);
+        expect(stderr).toContain(`File '${URI.file(fs.realpathSync.native(source)).fsPath}' is not valid UTF-8`);
         expect(fs.readdirSync(path.join(directory, 'adoc-gen'))).toEqual(['existing.adoc']);
         expect(fs.readFileSync(path.join(directory, 'adoc-gen/existing.adoc'), 'utf8')).toBe('previous generation');
     });
@@ -74,7 +74,7 @@ describe('CLI source encoding', () => {
         });
 
         expect(code).toBe(2);
-        expect(stderr).toContain(`File '${URI.file(project).fsPath}' is not valid UTF-8`);
+        expect(stderr).toContain(`File '${URI.file(fs.realpathSync.native(project)).fsPath}' is not valid UTF-8`);
     });
 
     test('generates valid Unicode documentation from a source with a BOM', async () => {
