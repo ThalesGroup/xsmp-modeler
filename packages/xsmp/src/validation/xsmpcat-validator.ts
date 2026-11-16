@@ -859,8 +859,12 @@ export class XsmpcatValidator {
             const duplicates = members.get(member.name);
             if (duplicates.length > 0) {
                 if (ast.isOperation(member)) {
-                    const sig = this.attrHelper.getSignature(member);
-                    const duplicatedOp = duplicates.filter(d => !ast.isOperation(d) || (sig === this.attrHelper.getSignature(d) && member.$container === d.$container));
+                    const sig = this.attrHelper.getSignature(member, false);
+                    const isStatic = this.attrHelper.isStatic(member);
+                    const isConst = this.attrHelper.isConst(member);
+                    const duplicatedOp = duplicates.filter(d => !ast.isOperation(d) || (member.$container === d.$container
+                        && sig === this.attrHelper.getSignature(d, false)
+                        && (isStatic || this.attrHelper.isStatic(d) || isConst === this.attrHelper.isConst(d))));
                     if (duplicatedOp.length > 0) {
                         accept('error', 'Duplicated identifier.', {
                             node: member,
