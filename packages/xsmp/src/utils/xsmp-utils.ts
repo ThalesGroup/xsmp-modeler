@@ -40,7 +40,11 @@ export function escape(input: string | undefined): string {
         .replaceAll('\r', String.raw`\r`)
         .replaceAll('\f', String.raw`\f`)
         .replaceAll("'", String.raw`\'`)
-        .replaceAll('"', String.raw`\"`);
+        .replaceAll('"', String.raw`\"`)
+        // XML 1.0 forbids the remaining control characters, even as character references.
+        // Fixed-width octal escapes cannot absorb a following digit.
+        // eslint-disable-next-line no-control-regex
+        .replace(/[\u0000-\u001f]/g, character => `\\${character.charCodeAt(0).toString(8).padStart(3, '0')}`);
 }
 
 export function isUUID(str: string | undefined): str is string {
