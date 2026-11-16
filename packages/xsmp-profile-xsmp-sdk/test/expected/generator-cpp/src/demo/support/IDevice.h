@@ -3,8 +3,8 @@
 // -----------------------------------------------------------------------------
 /// @file demo/support/IDevice.h
 
-#ifndef DEMO_SUPPORT_IDEVICE_H_
-#define DEMO_SUPPORT_IDEVICE_H_
+#ifndef XSMP_TYPE_4_demo_7_support_7_IDevice_H_
+#define XSMP_TYPE_4_demo_7_support_7_IDevice_H_
 
 // Include the generated header file
 #include <demo/support/IDeviceGen.h>
@@ -17,4 +17,4 @@ namespace demo::support
     };
 } // namespace demo::support
 
-#endif // DEMO_SUPPORT_IDEVICE_H_
+#endif // XSMP_TYPE_4_demo_7_support_7_IDevice_H_

@@ -3,8 +3,8 @@
 // -----------------------------------------------------------------------------
 /// @file demo/support/RootModel.h
 
-#ifndef DEMO_SUPPORT_ROOTMODEL_H_
-#define DEMO_SUPPORT_ROOTMODEL_H_
+#ifndef XSMP_TYPE_4_demo_7_support_9_RootModel_H_
+#define XSMP_TYPE_4_demo_7_support_9_RootModel_H_
 
 // Include the generated header file
 #include <demo/support/RootModelGen.h>
@@ -49,4 +49,4 @@ namespace demo::support
     };
 } // namespace demo::support
 
-#endif // DEMO_SUPPORT_ROOTMODEL_H_
+#endif // XSMP_TYPE_4_demo_7_support_9_RootModel_H_

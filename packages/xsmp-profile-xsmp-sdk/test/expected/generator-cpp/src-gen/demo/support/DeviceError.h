@@ -4,8 +4,8 @@
 /// @file demo/support/DeviceError.h
 // This file is auto-generated, Do not edit otherwise your changes will be lost
 
-#ifndef DEMO_SUPPORT_DEVICEERROR_H_
-#define DEMO_SUPPORT_DEVICEERROR_H_
+#ifndef XSMP_TYPE_4_demo_7_support_11_DeviceError_H_
+#define XSMP_TYPE_4_demo_7_support_11_DeviceError_H_
 
 // ----------------------------------------------------------------------------
 // --------------------------- Include Header Files ---------------------------
@@ -37,4 +37,4 @@ namespace demo::support
     inline constexpr ::Smp::Uuid Uuid_DeviceError { 0xaaaaaaaaU, 0xaaaaU, 0x4aaaU, 0x8aaaU, 0xaaaaaaaaaaaaU };
 } // namespace demo::support
 
-#endif // DEMO_SUPPORT_DEVICEERROR_H_
+#endif // XSMP_TYPE_4_demo_7_support_11_DeviceError_H_

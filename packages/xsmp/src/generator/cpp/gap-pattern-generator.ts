@@ -251,7 +251,7 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
                 break;
         }
         if (body?.length) {
-            const guard = this.name(fqn(type, '_'), gen).toUpperCase() + '_H_';
+            const guard = this.guard(type, gen);
             return s`
                 ${notice}
                 ${this.fileBanner(Path.basename(path), '// -----------------------------------------------------------------------------')}

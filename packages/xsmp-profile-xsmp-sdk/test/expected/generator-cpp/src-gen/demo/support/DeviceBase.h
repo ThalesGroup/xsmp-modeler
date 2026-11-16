@@ -4,8 +4,8 @@
 /// @file demo/support/DeviceBase.h
 // This file is auto-generated, Do not edit otherwise your changes will be lost
 
-#ifndef DEMO_SUPPORT_DEVICEBASE_H_
-#define DEMO_SUPPORT_DEVICEBASE_H_
+#ifndef XSMP_TYPE_4_demo_7_support_10_DeviceBase_H_
+#define XSMP_TYPE_4_demo_7_support_10_DeviceBase_H_
 
 // ----------------------------------------------------------------------------
 // --------------------------- Include Header Files ---------------------------
@@ -47,4 +47,4 @@ namespace demo::support
     inline constexpr ::Smp::Uuid Uuid_DeviceBase { 0x99999999U, 0x9999U, 0x4999U, 0x8999U, 0x999999999999U };
 } // namespace demo::support
 
-#endif // DEMO_SUPPORT_DEVICEBASE_H_
+#endif // XSMP_TYPE_4_demo_7_support_10_DeviceBase_H_

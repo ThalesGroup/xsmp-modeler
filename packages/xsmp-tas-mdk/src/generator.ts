@@ -40,7 +40,7 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
     }
 
     override async generatePackageHeader(path: string, catalogue: ast.Catalogue, notice: string | undefined) {
-        const guard = catalogue.name.toUpperCase() + '_H_';
+        const guard = this.guard(catalogue);
         return s`
             ${notice}
             ${this.fileBanner(Path.basename(path), '// ---------------------------------------------------------------------------')}

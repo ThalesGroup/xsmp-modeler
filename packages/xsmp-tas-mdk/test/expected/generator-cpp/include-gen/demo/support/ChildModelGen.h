@@ -4,8 +4,8 @@
 /// @file demo/support/ChildModelGen.h
 // This file is auto-generated, Do not edit otherwise your changes will be lost
 
-#ifndef DEMO_SUPPORT_CHILDMODELGEN_H_
-#define DEMO_SUPPORT_CHILDMODELGEN_H_
+#ifndef XSMP_TYPE_4_demo_7_support_10_ChildModel_GEN_H_
+#define XSMP_TYPE_4_demo_7_support_10_ChildModel_GEN_H_
 
 // ----------------------------------------------------------------------------
 // --------------------------- Forward Declarations ---------------------------
@@ -128,4 +128,4 @@ namespace demo
     } // namespace support
 } // namespace demo
 
-#endif // DEMO_SUPPORT_CHILDMODELGEN_H_
+#endif // XSMP_TYPE_4_demo_7_support_10_ChildModel_GEN_H_

@@ -3,8 +3,8 @@
 // -----------------------------------------------------------------------------
 /// @file demo/support/ChildModel.h
 
-#ifndef DEMO_SUPPORT_CHILDMODEL_H_
-#define DEMO_SUPPORT_CHILDMODEL_H_
+#ifndef XSMP_TYPE_4_demo_7_support_10_ChildModel_H_
+#define XSMP_TYPE_4_demo_7_support_10_ChildModel_H_
 
 // Include the generated header file
 #include <demo/support/ChildModelGen.h>
@@ -49,4 +49,4 @@ namespace demo
     } // namespace support
 } // namespace demo
 
-#endif // DEMO_SUPPORT_CHILDMODEL_H_
+#endif // XSMP_TYPE_4_demo_7_support_10_ChildModel_H_

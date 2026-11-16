@@ -4,8 +4,8 @@
 /// @file demo/support/Counter.h
 // This file is auto-generated, Do not edit otherwise your changes will be lost
 
-#ifndef DEMO_SUPPORT_COUNTER_H_
-#define DEMO_SUPPORT_COUNTER_H_
+#ifndef XSMP_TYPE_4_demo_7_support_7_Counter_H_
+#define XSMP_TYPE_4_demo_7_support_7_Counter_H_
 
 // ----------------------------------------------------------------------------
 // --------------------------- Include Header Files ---------------------------
@@ -29,4 +29,4 @@ namespace demo
     } // namespace support
 } // namespace demo
 
-#endif // DEMO_SUPPORT_COUNTER_H_
+#endif // XSMP_TYPE_4_demo_7_support_7_Counter_H_

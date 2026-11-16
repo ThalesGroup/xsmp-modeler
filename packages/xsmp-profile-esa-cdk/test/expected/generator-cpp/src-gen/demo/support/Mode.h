@@ -4,8 +4,8 @@
 /// @file demo/support/Mode.h
 // This file is auto-generated, Do not edit otherwise your changes will be lost
 
-#ifndef DEMO_SUPPORT_MODE_H_
-#define DEMO_SUPPORT_MODE_H_
+#ifndef XSMP_TYPE_4_demo_7_support_4_Mode_H_
+#define XSMP_TYPE_4_demo_7_support_4_Mode_H_
 
 // ----------------------------------------------------------------------------
 // --------------------------- Include Header Files ---------------------------
@@ -44,4 +44,4 @@ namespace demo
     } // namespace support
 } // namespace demo
 
-#endif // DEMO_SUPPORT_MODE_H_
+#endif // XSMP_TYPE_4_demo_7_support_4_Mode_H_
