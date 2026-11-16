@@ -109,13 +109,6 @@ function cacheAcyclicGraph<T>(root: ast.Type, cache: WorkspaceCache<ast.Type, T>
     return true;
 }
 
-function containedTypes(type: ast.Type): ast.Type[] {
-    if (ast.isArrayType(type)) return type.itemType?.ref ? [type.itemType.ref] : [];
-    return ast.isStructure(type)
-        ? type.elements.filter(ast.isField).flatMap(field => field.type?.ref ? [field.type.ref] : [])
-        : [];
-}
-
 /**
  * Implementation of custom validations.
  */
@@ -612,8 +605,8 @@ export class XsmpcatValidator {
     private isRecursiveTypeEdge(parent: ast.Type, other: ast.Type | undefined): boolean {
         if (!other) return false;
         if (parent === other) return true;
-        return !cacheAcyclicGraph(other, this.acyclicTypesCache, containedTypes, () => true)
-            && XsmpUtils.isRecursiveType(parent, other);
+        return !cacheAcyclicGraph(other, this.acyclicTypesCache, type => this.fieldDependencies(type), () => true)
+            && XsmpUtils.isRecursiveType(parent, other, field => !this.attrHelper.isStatic(field));
     }
 
     /**
@@ -1005,7 +998,7 @@ export class XsmpcatValidator {
                     break;
                 case ast.Field.$type:
                     this.checkModifier(element, [(elem) => elem === 'input', (elem) => elem === 'output', (elem) => elem === 'transient'], accept);
-                    if (this.isRecursiveTypeEdge(structure, element.type?.ref)) { accept('error', 'Recursive Field Type.', { node: element, property: ast.Field.type }); }
+                    if (!this.attrHelper.isStatic(element) && this.isRecursiveTypeEdge(structure, element.type?.ref)) { accept('error', 'Recursive Field Type.', { node: element, property: ast.Field.type }); }
                     break;
             }
         }
@@ -1029,7 +1022,7 @@ export class XsmpcatValidator {
                     break;
                 case ast.Field.$type:
                     this.checkModifier(element, [ast.isVisibilityModifiers, (elem) => elem === 'input', (elem) => elem === 'output', (elem) => elem === 'transient'], accept);
-                    if (this.isRecursiveTypeEdge(clazz, element.type?.ref)) {
+                    if (!this.attrHelper.isStatic(element) && this.isRecursiveTypeEdge(clazz, element.type?.ref)) {
                         accept('error', 'Recursive Field Type.', { node: element, property: ast.Field.type });
                     }
                     break;

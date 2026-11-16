@@ -349,7 +349,7 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
                 && !XsmpUtils.isBaseOfComponent(refInfo.container as ast.Component, desc.node));
         }
         if (this.isReferenceProperty(refInfo, ast.ArrayType, ast.ArrayType.itemType)) {
-            return this.createExpectedTypeReferenceFilter(refInfo, desc => !XsmpUtils.isRecursiveType(refInfo.container as ast.ArrayType, desc.node as ast.Type));
+            return this.createExpectedTypeReferenceFilter(refInfo, desc => !XsmpUtils.isRecursiveType(refInfo.container as ast.ArrayType, desc.node as ast.Type, field => !this.attrHelper.isStatic(field)));
         }
         if (this.isReferenceProperty(refInfo, ast.Field, ast.Field.type)) {
             const field = refInfo.container as ast.Field;
@@ -359,7 +359,7 @@ export class XsmpcatCompletionProvider extends XsmpCompletionProviderBase {
             return desc => ast.isType(desc.node)
                 && ast.reflection.isSubtype(desc.type, expectedType)
                 && XsmpUtils.isTypeVisibleFrom(field, desc.node)
-                && !XsmpUtils.isRecursiveType(field.$container, desc.node);
+                && (this.attrHelper.isStatic(field) || !XsmpUtils.isRecursiveType(field.$container, desc.node, nested => !this.attrHelper.isStatic(nested)));
         }
         if (this.isReferenceProperty(refInfo, ast.Property, ast.Property.attachedField)) {
             return desc => this.isAccessibleSiblingField(refInfo, desc);

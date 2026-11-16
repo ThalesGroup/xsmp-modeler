@@ -253,7 +253,7 @@ export function isBaseOfReferenceType(parent: ast.ReferenceType, base: ast.Type 
     return checkIsBaseOfReferenceType(parent, base, new Set<ast.Type>());
 }
 
-function checkIsRecursiveType(parent: ast.Type, other: ast.Type | undefined, visited: Set<ast.Type>): boolean {
+function checkIsRecursiveType(parent: ast.Type, other: ast.Type | undefined, visited: Set<ast.Type>, includeField?: (field: ast.Field) => boolean): boolean {
 
     if (!other || visited.has(other)) {
         return false;
@@ -263,16 +263,19 @@ function checkIsRecursiveType(parent: ast.Type, other: ast.Type | undefined, vis
         return true;
     }
     if (ast.isArrayType(other)) {
-        return checkIsRecursiveType(parent, other.itemType?.ref, visited);
+        return checkIsRecursiveType(parent, other.itemType?.ref, visited, includeField);
     }
     if (ast.isStructure(other)) {
-        return other.elements.filter(ast.isField).some(f => checkIsRecursiveType(parent, f.type?.ref, visited));
+        const base = ast.isClass(other) ? other.base?.ref : undefined;
+        return ast.isStructure(base) && checkIsRecursiveType(parent, base, visited, includeField)
+            || other.elements.some(element => ast.isField(element) && (!includeField || includeField(element))
+                && checkIsRecursiveType(parent, element.type?.ref, visited, includeField));
     }
     return false;
 }
 
-export function isRecursiveType(parent: ast.Type, other: ast.Type | undefined): boolean {
-    return checkIsRecursiveType(parent, other, new Set<ast.Type>());
+export function isRecursiveType(parent: ast.Type, other: ast.Type | undefined, includeField?: (field: ast.Field) => boolean): boolean {
+    return checkIsRecursiveType(parent, other, new Set<ast.Type>(), includeField);
 }
 
 export function isConstantVisibleFrom(from: ast.Expression, element: ast.Constant): boolean {
