@@ -229,12 +229,12 @@ export function renderDocComment(description: string | undefined, tags: readonly
         return '';
     }
     if (lines.length === 1 && !lines[0].startsWith('@')) {
-        return `/** ${lines[0]} */`;
+        return `/** ${lines[0].replaceAll('*/', '* /')} */`;
     }
 
     return [
         '/**',
-        ...lines.map(line => line === '' ? ' *' : ` * ${line}`),
+        ...lines.map(line => line === '' ? ' *' : ` * ${line.replaceAll('*/', '* /')}`),
         ' */',
     ].join('\n');
 }
