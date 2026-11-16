@@ -11,6 +11,7 @@ const { VisibilityKind } = XsmpUtils;
 type DocumentationHelper = XsmpUtils.DocumentationHelper;
 type AttributeHelper = XsmpUtils.AttributeHelper;
 import type { ProjectManager } from '@xsmp/core/workspace';
+import { isCdkField } from './fields.js';
 
 let validator: TasMdkValidator;
 /**
@@ -35,6 +36,7 @@ export function registerTasMdkValidationChecks(
         Catalogue: validator.checkCatalogue,
         Reference: validator.checkReference,
         Operation: validator.checkOperation,
+        Property: validator.checkProperty,
     };
     registry.register(checks, validator, category);
 }
@@ -99,6 +101,16 @@ export class TasMdkValidator {
 
     protected isGramFieldContainer(field: ast.Field): boolean {
         return field.$container.$type === ast.Model.$type || field.$container.$type === ast.Service.$type;
+    }
+
+    checkProperty(property: ast.Property, accept: ValidationAcceptor): void {
+        const field = property.attachedField?.ref;
+        if (field?.type?.ref && this.attrHelper.isByReference(property) && XsmpUtils.getAccessKind(property) !== 'writeOnly'
+            && isCdkField(field, this.attrHelper)) {
+            accept('error', 'The TAS MDK field wrapper converts to a value; an attached Property getter cannot return a reference to it.', {
+                node: property, property: ast.Property.attachedField
+            });
+        }
     }
 
     protected checkGramFieldVisibility(field: ast.Field, accept: ValidationAcceptor): void {
