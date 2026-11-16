@@ -151,12 +151,13 @@ export function getEmbeddedDocumentationTarget(
     lineText?: string,
 ): XsmpEmbeddedDocumentationTarget | undefined {
     const entry = embeddedDocumentationByLanguage[languageId];
-    if (!entry) {
+    if (!Object.hasOwn(embeddedDocumentationByLanguage, languageId) || !entry) {
         return undefined;
     }
 
     const normalizedKeyword = keyword.trim().toLowerCase();
-    const anchor = resolveAnchor(languageId, normalizedKeyword, lineText) ?? entry.anchorsByKeyword[normalizedKeyword];
+    const anchor = resolveAnchor(languageId, normalizedKeyword, lineText)
+        ?? (Object.hasOwn(entry.anchorsByKeyword, normalizedKeyword) ? entry.anchorsByKeyword[normalizedKeyword] : undefined);
     if (anchor === undefined) {
         return undefined;
     }
