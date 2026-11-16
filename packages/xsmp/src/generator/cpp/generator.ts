@@ -567,7 +567,11 @@ export abstract class CppGenerator implements XsmpGenerator {
                 return `{ ${literalElements}}`;
             }
             case ast.DesignatedInitializer.$type: return `/* .${(expr as ast.DesignatedInitializer).field.ref?.name} = */${this.expression((expr as ast.DesignatedInitializer).expr)}`;
-            case ast.UnaryOperation.$type: return `${(expr as ast.UnaryOperation).feature}${this.expression((expr as ast.UnaryOperation).operand)}`;
+            case ast.UnaryOperation.$type: {
+                const unary = expr as ast.UnaryOperation;
+                const operand = this.expression(unary.operand);
+                return `${unary.feature}${ast.isUnaryOperation(unary.operand) ? `(${operand})` : operand}`;
+            }
             case ast.BinaryOperation.$type: return `${this.expression((expr as ast.BinaryOperation).leftOperand)} ${(expr as ast.BinaryOperation).feature} ${this.expression((expr as ast.BinaryOperation).rightOperand)}`;
             case ast.ParenthesizedExpression.$type: return `(${this.expression((expr as ast.ParenthesizedExpression).expr)})`;
             case ast.BooleanLiteral.$type: return (expr as ast.BooleanLiteral).isTrue ? 'true' : 'false';
