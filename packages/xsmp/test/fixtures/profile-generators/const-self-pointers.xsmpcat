@@ -1,0 +1,17 @@
+catalogue ConstSelfPointers
+namespace selfPointers {
+    /** @uuid 89000000-0000-4000-8000-000000000301 */
+    public model Probe {
+        @Const def @ByPointer Probe mutableSelf()
+        def @ByPointer Probe self()
+        @Const def @Const @ByPointer Probe constantSelf()
+        @Static def @ByPointer Probe staticSelf()
+    }
+    /** @uuid 89000000-0000-4000-8000-000000000302 */
+    public class Value {
+        @Const public def @ByPointer Value mutableSelf()
+        public def @ByPointer Value self()
+        @Const public def @Const @ByPointer Value constantSelf()
+        @Static public def @ByPointer Value staticSelf()
+    }
+}
