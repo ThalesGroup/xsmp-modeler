@@ -7,7 +7,7 @@ import { XsmpprojectCompletionProvider } from './lsp/xsmpproject-completion-prov
 import { XsmpCommentProvider } from './lsp/comment-provider.js';
 import type { XsmpServices } from './xsmp-module.js';
 import { XsmpprojectTokenBuilder } from './parser/xsmpproject-token-builder.js';
-import { XsmpRenameProvider } from './lsp/xsmp-rename-provider.js';
+import { XsmpprojectRenameProvider } from './lsp/xsmpproject-rename-provider.js';
 import { XsmpprojectScopeProvider } from './references/xsmpproject-scope-provider.js';
 
 /**
@@ -37,7 +37,7 @@ export const XsmpprojectModule: Module<XsmpprojectServices, PartialLangiumServic
         Formatter: () => new XsmpprojectFormatter(),
         DocumentSymbolProvider: (services) => new XsmpDocumentSymbolProvider(services),
         CompletionProvider: (services) => new XsmpprojectCompletionProvider(services),
-        RenameProvider: (services) => new XsmpRenameProvider(services),
+        RenameProvider: (services) => new XsmpprojectRenameProvider(services),
     },
     documentation: {
         CommentProvider: (services) => new XsmpCommentProvider(services),
