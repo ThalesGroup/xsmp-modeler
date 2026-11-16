@@ -14,6 +14,11 @@ export class XsmpcatTypeHierarchyProvider extends AbstractTypeHierarchyProvider 
         this.nodeInfoProvider = services.shared.lsp.NodeInfoProvider;
         this.nodeKindProvider = services.shared.lsp.NodeKindProvider;
     }
+
+    protected override getTypeHierarchyItems(targetNode: AstNode): TypeHierarchyItem[] | undefined {
+        return super.getTypeHierarchyItems(targetNode, AstUtils.getDocument(targetNode));
+    }
+
     protected override getSupertypes(node: AstNode): MaybePromise<TypeHierarchyItem[] | undefined> {
         switch (node.$type) {
             case ast.Interface.$type: {
