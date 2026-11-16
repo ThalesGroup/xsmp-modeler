@@ -97,8 +97,8 @@
           <Type xlink:title="Bool" xlink:href="http://www.ecss.nl/smp/2019/Smdl#Smp.Bool"/>
         </Parameter>
       </Operation>
-      <Operation Id="ns.AnAbstractClass.Setter-Bool" Name="Setter">
-        <Parameter Id="ns.AnAbstractClass.Setter-Bool.value" Name="value">
+      <Operation Id="ns.AnAbstractClass.Setter-Smp.Bool" Name="Setter">
+        <Parameter Id="ns.AnAbstractClass.Setter-Smp.Bool.value" Name="value">
           <Type xlink:title="Bool" xlink:href="http://www.ecss.nl/smp/2019/Smdl#Smp.Bool"/>
         </Parameter>
       </Operation>
@@ -176,19 +176,19 @@
         <Type xlink:title="Bool" xlink:href="http://www.ecss.nl/smp/2019/Smdl#Smp.Bool"/>
       </Property>
       <Operation Id="ns.AnInterface.voidOperation" Name="voidOperation"/>
-      <Operation Id="ns.AnInterface.op-Float32-Float64-Duration" Name="op">
-        <Parameter Id="ns.AnInterface.op-Float32-Float64-Duration.in" Name="in" Direction="in">
+      <Operation Id="ns.AnInterface.op-Smp.Float32-Smp.Float64--ptr-Smp.Duration--ptr" Name="op">
+        <Parameter Id="ns.AnInterface.op-Smp.Float32-Smp.Float64--ptr-Smp.Duration--ptr.in" Name="in" Direction="in">
           <Type xlink:title="Float32" xlink:href="http://www.ecss.nl/smp/2019/Smdl#Smp.Float32"/>
         </Parameter>
-        <Parameter Id="ns.AnInterface.op-Float32-Float64-Duration.out" Name="out" Direction="out">
+        <Parameter Id="ns.AnInterface.op-Smp.Float32-Smp.Float64--ptr-Smp.Duration--ptr.out" Name="out" Direction="out">
           <Type xlink:title="Float64" xlink:href="http://www.ecss.nl/smp/2019/Smdl#Smp.Float64"/>
         </Parameter>
-        <Parameter Id="ns.AnInterface.op-Float32-Float64-Duration.inout" Name="inout" Direction="inout">
+        <Parameter Id="ns.AnInterface.op-Smp.Float32-Smp.Float64--ptr-Smp.Duration--ptr.inout" Name="inout" Direction="inout">
           <Description>a desc1</Description>
           <Type xlink:title="Duration" xlink:href="http://www.ecss.nl/smp/2019/Smdl#Smp.Duration"/>
           <Default xsi:type="Types:DurationValue" Value="PT0.000000042S"/>
         </Parameter>
-        <Parameter Id="ns.AnInterface.op-Float32-Float64-Duration.return" Name="return" Direction="return">
+        <Parameter Id="ns.AnInterface.op-Smp.Float32-Smp.Float64--ptr-Smp.Duration--ptr.return" Name="return" Direction="return">
           <Description>a boolean value</Description>
           <Type xlink:title="Bool" xlink:href="http://www.ecss.nl/smp/2019/Smdl#Smp.Bool"/>
         </Parameter>

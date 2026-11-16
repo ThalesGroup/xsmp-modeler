@@ -74,15 +74,28 @@ export class SmpGenerator implements XsmpGenerator {
     }
 
     protected getId(element: ast.NamedElement | ast.ReturnParameter): string {
-        return this.docHelper.getId(element) ?? XsmpUtils.fqn(element);
+        const explicitId = this.docHelper.getId(element);
+        if (explicitId !== undefined) return explicitId;
+        if (ast.isOperation(element)) {
+            const parameters = element.parameter.map(parameter => {
+                const pointer = this.attrHelper.isByPointer(parameter);
+                const reference = this.attrHelper.isByReference(parameter);
+                const type = parameter.type.ref ? XsmpUtils.fqn(parameter.type.ref) : parameter.type.$refText;
+                // Hyphens cannot occur in type names, so mode markers cannot collide with names.
+                return `-${type}${(pointer || reference) && this.attrHelper.isConst(parameter) ? '--const' : ''}${pointer ? '--ptr' : reference ? '--ref' : ''}`;
+            }).join('');
+            return `${XsmpUtils.fqn(element)}${parameters}${this.attrHelper.isConst(element) ? '--const-method' : ''}`;
+        }
+        return XsmpUtils.fqn(element);
     }
 
     protected convertNamedElement(element: ast.NamedElement): Elements.NamedElement {
+        const id = this.getId(element);
         return {
-            '@Id': this.getId(element),
+            '@Id': id,
             '@Name': element.name,
             Description: this.docHelper.getDescription(element),
-            Metadata: element.attributes.map(attribute => this.convertMetadata(attribute)),
+            Metadata: element.attributes.map(attribute => this.convertMetadata(attribute, id)),
         };
     }
     protected convertGeneratedNamedElement(id: string, name: string): Elements.NamedElement {
@@ -91,16 +104,16 @@ export class SmpGenerator implements XsmpGenerator {
             '@Name': name,
         };
     }
-    protected convertMetadata(element: ast.Metadata): Elements.Metadata {
-        return this.convertAttribute(element as ast.Attribute);
+    protected convertMetadata(element: ast.Metadata, ownerId: string): Elements.Metadata {
+        return this.convertAttribute(element as ast.Attribute, ownerId);
     }
-    protected convertAttribute(element: ast.Attribute): Types.Attribute {
+    protected convertAttribute(element: ast.Attribute, ownerId: string): Types.Attribute {
         const attributeType = ast.isAttributeType(element.type.ref) ? element.type.ref : undefined;
         const valueType = attributeType?.type.ref;
 
         return {
             '@xsi:type': 'Types:Attribute',
-            '@Id': `${this.getId(element.$container)}.${element.type.ref?.name}.${element.$containerIndex}`,
+            '@Id': `${ownerId}.${element.type.ref?.name}.${element.$containerIndex}`,
             '@Name': element.type.ref?.name ?? '',
             Type: this.convertXlink(element.type, element),
             Value: (() => {
@@ -514,7 +527,7 @@ export class SmpGenerator implements XsmpGenerator {
             const refDoc = AstUtils.getDocument(link.ref);
             const doc = context ? AstUtils.getDocument(context) : undefined;
 
-            let href = `#${this.docHelper.getId(link.ref) ?? XsmpUtils.fqn(link.ref)}`;
+            let href = `#${this.getId(link.ref)}`;
             if (doc !== refDoc) {
                 href = this.filename(link.ref) + href;
             }
@@ -526,7 +539,7 @@ export class SmpGenerator implements XsmpGenerator {
 
     }
     protected convertOperation(operation: ast.Operation): Types.Operation {
-        const id = this.docHelper.getId(operation) ?? XsmpUtils.fqn(operation) + (operation.parameter.length > 0 ? '-' : '') + operation.parameter.map(p => p.type.ref?.name).join('-');
+        const id = this.getId(operation);
         return {
             ...this.convertVisibilityElement(operation),
             '@Id': id,
@@ -536,22 +549,24 @@ export class SmpGenerator implements XsmpGenerator {
             RaisedException: operation.raisedException.map(e => this.convertXlink(e, operation)),
         };
     }
-    protected convertReturnParameter(parameter: ast.ReturnParameter, id: string): Types.Parameter {
+    protected convertReturnParameter(parameter: ast.ReturnParameter, operationId: string): Types.Parameter {
+        const id = this.docHelper.getId(parameter) ?? `${operationId}.${parameter.name ?? 'return'}`;
         return {
-            '@Id': `${id}.${parameter.name ?? 'return'}`,
+            '@Id': id,
             '@Name': parameter.name ?? 'return',
             Description: this.docHelper.getDescription(parameter),
-            Metadata: parameter.attributes.map(attribute => this.convertMetadata(attribute)),
+            Metadata: parameter.attributes.map(attribute => this.convertMetadata(attribute, id)),
             Type: this.convertXlink(parameter.type, parameter),
             '@Direction': 'return',
         };
     }
-    protected convertParameter(parameter: ast.Parameter, id: string): Types.Parameter {
+    protected convertParameter(parameter: ast.Parameter, operationId: string): Types.Parameter {
+        const id = this.docHelper.getId(parameter) ?? `${operationId}.${parameter.name}`;
         return {
-            '@Id': `${id}.${parameter.name}`,
+            '@Id': id,
             '@Name': parameter.name,
             Description: this.docHelper.getDescription(parameter),
-            Metadata: parameter.attributes.map(attribute => this.convertMetadata(attribute)),
+            Metadata: parameter.attributes.map(attribute => this.convertMetadata(attribute, id)),
             Type: this.convertXlink(parameter.type, parameter),
             Default: parameter.default ? this.convertTypedValue(parameter.type.ref, parameter.default) : undefined,
             '@Direction': parameter.direction,
@@ -658,7 +673,7 @@ export class SmpGenerator implements XsmpGenerator {
             '@Creator': this.docHelper.getCreator(catalogue),
             '@Version': this.docHelper.getVersion(catalogue),
             Description: this.docHelper.getDescription(catalogue),
-            Metadata: catalogue.attributes.map(attribute => this.convertMetadata(attribute)),
+            Metadata: catalogue.attributes.map(attribute => this.convertMetadata(attribute, id)),
             Namespace: catalogue.elements.map(namespace => this.convertNamespace(namespace)),
         };
     }
@@ -683,7 +698,7 @@ export class SmpGenerator implements XsmpGenerator {
             '@Creator': this.docHelper.getCreator(catalogue),
             '@Version': this.docHelper.getVersion(catalogue),
             Description: this.docHelper.getDescription(catalogue),
-            Metadata: catalogue.attributes.map(attribute => this.convertMetadata(attribute)),
+            Metadata: catalogue.attributes.map(attribute => this.convertMetadata(attribute, id)),
             Implementation: AstUtils.streamAllContents(catalogue).filter(ast.isType).filter(e => !ast.isInterface(e)).map(e =>
                 this.convertXlink({ ref: e, $refText: e.name }, undefined)).toArray(),
             Dependency: dependencies.map(dependency => ({ '@xlink:title': dependency.name, '@xlink:href': `${UriUtils.basename(AstUtils.getDocument(dependency).uri).replace(/\.x?smpcat$/, '.smppkg')}#${this.docHelper.getId(dependency) ?? '_' + XsmpUtils.fqn(dependency)}` })),
@@ -748,7 +763,7 @@ export class SmpGenerator implements XsmpGenerator {
             '@Creator': this.docHelper.getCreator(configuration),
             '@Version': this.docHelper.getVersion(configuration),
             Description: this.docHelper.getDescription(configuration),
-            Metadata: configuration.attributes.map(attribute => this.convertMetadata(attribute)),
+            Metadata: configuration.attributes.map(attribute => this.convertMetadata(attribute, id)),
             Include: configuration.elements.filter(ast.isConfigurationUsage).map(include => this.convertConfigurationUsage(include)),
             Component: configuration.elements.filter(ast.isComponentConfiguration).map(component => this.convertComponentConfiguration(component)),
         };
@@ -1160,7 +1175,7 @@ export class SmpGenerator implements XsmpGenerator {
             '@Creator': this.docHelper.getCreator(linkBase),
             '@Version': this.docHelper.getVersion(linkBase),
             Description: this.docHelper.getDescription(linkBase),
-            Metadata: linkBase.attributes.map(attribute => this.convertMetadata(attribute)),
+            Metadata: linkBase.attributes.map(attribute => this.convertMetadata(attribute, id)),
             Component: linkBase.elements.filter(ast.isComponentLinkBase).map(component => this.convertComponentLinkBase(component)),
         };
     }
@@ -1220,7 +1235,7 @@ export class SmpGenerator implements XsmpGenerator {
             '@Creator': this.docHelper.getCreator(assembly),
             '@Version': this.docHelper.getVersion(assembly),
             Description: this.docHelper.getDescription(assembly),
-            Metadata: assembly.attributes.map(attribute => this.convertMetadata(attribute)),
+            Metadata: assembly.attributes.map(attribute => this.convertMetadata(attribute, id)),
             ComponentConfiguration: assembly.configurations.map(configuration => this.convertAssemblyComponentConfiguration(configuration)),
             Parameter: assembly.parameters.map(parameter => this.convertTemplateParameter(parameter)),
             Model: this.convertModelInstance(assembly.model)
@@ -1389,7 +1404,7 @@ export class SmpGenerator implements XsmpGenerator {
             '@Creator': this.docHelper.getCreator(schedule),
             '@Version': this.docHelper.getVersion(schedule),
             Description: this.docHelper.getDescription(schedule),
-            Metadata: schedule.attributes.map(attribute => this.convertMetadata(attribute)),
+            Metadata: schedule.attributes.map(attribute => this.convertMetadata(attribute, id)),
             Parameter: schedule.parameters.map(parameter => this.convertTemplateParameter(parameter)),
             EpochTime: schedule.epochTime,
             MissionStart: schedule.missionStart,
