@@ -154,6 +154,8 @@ namespace demo::${naming.namespaceSegment}
     public model ${naming.typeName}
     {
         entrypoint run
+        output field Smp.Int32 outValue
+        input field Smp.Int32 inValue
     }
 }
 `;
@@ -209,6 +211,7 @@ link ${naming.linkBaseName} for ${naming.assemblyName}
 
 /
 {
+    field link outValue -> inValue
 }
 `;
 }
