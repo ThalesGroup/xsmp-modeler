@@ -6,13 +6,7 @@ import { type AstNode } from 'langium';
 import type { GeneratedFiles, GenerationContext, GenerationPreparationContext, TaskAcceptor, XsmpGenerator } from '@xsmp/core/generator';
 import { getXsmpVersion, type XsmpSharedServices } from '@xsmp/core';
 import { type DocumentationHelper } from '@xsmp/core/utils';
-
-const pythonKeywords = new Set([
-    'False', 'None', 'True', 'and', 'as', 'assert', 'async', 'await', 'break',
-    'class', 'continue', 'def', 'del', 'elif', 'else', 'except', 'finally',
-    'for', 'from', 'global', 'if', 'import', 'in', 'is', 'lambda', 'nonlocal',
-    'not', 'or', 'pass', 'raise', 'return', 'try', 'while', 'with', 'yield',
-]);
+import { toPythonIdentifier } from './identifier.js';
 
 export class PythonGenerator implements XsmpGenerator {
     readonly id: string = 'python';
@@ -55,9 +49,7 @@ export class PythonGenerator implements XsmpGenerator {
     }
 
     protected identifier(node: ast.NamedElement): string {
-        // Valid XSMP names start with a letter, so this prefix cannot collide
-        // with another catalogue, namespace or component name.
-        return pythonKeywords.has(node.name) ? `_${node.name}` : node.name;
+        return toPythonIdentifier(node.name);
     }
     fqn(node: ast.NamedElement, separator: string = '/'): string {
         let name = this.identifier(node);
