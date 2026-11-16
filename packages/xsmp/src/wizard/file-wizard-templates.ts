@@ -223,7 +223,7 @@ function createScheduleTemplate(
  * @creator ${options.author}
  * @date ${options.date}
  */
-schedule ${naming.scheduleName}
+schedule <Root = "${naming.instanceName}"> ${naming.scheduleName}
 
 task Tick on ${naming.qualifiedTypeName}
 {

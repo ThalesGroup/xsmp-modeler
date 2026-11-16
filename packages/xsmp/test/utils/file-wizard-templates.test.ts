@@ -65,7 +65,7 @@ describe('XSMP starter file templates', () => {
         expect(linkBase.content).toContain('/\n{\n}');
 
         expect(schedule.fileName).toBe('hello-world.xsmpsed');
-        expect(schedule.content).toContain('schedule HelloWorldSchedule');
+        expect(schedule.content).toContain('schedule <Root = "helloWorld"> HelloWorldSchedule');
         expect(schedule.content).toContain('task Tick on demo.hello_world.HelloWorld');
         expect(schedule.content).toContain('event Tick simulation "PT1S"');
     });
