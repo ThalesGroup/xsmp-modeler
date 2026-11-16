@@ -1,0 +1,17 @@
+catalogue CharValues
+namespace bytes {
+    /** @uuid 8e4cfaed-cb15-448d-b6d6-f06441c98298 */ public array Buffer = Char8[4]
+    /** @uuid 8e4cfaed-cb15-448d-b6d6-f06441c98299 */ public struct Values {
+        constant Char8 Low = 0
+        constant Char8 High = 255
+        constant Char8 Computed = 255 / 2
+        constant Char8 Alias = High
+        constant Char8 Unicode = '\u00ff'
+        constant Char8 Null = '\x00'
+        constant Char8 Tab = '\t'
+        constant Char8 Quote = '\''
+        constant Char8 Slash = '\\'
+        constant Char8 Ascii = 'A'
+        field Buffer buffer = {128, 255, 255 / 2, '\u00ff'}
+    }
+}

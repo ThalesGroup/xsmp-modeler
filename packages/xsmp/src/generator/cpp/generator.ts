@@ -546,6 +546,15 @@ export abstract class CppGenerator implements XsmpGenerator {
         if (!expr) {
             return '';
         }
+        const rendered = this.expressionValue(expr);
+        if (getPTK(this.typeProvider.getType(expr)) === PTK.Char8 && Solver.getValue(expr) instanceof Solver.IntegralValue) {
+            return `static_cast<::Smp::Char8>(${rendered})`;
+        }
+        return rendered;
+    }
+
+    protected expressionValue(expr: ast.Expression | undefined): string {
+        if (!expr) { return ''; }
         switch (expr.$type) {
             case ast.CollectionLiteral.$type: {
                 const type = this.typeProvider.getType(expr);
@@ -567,12 +576,12 @@ export abstract class CppGenerator implements XsmpGenerator {
                 return `{ ${literalElements}}`;
             }
             case ast.DesignatedInitializer.$type: return `/* .${(expr as ast.DesignatedInitializer).field.ref?.name} = */${this.expression((expr as ast.DesignatedInitializer).expr)}`;
-            case ast.UnaryOperation.$type: return `${(expr as ast.UnaryOperation).feature}${this.expression((expr as ast.UnaryOperation).operand)}`;
-            case ast.BinaryOperation.$type: return `${this.expression((expr as ast.BinaryOperation).leftOperand)} ${(expr as ast.BinaryOperation).feature} ${this.expression((expr as ast.BinaryOperation).rightOperand)}`;
-            case ast.ParenthesizedExpression.$type: return `(${this.expression((expr as ast.ParenthesizedExpression).expr)})`;
+            case ast.UnaryOperation.$type: return `${(expr as ast.UnaryOperation).feature}${this.expressionValue((expr as ast.UnaryOperation).operand)}`;
+            case ast.BinaryOperation.$type: return `${this.expressionValue((expr as ast.BinaryOperation).leftOperand)} ${(expr as ast.BinaryOperation).feature} ${this.expressionValue((expr as ast.BinaryOperation).rightOperand)}`;
+            case ast.ParenthesizedExpression.$type: return `(${this.expressionValue((expr as ast.ParenthesizedExpression).expr)})`;
             case ast.BooleanLiteral.$type: return (expr as ast.BooleanLiteral).isTrue ? 'true' : 'false';
             case ast.BuiltInConstant.$type: return `M_${(expr as ast.BuiltInConstant).name}`;
-            case ast.BuiltInFunction.$type: return `std::${(expr as ast.BuiltInFunction).name}(${this.expression((expr as ast.BuiltInFunction).argument)})`;
+            case ast.BuiltInFunction.$type: return `std::${(expr as ast.BuiltInFunction).name}(${this.expressionValue((expr as ast.BuiltInFunction).argument)})`;
             case ast.IntegerLiteral.$type: {
                 const type = this.typeProvider.getType(expr);
                 if (ast.isEnumeration(type)) {
@@ -599,7 +608,14 @@ export abstract class CppGenerator implements XsmpGenerator {
                 }
                 return this.protectTrigraphs((expr as ast.StringLiteral).$cstNode?.text ?? '');
             }
-            case ast.CharacterLiteral.$type: return (expr as ast.CharacterLiteral).$cstNode?.text as string;
+            case ast.CharacterLiteral.$type: {
+                const value = (expr as ast.CharacterLiteral).value;
+                const escaped = [...value].map(char => {
+                    const code = char.charCodeAt(0);
+                    return code < 32 || code >= 127 ? `\\${code.toString(8).padStart(3, '0')}` : this.escapeString(char);
+                }).join('');
+                return `'${escaped}'`;
+            }
             case ast.KeywordExpression.$type: return (expr as ast.KeywordExpression).name;
             case ast.NamedElementReference.$type: {
                 const value = (expr as ast.NamedElementReference).value;

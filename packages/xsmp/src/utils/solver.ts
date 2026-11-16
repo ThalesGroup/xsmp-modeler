@@ -225,7 +225,7 @@ export class IntegralValue extends Value<IntegralValue> {
     }
     override floatValue(type: FloatingPTK): FloatValue { return new FloatValue(Number(this.value), type); }
     override charValue(): CharValue | undefined {
-        if (this.value < 0n || this.value > 0x10FFFFn) {
+        if (this.value < 0n || this.value > 0xFFn) {
             return undefined;
         }
         return new CharValue(String.fromCodePoint(Number(this.value)));
@@ -527,9 +527,12 @@ function doGetValueAs<T>(expression: ast.Expression, value: Value<T>, type: ast.
     }
     else if (kind === PTK.Char8) {
         const charValue = value.charValue();
-        if (charValue && accept) {
+        if (charValue) {
             if (charValue.getValue().length !== 1) {
-                accept('error', 'A \'Char8\' shall contain exactly one character.', { node: expression });
+                accept?.('error', 'A \'Char8\' shall contain exactly one character.', { node: expression });
+            }
+            else if (charValue.getValue().charCodeAt(0) > 0xFF) {
+                accept?.('error', 'A \'Char8\' shall fit in one byte.', { node: expression });
             }
         }
         return charValue;
