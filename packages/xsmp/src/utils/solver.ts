@@ -233,7 +233,7 @@ export class IntegralValue extends Value<IntegralValue> {
 
     override unaryComplement(): IntegralValue { return new IntegralValue(~this.value, this.promote(PTK.Int32)); }
     override plus(): IntegralValue { return new IntegralValue(this.value, this.promote(PTK.Int32)); }
-    override negate(): IntegralValue { return new IntegralValue(-this.value, this.promote(PTK.Int32)); }
+    override negate(): IntegralValue { return this.arithmeticResult(-this.value, this.promote(PTK.Int32)); }
     promote(type: IntegralPTK): IntegralPTK {
         if (this.type === PTK.UInt64 || type === PTK.UInt64) return PTK.UInt64;
         if (this.type === PTK.Int64 || this.type === PTK.DateTime || this.type === PTK.Duration
@@ -244,15 +244,24 @@ export class IntegralValue extends Value<IntegralValue> {
     override or(val: IntegralValue): IntegralValue { return new IntegralValue(this.value | val.value, this.promote(val.type)); }
     override and(val: IntegralValue): IntegralValue { return new IntegralValue(this.value & val.value, this.promote(val.type)); }
     override xor(val: IntegralValue): IntegralValue { return new IntegralValue(this.value ^ val.value, this.promote(val.type)); }
-    override add(val: IntegralValue): IntegralValue { return new IntegralValue(this.value + val.value, this.promote(val.type)); }
-    override subtract(val: IntegralValue): IntegralValue { return new IntegralValue(this.value - val.value, this.promote(val.type)); }
+    private arithmeticResult(value: bigint, type: IntegralPTK): IntegralValue {
+        const result = new IntegralValue(value, type);
+        if (type !== PTK.UInt32 && type !== PTK.UInt64 && result.value !== value) {
+            throw new Error('Signed arithmetic overflow.');
+        }
+        return result;
+    }
+    override add(val: IntegralValue): IntegralValue { return this.arithmeticResult(this.value + val.value, this.promote(val.type)); }
+    override subtract(val: IntegralValue): IntegralValue { return this.arithmeticResult(this.value - val.value, this.promote(val.type)); }
     override divide(val: IntegralValue): IntegralValue {
         if (val.value === 0n) { throw new Error('Division by zero.'); }
-        return new IntegralValue(this.value / val.value, this.promote(val.type));
+        return this.arithmeticResult(this.value / val.value, this.promote(val.type));
     }
-    override multiply(val: IntegralValue): IntegralValue { return new IntegralValue(this.value * val.value, this.promote(val.type)); }
+    override multiply(val: IntegralValue): IntegralValue { return this.arithmeticResult(this.value * val.value, this.promote(val.type)); }
     override remainder(val: IntegralValue): IntegralValue {
         if (val.value === 0n) { throw new Error('Division by zero.'); }
+        // C++ also makes MIN % -1 invalid, although the mathematical remainder is zero.
+        if (val.value === -1n) { this.arithmeticResult(-this.value, this.promote(val.type)); }
         return new IntegralValue(this.value % val.value, this.promote(val.type));
     }
     override shiftLeft(n: IntegralValue): IntegralValue {
@@ -760,10 +769,14 @@ function unaryOperation<T>(expression: ast.UnaryOperation, context: EvaluationCo
         return undefined;
     }
 
-    const result = unaryOperationFunction(operand, expression.feature);
-
-    if (accept && result === undefined) {
-        accept('error', `Unary operator '${expression.feature}' is not supported for operand of type '${PTK[operand.primitiveTypeKind()]}'.`, { node: expression });
+    try {
+        const result = unaryOperationFunction(operand, expression.feature);
+        if (accept && result === undefined) {
+            accept('error', `Unary operator '${expression.feature}' is not supported for operand of type '${PTK[operand.primitiveTypeKind()]}'.`, { node: expression });
+        }
+        return result;
+    } catch (error) {
+        accept?.('error', error instanceof Error ? error.message : `${error}`, { node: expression });
+        return undefined;
     }
-    return result;
 }
