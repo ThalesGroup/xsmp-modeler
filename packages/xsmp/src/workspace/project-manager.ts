@@ -171,9 +171,9 @@ export class ProjectManager {
         const activeContributionIds = this.getActiveContributionIds(new Set([project]));
         this.contributionRegistry.getPayloadBuiltinUrisForContributions(activeContributionIds).forEach(uri => uris.add(uri));
 
-        const folders = this.getSourceFolders(dependencies);
         this.documents.all.forEach(doc => {
-            if (this.isUriInFolders(doc.uri, folders) ||
+            const owner = this.getProject(doc);
+            if ((owner !== undefined && dependencies.has(owner)) ||
                 (isBuiltinLibrary(doc.uri)
                     && !this.contributionRegistry.isContributionDocument(doc.uri)
                     && (!doc.uri.path.includes('@') || doc.uri.path.includes('@' + standard)))) {
@@ -205,29 +205,6 @@ export class ProjectManager {
         }
         return ids;
     }
-    protected getSourceFolders(projects: Set<ast.Project>): Set<string> {
-        const uris = new Set<string>();
-        for (const project of projects) {
-            if (project.$document) {
-                const projectUri = UriUtils.dirname(project.$document.uri);
-                for (const source of project.elements.filter(isSource)) {
-                    if (source.path)
-                        uris.add(UriUtils.joinPath(projectUri, normalizePath(source.path)).path);
-                }
-            }
-        }
-        return uris;
-    }
-
-    protected isUriInFolders(uri: URI, folders: Set<string>): boolean {
-        for (const folder of folders) {
-            if (isSameOrContainedPath(folder, uri.path)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     protected getBuiltinStandard(uri: URI): string | undefined {
         for (const standard of SmpStandards) {
             if (uri.path.includes(`@${standard}`)) {
