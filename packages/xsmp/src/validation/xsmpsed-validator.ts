@@ -161,24 +161,29 @@ export class XsmpsedValidator extends XsmpcfgValidator {
     }
 
     checkExecuteTask(execute: ast.ExecuteTask, accept: ValidationAcceptor): void {
-        if (!execute.root || execute.root.unsafe) {
-            return;
+        let actualComponent: ast.Component | undefined;
+        if (execute.root) {
+            if (execute.root.unsafe || !this.checkPathTemplateParameters(execute.root, accept)) {
+                return;
+            }
+            checkNoParentTraversal(accept, execute, execute.root, ast.ExecuteTask.root);
+            const resolution = this.instancePathResolver.getScheduleActivityPathResolution(execute.root);
+            this.acceptPathError(resolution.invalidMessage, resolution.invalidNode, accept);
+            if (!resolution.active || resolution.invalidMessage) {
+                return;
+            }
+            actualComponent = resolution.finalComponent;
+        } else {
+            const caller = AstUtils.getContainerOfType(execute, ast.isTask);
+            actualComponent = caller ? this.instancePathResolver.getEffectiveTaskExecutionContext(caller) : undefined;
         }
-        if (!this.checkPathTemplateParameters(execute.root, accept)) {
-            return;
-        }
-        checkNoParentTraversal(accept, execute, execute.root, ast.ExecuteTask.root);
-        const resolution = this.instancePathResolver.getScheduleActivityPathResolution(execute.root);
-        this.acceptPathError(resolution.invalidMessage, resolution.invalidNode, accept);
         const expectedTask = execute.task?.ref;
         const expectedComponent = expectedTask ? this.instancePathResolver.getEffectiveTaskExecutionContext(expectedTask) : undefined;
-        if (!resolution.active || resolution.invalidMessage || !resolution.finalComponent || !expectedComponent) {
-            return;
-        }
-        if (resolution.finalComponent !== expectedComponent && !XsmpUtils.isBaseOfComponent(expectedComponent, resolution.finalComponent)) {
-            accept('error', `The root path shall resolve to a Component compatible with the execution context of task ${execute.task?.$refText ?? '<unknown>'}.`, {
+        if (actualComponent && expectedComponent && actualComponent !== expectedComponent && !XsmpUtils.isBaseOfComponent(expectedComponent, actualComponent)) {
+            const source = execute.root ? 'The root path shall resolve to a Component' : 'The calling task shall have an execution context';
+            accept('error', `${source} compatible with the execution context of task ${execute.task?.$refText ?? '<unknown>'}.`, {
                 node: execute,
-                property: ast.ExecuteTask.root
+                property: execute.root ? ast.ExecuteTask.root : ast.ExecuteTask.task
             });
         }
     }
