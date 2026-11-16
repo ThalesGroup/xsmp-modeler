@@ -1,4 +1,5 @@
 import { toXsmpIdentifier } from '../utils/path-utils.js';
+import { getProjectIdentifier } from '../project/project-creator.js';
 
 export type XsmpStarterFileKind = 'catalogue' | 'configuration' | 'assembly' | 'link-base' | 'schedule';
 
@@ -109,7 +110,7 @@ export function createXsmpStarterFileTemplate(
 
 function createStarterNaming(fileStem: string): XsmpStarterNaming {
     const normalizedStem = stripStarterSuffixes(toXsmpIdentifier(fileStem).replaceAll(/\W/g, '_'));
-    const namespaceSegment = normalizedStem.toLowerCase();
+    const namespaceSegment = getProjectIdentifier(normalizedStem.toLowerCase());
     const typeName = toPascalCase(normalizedStem);
     const instanceName = toCamelCase(typeName);
     const catalogueBase = normalizedStem.endsWith('_catalogue') ? normalizedStem : `${namespaceSegment}_catalogue`;
