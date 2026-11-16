@@ -1208,6 +1208,11 @@ export class XsmpcatValidator {
                 accept('error', 'A Property of an Interface shall not be static.', { node: isStatic!, data: diagnosticData(IssueCodes.InvalidAttribute) });
             }
 
+            const constGetter = this.attrHelper.attribute(property, 'Attributes.ConstGetter');
+            if (XsmpUtils.getAccessKind(property) !== 'writeOnly' && this.attrHelper.isAttributeTrue(constGetter)) {
+                accept('error', 'A static Property getter shall not be const.', { node: constGetter!, data: diagnosticData(IssueCodes.InvalidAttribute) });
+            }
+
             const isVirtual = this.attrHelper.attribute(property, 'Attributes.Virtual');
             if (this.attrHelper.isAttributeTrue(isVirtual)) {
                 accept('error', 'A Property shall not be both Static and Virtual.', { node: isVirtual!, data: diagnosticData(IssueCodes.InvalidAttribute) });
