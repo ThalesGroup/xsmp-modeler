@@ -726,18 +726,17 @@ export class XsmpasbValidator extends XsmpcfgValidator {
 
         for (const element of value.elements) {
             if (ast.isFieldValue(element) && element.field) {
-                const field = this.resolveStructureFieldByPath(type, element.field);
-                if (!field) {
-                    if (!element.field.unsafe) {
-                        accept('error', `The structure field path '${this.pathService.stringifyPath(element.field)}' does not exist on type ${XsmpUtils.fqn(type)}.`, { node: element, property: ast.FieldValue.field });
-                    }
+                const rootField = this.instancePathResolver.getDesignatedAssemblyRootField(element.field, fields);
+                if (rootField?.name) {
+                    usedFields.add(rootField.name);
+                }
+                if (element.field.unsafe) {
                     continue;
                 }
-                if (field.name) {
-                    usedFields.add(field.name);
-                }
-                if (!element.field.unsafe && field.type?.ref && element.value) {
-                    this.checkAssemblyValueAgainstType(element.value, field.type.ref, accept);
+                const resolution = this.instancePathResolver.getAssemblyFieldPathResolution(element.field);
+                this.acceptPathError(resolution.invalidMessage, resolution.invalidNode, accept);
+                if (!resolution.invalidMessage && resolution.finalType && element.value) {
+                    this.checkAssemblyValueAgainstType(element.value, resolution.finalType, accept);
                 }
                 continue;
             }
@@ -750,88 +749,17 @@ export class XsmpasbValidator extends XsmpcfgValidator {
             if (field.name) {
                 usedFields.add(field.name);
             }
-            if (field.type?.ref) {
-                this.checkAssemblyValueAgainstType(element, field.type.ref, accept);
+            const item = ast.isFieldValue(element) ? element.value : element;
+            if (field.type?.ref && item) {
+                this.checkAssemblyValueAgainstType(item, field.type.ref, accept);
             }
         }
-    }
-
-    protected resolveStructureFieldByPath(type: ast.Structure, path: ast.Path): ast.Field | undefined {
-        if (path.absolute) {
-            return undefined;
-        }
-
-        const segments: Array<ast.PathElement | ast.PathSegment> = [];
-        if (path.head) {
-            segments.push(path.head);
-        }
-        segments.push(...path.elements);
-        if (segments.length === 0) {
-            return undefined;
-        }
-
-        const first = segments[0];
-        if (ast.isPathIndex(first) || ast.isPathParentSegment(first) || ast.isPathSelfSegment(first) || (ast.isPathMember(first) && first.separator === '/')) {
-            return undefined;
-        }
-
-        const firstSegment = ast.isPathMember(first) ? first.segment : first;
-        if (!ast.isPathNamedSegment(firstSegment)) {
-            return undefined;
-        }
-
-        let field = this.resolveNamedStructureField(type, firstSegment);
-        if (!field) {
-            return undefined;
-        }
-
-        let currentType: ast.Type | undefined = field.type?.ref;
-        for (let index = 1; index < segments.length; index++) {
-            const segment = segments[index];
-            if (ast.isPathIndex(segment)) {
-                if (!currentType || !ast.isArrayType(currentType)) {
-                    return undefined;
-                }
-                currentType = currentType.itemType?.ref;
-                continue;
-            }
-            if (!ast.isPathMember(segment) || segment.separator !== '.' || ast.isPathParentSegment(segment.segment) || ast.isPathSelfSegment(segment.segment)) {
-                return undefined;
-            }
-            if (!ast.isStructure(currentType) || !ast.isPathNamedSegment(segment.segment)) {
-                return undefined;
-            }
-            field = this.resolveNamedStructureField(currentType, segment.segment);
-            if (!field) {
-                return undefined;
-            }
-            currentType = field.type?.ref;
-        }
-
-        return field;
-    }
-
-    protected resolveNamedStructureField(type: ast.Structure, segment: ast.PathNamedSegment): ast.Field | undefined {
-        const candidates = this.pathResolver.getFieldCandidatesForType(type);
-        if (ast.isConcretePathNamedSegment(segment)) {
-            const linked = segment.reference?.ref;
-            if (linked && candidates.includes(linked as ast.Field)) {
-                return linked as ast.Field;
-            }
-            const refText = segment.reference?.$refText;
-            return refText ? candidates.find(candidate => candidate.name === refText) : undefined;
-        }
-        const matches = this.identifierPatternService.matchCandidates(segment, candidates, candidate => candidate.name ?? '', undefined).matches;
-        return matches.length === 1 ? matches[0] : undefined;
     }
 
     protected override getExpectedTypeForValue(value: ast.Value): ast.Type | undefined {
         const container = value.$container;
         if (!container) {
             return undefined;
-        }
-        if (ast.isFieldValue(container) && container.value === value) {
-            return this.getExpectedTypeForAssemblyFieldValue(container);
         }
         if (ast.isPropertyValue(container) && container.value === value) {
             if (container.property?.unsafe) {
@@ -843,35 +771,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
         if (ast.isParameterValue(container) && container.value === value) {
             return this.getExpectedTypeForOperationParameterValue(container);
         }
-        if (ast.isArrayValue(container)) {
-            const arrayType = this.getExpectedTypeForValue(container);
-            return ast.isArrayType(arrayType) ? arrayType.itemType?.ref : undefined;
-        }
-        if (ast.isStructureValue(container)) {
-            const structureType = this.getExpectedTypeForValue(container);
-            return ast.isStructure(structureType)
-                ? this.getPositionalAssemblyStructureFieldType(container, value, structureType)
-                : undefined;
-        }
-        return undefined;
-    }
-
-    protected getExpectedTypeForAssemblyFieldValue(fieldValue: ast.FieldValue): ast.Type | undefined {
-        if (!ast.isPath(fieldValue.field) || fieldValue.field.unsafe) {
-            return undefined;
-        }
-        if (ast.isStructureValue(fieldValue.$container)) {
-            const structureType = this.getExpectedTypeForValue(fieldValue.$container);
-            const field = ast.isStructure(structureType)
-                ? this.resolveStructureFieldByPath(structureType, fieldValue.field)
-                : undefined;
-            return field?.type?.ref;
-        }
-        const resolution = this.instancePathResolver.getAssemblyFieldPathResolution(fieldValue.field);
-        if (!resolution.active || resolution.invalidMessage) {
-            return undefined;
-        }
-        return resolution.finalType;
+        return this.instancePathResolver.getExpectedAssemblyValueType(value);
     }
 
     protected getExpectedTypeForOperationParameterValue(parameterValue: ast.ParameterValue): ast.Type | undefined {
@@ -887,39 +787,6 @@ export class XsmpasbValidator extends XsmpcfgValidator {
             return undefined;
         }
         return target.parameter.find(parameter => parameter.name === parameterValue.parameter)?.type?.ref;
-    }
-
-    protected getPositionalAssemblyStructureFieldType(
-        structureValue: ast.StructureValue,
-        target: ast.Value,
-        type: ast.Structure,
-    ): ast.Type | undefined {
-        const fields = this.pathResolver.getFieldCandidatesForType(type);
-        const usedFields = new Set<string>();
-        const nextPositionalField = this.createNextUnusedFieldSelector(fields, usedFields);
-
-        for (const element of structureValue.elements) {
-            if (ast.isFieldValue(element)) {
-                const field = element.field ? this.resolveStructureFieldByPath(type, element.field) : undefined;
-                if (field?.name && !usedFields.has(field.name)) {
-                    usedFields.add(field.name);
-                }
-                continue;
-            }
-
-            const field = nextPositionalField();
-            if (!field) {
-                return undefined;
-            }
-            if (element === target) {
-                return field.type?.ref;
-            }
-            if (field.name) {
-                usedFields.add(field.name);
-            }
-        }
-
-        return undefined;
     }
 
     protected checkTemplatedInstanceName(
