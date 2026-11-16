@@ -458,6 +458,9 @@ export class XsmpcatValidator {
                         if (exp.field?.ref !== field) {
                             accept('error', `Invalid field name, expecting ${field.name}.`, { node: exp, property: ast.DesignatedInitializer.field, data: diagnosticData(IssueCodes.InvalidFieldName) });
                         }
+                        if (!exp.expr) {
+                            accept('error', 'A designated initializer requires a value.', { node: exp, data: diagnosticData(IssueCodes.MissingValue) });
+                        }
                         exp = exp.expr;
                     }
                     const fieldType = field.type?.ref;
