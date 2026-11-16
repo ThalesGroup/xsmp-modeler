@@ -38,8 +38,7 @@ export class XsmpRenameProvider extends DefaultRenameProvider {
 
         if (ast.isNamedElement(targetNode)) {
             const oldFqn = this.getFullyQualifiedName(targetNode);
-            targetNode.name = params.newName;
-            const newFqn = this.getFullyQualifiedName(targetNode);
+            const newFqn = this.getFullyQualifiedName(targetNode, params.newName);
             this.processNode(targetNode, changes, oldFqn, newFqn);
         }
 
@@ -107,8 +106,7 @@ export class XsmpRenameProvider extends DefaultRenameProvider {
         return undefined;
     }
 
-    public getFullyQualifiedName(node: ast.NamedElement): string {
-        let name = node.name;
+    public getFullyQualifiedName(node: ast.NamedElement, name = node.name): string {
         if (name === undefined || name.length === 0) {
             return '';
         }
