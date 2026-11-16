@@ -1373,6 +1373,7 @@ export class SmpGenerator implements XsmpGenerator {
 
     protected convertSchedule(schedule: ast.Schedule): Schedule.Schedule {
         const id = this.docHelper.getId(schedule) ?? schedule.name;
+        const eventIndexes = new Map<string, number>();
         return {
             '@xmlns:Elements': 'http://www.ecss.nl/smp/2019/Core/Elements',
             '@xmlns:Types': 'http://www.ecss.nl/smp/2019/Core/Types',
@@ -1394,14 +1395,23 @@ export class SmpGenerator implements XsmpGenerator {
             EpochTime: schedule.epochTime,
             MissionStart: schedule.missionStart,
             Task: schedule.elements.filter(ast.isTask).map(task => this.convertTask(task)),
-            Event: schedule.elements.filter(ast.isEvent).map(event => this.convertEvent(event)),
+            Event: schedule.elements.filter(ast.isEvent).map(event => {
+                const index = (eventIndexes.get(event.$type) ?? 0) + 1;
+                eventIndexes.set(event.$type, index);
+                return this.convertEvent(event, index);
+            }),
         };
     }
 
     convertTask(task: ast.Task): Schedule.Task {
+        const activityIndexes = new Map<string, number>();
         return {
             ...this.convertNamedElement(task),
-            Activity: task.elements.map(activity => this.convertActivity(activity))
+            Activity: task.elements.map(activity => {
+                const index = (activityIndexes.get(activity.$type) ?? 0) + 1;
+                activityIndexes.set(activity.$type, index);
+                return this.convertActivity(activity, index);
+            })
         };
     }
     private getSiblingTypeIndex<T extends AstNode & { $type: string }>(element: T, siblings: readonly T[]): number {
@@ -1416,46 +1426,40 @@ export class SmpGenerator implements XsmpGenerator {
         }
         return 1;
     }
-    private getGeneratedActivityName(activity: ast.Activity): string {
+    private convertGeneratedActivityElement(activity: ast.Activity, index?: number): Elements.NamedElement {
         const task = AstUtils.getContainerOfType(activity, ast.isTask);
-        const index = task ? this.getSiblingTypeIndex(activity, task.elements) : (activity.$containerIndex ?? 0) + 1;
-        return `${activity.$type}${index}`;
-    }
-    private convertGeneratedActivityElement(activity: ast.Activity): Elements.NamedElement {
-        const task = AstUtils.getContainerOfType(activity, ast.isTask);
-        const name = this.getGeneratedActivityName(activity);
+        index ??= task ? this.getSiblingTypeIndex(activity, task.elements) : (activity.$containerIndex ?? 0) + 1;
+        const name = `${activity.$type}${index}`;
         return this.convertGeneratedNamedElement(task ? `${this.getId(task)}.${name}` : name, name);
     }
-    private getGeneratedEventName(event: ast.Event): string {
+    private convertGeneratedEventElement(event: ast.Event, index?: number): Elements.NamedElement {
         const schedule = AstUtils.getContainerOfType(event, ast.isSchedule);
-        const events = schedule?.elements.filter(ast.isEvent) ?? [];
-        const index = events.length > 0 ? this.getSiblingTypeIndex(event, events) : (event.$containerIndex ?? 0) + 1;
-        return `${event.$type}${index}`;
-    }
-    private convertGeneratedEventElement(event: ast.Event): Elements.NamedElement {
-        const schedule = AstUtils.getContainerOfType(event, ast.isSchedule);
-        const name = this.getGeneratedEventName(event);
+        if (index === undefined) {
+            const events = schedule?.elements.filter(ast.isEvent) ?? [];
+            index = events.length > 0 ? this.getSiblingTypeIndex(event, events) : (event.$containerIndex ?? 0) + 1;
+        }
+        const name = `${event.$type}${index}`;
         return this.convertGeneratedNamedElement(schedule ? `${this.getId(schedule)}.${name}` : name, name);
     }
-    convertActivity(activity: ast.Activity): Schedule.Activity {
+    convertActivity(activity: ast.Activity, index?: number): Schedule.Activity {
         switch (activity.$type) {
             case ast.CallOperation.$type:
                 return {
-                    ...this.convertGeneratedActivityElement(activity),
+                    ...this.convertGeneratedActivityElement(activity, index),
                     '@xsi:type': 'Schedule:CallOperation',
                     OperationPath: this.pathService.stringifyPath((activity as ast.CallOperation).operationPath),
                     Parameter: (activity as ast.CallOperation).parameters.map(parameter => this.convertParameterValue(parameter))
                 } as Schedule.CallOperation;
             case ast.EmitGlobalEvent.$type:
                 return {
-                    ...this.convertGeneratedActivityElement(activity),
+                    ...this.convertGeneratedActivityElement(activity, index),
                     '@xsi:type': 'Schedule:EmitGlobalEvent',
                     EventName: (activity as ast.EmitGlobalEvent).eventName,
                     synchronous: !(activity as ast.EmitGlobalEvent).asynchronous
                 } as Schedule.EmitGlobalEvent;
             case ast.ExecuteTask.$type:
                 return {
-                    ...this.convertGeneratedActivityElement(activity),
+                    ...this.convertGeneratedActivityElement(activity, index),
                     '@xsi:type': 'Schedule:ExecuteTask',
                     '@Root': this.pathService.stringifyPath((activity as ast.ExecuteTask).root),
                     Task: this.convertXlink((activity as ast.ExecuteTask).task, activity),
@@ -1463,35 +1467,35 @@ export class SmpGenerator implements XsmpGenerator {
                 } as Schedule.ExecuteTask;
             case ast.SetProperty.$type:
                 return {
-                    ...this.convertGeneratedActivityElement(activity),
+                    ...this.convertGeneratedActivityElement(activity, index),
                     '@xsi:type': 'Schedule:SetProperty',
                     PropertyPath: this.pathService.stringifyPath((activity as ast.SetProperty).propertyPath),
                     Value: this.convertValue((activity as ast.SetProperty).value, this.getResolvedSchedulePropertyType(activity as ast.SetProperty)),
                 } as Schedule.SetProperty;
             case ast.Transfer.$type:
                 return {
-                    ...this.convertGeneratedActivityElement(activity),
+                    ...this.convertGeneratedActivityElement(activity, index),
                     '@xsi:type': 'Schedule:Transfer',
                     OutputFieldPath: this.pathService.stringifyPath((activity as ast.Transfer).outputFieldPath),
                     InputFieldPath: this.pathService.stringifyPath((activity as ast.Transfer).inputFieldPath),
                 } as Schedule.Transfer;
             case ast.Trigger.$type:
                 return {
-                    ...this.convertGeneratedActivityElement(activity),
+                    ...this.convertGeneratedActivityElement(activity, index),
                     '@xsi:type': 'Schedule:Trigger',
                     EntryPoint: this.pathService.stringifyPath((activity as ast.Trigger).entryPoint),
                 } as Schedule.Trigger;
             default:
                 return {
-                    ...this.convertGeneratedActivityElement(activity),
+                    ...this.convertGeneratedActivityElement(activity, index),
                     '@xsi:type': 'Schedule:Activity',
                 } as Schedule.Activity;
         }
     }
 
-    private convertEventBase(event: ast.Event): Schedule.Event {
+    private convertEventBase(event: ast.Event, index?: number): Schedule.Event {
         return {
-            ...this.convertGeneratedEventElement(event),
+            ...this.convertGeneratedEventElement(event, index),
             '@xsi:type': `Schedule:${event.$type}`,
             Task: this.convertXlink(event.task, event),
             '@CycleTime': event.cycleTime,
@@ -1514,38 +1518,38 @@ export class SmpGenerator implements XsmpGenerator {
         }
     }
 
-    convertEvent(event: ast.Event): Schedule.Event {
+    convertEvent(event: ast.Event, index?: number): Schedule.Event {
         switch (event.$type) {
             case ast.EpochEvent.$type:
                 return {
-                    ...this.convertEventBase(event),
+                    ...this.convertEventBase(event, index),
                     '@EpochTime': (event as ast.EpochEvent).epochTime,
                 } as Schedule.EpochEvent;
             case ast.MissionEvent.$type:
                 return {
-                    ...this.convertEventBase(event),
+                    ...this.convertEventBase(event, index),
                     '@MissionTime': (event as ast.MissionEvent).missionTime,
                 } as Schedule.MissionEvent;
             case ast.SimulationEvent.$type:
                 return {
-                    ...this.convertEventBase(event),
+                    ...this.convertEventBase(event, index),
                     '@SimulationTime': (event as ast.SimulationEvent).simulationTime,
                 } as Schedule.SimulationEvent;
             case ast.ZuluEvent.$type:
                 return {
-                    ...this.convertEventBase(event),
+                    ...this.convertEventBase(event, index),
                     '@ZuluTime': (event as ast.ZuluEvent).zuluTime,
                 } as Schedule.ZuluEvent;
             case ast.GlobalEventTriggeredEvent.$type:
                 return {
-                    ...this.convertEventBase(event),
+                    ...this.convertEventBase(event, index),
                     '@StartEvent': (event as ast.GlobalEventTriggeredEvent).startEvent,
                     '@StopEvent': (event as ast.GlobalEventTriggeredEvent).stopEvent,
                     '@TimeKind': this.convertScheduleTimeKind((event as ast.GlobalEventTriggeredEvent).timeKind),
                     '@Delay': (event as ast.GlobalEventTriggeredEvent).delay,
                 } as Schedule.GlobalEventTriggeredEvent;
             default:
-                return this.convertEventBase(event);
+                return this.convertEventBase(event, index);
         }
     }
 
