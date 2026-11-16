@@ -1,4 +1,5 @@
 import * as ast from '@xsmp/core/ast';
+import { toPythonPackageName } from './package-name.js';
 import { expandToString as s } from 'langium/generate';
 import { isGeneratedBy } from '@xsmp/core/generator';
 import * as CopyrightNoticeProvider from '@xsmp/core/generator';
@@ -57,7 +58,8 @@ export class PythonGenerator implements XsmpGenerator {
     protected identifier(node: ast.NamedElement): string {
         // Valid XSMP names start with a letter, so this prefix cannot collide
         // with another catalogue, namespace or component name.
-        return pythonKeywords.has(node.name) ? `_${node.name}` : node.name;
+        const name = pythonKeywords.has(node.name) ? `_${node.name}` : node.name;
+        return ast.isCatalogue(node) ? toPythonPackageName(name) : name;
     }
     fqn(node: ast.NamedElement, separator: string = '/'): string {
         let name = this.identifier(node);
