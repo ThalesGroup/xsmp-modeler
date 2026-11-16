@@ -98,9 +98,9 @@
     "dependencies": {
         "langium": "4.4.0",
         "p-limit": "^7.3.3",
+        "saxes": "6.0.0",
         "semver": "^7.8.6",
-        "vscode-languageserver": "~10.1.2",
-        "xmlbuilder2": "^4.0.3"
+        "vscode-languageserver": "~10.1.2"
     },
     "peerDependencies": {
         "vscode-languageclient": "~10.1.2",
