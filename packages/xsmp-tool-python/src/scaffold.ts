@@ -1,9 +1,11 @@
 import * as path from 'node:path';
+import { toPythonPackageName } from './package-name.js';
 import type { XsmpContributionScaffoldContext } from '@xsmp/core/contributions';
 
 export async function scaffoldPythonProject(context: XsmpContributionScaffoldContext): Promise<void> {
     const pythonDir = path.join(context.projectDir, 'python');
-    const projectPackageDir = path.join(pythonDir, context.projectIdentifier);
+    const packageName = toPythonPackageName(context.projectIdentifier);
+    const projectPackageDir = path.join(pythonDir, packageName);
 
     await context.ensureDir(projectPackageDir);
 
@@ -16,11 +18,11 @@ testpaths = python
     await context.writeFile(path.join(projectPackageDir, `test_${context.projectIdentifier}.py`), `
 import ecss_smp
 import xsmp
-import ${context.projectIdentifier}
+import ${packageName}
 
 class Test${context.projectIdentifier}(xsmp.unittest.TestCase):
     try:
-        sim: ${context.projectIdentifier}._test_${context.projectIdentifier}.Simulator
+        sim: ${packageName}._test_${context.projectIdentifier}.Simulator
     except AttributeError:
         pass
     
