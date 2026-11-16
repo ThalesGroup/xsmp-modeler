@@ -1753,7 +1753,7 @@ export class XsmpInstancePathResolver {
     }
 
     protected normalizeTemplateString(value: string | undefined): string | undefined {
-        if (!value) {
+        if (value === undefined) {
             return undefined;
         }
         return value.startsWith('"') && value.endsWith('"') ? value.slice(1, -1) : value;
