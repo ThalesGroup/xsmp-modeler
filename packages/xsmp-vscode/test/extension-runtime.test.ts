@@ -389,6 +389,7 @@ describe('VS Code extension runtime behavior', () => {
         );
 
         expect(codeHover?.contents.value).toContain('command:xsmp.openDocumentation?');
+        expect(codeHover?.contents.isTrusted).toEqual({ enabledCommands: [OpenEmbeddedDocumentationCommand] });
         expect(commentHover).toBeUndefined();
     });
 });
