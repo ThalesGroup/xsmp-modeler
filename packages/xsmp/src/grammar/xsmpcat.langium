@@ -10,10 +10,10 @@ terminal STRING: /"(?:\\(?:[abfnrtv\\\"\'\?]|x[0-9a-fA-F]{2}|u[0-9a-fA-F]{4}|U[0
 terminal CHAR:   /'(?:\\(?:[abfnrtv\\\"\'\?]|x[0-9a-fA-F]{2}|u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8})|[^'\n])*'/;
 terminal FLOATING_LITERAL:FRACTIONALCONSTANT EXPONENTPART? FLOATINGSUFFIX? | DIGITSEQUENCE EXPONENTPART FLOATINGSUFFIX?;
 terminal fragment FRACTIONALCONSTANT:DIGITSEQUENCE? '.' DIGITSEQUENCE | DIGITSEQUENCE '.';
-terminal fragment DIGITSEQUENCE:/[0-9][0-9']*/;
-terminal fragment EXPONENTPART:/[eE][+-]?[0-9][0-9']*/;
+terminal fragment DIGITSEQUENCE:/[0-9](?:'?[0-9])*/;
+terminal fragment EXPONENTPART:/[eE][+-]?/ DIGITSEQUENCE;
 terminal fragment FLOATINGSUFFIX:/[fF]/;
-terminal INTEGER_LITERAL:/(?:0[xX][0-9a-fA-F][0-9a-fA-F']*|0[bB][01]['01]*)(?:[uU][lL]?|[lL][uU]?)?|(?:[1-9][0-9']*|0[0-7']*)(?:ns|us|ms|s|mn|h|d|[uU][lL]?|[lL][uU]?)?/;
+terminal INTEGER_LITERAL:/(?:0[xX][0-9a-fA-F](?:'?[0-9a-fA-F])*|0[bB][01](?:'?[01])*)(?:[uU][lL]?|[lL][uU]?)?|(?:[1-9](?:'?[0-9])*|0(?:'?[0-7])*)(?:ns|us|ms|s|mn|h|d|[uU][lL]?|[lL][uU]?)?/;
 
 ValidID returns string:
     ID | 'extends' | 'implements' | 'in' | 'out' | 'inout' | 'class' | 'struct' | 'exception' | 'model' |
