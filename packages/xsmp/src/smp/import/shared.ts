@@ -1,4 +1,4 @@
-import { create } from 'xmlbuilder2';
+import { SaxesParser } from 'saxes';
 import * as fs from 'node:fs/promises';
 import { toXsmpIdentifier } from '../../utils/path-utils.js';
 
@@ -66,41 +66,63 @@ export async function parseSmpXmlFile(inputPath: string): Promise<ParsedSmpXmlDo
 }
 
 export function parseSmpXml(xml: string): ParsedSmpXmlDocument {
-    let parsed: unknown;
+    let document: ParsedSmpXmlDocument | undefined;
+    const stack: Array<{ name: string; value: SmpXmlObject; text: string }> = [];
+    const parser = new SaxesParser({ xmlns: true });
+    parser.on('xmldecl', declaration => {
+        if (declaration.version !== '1.0') {
+            throw new Error(`Unsupported XML version '${declaration.version}'.`);
+        }
+    });
+    parser.on('opentag', tag => {
+        const value: SmpXmlObject = {};
+        for (const attribute of Object.values(tag.attributes)) {
+            value[`@${attribute.name}`] = attribute.value;
+        }
+        if (stack.length === 0) {
+            document = { rootKey: tag.name, rootLocalName: tag.local, rootNamespace: tag.uri || undefined, root: value };
+        }
+        stack.push({ name: tag.name, value, text: '' });
+    });
+    const appendText = (text: string): void => {
+        const current = stack.at(-1);
+        if (current) current.text += text;
+    };
+    parser.on('text', appendText);
+    parser.on('cdata', appendText);
+    parser.on('closetag', () => {
+        const current = stack.pop()!;
+        let value: SmpXmlObject | string = current.value;
+        if (current.text) {
+            if (Object.keys(value).length === 0) {
+                value = current.text;
+            } else if (current.text.trim()) {
+                value['#'] = current.text;
+            }
+        }
+        const parent = stack.at(-1);
+        if (parent) {
+            const previous = Object.hasOwn(parent.value, current.name) ? parent.value[current.name] : undefined;
+            if (previous === undefined) {
+                Object.defineProperty(parent.value, current.name, { value, writable: true, enumerable: true, configurable: true });
+            } else if (Array.isArray(previous)) {
+                previous.push(value);
+            } else {
+                parent.value[current.name] = [previous, value];
+            }
+        } else if (!isSmpXmlObject(value)) {
+            throw new Error('Parsed SMP XML does not contain an object root.');
+        }
+    });
     try {
-        parsed = create(xml).end({ format: 'object' });
+        parser.write(xml).close();
     } catch (error) {
         throw new Error('Failed to parse SMP XML.', { cause: error });
     }
-
-    if (!isSmpXmlObject(parsed)) {
-        throw new Error('Parsed SMP XML does not contain an object root.');
-    }
-
-    const rootEntry = getDocumentRootEntry(parsed);
-    if (!rootEntry) {
+    if (!document) {
         throw new Error('Parsed SMP XML does not contain a root element.');
     }
-    const [rootKey, root] = rootEntry;
-
-    const prefix = rootKey.includes(':') ? rootKey.slice(0, rootKey.indexOf(':')) : undefined;
-    const rootNamespace = prefix ? getAttribute(root, `xmlns:${prefix}`) : getAttribute(root, 'xmlns');
-
-    return {
-        rootKey,
-        rootLocalName: getLocalName(rootKey),
-        rootNamespace,
-        root,
-    };
-}
-
-function getDocumentRootEntry(node: SmpXmlObject): [string, SmpXmlObject] | undefined {
-    for (const [key, value] of Object.entries(node)) {
-        if (isSmpXmlObject(value)) {
-            return [key, value];
-        }
-    }
-    return undefined;
+    return document;
 }
 
 export function detectSmpImportKind(document: ParsedSmpXmlDocument): SmpImportKind | undefined {
