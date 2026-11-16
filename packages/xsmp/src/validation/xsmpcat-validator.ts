@@ -427,7 +427,7 @@ export class XsmpcatValidator {
         if (ast.isArrayType(type)) {
             if (ast.isCollectionLiteral(expression)) {
                 const arraySize = Solver.getValue(type.size)?.integralValue(PTK.UInt64)?.getValue();
-                if (arraySize) {
+                if (arraySize !== undefined) {
                     const collectionSize = expression.elements.length,
                         size = Math.min(collectionSize, Number(arraySize));
                     for (let i = 0; i < size; ++i) { this.checkExpression(type.itemType?.ref, expression.elements[i], accept); }
