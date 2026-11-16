@@ -1,4 +1,4 @@
-import { AstUtils, type AstNodeDescription, type GrammarAST, type ReferenceInfo } from 'langium';
+import { AstUtils, GrammarUtils, type AstNodeDescription, type GrammarAST, type ReferenceInfo } from 'langium';
 import type { CompletionAcceptor, CompletionContext } from 'langium/lsp';
 import * as ast from '../generated/ast-partial.js';
 import type { IdentifierPatternService } from '../references/identifier-pattern-service.js';
@@ -320,7 +320,7 @@ export class XsmpsedCompletionProvider extends XsmpCompletionProviderBase {
         const templateArguments = parameters.map((parameter, index) => {
             let defaultValue = 'value';
             if (ast.isStringParameter(parameter)) {
-                defaultValue = parameter.value ?? '"value"';
+                defaultValue = GrammarUtils.findNodeForProperty(parameter.$cstNode, ast.StringParameter.value)?.text ?? '"value"';
             } else if (ast.isInt32Parameter(parameter)) {
                 defaultValue = parameter.value?.toString() ?? '0';
             }
