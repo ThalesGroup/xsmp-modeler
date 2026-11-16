@@ -4,6 +4,12 @@ import type { IdentifierPatternService } from '../references/identifier-pattern-
 import type { XsmpPathService } from '../references/xsmp-path-service.js';
 import { isValidExpandedPathIdentifier } from './instance-validator-utils.js';
 
+export function checkInt32TemplateValue(node: ast.Int32Parameter | ast.Int32Argument, accept: ValidationAcceptor): void {
+    if (node.value !== undefined && (node.value < -2147483648n || node.value > 2147483647n)) {
+        accept('error', 'An Int32 template value shall be between -2147483648 and 2147483647.', { node, property: 'value' });
+    }
+}
+
 export function collectUsedTemplateParameterNames(
     root: AstNode,
     identifierPatternService: IdentifierPatternService,
