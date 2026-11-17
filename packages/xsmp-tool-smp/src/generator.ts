@@ -12,7 +12,7 @@ import * as XsmpUtils from '@xsmp/core/utils';
 
 import { type AstNode, type JSDocParagraph, type Reference, AstUtils, UriUtils, isReference } from 'langium';
 import { isGeneratedBy, type GeneratedFiles, type GenerationContext, type GenerationPreparationContext, type XsmpGenerator, getCopyrightNotice } from '@xsmp/core/generator';
-import { create } from 'xmlbuilder2';
+import { serializeSmpXml } from './xml.js';
 import { getStandardBuiltinExportName, getXsmpVersion, isStandardBuiltinLibrary, type XsmpSharedServices } from '@xsmp/core';
 import type { ProjectManager } from '@xsmp/core/workspace';
 import type { XsmpPathService, XsmpcfgPathResolver, XsmpInstancePathResolver } from '@xsmp/core/references';
@@ -715,10 +715,8 @@ export class SmpGenerator implements XsmpGenerator {
             '!notice': notice,
             '!generatedBy': this.generatedBy(),
             'Catalogue:Catalogue': await this.convertCatalogue(catalogue),
-        },
-            doc = create({ version: '1.0', encoding: 'UTF-8' }, obj);
-
-        return doc.end({ prettyPrint: true });
+        };
+        return serializeSmpXml(obj);
     }
 
     private safeXmlComment(input: string | undefined): string | undefined {
@@ -741,9 +739,8 @@ export class SmpGenerator implements XsmpGenerator {
             '!notice': notice,
             '!generatedBy': this.generatedBy(),
             'Configuration:Configuration': this.convertConfiguration(configuration),
-        },
-            doc = create({ version: '1.0', encoding: 'UTF-8' }, obj);
-        return doc.end({ prettyPrint: true });
+        };
+        return serializeSmpXml(obj);
     }
 
     protected convertConfiguration(configuration: ast.Configuration): Configuration.Configuration {
@@ -1155,9 +1152,8 @@ export class SmpGenerator implements XsmpGenerator {
             '!notice': notice,
             '!generatedBy': this.generatedBy(),
             'LinkBase:LinkBase': this.convertLinkBase(linkBase),
-        },
-            doc = create({ version: '1.0', encoding: 'UTF-8' }, obj);
-        return doc.end({ prettyPrint: true });
+        };
+        return serializeSmpXml(obj);
     }
 
     protected convertLinkBase(linkBase: ast.LinkBase): LinkBase.LinkBase {
@@ -1213,9 +1209,8 @@ export class SmpGenerator implements XsmpGenerator {
             '!notice': notice,
             '!generatedBy': this.generatedBy(),
             'Assembly:Assembly': this.convertAssembly(assembly),
-        },
-            doc = create({ version: '1.0', encoding: 'UTF-8' }, obj);
-        return doc.end({ prettyPrint: true });
+        };
+        return serializeSmpXml(obj);
     }
 
     protected convertAssembly(assembly: ast.Assembly): Assembly.Assembly {
@@ -1381,9 +1376,8 @@ export class SmpGenerator implements XsmpGenerator {
             '!notice': notice,
             '!generatedBy': this.generatedBy(),
             'Schedule:Schedule': this.convertSchedule(schedule),
-        },
-            doc = create({ version: '1.0', encoding: 'UTF-8' }, obj);
-        return doc.end({ prettyPrint: true });
+        };
+        return serializeSmpXml(obj);
     }
 
     protected convertSchedule(schedule: ast.Schedule): Schedule.Schedule {
@@ -1570,9 +1564,8 @@ export class SmpGenerator implements XsmpGenerator {
             '!notice': notice,
             '!generatedBy': this.generatedBy(),
             'Package:Package': await this.convertPackage(catalogue),
-        },
-            doc = create({ version: '1.0', encoding: 'UTF-8' }, obj);
-        return doc.end({ prettyPrint: true });
+        };
+        return serializeSmpXml(obj);
     }
 
     public async generateCatalogue(catalogue: ast.Catalogue, files: GeneratedFiles, notice: string | undefined): Promise<void> {

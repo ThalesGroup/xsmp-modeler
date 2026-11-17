@@ -34,6 +34,15 @@ export function hasXmllint(): boolean {
     return xmllintExecutable !== undefined;
 }
 
+export function evaluateXmlXPath(xml: string, expression: string): string {
+    if (!xmllintExecutable) {
+        throw new Error('xmllint executable not found.');
+    }
+    return execFileSync(xmllintExecutable, ['--xpath', expression, '-'], {
+        input: xml, encoding: 'utf8', stdio: 'pipe',
+    }).replace(/\n$/, '');
+}
+
 function resolveXmllintExecutable(): string | undefined {
     const candidates = [
         process.env.XMLLINT_PATH,
