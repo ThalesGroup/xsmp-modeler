@@ -257,14 +257,16 @@ export async function resolveCliProjectInput(inputPath: string, workspaceRootOpt
         throw new CliError(`Path '${inputPath}' is neither a project directory nor an 'xsmp.project' file.`, 2);
     }
 
-    const projectDir = path.dirname(projectFile);
+    // A directory alias must have the same identity as its discovered physical project.
+    const projectDir = await fs.realpath(path.dirname(projectFile));
+    projectFile = path.join(projectDir, 'xsmp.project');
     const workspaceRoot = workspaceRootOption ? path.resolve(workspaceRootOption) : path.dirname(projectDir);
     const workspaceRootStat = await tryStat(workspaceRoot);
     if (!workspaceRootStat?.isDirectory()) {
         throw new CliError(`Workspace root '${workspaceRoot}' does not exist or is not a directory.`, 2);
     }
 
-    return { projectFile, projectDir, workspaceRoot };
+    return { projectFile, projectDir, workspaceRoot: await fs.realpath(workspaceRoot) };
 }
 
 export async function discoverWorkspaceFolders(workspaceRoot: string, targetProjectDir: string): Promise<WorkspaceFolder[]> {
