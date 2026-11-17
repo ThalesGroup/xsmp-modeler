@@ -99,8 +99,9 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
             // -----------------------------------------------------------------------------
             
             namespace {
-            /// Simulators set.
-            std::unordered_set<::Smp::ISimulator*> simulators { };
+            enum class InitializationState { Initializing, Initialized, Failed };
+            /// Package initialization state for each simulator.
+            std::unordered_map<::Smp::ISimulator*, InitializationState> simulators { };
             } // namespace
             
             
@@ -121,20 +122,28 @@ export class TasMdkGenerator extends GapPatternCppGenerator {
                     if (!simulator) {
                         return false;
                     }
-                    // avoid double initialisation
-                    if (!::simulators.emplace(simulator).second) {
-                        return true;
+                    // Allow recursive initialisation, but never report a previous failure as success.
+                    const auto entry = ::simulators.emplace(simulator, InitializationState::Initializing);
+                    if (!entry.second) {
+                        return entry.first->second != InitializationState::Failed;
                     }
-                    ${deps.length > 0 ? `
-                        // Initialisation of dependent Package(s)
-                        if(${deps.map(dep => `!Initialise_${dep.name}(simulator, typeRegistry)`).join(' || ')}) {
-                            return false;
-                        }
-                        ` : ''}
-                    ${exportedTypes.map(type => this.registerType(type)).join('\n')}
-                    ${components.map(component => this.registerComponent(component)).join('\n')}
-                    
-                    return true;
+                    try {
+                        ${deps.length > 0 ? `
+                            // Initialisation of dependent Package(s)
+                            if(${deps.map(dep => `!Initialise_${dep.name}(simulator, typeRegistry)`).join(' || ')}) {
+                                ::simulators[simulator] = InitializationState::Failed;
+                                return false;
+                            }
+                            ` : ''}
+                        ${exportedTypes.map(type => this.registerType(type)).join('\n')}
+                        ${components.map(component => this.registerComponent(component)).join('\n')}
+                        ::simulators[simulator] = InitializationState::Initialized;
+                        return true;
+                    } catch (...) {
+                        // Registration may already have side effects; do not retry it implicitly.
+                        ::simulators[simulator] = InitializationState::Failed;
+                        throw;
+                    }
                 }
             }
             
