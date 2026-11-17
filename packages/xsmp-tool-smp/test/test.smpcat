@@ -7,6 +7,7 @@
     <Type xsi:type="Types:AttributeType" Id="ns.SingleAttribute" Name="SingleAttribute" Visibility="public" Uuid="c489402d-7ecc-466a-a2e7-e1cb3d1da3c5" AllowMultiple="false">
       <Description>A description</Description>
       <Type xlink:title="Bool" xlink:href="http://www.ecss.nl/smp/2019/Smdl#Smp.Bool"/>
+      <Default xsi:type="Types:BoolValue" Value="true"/>
       <Usage>NamedElement</Usage>
     </Type>
     <Type xsi:type="Types:AttributeType" Id="ns.MultipleAttribute" Name="MultipleAttribute" Visibility="public" Uuid="52057807-e889-40fb-89f9-f568018bddf1" AllowMultiple="true">
