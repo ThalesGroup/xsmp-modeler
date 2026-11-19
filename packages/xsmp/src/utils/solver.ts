@@ -8,9 +8,13 @@ import { type FloatingPTK, type IntegralPTK, isFloatingType, isIntegralType, PTK
 import { Location } from 'vscode-languageserver';
 import * as IssueCodes from '../validation/xsmpcat-issue-codes.js';
 
-// A fresh context belongs to one public evaluation. Undefined marks a constant
-// being evaluated (or one without a value), so cyclic references also terminate.
-type EvaluationContext = Map<ast.Constant, Value<unknown> | undefined>;
+const EVALUATING = Symbol('evaluating constant');
+
+// Values and cycle state belong to one public evaluation, never to a document cache.
+interface EvaluationContext {
+    values: Map<ast.Constant, Value<unknown> | undefined | typeof EVALUATING>;
+    cycle?: ast.Constant;
+}
 
 abstract class Value<T> {
 
@@ -379,7 +383,16 @@ function convertBuiltinFunction<T>(func: ast.BuiltInFunction, context: Evaluatio
 
 }
 export function getValue<T>(expression: ast.Expression | undefined, accept?: ValidationAcceptor): Value<T> | undefined {
-    return evaluate(expression, new Map(), accept);
+    return evaluateRoot(expression, undefined, accept);
+}
+
+function evaluateRoot<T>(expression: ast.Expression | undefined, type: ast.Type | PTK | undefined, accept?: ValidationAcceptor): Value<T> | undefined {
+    const context: EvaluationContext = { values: new Map() };
+    const result = type === undefined ? evaluate<T>(expression, context, accept) : evaluateAs<T>(expression, type, context, accept);
+    if (expression && context.cycle) {
+        accept?.('error', `Cyclic constant initializer involving '${fqn(context.cycle)}'.`, { node: expression });
+    }
+    return result;
 }
 
 function evaluate<T>(expression: ast.Expression | undefined, context: EvaluationContext, accept?: ValidationAcceptor): Value<T> | undefined {
@@ -422,11 +435,18 @@ function evaluate<T>(expression: ast.Expression | undefined, context: Evaluation
                             accept('error', 'The Constant is not visible.', { node: expression });
                         }
                         if (cst.type?.ref) {
-                            if (context.has(cst)) return context.get(cst);
-                            context.set(cst, undefined);
+                            if (context.values.has(cst)) {
+                                const value = context.values.get(cst);
+                                if (value === EVALUATING) {
+                                    context.cycle ??= cst;
+                                    return undefined;
+                                }
+                                return value;
+                            }
+                            context.values.set(cst, EVALUATING);
                             // The constant's initializer is validated at its declaration.
                             const value = evaluateAs(cst.value, cst.type.ref, context);
-                            context.set(cst, value);
+                            context.values.set(cst, value);
                             return value;
                         }
                     }
@@ -554,7 +574,7 @@ function doGetValueAs<T>(expression: ast.Expression, value: Value<T>, type: ast.
 }
 
 export function getValueAs<T>(expression: ast.Expression | undefined, type: ast.Type | PTK, accept?: ValidationAcceptor): Value<T> | undefined {
-    return evaluateAs(expression, type, new Map(), accept);
+    return evaluateRoot(expression, type, accept);
 }
 
 function evaluateAs<T>(expression: ast.Expression | undefined, type: ast.Type | PTK, context: EvaluationContext, accept?: ValidationAcceptor): Value<T> | undefined {
