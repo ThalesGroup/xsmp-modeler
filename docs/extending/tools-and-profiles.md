@@ -66,7 +66,7 @@ The extension manifest exposes the XSMP contribution through `contributes.xsmp`:
   },
   "dependencies": {
     "@xsmp/core": "^2.0.0",
-    "langium": "4.2.4"
+    "langium": "4.4.0"
   }
 }
 ```
