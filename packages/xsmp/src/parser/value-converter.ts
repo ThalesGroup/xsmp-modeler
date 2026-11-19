@@ -56,7 +56,9 @@ export class XsmpValueConverter extends DefaultValueConverter {
         }
     }
     convertTimeSuffix(value: string, multiplicator: bigint): string {
-        value = (BigInt(value.replaceAll("'", '')) * multiplicator).toString();
+        const digits = value.replaceAll("'", '');
+        const integer = /^0[0-7]+$/.test(digits) ? BigInt(`0o${digits.slice(1)}`) : BigInt(digits);
+        value = (integer * multiplicator).toString();
         let result = '';
         let count = 0;
         for (let i = value.length - 1; i >= 0; i--) {
