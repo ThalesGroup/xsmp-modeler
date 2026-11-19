@@ -1,0 +1,14 @@
+catalogue StringHexEscapes
+namespace stringescapes {
+    /** @uuid 821a4904-dd34-4bc7-b4c1-54021a26df43 */ public struct Values {
+        constant String8 Hex = "\x4142"
+        constant String8 Concatenated = "\x41" "42"
+        constant String8 NulDigit = "\x007"
+        constant String8 Backslash = "\\x4142"
+        constant String8 EscapedThenHex = "\\\x4142"
+        constant String8 HighByte = "\xE9"
+        constant String8 Unicode = "\u00e9"
+        constant String8 Ascii = "abc"
+        constant String8 Quotes = "\"quoted\" and \\"
+    }
+}

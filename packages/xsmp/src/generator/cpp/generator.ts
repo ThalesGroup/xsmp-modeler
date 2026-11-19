@@ -601,7 +601,11 @@ export abstract class CppGenerator implements XsmpGenerator {
                         break;
                     }
                 }
-                return this.protectTrigraphs((expr as ast.StringLiteral).$cstNode?.text ?? '');
+                const text = (expr as ast.StringLiteral).$cstNode?.text ?? '';
+                // XSMP consumes exactly two hex digits; C++ consumes all following hex digits.
+                // Consume other escapes too so a literal backslash does not start a hex escape.
+                return this.protectTrigraphs(text.replace(/\\(?:x([0-9a-fA-F]{2})|[\s\S])/g,
+                    (escape, hex: string | undefined) => hex === undefined ? escape : `\\${Number.parseInt(hex, 16).toString(8).padStart(3, '0')}`));
             }
             case ast.CharacterLiteral.$type: return (expr as ast.CharacterLiteral).$cstNode?.text as string;
             case ast.KeywordExpression.$type: return (expr as ast.KeywordExpression).name;
