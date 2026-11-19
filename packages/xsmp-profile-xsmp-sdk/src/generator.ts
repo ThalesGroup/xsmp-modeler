@@ -574,13 +574,7 @@ public:
         if (this.isOptionalPointerParameter(param)) {
             return `has_${param.name} ? &p_${param.name} : nullptr`;
         }
-        const argument = isString8(param.type.ref)
-            ? `static_cast<${this.fqn(param.type.ref)}>(p_${param.name})`
-            : `p_${param.name}`;
-        if (this.attrHelper.isByPointer(param)) {
-            return `&${argument}`;
-        }
-        return argument;
+        return `${this.attrHelper.isByPointer(param) ? '&' : ''}p_${param.name}`;
     }
 
     initParameter(param: ast.Parameter): string {
@@ -605,8 +599,11 @@ public:
             case 'inout': {
                 // declare and initialize the parameter
                 const defaultExpression = param.default ? `, ${this.expression(param.default)}` : '';
-                if (isString8(param.type.ref) ) {
-                    return `auto p_${param.name} = request->GetParameterValue(request->GetParameterIndex("${param.name}"));`;
+                if (isString8(param.type.ref)) {
+                    return s`
+                        const auto storage_${param.name} = request->GetParameterValue(request->GetParameterIndex("${param.name}"));
+                        auto p_${param.name} = static_cast<${this.fqn(param.type.ref)}>(storage_${param.name});
+                        `;
                 }
                 if (ast.isSimpleType(param.type.ref)) {
                     return `auto p_${param.name} = ::Xsmp::Request::get<${this.fqn(param.type.ref)}>(component, request, "${param.name}", ${this.primitiveTypeKind(param.type.ref)}${defaultExpression});`;

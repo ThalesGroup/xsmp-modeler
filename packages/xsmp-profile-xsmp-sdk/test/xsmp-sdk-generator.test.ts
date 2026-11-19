@@ -86,9 +86,10 @@ describe('@xsmp/profile-xsmp-sdk generator', () => {
         const outputDir = await generateProfileTree(context, generator, document, 'xsmp-sdk-invokable-generator-');
         const generatedSource = fs.readFileSync(path.join(outputDir, 'src-gen', 'demo', 'RootGen.cpp'), 'utf-8');
 
-        expect(generatedSource).toContain('auto p_value = request->GetParameterValue(request->GetParameterIndex("value"));');
-        expect(generatedSource).toContain('component->implicitInString(static_cast<::Smp::String8>(p_value));');
-        expect(generatedSource).toContain('component->explicitInString(static_cast<::Smp::String8>(p_value));');
+        expect(generatedSource).toContain('const auto storage_value = request->GetParameterValue(request->GetParameterIndex("value"));');
+        expect(generatedSource).toContain('auto p_value = static_cast<::Smp::String8>(storage_value);');
+        expect(generatedSource).toContain('component->implicitInString(p_value);');
+        expect(generatedSource).toContain('component->explicitInString(p_value);');
         expect(generatedSource).not.toContain('::Xsmp::Request::get<::Smp::String8>');
         expect(generatedSource).not.toContain('Handler for Operation outString');
         expect(generatedSource).not.toContain('Handler for Operation inoutString');
@@ -157,7 +158,7 @@ async function parseProfileGeneratorSource(source: string): Promise<LangiumDocum
     context.tempDirs.push(workspaceDir);
     fs.mkdirSync(path.join(workspaceDir, 'src'), { recursive: true });
 
-    const projectDocument = await context.parseProject(`project 'xsmp-sdk-generator-source' using 'ECSS_SMP_2025'\nsource 'src'\n`, {
+    const projectDocument = await context.parseProject('project \'xsmp-sdk-generator-source\' using \'ECSS_SMP_2025\'\nsource \'src\'\n', {
         documentUri: URI.file(path.join(workspaceDir, 'xsmp.project')).toString(),
     });
     const catalogueDocument = await context.parseCatalogue(source, {

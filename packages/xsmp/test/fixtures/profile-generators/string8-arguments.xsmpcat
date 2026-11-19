@@ -1,0 +1,13 @@
+catalogue StringArguments
+namespace stringArguments {
+    /** @uuid 89000000-0000-4000-8000-000000000401 */
+    public model Probe {
+        def void value(in String8 text)
+        def void reference(@ByReference in String8 text)
+        def void pointer(@ByPointer in String8 text)
+        def void constReference(@Const @ByReference in String8 text)
+        def void constPointer(@Const @ByPointer in String8 text)
+        def void optionalPointer(@ByPointer in String8 text = nullptr)
+        def void number(in Int32 value)
+    }
+}
