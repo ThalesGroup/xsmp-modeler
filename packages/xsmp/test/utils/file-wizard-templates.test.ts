@@ -62,7 +62,7 @@ describe('XSMP starter file templates', () => {
 
         expect(linkBase.fileName).toBe('hello-world.xsmplnk');
         expect(linkBase.content).toContain('link HelloWorldLinks for HelloWorldAssembly');
-        expect(linkBase.content).toContain('/\n{\n}');
+        expect(linkBase.content).toContain('field link outValue -> inValue');
 
         expect(schedule.fileName).toBe('hello-world.xsmpsed');
         expect(schedule.content).toContain('schedule HelloWorldSchedule');
