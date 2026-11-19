@@ -20,29 +20,32 @@ export class XsmpcatTypeHierarchyProvider extends AbstractTypeHierarchyProvider 
     }
 
     protected override getSupertypes(node: AstNode): MaybePromise<TypeHierarchyItem[] | undefined> {
+        const items = this.getSupertypeNodes(node).map(type => this.getXsmpTypeHierarchyItem(type));
+        return items.length === 0 ? undefined : items;
+    }
+
+    private getSupertypeNodes(node: AstNode): ast.Type[] {
         switch (node.$type) {
-            case ast.Interface.$type: {
-                const items = (node as ast.Interface).base.filter(i => i.ref !== undefined).map(i => this.getXsmpTypeHierarchyItem(i.ref!));
-                return items.length === 0 ? undefined : items;
-            }
+            case ast.Interface.$type:
+                return (node as ast.Interface).base.flatMap(base => base.ref ? [base.ref] : []);
             case ast.Model.$type:
             case ast.Service.$type: {
-                const items: TypeHierarchyItem[] = [];
-                if ((node as ast.Component).base?.ref) {
-                    items.push(this.getXsmpTypeHierarchyItem((node as ast.Component).base!.ref!));
-                }
-                items.push(...(node as ast.Component).interface.filter(i => i.ref !== undefined).map(i => this.getXsmpTypeHierarchyItem(i.ref!)));
-                return items.length === 0 ? undefined : items;
+                const component = node as ast.Component;
+                return [component.base?.ref, ...component.interface.map(base => base.ref)]
+                    .filter(type => type !== undefined);
             }
             case ast.Class.$type:
-            case ast.Exception.$type:
-                return (node as ast.Class).base?.ref ? [this.getXsmpTypeHierarchyItem((node as ast.Class).base!.ref!)] : undefined;
+            case ast.Exception.$type: {
+                const base = (node as ast.Class).base?.ref;
+                return base ? [base] : [];
+            }
             case ast.Integer.$type:
-                return (node as ast.Integer).primitiveType?.ref ? [this.getXsmpTypeHierarchyItem((node as ast.Integer).primitiveType!.ref!)] : undefined;
-            case ast.Float.$type:
-                return (node as ast.Float).primitiveType?.ref ? [this.getXsmpTypeHierarchyItem((node as ast.Float).primitiveType!.ref!)] : undefined;
+            case ast.Float.$type: {
+                const base = (node as ast.Integer | ast.Float).primitiveType?.ref;
+                return base ? [base] : [];
+            }
         }
-        return undefined;
+        return [];
     }
 
     protected getXsmpTypeHierarchyItem(targetNode: ast.Type): TypeHierarchyItem {
@@ -81,12 +84,14 @@ export class XsmpcatTypeHierarchyProvider extends AbstractTypeHierarchyProvider 
                 }
 
                 const refNode = refCstNode.astNode;
-                if (!ast.isLanguageType(refNode)) {
+                if (!ast.isLanguageType(refNode) || !this.getSupertypeNodes(refNode).includes(node)) {
                     return [];
                 }
 
-                return [this.getXsmpTypeHierarchyItem(refNode)];
+                return [refNode];
             })
+            .distinct()
+            .map(type => this.getXsmpTypeHierarchyItem(type))
             .toArray();
         return items.length === 0 ? undefined : items;
     }
