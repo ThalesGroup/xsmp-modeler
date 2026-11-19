@@ -29,14 +29,16 @@ Typical files added by the tool include:
 
 - `doc/<project-identifier>.adoc`
 - `doc/themes/default.yml`
-- `adoc-gen/<source-basename>-gen.adoc`
+- `adoc-gen/<document-name>-gen.adoc`
 
 Generated outputs are written to `adoc-gen/` in the project root.
 
-Each supported source document produces one file named from the source file basename:
+Each supported source document produces one file named from its declared SMP document name:
 
-- `mission_catalogue.xsmpcat` -> `adoc-gen/mission_catalogue-gen.adoc`
-- `mission_schedule.xsmpsed` -> `adoc-gen/mission_schedule-gen.adoc`
+- `mission_catalogue.xsmpcat` declaring `catalogue MissionCatalogue` -> `adoc-gen/MissionCatalogue-gen.adoc`
+- `mission_schedule.xsmpsed` declaring a schedule named `MissionSchedule` -> `adoc-gen/MissionSchedule-gen.adoc`
+
+The source file basename does not determine the output name.
 
 The scaffolded `doc/<project-identifier>.adoc` file stays intentionally minimal and does not automatically include generated outputs. Add the `include::...[]` statements that fit your publishing flow.
 
