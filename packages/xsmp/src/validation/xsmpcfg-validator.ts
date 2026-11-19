@@ -1,3 +1,4 @@
+import { checkValidDateTime, checkValidDuration } from './instance-validator-utils.js';
 import { type AstNode, type IndexManager, type ValidationAcceptor, type ValidationChecks, AstUtils, diagnosticData } from 'langium';
 import * as ast from '../generated/ast-partial.js';
 import type { XsmpcfgServices } from '../xsmpcfg-module.js';
@@ -23,6 +24,8 @@ export function registerXsmpcfgValidationChecks(services: XsmpcfgServices) {
         FieldValue: validator.checkFieldValue,
         FloatValue: validator.checkFloatValue,
         IntValue: validator.checkIntValue,
+        DateTimeValue: validator.checkDateTimeValue,
+        DurationValue: validator.checkDurationValue,
     };
     registry.register(checks, validator, 'fast');
 }
@@ -46,6 +49,14 @@ export class XsmpcfgValidator {
         this.identifierPatternService = services.shared.IdentifierPatternService;
         this.pathService = services.shared.PathService;
         this.projectManager = services.shared.workspace.ProjectManager;
+    }
+
+    checkDateTimeValue(value: ast.DateTimeValue, accept: ValidationAcceptor): void {
+        checkValidDateTime(accept, value, value.value?.slice(1, -3), ast.DateTimeValue.value, 'The value');
+    }
+
+    checkDurationValue(value: ast.DurationValue, accept: ValidationAcceptor): void {
+        checkValidDuration(accept, value, value.value?.slice(1, -2), ast.DurationValue.value, 'The value');
     }
 
     checkConfiguration(configuration: ast.Configuration, accept: ValidationAcceptor): void {
