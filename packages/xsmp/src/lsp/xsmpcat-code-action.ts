@@ -88,7 +88,7 @@ export class XsmpcatCodeActionProvider implements CodeActionProvider {
 
             let newText: string;
             if (data.actionRange.start.character !== data.actionRange.end.character || data.actionRange.start.line !== data.actionRange.end.line) {
-                newText = `\n${' '.repeat(data.actionRange.start.character - 2)} * @uuid ${randomUUID().toString()}`;
+                newText = `\n${' '.repeat(Math.max(0, data.actionRange.start.character - 2))} * @uuid ${randomUUID().toString()}`;
             }
             else {
                 newText = `/** @uuid ${randomUUID().toString()} */\n${' '.repeat(data.actionRange.start.character)}`;
