@@ -1,0 +1,14 @@
+catalogue TimeValueLimits
+namespace timelimits {
+    /** @uuid f5dec028-82b1-41de-bcf3-82771d76f7a1 */ public struct Values {
+        constant Duration MinimumDuration = "-PT9223372036.854775808S"
+        constant Duration AdjacentDuration = "-PT9223372036.854775807S"
+        constant Duration MaximumDuration = "PT9223372036.854775807S"
+        constant Duration Zero = "PT0S"
+        constant DateTime MinimumDate = "1707-09-22T12:12:43.145224192Z"
+        constant DateTime AdjacentDate = "1707-09-22T12:12:43.145224193Z"
+        constant DateTime MaximumDate = "2292-04-11T11:47:16.854775807Z"
+        field Duration duration = "-PT9223372036.854775808S"
+        field DateTime date = "1707-09-22T12:12:43.145224192Z"
+    }
+}
