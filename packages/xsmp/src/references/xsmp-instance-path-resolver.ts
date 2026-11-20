@@ -479,6 +479,17 @@ export class XsmpInstancePathResolver {
             return this.inactiveResolution();
         }
 
+        if (ast.isStructureValue(fieldValue.$container)) {
+            const type = this.getExpectedAssemblyValueType(fieldValue.$container);
+            const bindings = this.getAssemblyTemplateBindings(path);
+            return this.typedFieldResolutionToInstancePath(
+                this.typedPathResolver.resolveFieldPath(path, ast.isStructure(type) ? type : undefined, {
+                    ...componentModeFieldPathMessages,
+                    firstMissingMessage: () => `The structure field path '${this.pathService.stringifyPath(path)}' does not exist on type ${XsmpUtils.fqn(type)}.`,
+                }, bindings), bindings,
+            );
+        }
+
         const configuration = AstUtils.getContainerOfType(fieldValue, ast.isAssemblyComponentConfiguration);
         if (configuration?.name) {
             const target = this.getAssemblyComponentPathResolution(configuration.name);
@@ -494,6 +505,49 @@ export class XsmpInstancePathResolver {
             this.typedPathResolver.resolveFieldPath(path, assemblyNode?.component, componentModeFieldPathMessages, assemblyNode?.bindings),
             assemblyNode?.bindings
         );
+    }
+
+    getExpectedAssemblyValueType(value: ast.Value): ast.Type | undefined {
+        const container = value.$container;
+        if (ast.isFieldValue(container) && container.field && !container.field.unsafe) {
+            const resolution = this.getAssemblyFieldPathResolution(container.field);
+            return resolution.active && !resolution.invalidMessage ? resolution.finalType : undefined;
+        }
+        if (ast.isFieldValue(container) && !container.field) {
+            return this.getExpectedAssemblyValueType(container);
+        }
+        if (ast.isArrayValue(container)) {
+            const type = this.getExpectedAssemblyValueType(container);
+            return ast.isArrayType(type) ? type.itemType?.ref : undefined;
+        }
+        if (ast.isStructureValue(container)) {
+            const type = this.getExpectedAssemblyValueType(container);
+            if (!ast.isStructure(type)) {
+                return undefined;
+            }
+            const fields = this.getFieldCandidatesForType(type);
+            const used = new Set<ast.Field>();
+            let index = 0;
+            for (const element of container.elements) {
+                if (ast.isFieldValue(element) && element.field) {
+                    const field = this.getDesignatedAssemblyRootField(element.field, fields);
+                    if (field) used.add(field);
+                    continue;
+                }
+                while (index < fields.length && used.has(fields[index])) index++;
+                const field = fields.at(index++);
+                if (element === value) return field?.type?.ref;
+            }
+        }
+        return undefined;
+    }
+
+    getDesignatedAssemblyRootField(path: ast.Path, fields: readonly ast.Field[]): ast.Field | undefined {
+        const first = this.pathService.getPathSegments(path)[0];
+        const segment = ast.isPathMember(first) ? first.segment : first;
+        return ast.isPathNamedSegment(segment)
+            ? this.typedPathResolver.resolveNamedElement(segment, fields, this.getAssemblyTemplateBindings(path))
+            : undefined;
     }
 
     protected getAssemblyLocalContext(node: AstNode): {

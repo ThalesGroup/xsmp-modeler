@@ -176,12 +176,12 @@ export class XsmpTypedPathResolver {
 
     resolveFieldPath(
         path: ast.Path,
-        component: ast.Component | undefined,
+        type: ast.Type | undefined,
         messages: TypedFieldPathMessages,
         bindings?: TemplateBindings,
     ): TypedFieldPathResolution {
         const namedSegments = new Map<ast.PathNamedSegment, readonly ast.Field[]>();
-        if (!component) {
+        if (!type) {
             return { active: false, namedSegments };
         }
         if (path.absolute) {
@@ -223,7 +223,7 @@ export class XsmpTypedPathResolver {
             };
         }
 
-        const firstCandidates = this.getFieldCandidatesForType(component);
+        const firstCandidates = this.getFieldCandidatesForType(type);
         namedSegments.set(firstSegment, firstCandidates);
         const firstField = this.resolveNamedElement(firstSegment, firstCandidates, bindings);
         if (!firstField) {
