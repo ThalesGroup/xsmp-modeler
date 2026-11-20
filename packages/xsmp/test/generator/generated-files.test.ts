@@ -109,6 +109,135 @@ test('missing create-once files evaluate and format asynchronous content exactly
     expect(read(directory, 'src/new.cpp')).toBe('formatted:initial');
 });
 
+test.each([false, true])('partial create-once EIO preserves a concurrent arrival (%s) and recovers with a fresh writer', async concurrentArrival => {
+    const directory = temporaryDirectory();
+    const { session, files } = await prepare(directory, { user });
+    const complete = 'complete generated source\n'.repeat(1000);
+    const error = Object.assign(new Error('partial write failed'), { code: 'EIO' });
+    const write = fs.promises.writeFile;
+    const failure = vi.spyOn(fs.promises, 'writeFile').mockImplementationOnce(async (file, bytes, options) => {
+        await write(file, (bytes as Buffer).subarray(0, 17), options);
+        expect(fs.statSync(file as string).size).toBe(17);
+        if (concurrentArrival) put(directory, 'src/new.cpp', 'concurrent user');
+        throw error;
+    });
+    await expect(files.write('user', 'new.cpp', complete)).rejects.toBe(error);
+    await session.finish(false);
+    failure.mockRestore();
+    expect(fs.readdirSync(path.join(directory, 'src'))).toEqual(concurrentArrival ? ['new.cpp'] : []);
+    if (concurrentArrival) expect(read(directory, 'src/new.cpp')).toBe('concurrent user');
+
+    const recovery = await prepare(directory, { user });
+    const render = vi.fn(() => complete);
+    await recovery.files.write('user', 'new.cpp', render);
+    await recovery.session.finish(true);
+    expect(render).toHaveBeenCalledTimes(concurrentArrival ? 0 : 1);
+    expect(read(directory, 'src/new.cpp')).toBe(concurrentArrival ? 'concurrent user' : complete);
+
+    const restart = await prepare(directory, { user });
+    render.mockClear();
+    await restart.files.write('user', 'new.cpp', render);
+    await restart.session.finish(true);
+    expect(render).not.toHaveBeenCalled();
+    expect(fs.readdirSync(path.join(directory, 'src'))).toEqual(['new.cpp']);
+});
+
+test.each([false, true])('create-once publication exposes complete bytes and preserves a late concurrent arrival (%s)', async concurrentArrival => {
+    const directory = temporaryDirectory();
+    const { session, files } = await prepare(directory, { user });
+    const complete = 'complete generated source\n'.repeat(1000);
+    const link = fs.promises.link;
+    const publication = vi.spyOn(fs.promises, 'link').mockImplementationOnce(async (temporary, file) => {
+        expect(fs.readFileSync(temporary, 'utf8')).toBe(complete);
+        expect(fs.existsSync(file)).toBe(false);
+        if (concurrentArrival) put(directory, 'src/new.cpp', 'concurrent user');
+        await link(temporary, file);
+    });
+    await files.write('user', 'new.cpp', complete);
+    await session.finish(true);
+    expect(publication).toHaveBeenCalledTimes(1);
+    expect(read(directory, 'src/new.cpp')).toBe(concurrentArrival ? 'concurrent user' : complete);
+    expect(fs.readdirSync(path.join(directory, 'src'))).toEqual(['new.cpp']);
+});
+
+test('independent create-once sessions publish one complete result without overwriting each other', async () => {
+    const directory = temporaryDirectory();
+    const first = await prepare(directory, { user });
+    const second = await prepare(directory, { user });
+    const contents = ['first\n'.repeat(1000), 'second\n'.repeat(1000)];
+    const write = fs.promises.writeFile;
+    let arrivals = 0;
+    let release!: () => void;
+    const ready = new Promise<void>(resolve => { release = resolve; });
+    vi.spyOn(fs.promises, 'writeFile').mockImplementation(async (file, bytes, options) => {
+        await write(file, bytes, options);
+        expect(fs.existsSync(path.join(directory, 'src/new.cpp'))).toBe(false);
+        if (++arrivals === 2) release();
+        await ready;
+    });
+    await Promise.all([
+        first.files.write('user', 'new.cpp', contents[0]),
+        second.files.write('user', 'new.cpp', contents[1]),
+    ]);
+    await first.session.finish(true);
+    await second.session.finish(true);
+    expect(arrivals).toBe(2);
+    expect(contents).toContain(read(directory, 'src/new.cpp'));
+    expect(fs.readdirSync(path.join(directory, 'src'))).toEqual(['new.cpp']);
+});
+
+test.each(['ENOTSUP', 'EOPNOTSUPP', 'ENOSYS', 'EPERM'])('create-once publication reports %s without falling back to an unsafe write', async code => {
+    const directory = temporaryDirectory();
+    const { session, files } = await prepare(directory, { user });
+    const error = Object.assign(new Error('hard links unavailable'), { code });
+    const publication = vi.spyOn(fs.promises, 'link').mockRejectedValueOnce(error);
+    await expect(files.write('user', 'new.cpp', 'complete')).rejects.toMatchObject({
+        message: expect.stringContaining('hard-link support'), cause: error,
+    });
+    await session.finish(false);
+    expect(fs.readdirSync(path.join(directory, 'src'))).toEqual([]);
+    publication.mockRestore();
+});
+
+test('cancellation after staging a create-once file removes only the temporary file', async () => {
+    const directory = temporaryDirectory();
+    put(directory, 'src/user.cpp', 'existing user');
+    const cancellation = new Cancellation.CancellationTokenSource();
+    const { session, files } = await prepare(directory, { user }, new GeneratedFileWriter(), cancellation.token);
+    const write = fs.promises.writeFile;
+    vi.spyOn(fs.promises, 'writeFile').mockImplementationOnce(async (file, bytes, options) => {
+        await write(file, bytes, options);
+        cancellation.cancel();
+    });
+    const publication = vi.spyOn(fs.promises, 'link');
+    await expect(files.write('user', 'new.cpp', 'complete')).rejects.toBe(OperationCancelled);
+    await session.finish(false);
+    expect(publication).not.toHaveBeenCalled();
+    expect(read(directory, 'src/user.cpp')).toBe('existing user');
+    expect(fs.readdirSync(path.join(directory, 'src'))).toEqual(['user.cpp']);
+
+    const recovery = await prepare(directory, { user });
+    await recovery.files.write('user', 'new.cpp', 'complete');
+    await recovery.session.finish(true);
+    expect(read(directory, 'src/new.cpp')).toBe('complete');
+});
+
+test('cancellation after create-once publication preserves the completed file and stops the next file', async () => {
+    const directory = temporaryDirectory();
+    const cancellation = new Cancellation.CancellationTokenSource();
+    const { session, files } = await prepare(directory, { user }, new GeneratedFileWriter(), cancellation.token);
+    const link = fs.promises.link;
+    vi.spyOn(fs.promises, 'link').mockImplementationOnce(async (temporary, file) => {
+        await link(temporary, file);
+        cancellation.cancel();
+    });
+    await files.write('user', 'first.cpp', 'complete');
+    await expect(files.write('user', 'second.cpp', 'cancelled')).rejects.toBe(OperationCancelled);
+    await session.finish(false);
+    expect(read(directory, 'src/first.cpp')).toBe('complete');
+    expect(fs.readdirSync(path.join(directory, 'src'))).toEqual(['first.cpp']);
+});
+
 test('create-once duplicates share the first result without rendering or writing again', async () => {
     const directory = temporaryDirectory();
     const { session, files } = await prepare(directory, { user });

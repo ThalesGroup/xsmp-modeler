@@ -250,11 +250,10 @@ export class GenerationSession {
         await interruptAndCheck(this.cancelToken);
         if (output.writeMode === 'if-missing' || !current?.equals(bytes)) {
             await fs.promises.mkdir(path.dirname(file), { recursive: true });
-            try {
-                await fs.promises.writeFile(file, bytes, { flag: output.writeMode === 'if-missing' ? 'wx' : 'w' });
-            } catch (error) {
-                if (output.writeMode === 'if-missing' && (error as NodeJS.ErrnoException).code === 'EEXIST') return;
-                throw error;
+            if (output.writeMode === 'if-missing') {
+                await this.createIfMissing(file, bytes);
+            } else {
+                await fs.promises.writeFile(file, bytes);
             }
         }
         if (output.cleanup === 'tracked') output.completed.add(path.relative(output.root, file));
@@ -262,6 +261,31 @@ export class GenerationSession {
             this.writer.remember(file, { rawHash, formattedHash: hash(bytes), context: prepared.cacheKey });
         } else {
             this.writer.forget(file);
+        }
+    }
+
+    private async createIfMissing(file: string, bytes: Buffer): Promise<void> {
+        const directory = await fs.promises.mkdtemp(path.join(path.dirname(file), '.xsmp-create-'));
+        const temporary = path.join(directory, 'content');
+        try {
+            await fs.promises.writeFile(temporary, bytes, { flag: 'wx' });
+            await interruptAndCheck(this.cancelToken);
+            try {
+                // Publish only a complete, closed file, without replacing a concurrent arrival.
+                // A rename can overwrite the destination; an exclusive copy can leave it partial.
+                await fs.promises.link(temporary, file);
+            } catch (error) {
+                const code = (error as NodeJS.ErrnoException).code;
+                if (code === 'EEXIST') return;
+                if (['ENOTSUP', 'EOPNOTSUPP', 'ENOSYS', 'EPERM'].includes(code ?? '')) {
+                    throw new Error(`Cannot create '${file}': create-once outputs require filesystem hard-link support.`, { cause: error });
+                }
+                throw error;
+            }
+        } finally {
+            // Never remove the destination: it may already belong to the user.
+            await fs.promises.rm(temporary, { force: true });
+            await fs.promises.rmdir(directory);
         }
     }
 
