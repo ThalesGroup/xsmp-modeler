@@ -344,10 +344,7 @@ export function collectDiagnostics(
     const diagnostics = new Map<string, CliDiagnostic>();
 
     for (const document of documents) {
-        for (const parserError of document.parseResult.parserErrors) {
-            const diagnostic = toCliParserErrorDiagnostic(document, parserError, services);
-            diagnostics.set(createDiagnosticKey(diagnostic), diagnostic);
-        }
+        // Validation already includes parser/lexer errors with normalized token positions.
         for (const diagnostic of document.diagnostics ?? []) {
             const cliDiagnostic = toCliDiagnostic(document, diagnostic, toSeverityLabel(diagnostic.severity), services);
             diagnostics.set(createDiagnosticKey(cliDiagnostic), cliDiagnostic);
@@ -450,29 +447,6 @@ function toCliDiagnostic(
         severity,
         line: diagnostic.range.start.line + 1,
         column: diagnostic.range.start.character + 1,
-    };
-}
-
-function toCliParserErrorDiagnostic(
-    document: LangiumDocument,
-    diagnostic: unknown,
-    services?: ReturnType<typeof createXsmpServices>['shared'],
-): CliDiagnostic {
-    const parserError = diagnostic as {
-        message?: string;
-        token?: {
-            startLine?: number;
-            startColumn?: number;
-        };
-    };
-
-    const outputDocument = resolveCliDiagnosticDocument(document, services);
-    return {
-        document: outputDocument,
-        message: parserError.message ?? 'Parser error',
-        severity: 'error',
-        line: parserError.token?.startLine ?? 1,
-        column: parserError.token?.startColumn ?? 1,
     };
 }
 
