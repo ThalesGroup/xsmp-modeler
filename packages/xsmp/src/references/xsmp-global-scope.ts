@@ -5,18 +5,22 @@ export class XsmpGlobalScope implements Scope {
 
     constructor(elements: Stream<AstNodeDescription>) {
         this.elements = new Map();
+        const aliases = new Map<string, AstNodeDescription>();
         for (const element of elements) {
             this.elements.set(element.name, element);
 
             // Import elements from Smp and Attributes namespaces in the global namespace.
             if (element.name.startsWith('Smp.')) {
                 const name = element.name.substring(4);
-                this.elements.set(name, { ...element, name });
+                aliases.set(name, { ...element, name });
             }
             else if (element.name.startsWith('Attributes.')) {
                 const name = element.name.substring(11);
-                this.elements.set(name, { ...element, name });
+                aliases.set(name, { ...element, name });
             }
+        }
+        for (const [name, alias] of aliases) {
+            if (!this.elements.has(name)) this.elements.set(name, alias);
         }
     }
 
