@@ -1,3 +1,5 @@
+import type { AttributeHelper } from '../utils/attribute-helper.js';
+import { checkFieldConnection } from './field-connection-validator-utils.js';
 import { AstUtils, type AstNode, type IndexManager, type ValidationAcceptor, type ValidationChecks } from 'langium';
 import * as ast from '../generated/ast-partial.js';
 import type { XsmplnkServices } from '../xsmplnk-module.js';
@@ -23,6 +25,7 @@ export function registerXsmplnkValidationChecks(services: XsmplnkServices) {
 }
 
 export class XsmplnkValidator {
+    protected readonly attrHelper: AttributeHelper;
     protected readonly indexManager: IndexManager;
     protected readonly pathResolver: XsmpInstancePathResolver;
     protected readonly identifierPatternService: IdentifierPatternService;
@@ -30,6 +33,7 @@ export class XsmplnkValidator {
     protected readonly componentLinkBasePathCache: WeakMap<ast.ComponentLinkBase, string[] | undefined> = new WeakMap();
 
     constructor(services: XsmplnkServices) {
+        this.attrHelper = services.shared.AttributeHelper;
         this.indexManager = services.shared.workspace.IndexManager;
         this.pathResolver = services.shared.InstancePathResolver;
         this.identifierPatternService = services.shared.IdentifierPatternService;
@@ -83,6 +87,7 @@ export class XsmplnkValidator {
 
     checkFieldLink(link: ast.FieldLink, accept: ValidationAcceptor): void {
         this.checkLinkPaths(link, accept);
+        checkFieldConnection(link.ownerPath, link.clientPath, path => this.pathResolver.getLinkBaseEndpointPathResolution(path), this.attrHelper, accept);
     }
 
     checkInterfaceLink(link: ast.InterfaceLink, accept: ValidationAcceptor): void {

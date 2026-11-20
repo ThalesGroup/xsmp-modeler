@@ -1,3 +1,4 @@
+import { checkFieldConnection } from './field-connection-validator-utils.js';
 import { AstUtils, type AstNode, type ValidationAcceptor, type ValidationChecks } from 'langium';
 import * as ast from '../generated/ast-partial.js';
 import type { XsmpsedServices } from '../xsmpsed-module.js';
@@ -124,6 +125,7 @@ export class XsmpsedValidator extends XsmpcfgValidator {
     checkTransfer(transfer: ast.Transfer, accept: ValidationAcceptor): void {
         this.checkActivityPath(transfer.outputFieldPath, accept);
         this.checkActivityPath(transfer.inputFieldPath, accept);
+        checkFieldConnection(transfer.outputFieldPath, transfer.inputFieldPath, path => this.instancePathResolver.getScheduleActivityPathResolution(path), this.attrHelper, accept);
     }
 
     checkSetProperty(property: ast.SetProperty, accept: ValidationAcceptor): void {

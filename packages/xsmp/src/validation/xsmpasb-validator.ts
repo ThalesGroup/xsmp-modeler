@@ -1,3 +1,4 @@
+import { checkFieldConnection } from './field-connection-validator-utils.js';
 import { AstUtils, type ValidationAcceptor, type ValidationChecks } from 'langium';
 import * as ast from '../generated/ast-partial.js';
 import type { XsmpasbServices } from '../xsmpasb-module.js';
@@ -252,6 +253,7 @@ export class XsmpasbValidator extends XsmpcfgValidator {
 
     checkFieldLink(link: ast.FieldLink, accept: ValidationAcceptor): void {
         this.checkLinkPaths(link, accept);
+        checkFieldConnection(link.ownerPath, link.clientPath, path => this.instancePathResolver.getAssemblyLinkPathResolution(path), this.attrHelper, accept);
     }
 
     checkInterfaceLink(link: ast.InterfaceLink, accept: ValidationAcceptor): void {
