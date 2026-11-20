@@ -506,8 +506,8 @@ export function renderImportedTemplateArgument(node: SmpXmlObject, warnings: str
     }
 }
 
-export function renderImportedValue(node: SmpXmlObject, warnings: string[]): string {
-    const valueType = getXsiTypeLocalName(node, 'Types:Value');
+export function renderImportedValue(node: SmpXmlObject, warnings: string[], defaultType = 'Types:Value'): string {
+    const valueType = getXsiTypeLocalName(node, defaultType);
     switch (valueType) {
         case 'BoolValue':
             return parseBooleanAttribute(node, 'Value') ? 'true' : 'false';
@@ -536,7 +536,8 @@ export function renderImportedValue(node: SmpXmlObject, warnings: string[]): str
                 return `${numericValue}${numericSuffix}`;
             }
             if (arrayValueTypes.has(valueType)) {
-                const items = getChildObjects(node, 'ItemValue').map(item => renderImportedValue(item, warnings)).join(', ');
+                const itemType = valueType.replace(/ArrayValue$/u, 'Value');
+                const items = getChildObjects(node, 'ItemValue').map(item => renderImportedValue(item, warnings, itemType)).join(', ');
                 const startIndex = getChildText(node, 'StartIndex');
                 if (startIndex && startIndex !== '0') {
                     return items ? `[${startIndex}: ${items}]` : `[${startIndex}:]`;
