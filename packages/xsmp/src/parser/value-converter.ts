@@ -9,6 +9,8 @@ export class XsmpValueConverter extends DefaultValueConverter {
                 return this.convertString(input);
             case 'INTEGER_LITERAL':
                 return this.convertInteger(input);
+            case 'FLOATING_LITERAL':
+                return input.replaceAll("'", '');
             default:
                 return super.runConverter(rule, input, cstNode);
         }
