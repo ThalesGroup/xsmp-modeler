@@ -613,9 +613,8 @@ function resolveTypeInfo(typeLink: SmpXmlObject | undefined, context: CatalogueI
     const hrefId = getAttribute(typeLink, 'xlink:href');
     const fragment = hrefId?.includes('#') ? hrefId.slice(hrefId.indexOf('#') + 1) : undefined;
     const title = getAttribute(typeLink, 'xlink:title');
-    const localTypeInfo = resolveLocalTypeInfo(fragment, title, context);
-    if (localTypeInfo) {
-        return localTypeInfo;
+    if (!hrefId || hrefId.startsWith('#')) {
+        return resolveLocalTypeInfo(fragment, title, context);
     }
     const externalTypeInfo = context.referenceResolver.resolveTypeInfo(typeLink, context.warnings, 'type');
     if (externalTypeInfo) {
