@@ -1,4 +1,4 @@
-import { AstUtils, Cancellation, type LangiumDocument, type WorkspaceFolder } from 'langium';
+import { AstUtils, Cancellation, UriUtils, type LangiumDocument, type WorkspaceFolder } from 'langium';
 import { DiagnosticSeverity, type Diagnostic } from 'vscode-languageserver';
 import { URI } from 'vscode-uri';
 import * as fs from 'node:fs/promises';
@@ -210,7 +210,26 @@ export async function loadCliProjectContext(inputPath: string, options: CliComma
     const services = await createCliServices();
 
     const folders = await discoverWorkspaceFolders(input.workspaceRoot, input.projectDir);
-    await services.shared.workspace.WorkspaceManager.initializeWorkspace(folders, Cancellation.CancellationToken.None, URI.file(input.projectFile));
+    const documents = services.shared.workspace.LangiumDocuments;
+    // Read the target first; only independent project descriptors can be unavailable.
+    await documents.getOrCreateDocument(URI.file(input.projectFile));
+    const readFailures: string[] = [];
+    const readableFolders = await Promise.all(folders.map(async folder => {
+        const uri = UriUtils.joinPath(URI.parse(folder.uri), 'xsmp.project');
+        try {
+            await documents.getOrCreateDocument(uri);
+            return folder;
+        } catch (error) {
+            if (!(error instanceof CliError) && !(error instanceof Error && 'code' in error)) {
+                throw error;
+            }
+            readFailures.push(`Could not read project '${uri.fsPath}': ${error.message}`);
+            return undefined;
+        }
+    }));
+    // Cached descriptors are reused. An unreadable descriptor inside selected sources
+    // is still encountered by source loading and must fail: its ownership is unknown.
+    await services.shared.workspace.WorkspaceManager.initializeWorkspace(readableFolders.filter(folder => folder !== undefined), Cancellation.CancellationToken.None, URI.file(input.projectFile));
     await services.shared.workspace.DocumentBuilder.build(
         services.shared.workspace.LangiumDocuments.all.toArray(),
         { validation: true },
@@ -223,6 +242,12 @@ export async function loadCliProjectContext(inputPath: string, options: CliComma
     }
 
     const targetProject = ast.isProject(targetDocument.parseResult.value) ? targetDocument.parseResult.value : undefined;
+    if (targetProject && readFailures.length > 0) {
+        const missing = collectMissingDependencyDiagnostics(targetProject, services.shared.workspace.ProjectManager);
+        if (missing.length > 0) {
+            throw new CliError(`${missing.map(diagnostic => diagnostic.message).join('\n')}\n${readFailures.sort().join('\n')}`, 2);
+        }
+    }
 
     return {
         services,
