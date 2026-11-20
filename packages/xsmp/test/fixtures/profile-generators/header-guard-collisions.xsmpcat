@@ -1,0 +1,11 @@
+catalogue guard_Item
+namespace guard {
+    /** @uuid a1300000-0000-4000-8000-000000000001 */ public struct Item {}
+    /** @uuid a1300000-0000-4000-8000-000000000002 */ public struct lower {}
+    /** @uuid a1300000-0000-4000-8000-000000000003 */ public struct LOWER {}
+    /** @uuid a1300000-0000-4000-8000-000000000004 */ public struct one_Value {}
+    /** @uuid a1300000-0000-4000-8000-000000000005 */ public interface I {}
+}
+namespace guard_one {
+    /** @uuid a1300000-0000-4000-8000-000000000006 */ public struct Value {}
+}

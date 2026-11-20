@@ -4,8 +4,8 @@
 /// @file demo/support/RootModelGen.h
 // This file is auto-generated, Do not edit otherwise your changes will be lost
 
-#ifndef DEMO_SUPPORT_ROOTMODELGEN_H_
-#define DEMO_SUPPORT_ROOTMODELGEN_H_
+#ifndef XSMP_TYPE_4_demo_7_support_9_RootModel_GEN_H_
+#define XSMP_TYPE_4_demo_7_support_9_RootModel_GEN_H_
 
 // ----------------------------------------------------------------------------
 // --------------------------- Forward Declarations ---------------------------
@@ -150,4 +150,4 @@ namespace demo::support
     };
 } // namespace demo::support
 
-#endif // DEMO_SUPPORT_ROOTMODELGEN_H_
+#endif // XSMP_TYPE_4_demo_7_support_9_RootModel_GEN_H_

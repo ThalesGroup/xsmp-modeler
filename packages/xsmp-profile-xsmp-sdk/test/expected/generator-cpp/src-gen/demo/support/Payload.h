@@ -4,8 +4,8 @@
 /// @file demo/support/Payload.h
 // This file is auto-generated, Do not edit otherwise your changes will be lost
 
-#ifndef DEMO_SUPPORT_PAYLOAD_H_
-#define DEMO_SUPPORT_PAYLOAD_H_
+#ifndef XSMP_TYPE_4_demo_7_support_7_Payload_H_
+#define XSMP_TYPE_4_demo_7_support_7_Payload_H_
 
 // ----------------------------------------------------------------------------
 // --------------------------- Include Header Files ---------------------------
@@ -87,4 +87,4 @@ namespace demo::support
     inline constexpr ::Smp::Uuid Uuid_Payload { 0x88888888U, 0x8888U, 0x4888U, 0x8888U, 0x888888888888U };
 } // namespace demo::support
 
-#endif // DEMO_SUPPORT_PAYLOAD_H_
+#endif // XSMP_TYPE_4_demo_7_support_7_Payload_H_

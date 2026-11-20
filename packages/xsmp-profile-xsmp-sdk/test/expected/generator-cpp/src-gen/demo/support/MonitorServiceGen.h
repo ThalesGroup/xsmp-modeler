@@ -4,8 +4,8 @@
 /// @file demo/support/MonitorServiceGen.h
 // This file is auto-generated, Do not edit otherwise your changes will be lost
 
-#ifndef DEMO_SUPPORT_MONITORSERVICEGEN_H_
-#define DEMO_SUPPORT_MONITORSERVICEGEN_H_
+#ifndef XSMP_TYPE_4_demo_7_support_14_MonitorService_GEN_H_
+#define XSMP_TYPE_4_demo_7_support_14_MonitorService_GEN_H_
 
 // ----------------------------------------------------------------------------
 // --------------------------- Forward Declarations ---------------------------
@@ -119,4 +119,4 @@ namespace demo::support
     };
 } // namespace demo::support
 
-#endif // DEMO_SUPPORT_MONITORSERVICEGEN_H_
+#endif // XSMP_TYPE_4_demo_7_support_14_MonitorService_GEN_H_

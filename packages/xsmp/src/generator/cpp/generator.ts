@@ -146,7 +146,7 @@ export abstract class CppGenerator implements XsmpGenerator {
     }
 
     async generatePackageHeader(path: string, catalogue: ast.Catalogue, notice: string | undefined) {
-        const guard = catalogue.name.toUpperCase() + '_H_';
+        const guard = this.guard(catalogue);
         return s`
             ${notice}
             ${this.fileBanner(Path.basename(path), '// ---------------------------------------------------------------------------')}
@@ -538,8 +538,10 @@ export abstract class CppGenerator implements XsmpGenerator {
         }
         return defaultViewKind;
     }
-    protected guard(type: ast.Type): string {
-        return `${fqn(type, '_').toUpperCase()}_H_`;
+    protected guard(element: ast.Type | ast.Catalogue, gen = false): string {
+        // Length prefixes preserve namespace boundaries even when names contain underscores.
+        const name = fqn(element).split('.').map(part => `${part.length}_${part}`).join('_');
+        return `XSMP_${ast.isCatalogue(element) ? 'PACKAGE' : 'TYPE'}_${name}${gen ? '_GEN' : ''}_H_`;
     }
 
     protected expression(expr: ast.Expression | undefined): string {

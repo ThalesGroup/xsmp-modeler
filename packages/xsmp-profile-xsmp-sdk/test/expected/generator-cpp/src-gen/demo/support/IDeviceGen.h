@@ -4,8 +4,8 @@
 /// @file demo/support/IDeviceGen.h
 // This file is auto-generated, Do not edit otherwise your changes will be lost
 
-#ifndef DEMO_SUPPORT_IDEVICEGEN_H_
-#define DEMO_SUPPORT_IDEVICEGEN_H_
+#ifndef XSMP_TYPE_4_demo_7_support_7_IDevice_GEN_H_
+#define XSMP_TYPE_4_demo_7_support_7_IDevice_GEN_H_
 
 // ----------------------------------------------------------------------------
 // --------------------------- Forward Declarations ---------------------------
@@ -47,4 +47,4 @@ namespace demo::support
     inline constexpr ::Smp::Uuid Uuid_IDevice { 0xbbbbbbbbU, 0xbbbbU, 0x4bbbU, 0x8bbbU, 0xbbbbbbbbbbbbU };
 } // namespace demo::support
 
-#endif // DEMO_SUPPORT_IDEVICEGEN_H_
+#endif // XSMP_TYPE_4_demo_7_support_7_IDevice_GEN_H_

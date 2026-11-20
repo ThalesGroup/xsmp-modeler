@@ -4,8 +4,8 @@
 /// @file ProfileGenerators.h
 // This file is auto-generated, Do not edit otherwise your changes will be lost
 
-#ifndef PROFILEGENERATORS_H_
-#define PROFILEGENERATORS_H_
+#ifndef XSMP_PACKAGE_17_ProfileGenerators_H_
+#define XSMP_PACKAGE_17_ProfileGenerators_H_
 
 // ----------------------------------------------------------------------------
 // --------------------------------- Includes ---------------------------------
@@ -51,4 +51,4 @@ extern "C" {
 #endif
 }
 
-#endif // PROFILEGENERATORS_H_
+#endif // XSMP_PACKAGE_17_ProfileGenerators_H_

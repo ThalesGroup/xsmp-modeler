@@ -3,8 +3,8 @@
 // -----------------------------------------------------------------------------
 /// @file demo/support/MonitorService.h
 
-#ifndef DEMO_SUPPORT_MONITORSERVICE_H_
-#define DEMO_SUPPORT_MONITORSERVICE_H_
+#ifndef XSMP_TYPE_4_demo_7_support_14_MonitorService_H_
+#define XSMP_TYPE_4_demo_7_support_14_MonitorService_H_
 
 // Include the generated header file
 #include <demo/support/MonitorServiceGen.h>
@@ -46,4 +46,4 @@ namespace demo::support
     };
 } // namespace demo::support
 
-#endif // DEMO_SUPPORT_MONITORSERVICE_H_
+#endif // XSMP_TYPE_4_demo_7_support_14_MonitorService_H_

@@ -4,8 +4,8 @@
 /// @file demo/support/CounterArray.h
 // This file is auto-generated, Do not edit otherwise your changes will be lost
 
-#ifndef DEMO_SUPPORT_COUNTERARRAY_H_
-#define DEMO_SUPPORT_COUNTERARRAY_H_
+#ifndef XSMP_TYPE_4_demo_7_support_12_CounterArray_H_
+#define XSMP_TYPE_4_demo_7_support_12_CounterArray_H_
 
 // ----------------------------------------------------------------------------
 // --------------------------- Include Header Files ---------------------------
@@ -29,4 +29,4 @@ namespace demo::support
     void _Register_CounterArray(::Smp::Publication::ITypeRegistry* registry);
 } // namespace demo::support
 
-#endif // DEMO_SUPPORT_COUNTERARRAY_H_
+#endif // XSMP_TYPE_4_demo_7_support_12_CounterArray_H_
