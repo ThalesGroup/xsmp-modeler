@@ -1,5 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
     detectSmpImportKind,
     extractHrefFragment,
@@ -208,11 +209,10 @@ export class SmpExternalReferenceResolver {
             return undefined;
         }
 
-        if (looksLikeRemoteUri(filePart)) {
+        const normalizedPart = normalizeSearchPath(filePart);
+        if (!normalizedPart) {
             return undefined;
         }
-
-        const normalizedPart = normalizeSearchPath(filePart);
         // Retain missing references too: a later file creation can resolve them.
         this.workspaceIndex.recordExternalReference(path.basename(normalizedPart));
         const directCandidates = new Set<string>();
@@ -395,12 +395,23 @@ function extractExternalFilePart(href: string | undefined): string | undefined {
     return hashIndex >= 0 ? href.slice(0, hashIndex) : href;
 }
 
-function normalizeSearchPath(value: string): string {
+function normalizeSearchPath(value: string): string | undefined {
+    if (/^file:/iu.test(value)) {
+        try {
+            return fileURLToPath(value);
+        } catch {
+            return undefined;
+        }
+    }
+    if (/^[a-z][a-z\d+.-]*:/iu.test(value) && !/^[a-z]:[\\/]/iu.test(value)) {
+        return undefined;
+    }
+    try {
+        value = decodeURIComponent(value);
+    } catch {
+        // Preserve legacy filesystem paths containing unescaped percent signs.
+    }
     return value.replaceAll('/', path.sep).replaceAll('\\', path.sep);
-}
-
-function looksLikeRemoteUri(value: string): boolean {
-    return /^https?:\/\//iu.test(value);
 }
 
 function isFile(candidate: string): boolean {
