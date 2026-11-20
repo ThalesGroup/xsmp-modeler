@@ -1003,7 +1003,7 @@ export abstract class GapPatternCppGenerator extends CppGenerator {
     defaultReturn(param: ast.ReturnParameter, generatedOwner = false): string {
         const instance = !generatedOwner && !this.attrHelper.isStatic(param.$container) && param.type.ref === param.$container.$container;
         if (this.attrHelper.isByPointer(param)) {
-            if (instance)
+            if (instance && (!this.attrHelper.isConst(param.$container) || this.attrHelper.isConst(param)))
                 return 'this';
             return 'nullptr';
         }
