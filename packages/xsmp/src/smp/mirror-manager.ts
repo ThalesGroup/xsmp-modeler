@@ -385,6 +385,10 @@ function isIgnoredSourceEntry(name: string): boolean {
 async function collectSmpSourceFiles(currentDirectory: string, sourcePaths: Set<string>): Promise<void> {
     let entries;
     try {
+        if (isSmpSourceFilePath(currentDirectory) && (await fs.stat(currentDirectory)).isFile()) {
+            sourcePaths.add(path.resolve(currentDirectory));
+            return;
+        }
         entries = await fs.readdir(currentDirectory, { withFileTypes: true });
     } catch {
         return;
