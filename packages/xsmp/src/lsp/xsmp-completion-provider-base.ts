@@ -25,6 +25,8 @@ import * as Solver from '../utils/solver.js';
 import * as XsmpUtils from '../utils/xsmp-utils.js';
 import type { XsmpServices } from '../xsmp-module.js';
 
+const maxDefaultValueLength = 4096;
+
 type CompletionValueMode = 'cfg' | 'path';
 type RecoverableXsmpNode = AstNode & partialAst.XsmpAstType;
 export type RelativeComponentContext = {
@@ -889,19 +891,15 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
                 break;
         }
 
-        if (allowComposite) {
+        const defaultValue = this.getDefaultValueForType(type, mode, allowComposite);
+        if (allowComposite && defaultValue) {
             if (ast.isArrayType(type)) {
-                const arrayValue = this.getDefaultValueForType(type, mode, true);
-                if (arrayValue) {
-                    items.push(this.createValueItem(arrayValue, arrayValue, `Array value for ${XsmpUtils.fqn(type)}.`));
-                }
+                items.push(this.createValueItem(defaultValue, defaultValue, `Array value for ${XsmpUtils.fqn(type)}.`));
             } else if (ast.isStructure(type)) {
-                const structureValue = this.getDefaultValueForType(type, mode, true);
-                items.push(this.createValueItem('{...}', structureValue, `Structure value for ${XsmpUtils.fqn(type)}.`));
+                items.push(this.createValueItem('{...}', defaultValue, `Structure value for ${XsmpUtils.fqn(type)}.`));
             }
         }
 
-        const defaultValue = this.getDefaultValueForType(type, mode, allowComposite);
         if (defaultValue) {
             items.push(this.createValueItem('Default Value', defaultValue, `Default value for ${XsmpUtils.fqn(type)}.`));
         }
@@ -918,18 +916,32 @@ export class XsmpCompletionProviderBase extends DefaultCompletionProvider {
                 if (arraySize === undefined || arraySize <= 0) {
                     return '[]';
                 }
-                const itemDefault = this.getDefaultValueForType(type.itemType?.ref, mode, true, depth + 1) || '""';
+                if (arraySize > BigInt(maxDefaultValueLength)) {
+                    return '';
+                }
+                const itemDefault = this.getDefaultValueForType(type.itemType?.ref, mode, true, depth + 1);
+                if (!itemDefault || Number(arraySize) * (itemDefault.length + 2) > maxDefaultValueLength) {
+                    return '';
+                }
                 return `[${new Array(Number(arraySize)).fill(itemDefault).join(', ')}]`;
             }
             if (ast.isStructure(type)) {
-                const fields = this.attrHelper.getAllFields(type).toArray();
-                const elements = fields.flatMap(field => {
+                const elements: string[] = [];
+                let length = 4;
+                for (const field of this.attrHelper.getAllFields(type)) {
                     if (!field.name) {
-                        return [];
+                        continue;
                     }
-                    const fieldDefault = this.getDefaultValueForType(field.type?.ref, mode, true, depth + 1) || '""';
-                    return [`${field.name} = ${fieldDefault}`];
-                });
+                    const fieldDefault = this.getDefaultValueForType(field.type?.ref, mode, true, depth + 1);
+                    if (!fieldDefault) {
+                        return '';
+                    }
+                    length += field.name.length + 3 + fieldDefault.length + (elements.length ? 2 : 0);
+                    if (length > maxDefaultValueLength) {
+                        return '';
+                    }
+                    elements.push(`${field.name} = ${fieldDefault}`);
+                }
                 return `{ ${elements.join(', ')} }`;
             }
         }
