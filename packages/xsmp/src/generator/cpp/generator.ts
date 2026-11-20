@@ -937,8 +937,8 @@ export abstract class CppGenerator implements XsmpGenerator {
     headerIncludesArray(type: ast.ArrayType): Include[] {
         return ['Smp/Publication/ITypeRegistry.h', type.itemType.ref, ...this.expressionIncludes(type.size)];
     }
-    headerIncludesEnumeration(_type: ast.Enumeration): Include[] {
-        return ['Smp/Publication/ITypeRegistry.h', 'Smp/PrimitiveTypes.h', 'map', 'string'];
+    headerIncludesEnumeration(type: ast.Enumeration): Include[] {
+        return ['Smp/Publication/ITypeRegistry.h', 'Smp/PrimitiveTypes.h', 'map', 'string', ...type.literal.flatMap(literal => this.expressionIncludes(literal.value))];
     }
     headerIncludesString(type: ast.StringType): Include[] {
         return ['Smp/Publication/ITypeRegistry.h', ...this.expressionIncludes(type.length)];
